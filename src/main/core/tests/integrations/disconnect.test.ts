@@ -28,6 +28,7 @@ import { SyncEngine } from '../../sync/engine';
 import { SyncStateManager } from '../../sync/sync-state';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
+import { SourceAccess } from '../../sync/source-access';
 import { SyncRunOutcome, SyncSkipReason } from '../../sync/types';
 import { CURSOR_OVERLAP_MS, REVOKE_TIMEOUT_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
@@ -282,18 +283,9 @@ beforeEach(async () => {
   const writer = new SyncWriter(db, search);
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const syncState = new SyncStateManager(db);
-  engine = new SyncEngine(db, {
-    integrations: service,
-    syncState,
-    credentials,
-    providers,
-    writer,
-    logger,
-  });
-  detach = new DetachService(
-    db,
-    new TaskReconciler({ db, syncState, credentials, providers, writer, logger }),
-  );
+  engine = new SyncEngine(db, { integrations: service, syncState, writer, logger });
+  const access = new SourceAccess({ integrations: service, syncState });
+  detach = new DetachService(db, new TaskReconciler({ db, access, writer, logger }));
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   events = new EventService(db);
@@ -760,7 +752,9 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
       await expect(disconnecting).resolves.toMatchObject({ revoked: false });
       expect(db.select().from(integrations).all()).toEqual([]);
       // a timeout is the provider being unreachable, as for any other request
-      expect(warn).toHaveBeenCalledWith(expect.any(String), 'ProviderUnavailableError');
+      expect(warn).toHaveBeenCalledWith(
+        'Revoking credentials at the provider failed error=ProviderUnavailableError',
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -779,7 +773,9 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
     expect(db.select().from(integrations).all()).toEqual([]);
     expect(linkOf(item)).toBeUndefined();
     // the error's name only: a message could quote a token
-    expect(warn).toHaveBeenCalledWith(expect.any(String), 'ProviderUnavailableError');
+    expect(warn).toHaveBeenCalledWith(
+      'Revoking credentials at the provider failed error=ProviderUnavailableError',
+    );
   });
 
   it('disconnects with credentials that can no longer be read, revoking nothing', async () => {
@@ -1032,9 +1028,10 @@ describe('DetachService — kept copies after connecting the same account again'
     detach.onChange((change) => changes.push(change));
 
     await expect(detach.reattachKept(second.id)).rejects.toThrow(IntegrationAuthError);
-    // both asked for in the one lookup, and the rejection reported once
+    // both asked for in the one lookup, and the integration moved to needs_reauth
     expect(linear.tasks.lookups.at(-1)!.externalIds).toEqual(items.map((item) => item.externalId));
-    expect(changes.map((change) => change.type)).toEqual(['credentials_rejected']);
+    expect(changes).toEqual([]);
+    expect(service.getById(second.id).status).toBe(IntegrationStatus.NEEDS_REAUTH);
     expect(detach.keptCopies(second.id)).toEqual({ tasks: 2 });
   });
 

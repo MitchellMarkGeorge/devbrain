@@ -1,24 +1,21 @@
 import { ExternalSourceId } from '@common/ids';
-import { consoleLogger } from '../shared/logger';
+import { consoleLogger, type Logger } from '../shared/logger';
 import { externalLinks } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { Auth } from '../integrations/auth';
-import { CredentialStore } from '../integrations/credential-store';
 import { TaskSource } from '../integrations/providers/provider';
-import { ProviderRegistry } from '../integrations/providers/registry';
 import { LinkState, SourceType, TaskStatus } from '@common/types';
 import { ExternalProject, ExternalTask } from '../integrations/types';
 import { CLOSED_ISSUE_WINDOW_MS } from './constants';
-import { SyncStateManager, syncSkipReason } from './sync-state';
+import { SourceAccess } from './source-access';
 import { PendingReconcile } from './syncer';
 import {
   ReattachRefusal,
   ReattachResult,
   ReconcileItems,
   ReconcilePlan,
-  SyncLogger,
   SyncSkipReason,
 } from './types';
 import { SyncWriter } from './writer';
@@ -32,11 +29,10 @@ export interface ReattachGroup {
 export interface TaskReconcilerOptions {
   // for the reads that plan a reconcile pass; writes go through `writer`
   db: BetterSQLite3Database;
-  syncState: SyncStateManager;
-  credentials: CredentialStore;
-  providers: ProviderRegistry;
+  // the gate, the provider and auth for a reattach, which is not a run
+  access: SourceAccess;
   writer: SyncWriter;
-  logger?: SyncLogger;
+  logger?: Logger;
   now?: () => Date; // injected for tests
 }
 
@@ -47,18 +43,14 @@ export interface TaskReconcilerOptions {
  */
 export class TaskReconciler {
   private readonly db: BetterSQLite3Database;
-  private readonly syncState: SyncStateManager;
-  private readonly credentials: CredentialStore;
-  private readonly providers: ProviderRegistry;
+  private readonly access: SourceAccess;
   private readonly writer: SyncWriter;
-  private readonly logger: SyncLogger;
+  private readonly logger: Logger;
   private readonly now: () => Date;
 
   constructor(options: TaskReconcilerOptions) {
     this.db = options.db;
-    this.syncState = options.syncState;
-    this.credentials = options.credentials;
-    this.providers = options.providers;
+    this.access = options.access;
     this.writer = options.writer;
     this.logger = options.logger ?? consoleLogger;
     this.now = options.now ?? (() => new Date());
@@ -217,17 +209,16 @@ export class TaskReconciler {
    * 1. Refuse every group, as a run would be skipped, when the source or its integration is off,
    *    the integration needs re-authentication, the provider asked to wait, or it has no tasks.
    * 2. Resolve every root and descendant in one resolveTasks call (the provider splits it into
-   *    lookups of LOOKUP_BATCH_SIZE). Any provider failure throws here, before anything is
-   *    written, rejected credentials (IntegrationAuthError) included.
+   *    lookups of LOOKUP_BATCH_SIZE), through SourceAccess.call. Any provider failure throws
+   *    here, before anything is written. Rejected credentials (IntegrationAuthError) move the
+   *    integration to needs_reauth first, as in a run.
    * 3. Per group, in the order given: refuse it when its root came back gone, unreadable or not
    *    assigned to the viewer; otherwise hand its root and the descendants that came back assigned
    *    to sync through SyncWriter.reattachTasks, each group in its own transaction. Descendants
    *    gone, reassigned or unreadable stay detached. A root no longer detached by then (changed
    *    while the provider answered) is refused alone.
    *
-   * Returns each group's result by its root's external id. Unlike a run, rejected credentials do
-   * not move the integration to needs_reauth: that is left to the caller, so sync does not depend
-   * on IntegrationService. DetachService reports it, and the workspace marks the integration.
+   * Returns each group's result by its root's external id.
    */
   async reattachGroups(
     sourceId: ExternalSourceId,
@@ -240,19 +231,15 @@ export class TaskReconciler {
     };
     if (groups.length === 0) return results;
 
-    // 1.
-    const target = this.syncState.getSyncTarget(sourceId);
-    const blocked = syncSkipReason(target, this.now());
-    if (blocked) return refuseAll(blocked);
-    const tasks = this.providers.get(target.provider)?.tasks;
-    if (target.sourceType !== SourceType.TASKS || !tasks) {
-      return refuseAll(SyncSkipReason.UNSUPPORTED);
-    }
-
-    // 2.
+    // 1-2.
     const ids = groups.flatMap((group) => [group.rootExternalId, ...group.descendantExternalIds]);
-    const auth = await this.credentials.getAuth(target.integrationId);
-    const resolved = await tasks.resolveTasks(auth, ids);
+    const lookup = await this.access.call(
+      sourceId,
+      (provider, target) => (target.sourceType === SourceType.TASKS ? provider.tasks : undefined),
+      ({ source, auth }) => source.resolveTasks(auth, ids),
+    );
+    if (!lookup.ok) return refuseAll(lookup.reason);
+    const resolved = lookup.value;
     const found = new Map(resolved.found.map((task) => [task.externalId, task]));
     const gone = new Set(resolved.gone);
     const projects = new Map(resolved.projects.map((project) => [project.externalId, project]));

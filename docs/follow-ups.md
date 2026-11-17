@@ -6,77 +6,18 @@ Remove an entry once it is done or decided against, and note the decision in the
 
 ## Integrations and sync
 
-### Log listener failures in `IntegrationService` through a logger
+### A per-task refresh, and reattach as an option on it
 
-_Found in feature 10 (PR #15)._
+_Found in feature 12 (PR #17). Narrowed when every call to a provider went through `SourceAccess`._
 
-`IntegrationService.emit` (`src/main/core/integrations/service.ts`) catches a change listener that throws and reports it with `console.error`. In the app that goes to stderr, not the log file, and tests have to stub `console` to keep it quiet. `SyncEngine` had the same pattern and now logs through an injected logger instead: one `error`-level line naming the error class only, since a listener's message could quote account or item data.
+Every entry point that talks to a provider for a source now goes through `SourceAccess` (`src/main/core/sync/source-access.ts`): the gate (`syncSkipReason`), the provider from `IntegrationService`, auth, and `needs_reauth` on rejected credentials. A run (`SyncEngine`), a reattach (`TaskReconciler.reattachGroups`) and a history fetch (`EventFetcher`) follow the same rules. What is left is the write side:
 
-- Give `IntegrationServiceOptions` an optional `logger`, defaulting to `electron-log`'s `log.scope('integrations')`, and log `Integration change listener threw change=<type> error=<ErrorClass>`.
-- Move `SyncLogger` (`src/main/core/sync/engine.ts`) to a neutral place such as `src/main/core/shared/logger.ts`, so the service and the engine share one logger type and the service does not import from `sync/`.
-- `stripMarkdown` (`src/main/core/shared/markdown.ts`) also uses `console.error`, if the same rule should apply everywhere in core.
-
-### Make the sync status payload a delta
-
-_Found in feature 10 (PR #15). Narrowed by the IPC work._
-
-The renderer side is settled: the IPC layer forwards every integration and sync change as a delta carrying ids (`integrations.changed`, `sources.changed` and `sync.progress` in `src/common/events.ts`, sent by the `ChangeTracker` in `src/main/ipc/changes.ts`), and the renderer refetches `integrations.list` or `sync.status` instead of applying a snapshot. No error text rides an event. What is left is core's own consistency:
-
-- `IntegrationChange` is all deltas, as its comment promises, but `SyncStatusChange` (`src/main/core/sync/sync-state.ts`) still carries a full `ExternalSource` snapshot, so a listener of both handles two conventions.
-- Its top-level `sourceId` always equals `source.id`.
-- `source.lastError` is free text, which can quote a provider's response, sent to every in-process listener.
-
-Making it `{ integrationId, sourceId, ok, lastSyncedAt, retryAt }`, with anything that needs the error text calling `getById`, would remove all three. Nothing outside core reads the snapshot: the tracker forwards `sourceId` only.
-
-Two smaller points about the same events:
-
-- `connected` lists its sources as `{ sourceId, enabled }` with no `sourceType`, so a listener needs a lookup to tell a tasks source from an events source.
-- One action can emit several events in a row: `setEnabled` sends `status_changed` and then a `source_changed` per toggled source, and a rejected key sends `sync_status_changed` and then `status_changed`. Each is accurate, but a listener reacting to the first cannot tell more are coming. Over IPC this costs nothing: the tracker sends the entities of one turn as one `db.changes`.
-
-### One owner for the provider registry and credential store
-
-_Found in feature 10 (PR #15)._
-
-`IntegrationService`, `SyncEngine` and `TaskReconciler` each take the `ProviderRegistry` and the `CredentialStore` in their options. The service keeps both private, so the engine was given its own references rather than widening the service's API. Nothing guarantees the two were handed the same registry: if they were not, an integration would be connected through one provider and synced through another. The engine tests already build two separate registries (`fakeRegistry(...)` is called once for each), which only works because both hold the same provider object.
-
-Options:
-
-1. **The service hands the engine what it needs.** `getSyncTarget` also returns the resolved `TaskSource`, so the engine no longer takes the registry. Auth could move behind a service method the same way. Recommended for the registry at least, so the provider that connected an integration is always the one that syncs it.
-2. **A narrow accessor** such as `IntegrationService.getProvider(id)`. Smaller, but exposes the registry anyway.
-3. **Keep injecting both**, and have `Workspace` (feature 13) build each once and pass the same instances to both. This is ordinary dependency injection; the risk is only a wiring mistake.
-
-Feature 13 did option 3 for now: `createIntegrationServices` returns the registry it built, and `Workspace` hands that and the same `CredentialStore` to `SyncEngine`. Options 1 and 2 still remove the possibility of a wiring mistake.
-
-### Let an aborted sync cancel a token refresh
-
-_Found in feature 13._
-
-An aborted sync run cancels its provider requests: every `TaskSource` and `CalendarSource` method takes an optional `signal`, which the clients combine with `HTTP_TIMEOUT_MS` (`requestSignal` in `src/main/core/integrations/fetch.ts`). The one request it does not reach is an OAuth token refresh inside `CredentialStore.getAuth`, which a run makes before its first page when the access token is about to expire. That refresh is shared: refreshes of one integration are queued, and a caller that waited in the queue uses the tokens the refresh before it stored, so one caller's abort must not cancel a refresh another is waiting on. A `Workspace.close()` that lands during a refresh therefore still waits for it, up to 30 seconds.
-
-- Give `getAuth` an optional `signal` that stops the caller waiting without cancelling the shared refresh, so the refresh finishes and stores its tokens for the next caller. The run then ends at once; the refresh's own write lands later, so `close()` would also need to wait for refreshes in flight, or the store would need to check the connection is still open before writing.
-
-### `SyncEntityType` is still a string union
-
-_Found in feature 10 (PR #15)._
-
-`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/common/types/integrations.ts`. `SyncEntityType` (`'task' | 'project' | 'event' | 'calendar'`), now beside them in `src/common/types/integrations.ts` since `integrations.disconnect` returns it, is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
-
-### Share the auth path and the resolve-and-apply path for tasks
-
-_Found in feature 12 (PR #17). Narrowed when reconcile and reattach moved into `TaskReconciler`. Worth doing before another entry point is added, such as a per-task refresh._
-
-Three entry points talk to a task provider: `SyncEngine.runSource` and `SyncEngine.reconcileSource` (through `TaskSyncer`), and `TaskReconciler.reattachTasks` (`src/main/core/sync/task-reconciler.ts`). The gate is shared: each calls `syncSkipReason` (`src/main/core/sync/sync-state.ts`). Two steps are still repeated:
-
-- **Auth:** `credentials.getAuth`. Runs move the integration to `needs_reauth` on rejected credentials through the engine's `recordFailure`; `reattachTasks` leaves that to its caller (see the next item). `reattachTasks` also resolves the provider's `TaskSource` itself.
 - **Resolve then write:** reconcile calls `resolveTasks` and `resolveProjects` and then `writer.applyReconcile`. Reattach calls `resolveTasks` and then `writer.reattachTasks`, which moves detached links to `synced`, promotes the subtasks left detached and upserts the page.
 
 Proposal:
 
-1. **One helper that opens a source for a call outside a run:** returns `{ target, tasks, auth }` or a `SyncSkipReason`, and marks `needs_reauth` on `IntegrationAuthError`. Any new entry point then gets the same rules for a source that is off, disabled, needs reauth, is rate limited or is unsupported. It could also be the `withConnection` path in "A path for provider features that are not sync" below.
-2. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a route in the `sync` router.
-3. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change.
-
-Items 1 and 3 are refactors with no change in behaviour, covered by the existing engine, reconcile and detach tests. Item 2 is a product decision.
+1. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues through `SourceAccess.call` and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a route in the `sync` router. A product decision.
+2. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change. A refactor with no change in behaviour, worth doing with item 1 rather than before it.
 
 ### Calendar changes wait for a sync run
 
@@ -114,12 +55,12 @@ _Found in feature 16b._
 Every provider feature so far is sync. Since the source/syncer split, the sources themselves know nothing of sync: `TaskSource` and `CalendarSource` take queries and return normalised items, with cursors, modes and windows in the syncers under `src/main/core/sync/`. So a source can already serve a caller outside sync, as `scripts/linear_scratch.mts` does. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, still has no obvious place:
 
 - The provider contract (`src/main/core/integrations/providers/provider.ts`) has only `getAccount`, `tasks?: TaskSource` and `calendars?: CalendarSource`.
-- There is no public way to get a provider with working auth. The engine and `TaskReconciler` assemble it privately from the registry and `CredentialStore`, with their own needs-reauth handling.
+- `SourceAccess.call` gives sync's code a provider's part with working auth for one source, with the gate and needs-reauth handling, but it works per source, not per integration or linked entity.
 
 Proposal:
 
 1. **Optional capabilities on `Provider`** beside the sync sources, each a small typed interface under the same stateless rule, e.g. `pullRequests?: PullRequests` or `issueDetails?: IssueDetails`.
-2. **`IntegrationService.withConnection(integrationId, call)`:** runs `call({ provider, auth })` with fresh auth, and moves the integration to `needs_reauth` on a rejected call. It is the one path for any caller, the engine included.
+2. **`IntegrationService.withConnection(integrationId, call)`:** runs `call({ provider, auth })` with fresh auth, and moves the integration to `needs_reauth` on a rejected call: `SourceAccess.call` without the source, built on the service's `getProvider` and `getAuth`.
 3. **A link lookup** from a local entity to its integration, provider and external id. `src/main/core/integrations/refs.ts` already reads links; it would also return the integration id.
 4. **One service per feature, in its own module,** using 1–3. For example, a pull request service resolves a task's link, then calls `provider.pullRequests.get(auth, url)` through `withConnection`. A new feature is then a capability interface, its implementation in the provider's folder, and that service. `IntegrationService`, `SyncEngine` and `SyncWriter` do not change.
 

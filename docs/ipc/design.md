@@ -257,7 +257,7 @@ The rules that shape it:
 | `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty; for `emptied`, also those of the rows that lost a link                                 |
 | `FavoriteChange`                            | the favorited entity's type                                                                                                                          |
 | `RecentChange` (a view recorded)            | `recent`                                                                                                                                             |
-| `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; `credentials_rejected` → `integration`                                                                                    |
+| `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`                                                                                                                            |
 | `IntegrationChange`                         | `integration`, `externalSource`, plus `changed` on `disconnected`                                                                                    |
 | `SyncProgress` (a committed page)           | its `summary.changed`                                                                                                                                |
 | `SyncStatusChange` (a run recorded its end) | `externalSource`                                                                                                                                     |

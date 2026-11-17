@@ -2,27 +2,21 @@ import { CalendarId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type { CredentialStore } from '../integrations/credential-store';
-import type { ProviderRegistry } from '../integrations/providers/registry';
-import type { IntegrationService } from '../integrations/service';
-import { IntegrationAuthError } from '../shared/errors';
+import { SourceType } from '@common/types';
 import { consoleLogger, errorClass, Logger } from '../shared/logger';
 import { EVENT_HISTORY_WINDOW_MS, MAX_PAGES_PER_RUN } from '../sync/constants';
-import { SyncStateManager, syncSkipReason } from '../sync/sync-state';
+import type { SourceAccess } from '../sync/source-access';
 import type { SyncWriter } from '../sync/writer';
 
 type CalendarRow = typeof calendars.$inferSelect;
 
 export interface EventFetcherOptions {
   db: BetterSQLite3Database;
-  credentials: Pick<CredentialStore, 'getAuth'>;
-  providers: ProviderRegistry;
+  // whether the provider may be asked now, the provider and auth; rejected credentials stop the
+  // integration until a reconnect, as in a run
+  access: Pick<SourceAccess, 'call'>;
   // saves each page as a sync run does, so fetched events are linked, read-only and indexed
   writer: Pick<SyncWriter, 'applyEventPage'>;
-  // whether the provider may be asked now
-  syncState: Pick<SyncStateManager, 'getSyncTarget'>;
-  // rejected credentials stop the integration until a reconnect, as in a run
-  integrations: Pick<IntegrationService, 'markNeedsReauth'>;
   // the workspace closing: cancels a request in flight, and nothing is saved after it
   signal?: AbortSignal;
   logger?: Logger;
@@ -108,53 +102,50 @@ export class EventFetcher {
    * integration for re-authentication, as in a run, then are rethrown.
    */
   private async fetchEvents(calendar: CalendarRow, from: Date, until: Date): Promise<boolean> {
-    const { db, credentials, providers, writer, syncState, integrations, signal } = this.options;
+    const { db, access, writer, signal } = this.options;
     const sourceId = calendar.sourceId!;
-    const target = syncState.getSyncTarget(sourceId);
-    const source = providers.get(target.provider)?.calendars;
-    if (!source || syncSkipReason(target, this.now()) !== null) return false;
-
     const range = { from: from.toISOString(), until: until.toISOString() };
-    let wrote = false;
-    try {
-      const auth = await credentials.getAuth(target.integrationId);
-      let pageToken: string | null = null;
-      for (let pages = 0; pages < MAX_PAGES_PER_RUN; pages++) {
-        const query = pageToken === null ? range : { ...range, pageToken };
-        const page = await source.getEventPage(auth, calendar.externalId!, query, { signal });
-        // nothing awaits from here to the write, so the database is still open for it
-        if (signal?.aborted) return wrote;
-        const summary = writer.applyEventPage(sourceId, calendar.id, {
-          // an event the provider gave no zone takes its calendar's, as in a sync run
-          events: page.events.map((event) =>
-            event.timeZone === null ? { ...event, timeZone: calendar.timeZone } : event,
-          ),
-          cancelledIds: page.cancelledIds,
-          skippedIds: page.skippedIds,
-          fullPass: null,
-        });
-        wrote ||= summary.inserted + summary.updated + summary.removed > 0;
-        pageToken = page.nextPageToken;
-        if (pageToken === null) {
-          // only ever lowered: another read may have fetched further back meanwhile
-          db.update(calendars)
-            .set({ historyLoadedFrom: from })
-            .where(
-              and(
-                eq(calendars.id, calendar.id),
-                or(isNull(calendars.historyLoadedFrom), gt(calendars.historyLoadedFrom, from)),
-              ),
-            )
-            .run();
-          return wrote;
+    const result = await access.call(
+      sourceId,
+      (provider, target) =>
+        target.sourceType === SourceType.EVENTS ? provider.calendars : undefined,
+      async ({ source, auth }) => {
+        let wrote = false;
+        let pageToken: string | null = null;
+        for (let pages = 0; pages < MAX_PAGES_PER_RUN; pages++) {
+          const query = pageToken === null ? range : { ...range, pageToken };
+          const page = await source.getEventPage(auth, calendar.externalId!, query, { signal });
+          // nothing awaits from here to the write, so the database is still open for it
+          if (signal?.aborted) return wrote;
+          const summary = writer.applyEventPage(sourceId, calendar.id, {
+            // an event the provider gave no zone takes its calendar's, as in a sync run
+            events: page.events.map((event) =>
+              event.timeZone === null ? { ...event, timeZone: calendar.timeZone } : event,
+            ),
+            cancelledIds: page.cancelledIds,
+            skippedIds: page.skippedIds,
+            fullPass: null,
+          });
+          wrote ||= summary.inserted + summary.updated + summary.removed > 0;
+          pageToken = page.nextPageToken;
+          if (pageToken === null) {
+            // only ever lowered: another read may have fetched further back meanwhile
+            db.update(calendars)
+              .set({ historyLoadedFrom: from })
+              .where(
+                and(
+                  eq(calendars.id, calendar.id),
+                  or(isNull(calendars.historyLoadedFrom), gt(calendars.historyLoadedFrom, from)),
+                ),
+              )
+              .run();
+            return wrote;
+          }
         }
-      }
-      throw new Error(`Calendar history went past ${MAX_PAGES_PER_RUN} pages`);
-    } catch (error) {
-      if (error instanceof IntegrationAuthError) {
-        integrations.markNeedsReauth(target.integrationId);
-      }
-      throw error;
-    }
+        throw new Error(`Calendar history went past ${MAX_PAGES_PER_RUN} pages`);
+      },
+      { signal },
+    );
+    return result.ok && result.value;
   }
 }

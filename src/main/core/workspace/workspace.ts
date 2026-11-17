@@ -20,6 +20,8 @@ import { SyncScheduler } from '../sync/scheduler';
 import { SyncStateManager } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
 import { TaskReconciler } from '../sync/task-reconciler';
+import { SourceAccess } from '../sync/source-access';
+import type { CredentialStore } from '../integrations/credential-store';
 import type { WorkspaceInfo } from '@common/types';
 import type { WorkspaceOptions } from './types';
 import path from 'node:path';
@@ -72,6 +74,8 @@ export class Workspace {
   readonly sync: SyncScheduler;
   // older history of synced calendars, for a calendar read that reaches before what sync keeps
   private readonly eventFetcher: EventFetcher;
+  // for close, which waits for a token refresh in flight
+  private readonly credentials: CredentialStore;
   /**
    * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
    * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
@@ -140,11 +144,12 @@ export class Workspace {
     });
     // archived rows leave search and restored ones come back, in the archive's transaction
     this.archive.onChange((change) => this.onArchiveChange(change));
-    const { credentials, integrations, providers } = createIntegrationServices(
+    const { credentials, integrations } = createIntegrationServices(
       db,
       options,
       this.closing.signal,
     );
+    this.credentials = credentials;
     this.integrations = integrations;
     // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
     integrations.onChange((change) => {
@@ -152,37 +157,24 @@ export class Workspace {
       const { taskIds, projectIds, eventIds } = change.deleted;
       this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
     });
-    const syncState = new SyncStateManager(db);
-    const writer = new SyncWriter(db, this.search);
     const { logger } = options;
+    const syncState = new SyncStateManager(db, { logger });
+    const writer = new SyncWriter(db, this.search);
+    // calls to a provider outside a run; rejected credentials stop every source of the integration
+    // until a reconnect, as in a run
+    const access = new SourceAccess({ integrations, syncState });
     this.eventFetcher = new EventFetcher({
       db,
-      credentials,
-      providers,
+      access,
       writer,
-      syncState,
-      integrations,
       signal: this.closing.signal,
       logger,
     });
-    const engine = new SyncEngine(db, {
-      integrations,
-      syncState,
-      credentials,
-      providers,
-      writer,
-      logger,
-    });
+    const engine = new SyncEngine(db, { integrations, syncState, writer, logger });
     // a reattach writes through SyncWriter, which indexes it, and a detach changes no indexed field;
     // edits to a detached task go through TaskService like any other
-    this.detach = new DetachService(
-      db,
-      new TaskReconciler({ db, syncState, credentials, providers, writer, logger }),
-    );
-    // rejected credentials stop every source of the integration until a reconnect, as in a run
-    this.detach.onChange((change) => {
-      if (change.type !== 'credentials_rejected') return;
-      integrations.markNeedsReauth(change.integrationId);
+    this.detach = new DetachService(db, new TaskReconciler({ db, access, writer, logger }), {
+      logger,
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
     // A synced calendar chosen or dropped syncs its source at once, as a newly switched-on source
@@ -335,8 +327,8 @@ export class Workspace {
   }
 
   /**
-   * Cancels integration authentication, then waits for sync runs and for search's index writes
-   * waiting on note files, before closing SQLite. Authentication checks cancellation before
+   * Cancels integration authentication, then waits for sync runs, token refreshes in flight and
+   * search's index writes waiting on note files, before closing SQLite. Authentication checks cancellation before
    * touching the database again. Ordinary service calls are not tracked or drained. Every caller
    * shares the same close promise.
    */
@@ -345,6 +337,9 @@ export class Workspace {
       this.closing.abort(new WorkspaceClosedError());
       this.closePromise = (async () => {
         await this.sync.stop();
+        // A run stops waiting for a token refresh at once, but the refresh goes on so its tokens
+        // are stored (a provider that rotates refresh tokens has replaced the old one by then)
+        await this.credentials.whenIdle();
         // index writes waiting on note files, such as a restore's or a rebuild's
         await this.search.whenIdle();
         this.sqliteClient.close();

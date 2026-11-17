@@ -12,6 +12,7 @@ import { createFakeProvider, FakeProvider, fakeRegistry, FAKE_API_KEY } from './
 import { SyncWriter } from '../../sync/writer';
 import { SyncStateManager } from '../../sync/sync-state';
 import { TaskReconciler } from '../../sync/task-reconciler';
+import { SourceAccess } from '../../sync/source-access';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -204,9 +205,7 @@ async function workspace() {
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const reconciler = new TaskReconciler({
     db,
-    syncState: new SyncStateManager(db),
-    credentials,
-    providers,
+    access: new SourceAccess({ integrations, syncState: new SyncStateManager(db) }),
     writer,
     logger,
   });

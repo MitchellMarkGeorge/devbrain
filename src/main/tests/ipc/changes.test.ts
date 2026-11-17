@@ -414,13 +414,6 @@ describe('the entities of each change', () => {
     ).toEqual(['task', 'task', 'project']);
     expect(
       entitiesOfTaskLinkChange({
-        type: 'credentials_rejected',
-        taskId: 'tsk_1' as never,
-        integrationId: 'int_1' as never,
-      }),
-    ).toEqual(['integration']);
-    expect(
-      entitiesOfTaskLinkChange({
         type: 'kept_local',
         integrationId: 'int_1' as never,
         taskIds: ['tsk_1' as never],

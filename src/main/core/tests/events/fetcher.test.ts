@@ -9,6 +9,7 @@ import { calendars } from '@main/db/schema/calendars';
 import { events } from '@main/db/schema/events';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { EventFetcher } from '../../events/fetcher';
+import { SourceAccess } from '../../sync/source-access';
 import {
   AuthType,
   EventKind,
@@ -140,11 +141,16 @@ beforeEach(async () => {
   closing = new AbortController();
   fetcher = new EventFetcher({
     db,
-    credentials: { getAuth: async () => ({ authorization: 'Bearer token' }) },
-    providers: new Map([[ProviderId.GOOGLE_CALENDAR, provider]]),
+    access: new SourceAccess({
+      integrations: {
+        getProvider: (id) => (id === ProviderId.GOOGLE_CALENDAR ? provider : null),
+        getAuth: async () => ({ authorization: 'Bearer token' }),
+        markNeedsReauth,
+      },
+      syncState,
+      now: () => NOW,
+    }),
     writer: new SyncWriter(db, new SearchService(db, workspacePath)),
-    syncState,
-    integrations: { markNeedsReauth },
     signal: closing.signal,
     logger: { ...console, error: (line: string) => logged.push(line) },
     now: () => NOW,

@@ -123,8 +123,6 @@ async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPages
   engine = new SyncEngine(db, {
     integrations: service,
     syncState,
-    credentials,
-    providers: fakeRegistry(registryProvider),
     writer,
     logger,
     now: () => clock,
@@ -825,15 +823,9 @@ describe('SyncEngine — logging and change events', () => {
         type: 'sync_status_changed',
         integrationId,
         sourceId,
-        source: {
-          id: sourceId,
-          sourceType: 'tasks',
-          enabled: true,
-          initialSyncCompleted: true,
-          lastSyncedAt: NOW,
-          lastError: null,
-          retryAt: null,
-        },
+        ok: true,
+        lastSyncedAt: NOW,
+        retryAt: null,
       },
     ]);
   });

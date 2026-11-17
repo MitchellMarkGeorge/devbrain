@@ -29,7 +29,8 @@ import {
   SyncEntityType,
 } from '@common/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
-import { toAuth } from './auth';
+import { consoleLogger, errorClass, type Logger } from '../shared/logger';
+import { type Auth, toAuth } from './auth';
 import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
 import { applyDisconnect, countPlan, DisconnectedItems, planDisconnect } from './disconnect';
@@ -45,7 +46,7 @@ export type IntegrationChange =
       type: 'connected';
       integrationId: IntegrationId;
       // every source the connection got; the scheduler starts the enabled ones
-      sources: { sourceId: ExternalSourceId; enabled: boolean }[];
+      sources: { sourceId: ExternalSourceId; sourceType: SourceType; enabled: boolean }[];
     }
   | {
       type: 'status_changed';
@@ -104,6 +105,8 @@ export interface IntegrationServiceOptions {
   // runs connectWithOAuth's browser flow; without one, connecting through OAuth is refused
   oauth?: OAuthClient;
   signal?: AbortSignal;
+  // where a failing change listener and a failed revoke are logged; defaults to the console
+  logger?: Logger;
 }
 
 type IntegrationRow = typeof integrations.$inferSelect;
@@ -149,7 +152,8 @@ export class IntegrationService implements BaseIntegrationService {
   private readonly oauth: OAuthClient | null;
   // a failing listener must not fail the call or the others; `disconnected` is sent inside its
   // transaction, and the removal stands even if a listener throws
-  private readonly changes = new ChangeListeners<IntegrationChange>('Integration');
+  private readonly changes: ChangeListeners<IntegrationChange>;
+  private readonly logger: Logger;
   // The OAuth flow running now, from the browser until the account query has answered; one per
   // workspace at a time. cancelConnect aborts it.
   private oauthFlow: AbortController | null = null;
@@ -168,6 +172,33 @@ export class IntegrationService implements BaseIntegrationService {
     this.providers = options.providers;
     this.oauth = options.oauth ?? null;
     this.signal = options.signal;
+    this.logger = options.logger ?? consoleLogger;
+    this.changes = new ChangeListeners<IntegrationChange>('Integration', {
+      // the error class only: a listener's message could quote account or item data
+      report: (error, change) =>
+        this.logger.error(
+          `Integration change listener threw change=${change.type} error=${errorClass(error)}`,
+        ),
+    });
+  }
+
+  /**
+   * The provider integrations of `providerId` connect and sync through, or null when none is
+   * registered. The service owns the registry, so the provider that connected an integration is
+   * the one everything else reaches it through (see SourceAccess).
+   */
+  getProvider(providerId: Provider): ProviderImpl | null {
+    return this.providers.get(providerId) ?? null;
+  }
+
+  /**
+   * Auth for an integration's provider calls, refreshing an OAuth token about to expire. `signal`
+   * stops this caller waiting for a refresh without cancelling it: see CredentialStore.getAuth.
+   * Throws IntegrationAuthError for credentials that can't be read or a refresh the provider
+   * rejected (which also moves the integration to needs_reauth; see createIntegrationServices).
+   */
+  getAuth(id: IntegrationId, options: { signal?: AbortSignal } = {}): Promise<Auth> {
+    return this.credentials.getAuth(id, options);
   }
 
   list(): Integration[] {
@@ -367,7 +398,7 @@ export class IntegrationService implements BaseIntegrationService {
     this.signal?.throwIfAborted();
 
     let integrationId: IntegrationId;
-    let sources: { sourceId: ExternalSourceId; enabled: boolean }[];
+    let sources: { sourceId: ExternalSourceId; sourceType: SourceType; enabled: boolean }[];
     try {
       ({ integrationId, sources } = this.db.transaction((tx) => {
         const [row] = tx
@@ -396,12 +427,13 @@ export class IntegrationService implements BaseIntegrationService {
               enabled: enable.includes(sourceType),
             })),
           )
-          .returning({ id: externalSources.id, enabled: externalSources.enabled })
+          .returning({
+            sourceId: externalSources.id,
+            sourceType: externalSources.sourceType,
+            enabled: externalSources.enabled,
+          })
           .all();
-        return {
-          integrationId: row.id,
-          sources: inserted.map((source) => ({ sourceId: source.id, enabled: source.enabled })),
-        };
+        return { integrationId: row.id, sources: inserted };
       }));
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -567,7 +599,7 @@ export class IntegrationService implements BaseIntegrationService {
     });
 
     // 4.
-    const revoked = revoke ? await sendRevoke(revoke) : false;
+    const revoked = revoke ? await sendRevoke(revoke, this.logger) : false;
     return { ...countPlan(plan), changed, revoked };
   }
 
@@ -695,7 +727,7 @@ function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): Sourc
 // Sends a prepared revocation, giving up after REVOKE_TIMEOUT_MS. Resolves whether the provider
 // confirmed it; never throws, and logs no more than the error's name, as a message could quote a
 // token.
-async function sendRevoke(revoke: PendingRevoke): Promise<boolean> {
+async function sendRevoke(revoke: PendingRevoke, logger: Logger): Promise<boolean> {
   const controller = new AbortController();
   // the race bounds the wait even for an OAuth client that ignores the signal
   let timer: NodeJS.Timeout | undefined;
@@ -710,10 +742,7 @@ async function sendRevoke(revoke: PendingRevoke): Promise<boolean> {
     await Promise.race([revoke(controller.signal), timedOut]);
     return true;
   } catch (error) {
-    console.warn(
-      'Revoking credentials at the provider failed:',
-      error instanceof Error ? error.name : 'unknown error',
-    );
+    logger.warn(`Revoking credentials at the provider failed error=${errorClass(error)}`);
     return false;
   } finally {
     clearTimeout(timer);

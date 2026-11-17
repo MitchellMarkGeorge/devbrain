@@ -11,12 +11,14 @@ import {
 } from './providers/registry';
 import { IntegrationService } from './service';
 import { OAuthUnavailableError } from '../shared/errors';
+import type { Logger } from '../shared/logger';
 import { guardOpenExternal } from '../shared/untrusted';
 
 // Puts the integration services together for one workspace: the provider registry, the OAuth
 // client, CredentialStore with a refresher for every provider that declares OAuth, and
-// IntegrationService. Workspace calls this, and hands the same store and registry to SyncEngine;
-// tests call it to get the same wiring.
+// IntegrationService, which owns the registry and the store from then on. Sync reaches providers
+// through the service (SourceAccess), so an integration syncs through the provider that connected
+// it. Workspace calls this; tests call it to get the same wiring.
 
 export interface IntegrationsSetupOptions {
   // defaults to one that is never available, so connecting is refused and nothing is stored
@@ -29,6 +31,8 @@ export interface IntegrationsSetupOptions {
   openExternal?: OpenExternal;
   // injected for tests
   callbackTimeoutMs?: number;
+  // where the services log a failing listener or revoke; defaults to the console
+  logger?: Logger;
 }
 
 // The browser opener a workspace gets when the caller passes none; the app passes
@@ -41,7 +45,7 @@ export function createIntegrationServices(
   db: BetterSQLite3Database,
   options: IntegrationsSetupOptions = {},
   signal?: AbortSignal,
-): { credentials: CredentialStore; integrations: IntegrationService; providers: ProviderRegistry } {
+): { credentials: CredentialStore; integrations: IntegrationService } {
   const fetchFn = options.fetch ?? fetch;
   const providers = options.providers ?? createProviderRegistry({ fetch: fetchFn });
   const oauth = createOAuthClient({
@@ -54,13 +58,20 @@ export function createIntegrationServices(
   const credentials = new CredentialStore(db, {
     cipher: options.cipher ?? unavailableCipher,
     refreshers: createTokenRefreshers(providers, oauth),
+    logger: options.logger,
   });
-  const service = new IntegrationService(db, { credentials, providers, oauth, signal });
+  const service = new IntegrationService(db, {
+    credentials,
+    providers,
+    oauth,
+    signal,
+    logger: options.logger,
+  });
   // a rejected refresh only a reconnect can fix
   credentials.onChange((change) => {
     if (change.type === 'refresh_rejected') service.markNeedsReauth(change.integrationId);
   });
-  // the sync engine gets the same store and registry, so an integration syncs through the provider
-  // that connected it
-  return { credentials, integrations: service, providers };
+  // the store is returned for its whenIdle (a workspace closing waits for a refresh in flight) and
+  // for tests; providers are reached through the service
+  return { credentials, integrations: service };
 }

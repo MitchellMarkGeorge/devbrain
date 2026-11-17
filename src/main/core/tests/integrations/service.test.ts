@@ -240,9 +240,36 @@ describe('IntegrationService — connectWithApiKey', () => {
       {
         type: 'connected',
         integrationId: integration.id,
-        sources: integration.sources.map((source) => ({ sourceId: source.id, enabled: true })),
+        sources: integration.sources.map((source) => ({
+          sourceId: source.id,
+          sourceType: source.sourceType,
+          enabled: true,
+        })),
       },
     ]);
+  });
+});
+
+describe('IntegrationService — logging', () => {
+  it('logs a listener that throws through its logger, by the change type and error class only', async () => {
+    const db = createDb();
+    const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const service = new IntegrationService(db, {
+      credentials,
+      providers: registryOf(fakeProvider().provider),
+      logger,
+    });
+    service.onChange(() => {
+      throw new TypeError('Ada, Acme');
+    });
+
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
+
+    expect(integration.status).toBe(IntegrationStatus.CONNECTED);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+      'Integration change listener threw change=connected error=TypeError',
+    );
   });
 });
 
@@ -269,7 +296,11 @@ describe('IntegrationService — choosing sources at connect', () => {
     const [change] = changes;
     expect(change.type === 'connected' && change.sources).toEqual(
       expect.arrayContaining(
-        integration.sources.map((source) => ({ sourceId: source.id, enabled: source.enabled })),
+        integration.sources.map((source) => ({
+          sourceId: source.id,
+          sourceType: source.sourceType,
+          enabled: source.enabled,
+        })),
       ),
     );
   });

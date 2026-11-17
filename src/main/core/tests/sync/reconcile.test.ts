@@ -194,8 +194,6 @@ beforeEach(async () => {
   engine = new SyncEngine(db, {
     integrations: service,
     syncState: new SyncStateManager(db),
-    credentials,
-    providers: fakeRegistry(provider),
     writer: new SyncWriter(db, new SearchService(db, workspacePath)),
     logger,
     now: () => NOW,

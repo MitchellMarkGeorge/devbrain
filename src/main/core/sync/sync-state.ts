@@ -2,9 +2,9 @@ import { ExternalSourceId, IntegrationId } from '@common/ids';
 import { externalSources, integrations } from '@main/db/schema/integrations';
 import { eq, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { toSource } from '../integrations/service';
-import { ExternalSource, IntegrationStatus, Provider, SourceType } from '@common/types';
+import { IntegrationStatus, Provider, SourceType } from '@common/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import type { Logger } from '../shared/logger';
 import { NotFoundError } from '../shared/errors';
 import { SyncSkipReason } from './types';
 
@@ -48,12 +48,18 @@ export type SyncOutcome =
       retryAt?: Date;
     };
 
-// a sync run ended and recorded its outcome on its source: lastSyncedAt, lastError, retryAt
+// A sync run ended and recorded its outcome on its source. A delta, like IntegrationChange: ids,
+// whether the run succeeded, and the times it set. The error text is not on it, as it can quote a
+// provider's response; IntegrationService.getById or sync.status has it.
 export interface SyncStatusChange {
   type: 'sync_status_changed';
   integrationId: IntegrationId;
   sourceId: ExternalSourceId;
-  source: ExternalSource;
+  ok: boolean;
+  // the source's last successful run, this one when ok
+  lastSyncedAt: Date | null;
+  // when a rate-limited provider can be asked again; null unless this run was rate limited
+  retryAt: Date | null;
 }
 
 export type SyncStatusListener = ChangeListener<SyncStatusChange>;
@@ -69,9 +75,14 @@ export type SyncStatusListener = ChangeListener<SyncStatusChange>;
  */
 export class SyncStateManager {
   // the outcome is already committed, so a failing listener must not fail the run or the others
-  private readonly changes = new ChangeListeners<SyncStatusChange>('Sync status');
+  private readonly changes: ChangeListeners<SyncStatusChange>;
 
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(
+    private readonly db: BetterSQLite3Database,
+    options: { logger?: Pick<Logger, 'error'> } = {},
+  ) {
+    this.changes = new ChangeListeners<SyncStatusChange>('Sync status', options);
+  }
 
   /** the stored sync state of a source and its integration */
   getSyncTarget(sourceId: ExternalSourceId): SyncTarget {
@@ -138,15 +149,14 @@ export class SyncStateManager {
             },
       )
       .where(eq(externalSources.id, sourceId))
-      .returning()
+      .returning({
+        integrationId: externalSources.integrationId,
+        lastSyncedAt: externalSources.lastSyncedAt,
+        retryAt: externalSources.retryAt,
+      })
       .all();
     if (!row) return;
-    this.changes.emit({
-      type: 'sync_status_changed',
-      integrationId: row.integrationId,
-      sourceId,
-      source: toSource(row),
-    });
+    this.changes.emit({ type: 'sync_status_changed', sourceId, ok: outcome.ok, ...row });
   }
 
   /**

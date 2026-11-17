@@ -1,7 +1,7 @@
 import type { WorkspaceId } from '@common/ids';
 import { DevBrain, openDevBrain, type OpenSettingsStore, type WorkspaceOptions } from '@main/core';
 import { DevBrainFolderError } from '@main/core/shared/errors';
-import type { SyncLogger } from '@main/core/sync/types';
+import type { Logger as CoreLogger } from '@main/core/shared/logger';
 
 export interface LoadDevBrainOptions {
   // the DevBrain folder: settings.json, workspaces.json and the workspaces
@@ -13,7 +13,7 @@ export interface LoadDevBrainOptions {
   settingsStore: OpenSettingsStore;
   // the cipher, fetch and browser opener every workspace gets
   workspace: WorkspaceOptions;
-  logger: Pick<SyncLogger, 'warn'>;
+  logger: Pick<CoreLogger, 'warn'>;
 }
 
 /**

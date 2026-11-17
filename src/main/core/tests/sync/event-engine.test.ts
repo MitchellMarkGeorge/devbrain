@@ -116,8 +116,6 @@ async function setup() {
   engineOptions = {
     integrations: service,
     syncState: new SyncStateManager(db),
-    credentials,
-    providers,
     writer,
     logger: LOGGER,
     now,
@@ -911,14 +909,14 @@ describe('Google Calendar sync — calendar selection', () => {
 
 describe('Google Calendar sync — unsupported', () => {
   it('skips an events source whose provider serves no calendars', async () => {
-    const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
     const bare = { ...createGoogleCalendarProvider({ fetch, client: null }), calendars: undefined };
-    const providers: ProviderRegistry = new Map<ProviderId, Provider>([[bare.id, bare]]);
     const other = new SyncEngine(db, {
-      integrations: service,
+      integrations: {
+        getProvider: () => bare,
+        getAuth: (id) => service.getAuth(id),
+        markNeedsReauth: (id) => service.markNeedsReauth(id),
+      },
       syncState: new SyncStateManager(db),
-      credentials,
-      providers,
       writer,
       logger: LOGGER,
     });

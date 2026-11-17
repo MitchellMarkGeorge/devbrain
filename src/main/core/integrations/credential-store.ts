@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { z } from 'zod';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import type { Logger } from '../shared/logger';
 import { IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../sync/constants';
 import { Auth, toAuth } from './auth';
@@ -28,6 +29,8 @@ export interface CredentialStoreOptions {
   cipher: SecretCipher;
   refreshers?: Partial<Record<Provider, TokenRefresher>>;
   now?: () => number; // injected for tests
+  // where a failing change listener is logged, by its error class; defaults to the console
+  logger?: Pick<Logger, 'error'>;
 }
 
 // the decrypted JSON; times are ISO strings, as JSON has no dates
@@ -60,7 +63,7 @@ function serialize(credentials: Credentials): string {
 export class CredentialStore {
   private readonly cipher: SecretCipher;
   private readonly refreshers: Partial<Record<Provider, TokenRefresher>>;
-  private readonly changes = new ChangeListeners<CredentialChange>('Credential');
+  private readonly changes: ChangeListeners<CredentialChange>;
   private readonly now: () => number;
   // per-integration tail of the refresh queue, so two callers never refresh the same token at once
   private readonly locks = new Map<IntegrationId, Promise<unknown>>();
@@ -72,6 +75,7 @@ export class CredentialStore {
     this.cipher = options.cipher;
     this.refreshers = options.refreshers ?? {};
     this.now = options.now ?? Date.now;
+    this.changes = new ChangeListeners<CredentialChange>('Credential', { logger: options.logger });
   }
 
   // returns a function that unsubscribes the listener
@@ -109,17 +113,41 @@ export class CredentialStore {
     if (result.changes === 0) throw new NotFoundError(integrationId);
   }
 
-  async getAuth(integrationId: IntegrationId): Promise<Auth> {
+  /**
+   * Auth for the integration's provider calls. OAuth tokens about to expire are refreshed first,
+   * one refresh of an integration at a time: a caller that waited in the queue uses the tokens the
+   * refresh before it stored.
+   *
+   * A refresh is shared, so `signal` only stops this caller waiting: getAuth rejects with its
+   * reason at once, and the refresh goes on and stores its tokens for the next caller (a provider
+   * that rotates refresh tokens has already replaced the old one by the time it answers, so
+   * cancelling it could lose the new one). A caller aborted while still queued starts no refresh
+   * of its own. whenIdle waits for the refreshes still running.
+   */
+  async getAuth(
+    integrationId: IntegrationId,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<Auth> {
+    const { signal } = options;
+    signal?.throwIfAborted();
     const current = await this.read(integrationId);
     if (!this.needsRefresh(current.credentials)) return toAuth(current.credentials);
 
-    return this.withLock(integrationId, async () => {
+    const queued = this.withLock(integrationId, async () => {
+      // stopped waiting before its turn: the refresh is left to whoever still needs it
+      signal?.throwIfAborted();
       // another caller may have refreshed while this one waited for the lock
       const latest = await this.read(integrationId);
       if (!this.needsRefresh(latest.credentials)) return toAuth(latest.credentials);
       const { provider, blob, credentials } = latest;
       return toAuth(await this.refresh(integrationId, provider, blob, credentials));
     });
+    return untilAborted(queued, signal);
+  }
+
+  /** Resolves once no refresh is running or queued, e.g. before the database is closed. */
+  async whenIdle(): Promise<void> {
+    while (this.locks.size > 0) await Promise.all(this.locks.values());
   }
 
   /**
@@ -297,4 +325,15 @@ export class CredentialStore {
       if (this.locks.get(integrationId) === tail) this.locks.delete(integrationId);
     }
   }
+}
+
+// `promise`, or the signal's reason once it aborts, whichever comes first; the promise runs on
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) return onAbort();
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }

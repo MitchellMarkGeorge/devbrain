@@ -87,8 +87,14 @@ export interface SourceSyncStatus {
   retryAt: Date | null;
 }
 
-// the entity types a write touched, so the renderer refetches only those queries
-export type SyncEntityType = 'task' | 'project' | 'event' | 'calendar';
+// the entity types a write touched, so the renderer refetches only those queries; the values are
+// the ChangedEntity names they refetch
+export enum SyncEntityType {
+  TASK = 'task',
+  PROJECT = 'project',
+  EVENT = 'event',
+  CALENDAR = 'calendar',
+}
 
 export interface EntityCounts {
   tasks: number;

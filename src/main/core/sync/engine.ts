@@ -1,11 +1,8 @@
 import { ExternalSourceId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { consoleLogger, errorClass } from '../shared/logger';
-import { CredentialStore } from '../integrations/credential-store';
-import { IntegrationService } from '../integrations/service';
-import { SyncStateManager, SyncTarget, syncSkipReason } from './sync-state';
-import { Provider as ProviderImpl } from '../integrations/providers/provider';
-import { ProviderRegistry } from '../integrations/providers/registry';
+import { consoleLogger, errorClass, type Logger } from '../shared/logger';
+import { SyncStateManager, SyncTarget } from './sync-state';
+import { OpenSource, ProviderConnections, SourceAccess } from './source-access';
 import { SourceType, SyncEntityType } from '@common/types';
 import { ChangeListeners } from '../shared/changes';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
@@ -17,7 +14,6 @@ import { TaskReconciler } from './task-reconciler';
 import { EventSyncer } from './event-syncer';
 import {
   SyncCursor,
-  SyncLogger,
   SyncMode,
   SyncProgress,
   SyncProgressListener,
@@ -27,17 +23,14 @@ import {
   SyncSummary,
 } from './types';
 
-export type { SyncLogger } from './types';
-
 export interface SyncEngineOptions {
-  // for needs_reauth when a provider rejects the credentials
-  integrations: IntegrationService;
+  // the provider each integration connected through, its auth, and needs_reauth when a provider
+  // rejects the credentials: IntegrationService owns the registry and the credentials
+  integrations: ProviderConnections;
   // each source's cursor and run outcomes
   syncState: SyncStateManager;
-  credentials: CredentialStore;
-  providers: ProviderRegistry;
   writer: SyncWriter;
-  logger?: SyncLogger;
+  logger?: Logger;
   now?: () => Date; // injected for tests
   maxPagesPerRun?: number; // defaults to MAX_PAGES_PER_RUN; lowered in tests
 }
@@ -71,12 +64,12 @@ export interface BaseSyncEngine {
  * run ended on its source through SyncStateManager, which tells the scheduler and the renderer.
  */
 export class SyncEngine implements BaseSyncEngine {
-  private readonly integrations: IntegrationService;
+  private readonly integrations: ProviderConnections;
   private readonly syncState: SyncStateManager;
-  private readonly credentials: CredentialStore;
-  private readonly providers: ProviderRegistry;
+  // the gate, the provider and auth, as for every other call to a provider
+  private readonly access: SourceAccess;
   private readonly writer: SyncWriter;
-  private readonly logger: SyncLogger;
+  private readonly logger: Logger;
   private readonly now: () => Date;
   private readonly maxPagesPerRun: number;
   // the page is already committed, so a failing listener must not fail the run or the others
@@ -85,7 +78,7 @@ export class SyncEngine implements BaseSyncEngine {
   private readonly running = new Set<ExternalSourceId>();
   // the syncer for each source type, built on its provider's source; null when the provider has
   // none
-  private readonly syncers: Record<SourceType, (provider: ProviderImpl) => Syncer | null>;
+  private readonly syncers: Record<SourceType, (open: OpenSource) => Syncer | null>;
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -93,8 +86,6 @@ export class SyncEngine implements BaseSyncEngine {
   ) {
     this.integrations = options.integrations;
     this.syncState = options.syncState;
-    this.credentials = options.credentials;
-    this.providers = options.providers;
     this.writer = options.writer;
     this.logger = options.logger ?? consoleLogger;
     this.progress = new ChangeListeners<SyncProgress>('Sync progress', {
@@ -106,19 +97,22 @@ export class SyncEngine implements BaseSyncEngine {
     });
     this.now = options.now ?? (() => new Date());
     this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
+    this.access = new SourceAccess({
+      integrations: this.integrations,
+      syncState: this.syncState,
+      now: this.now,
+    });
     const reconciler = new TaskReconciler({
       db: this.db,
-      syncState: this.syncState,
-      credentials: this.credentials,
-      providers: this.providers,
+      access: this.access,
       writer: this.writer,
       logger: this.logger,
       now: this.now,
     });
     this.syncers = {
-      [SourceType.TASKS]: (provider) =>
+      [SourceType.TASKS]: ({ provider }) =>
         provider.tasks ? new TaskSyncer(this.writer, provider.tasks, reconciler, this.now) : null,
-      [SourceType.EVENTS]: (provider) =>
+      [SourceType.EVENTS]: ({ provider }) =>
         provider.calendars
           ? new EventSyncer(this.db, this.writer, provider.calendars, this.now)
           : null,
@@ -164,10 +158,10 @@ export class SyncEngine implements BaseSyncEngine {
     this.running.add(sourceId);
     try {
       // 1. nothing runs for a source that is off, or for an integration that is off or rejected
-      const target = this.syncState.getSyncTarget(sourceId);
-      const blocked = syncSkipReason(target, this.now());
-      if (blocked) return skip(blocked);
-      const syncer = this.getSyncer(target);
+      const open = this.access.open(sourceId);
+      if (typeof open === 'string') return skip(open);
+      const { target } = open;
+      const syncer = this.getSyncer(open);
       if (!syncer) return skip(SyncSkipReason.UNSUPPORTED);
 
       // 2.
@@ -229,10 +223,10 @@ export class SyncEngine implements BaseSyncEngine {
     this.running.add(sourceId);
     try {
       // 1.
-      const target = this.syncState.getSyncTarget(sourceId);
-      const blocked = syncSkipReason(target, this.now());
-      if (blocked) return skip(blocked);
-      const syncer = this.getSyncer(target);
+      const open = this.access.open(sourceId);
+      if (typeof open === 'string') return skip(open);
+      const { target } = open;
+      const syncer = this.getSyncer(open);
       if (!syncer?.reconcile) return skip(SyncSkipReason.UNSUPPORTED);
       if (target.initialSyncCompletedAt === null) {
         return skip(SyncSkipReason.INITIAL_SYNC_PENDING);
@@ -270,7 +264,7 @@ export class SyncEngine implements BaseSyncEngine {
     run: RunTally,
     signal: AbortSignal | undefined,
   ): Promise<void> {
-    const auth = await this.credentials.getAuth(target.integrationId);
+    const auth = await this.access.getAuth(target, signal);
     if (signal?.aborted) return;
     // writes nothing: every write of the run is in sync.apply, below
     const sync = await syncer.start({ sourceId, target, auth, cursor, signal });
@@ -320,7 +314,7 @@ export class SyncEngine implements BaseSyncEngine {
     run: RunTally,
     signal: AbortSignal | undefined,
   ): Promise<void> {
-    const auth = await this.credentials.getAuth(target.integrationId);
+    const auth = await this.access.getAuth(target, signal);
     if (signal?.aborted) return;
     // 2. reads only
     const pass = await syncer.reconcile!({ sourceId, target, auth, signal });
@@ -339,9 +333,8 @@ export class SyncEngine implements BaseSyncEngine {
   }
 
   // the syncer for the source's type and provider; null when there is none, and the run is skipped
-  private getSyncer(target: SyncTarget): Syncer | null {
-    const provider = this.providers.get(target.provider);
-    return provider ? this.syncers[target.sourceType](provider) : null;
+  private getSyncer(open: OpenSource): Syncer | null {
+    return this.syncers[open.target.sourceType](open);
   }
 
   // the stored cursor, validated with the syncer's schema; one that does not parse, e.g. written

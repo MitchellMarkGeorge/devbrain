@@ -19,6 +19,7 @@ import {
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
+import { SourceAccess } from '../../sync/source-access';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -179,19 +180,10 @@ beforeEach(async () => {
   const writer = new SyncWriter(db, new SearchService(db, workspacePath));
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const syncState = new SyncStateManager(db);
-  engine = new SyncEngine(db, {
-    integrations: service,
-    syncState,
-    credentials,
-    providers,
-    writer,
-    logger,
-  });
+  engine = new SyncEngine(db, { integrations: service, syncState, writer, logger });
   reconciler = new TaskReconciler({
     db,
-    syncState,
-    credentials,
-    providers,
+    access: new SourceAccess({ integrations: service, syncState }),
     writer,
     logger,
   });
@@ -510,7 +502,7 @@ describe('DetachService — reattach', () => {
 });
 
 describe('TaskReconciler — reattachTasks', () => {
-  it('passes rejected credentials up and reports them, leaving the integration and the link as they were', async () => {
+  it('passes rejected credentials up, moving the integration to needs_reauth and leaving the link detached', async () => {
     const item = issue();
     await sync(item);
     detach.detachTask(idOf(item));
@@ -520,14 +512,10 @@ describe('TaskReconciler — reattachTasks', () => {
 
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(IntegrationAuthError);
 
-    // DetachService reports it; moving the integration to needs_reauth is the workspace's job
-    expect(service.getById(integrationId).status).toBe(IntegrationStatus.CONNECTED);
+    // as a run's rejected credentials do (SourceAccess.call)
+    expect(service.getById(integrationId).status).toBe(IntegrationStatus.NEEDS_REAUTH);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
-    expect(changes.at(-1)).toEqual({
-      type: 'credentials_rejected',
-      taskId: idOf(item),
-      integrationId,
-    });
+    expect(changes.map((change) => change.type)).not.toContain('reattached');
   });
 
   it('refuses while the integration needs re-authentication', async () => {
