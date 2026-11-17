@@ -115,23 +115,37 @@ describe('buildMenuTemplate', () => {
     }
   });
 
-  it("shows the default keymap's keys, leaving them to the window's keyboard layer", () => {
-    const items = template({});
-    const keys = (id: string) => {
-      const found = item(items, id);
-      return { accelerator: found.accelerator, registerAccelerator: found.registerAccelerator };
-    };
-    // C and N type in a field, and ⌘K is Link in the editor: the window decides
-    expect(keys('new-task')).toEqual({ accelerator: 'C', registerAccelerator: false });
-    expect(keys('new-note')).toEqual({ accelerator: 'N', registerAccelerator: false });
-    expect(keys('find')).toEqual({ accelerator: 'CmdOrCtrl+K', registerAccelerator: false });
-    // the keymap has no ⌘,: the menu owns it
-    expect(keys('settings')).toEqual({
-      accelerator: 'CmdOrCtrl+,',
-      registerAccelerator: undefined,
-    });
-    // G T is a sequence, which an accelerator can't be
-    expect(item(items, 'go-to-tasks').accelerator).toBeUndefined();
+  it.each(['win32', 'linux'] as const)(
+    "shows the default keymap's keys on %s, leaving them to the window's keyboard layer",
+    (platform) => {
+      const items = template({ platform });
+      const keys = (id: string) => {
+        const found = item(items, id);
+        return { accelerator: found.accelerator, registerAccelerator: found.registerAccelerator };
+      };
+      // C and N type in a field, and ⌘K is Link in the editor: the window decides
+      expect(keys('new-task')).toEqual({ accelerator: 'C', registerAccelerator: false });
+      expect(keys('new-note')).toEqual({ accelerator: 'N', registerAccelerator: false });
+      expect(keys('find')).toEqual({ accelerator: 'CmdOrCtrl+K', registerAccelerator: false });
+      // the keymap has no ⌘,: the menu owns it
+      expect(keys('settings')).toEqual({
+        accelerator: 'CmdOrCtrl+,',
+        registerAccelerator: undefined,
+      });
+      // G T is a sequence, which an accelerator can't be
+      expect(item(items, 'go-to-tasks').accelerator).toBeUndefined();
+    },
+  );
+
+  it("shows none of the keymap's keys on macOS, where the menu would take them from the page", () => {
+    // registerAccelerator is Linux and Windows only: a Mac menu item's key always fires, so C and
+    // N would open New Task and New Note while typing, and ⌘K would open Find in the editor
+    const items = template({ platform: 'darwin' });
+    for (const id of ['new-task', 'new-note', 'find']) {
+      expect(item(items, id).accelerator).toBeUndefined();
+    }
+    // ⌘, isn't in the keymap: the menu still owns it
+    expect(item(items, 'settings').accelerator).toBe('CmdOrCtrl+,');
   });
 
   it('puts Settings in the app menu on macOS, and in File elsewhere', () => {

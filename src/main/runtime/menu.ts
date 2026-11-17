@@ -15,11 +15,13 @@ import type { Desktop } from '../ipc/desktop';
 //   Export) run in the window: the item sends `app.command` with the keyboard layer's command id,
 //   and the window runs that command from its registry, as its keys or buttons would. An import
 //   or export there is the Settings buttons' own flow: the same route, which asks for the file,
-//   and the same summary dialog, toast and error toast. Their accelerators show the default keymap's
-//   keys; the window's keyboard layer handles those keys itself (registerAccelerator: false), so
-//   C and N still type in a field and ⌘K is still Link in the editor. Sequences (G T) can't be
-//   accelerators, so Go to's items show none. Settings… (⌘,) has no key in the keymap, so the
-//   menu owns that one.
+//   and the same summary dialog, toast and error toast. On Windows and Linux their accelerators
+//   show the default keymap's keys; the window's keyboard layer handles those keys itself
+//   (registerAccelerator: false), so C and N still type in a field and ⌘K is still Link in the
+//   editor. macOS can't show a key without the menu taking it (registerAccelerator is Linux and
+//   Windows only), so there these items show none. Sequences (G T) can't be accelerators, so Go
+//   to's items show none anywhere. Settings… (⌘,) has no key in the keymap, so the menu owns that
+//   one on every platform.
 // - The rest (open a workspace folder, sync, show a folder) run in main against core, as their IPC
 //   routes would, and core announces what it changed, so the renderer refetches through the
 //   ChangeTracker as for any background change.
@@ -88,7 +90,10 @@ export function buildMenuTemplate({
   const run = (action: () => Promise<void>) => () => void action();
 
   // An item that runs one of the window's commands. `keys` is the default keymap's binding, shown
-  // only: the window's keyboard layer handles it (see the top of this file).
+  // only: the window's keyboard layer handles it (see the top of this file). macOS shows none:
+  // Electron's registerAccelerator is Linux and Windows only, and a Mac menu item's key equivalent
+  // always fires, before the page sees the key, so C and N would open New Task and New Note while
+  // typing, and ⌘K would open Find instead of linking in the editor.
   const command = (
     id: string,
     label: string,
@@ -98,7 +103,7 @@ export function buildMenuTemplate({
     id,
     label,
     enabled: hasWorkspace,
-    ...(keys ? { accelerator: keys, registerAccelerator: false } : {}),
+    ...(keys && !isMac ? { accelerator: keys, registerAccelerator: false } : {}),
     click: () => actions.runCommand(commandId),
   });
 
