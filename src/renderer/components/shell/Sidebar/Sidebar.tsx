@@ -192,6 +192,16 @@ export const SidebarGroupLabel = forwardRef<HTMLDivElement, ComponentPropsWithou
   },
 );
 
+/**
+ * A line of 12px `subtle-foreground` text in a group, in line with its items' icons: what the
+ * group would hold while it holds nothing ("Star a task, note or project to keep it here").
+ */
+export const SidebarHint = forwardRef<HTMLParagraphElement, ComponentPropsWithoutRef<'p'>>(
+  function SidebarHint({ className, ...props }, ref) {
+    return <p ref={ref} className={cn(styles.hint, className)} {...props} />;
+  },
+);
+
 /** The list of items in a group. */
 export const SidebarMenu = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
   function SidebarMenu({ className, ...props }, ref) {

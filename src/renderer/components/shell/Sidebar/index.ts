@@ -7,6 +7,7 @@ export {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarHeaderActions,
+  SidebarHint,
   SidebarItem,
   SidebarMenu,
   type SidebarActionProps,

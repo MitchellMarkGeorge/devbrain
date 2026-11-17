@@ -188,6 +188,13 @@ button.groupLabel:focus-visible {
 .groupLabel[data-panel-open] .groupChevron {
   transform: rotate(90deg);
 }
+/* an empty group's hint: 12px, in line with the items' icons, 4px under its label */
+.hint {
+  margin: 0;
+  padding: var(--space-0-5) var(--space-2) var(--space-1);
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
 .panel {
   overflow: hidden;
   height: var(--collapsible-panel-height);
