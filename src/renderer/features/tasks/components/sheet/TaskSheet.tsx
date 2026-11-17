@@ -177,7 +177,7 @@ function LinkRow({ task }: { task: Task }) {
     );
   }
   // notes.get reads a note in the trash too; a link to one isn't shown
-  if (task.linkedNoteId && note.data && note.data.archivedAt === null) {
+  if (task.linkedNoteId && note.data && note.data.trashedAt === null) {
     const linked = note.data;
     return (
       <DetailRow label="Note">

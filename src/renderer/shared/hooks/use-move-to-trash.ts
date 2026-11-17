@@ -26,27 +26,27 @@ function describe(items: readonly TrashItem[]): string {
   return `${items.length} ${noun}`;
 }
 
-async function archive(items: readonly TrashItem[]): Promise<void> {
+async function trash(items: readonly TrashItem[]): Promise<void> {
   const tasks = items.flatMap((item) => (isId('task', item.id) ? [item.id] : []));
   // the selection bar's tasks go in one call, all or nothing
-  if (tasks.length > 1) await ipc.archive.archiveTasks.mutate({ ids: tasks });
-  else if (tasks.length === 1) await ipc.archive.archiveTask.mutate({ id: tasks[0] });
+  if (tasks.length > 1) await ipc.trash.trashTasks.mutate({ ids: tasks });
+  else if (tasks.length === 1) await ipc.trash.trashTask.mutate({ id: tasks[0] });
   for (const { id } of items) {
-    if (isId('project', id)) await ipc.archive.archiveProject.mutate({ id });
-    else if (isId('note', id)) await ipc.archive.archiveNote.mutate({ id });
+    if (isId('project', id)) await ipc.trash.trashProject.mutate({ id });
+    else if (isId('note', id)) await ipc.trash.trashNote.mutate({ id });
   }
 }
 
 async function restore(items: readonly TrashItem[]): Promise<void> {
   for (const { id } of items) {
-    if (isId('task', id)) await ipc.archive.restoreTask.mutate({ id });
-    else if (isId('project', id)) await ipc.archive.restoreProject.mutate({ id });
-    else await ipc.archive.restoreNote.mutate({ id: id as NoteId });
+    if (isId('task', id)) await ipc.trash.restoreTask.mutate({ id });
+    else if (isId('project', id)) await ipc.trash.restoreProject.mutate({ id });
+    else await ipc.trash.restoreNote.mutate({ id: id as NoteId });
   }
 }
 
 /**
- * Moves tasks, projects or notes to the trash, asking first when `confirmBeforeArchiving` is on,
+ * Moves tasks, projects or notes to the trash, asking first when `confirmBeforeTrashing` is on,
  * then shows "Moved to trash · Undo" (Figma `7175:33810`). The undo goes on the app's undo stack
  * (⌘Z), and the toast's Undo takes back that one change. Resolves to whether they moved. A failure
  * shows the error toast and moves nothing.
@@ -60,14 +60,14 @@ export function useMoveToTrash(): (items: readonly TrashItem[]) => Promise<boole
       if (items.length === 0) return false;
       const what = describe(items);
       const ok = await confirm({
-        kind: 'archive',
+        kind: 'trash',
         title: `Move ${what} to trash?`,
         description: 'You can restore it from Trash.',
         actionLabel: 'Move to Trash',
       });
       if (!ok) return false;
       try {
-        await archive(items);
+        await trash(items);
       } catch (error) {
         showError(error, `Couldn’t move ${what} to trash`);
         return false;

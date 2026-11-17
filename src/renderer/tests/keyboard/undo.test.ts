@@ -84,7 +84,7 @@ describe('undoable commands', () => {
     const ctx = setUp(
       keymap([
         { scope: 'global', keys: 'mod+backspace', command: 'row.trash' },
-        { scope: 'global', keys: 'a', command: 'row.archive' },
+        { scope: 'global', keys: 'a', command: 'row.complete' },
         { scope: 'global', keys: 'u', command: 'undo' },
       ]),
     );
@@ -98,10 +98,10 @@ describe('undoable commands', () => {
         run: () => ({ label: 'Moved to trash', undo: () => void restored.push('trash') }),
       },
       {
-        id: 'row.archive',
-        title: 'Archive',
+        id: 'row.complete',
+        title: 'Complete',
         scope: 'global',
-        run: async () => ({ label: 'Archived', undo: () => void restored.push('archive') }),
+        run: async () => ({ label: 'Completed', undo: () => void restored.push('complete') }),
       },
       {
         id: 'undo',
@@ -118,9 +118,9 @@ describe('undoable commands', () => {
     await vi.waitFor(() => expect(ctx.undoStack.size).toBe(2));
 
     press(document.body, 'u');
-    await vi.waitFor(() => expect(restored).toEqual(['archive']));
+    await vi.waitFor(() => expect(restored).toEqual(['complete']));
     press(document.body, 'u');
-    await vi.waitFor(() => expect(restored).toEqual(['archive', 'trash']));
+    await vi.waitFor(() => expect(restored).toEqual(['complete', 'trash']));
     // nothing left: the binding is disabled and the key goes through
     expect(press(document.body, 'u').defaultPrevented).toBe(false);
   });

@@ -78,7 +78,7 @@ export function NoteSheet({ noteId, open, onClose, onClosed }: NoteSheetProps) {
           Note
         </SheetHeader>
         <SheetBody>
-          {query.data && query.data.archivedAt === null ? (
+          {query.data && query.data.trashedAt === null ? (
             <NoteSheetBody key={query.data.id} note={query.data} />
           ) : query.isError || query.data ? (
             <Text tone="muted">

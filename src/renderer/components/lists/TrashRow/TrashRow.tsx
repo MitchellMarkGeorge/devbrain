@@ -4,17 +4,17 @@ import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ListRow, type ListRowProps } from '../ListRow';
 import { StatusIcon } from '../../entities/StatusIcon';
-import { TaskStatus, type ArchivedEntity } from '@common/types';
+import { TaskStatus, type TrashedEntity } from '@common/types';
 import { useFormat } from '../../lib/format';
 import { resolveColor } from '../../types';
 import styles from './TrashRow.module.css';
 
 /**
- * What Trash shows of a deleted item, from core's `ArchivedEntity` (`archive.listArchived`): what
+ * What Trash shows of a deleted item, from core's `TrashedEntity` (`trash.listTrashed`): what
  * the three kinds share, and each kind's own field (a task's status, a project's colour, a note's
  * preview).
  */
-export type TrashRowData = Pick<ArchivedEntity, 'entityType' | 'title' | 'archivedAt'> & {
+export type TrashRowData = Pick<TrashedEntity, 'entityType' | 'title' | 'trashedAt'> & {
   /** a task's status, drawn as its icon (not started without one) */
   status?: TaskStatus;
   /** a project's folder colour */
@@ -36,7 +36,7 @@ export interface TrashRowProps extends Omit<
 }
 
 /**
- * A deleted project, task or note in Trash, drawn from core's `ArchivedEntity`: its glyph, the
+ * A deleted project, task or note in Trash, drawn from core's `TrashedEntity`: its glyph, the
  * title (and a note's preview, a step smaller), its pills and when it was trashed ("Trashed 1 day
  * ago", from `useFormat()`); pointing at it shows Restore and Delete. A
  * strokeless 48px `ListRow`.
@@ -47,7 +47,7 @@ export const TrashRow = forwardRef<HTMLDivElement, TrashRowProps>(function Trash
 ) {
   const { formatRelative } = useFormat('minute');
   const color = resolveColor(item.color);
-  const trashed = formatRelative(item.archivedAt);
+  const trashed = formatRelative(item.trashedAt);
   const icon =
     item.entityType === 'tasks' ? (
       <StatusIcon status={item.status ?? TaskStatus.NOT_STARTED} />

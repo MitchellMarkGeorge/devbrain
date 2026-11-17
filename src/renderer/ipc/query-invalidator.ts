@@ -43,9 +43,9 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   // a disconnect turns its calendars into local ones
   calendars: ['calendar', 'externalSource'],
   favorites: ['task', 'project', 'note', 'event'],
-  // titles come from the entities, so an edit or archive changes the list too
+  // titles come from the entities, so an edit or trash changes the list too
   recents: ['recent', 'task', 'project', 'note', 'event'],
-  archive: ['task', 'project', 'note'],
+  trash: ['task', 'project', 'note'],
   // each match is its entity as its list returns it: a task or note row shows its links
   search: ['task', 'project', 'note', 'event', 'calendar'],
   integrations: ['integration', 'externalSource'],

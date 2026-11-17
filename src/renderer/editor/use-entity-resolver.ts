@@ -31,7 +31,7 @@ function entityQuery(type: EditorEntityType, id: string) {
 
 interface EntityRow {
   title: string;
-  archivedAt?: Date | null;
+  trashedAt?: Date | null;
   status?: EditorEntity['status'];
   color?: string | null;
 }
@@ -47,7 +47,7 @@ function resolve(
   const state = queryClient.getQueryState(options.queryKey);
   const row = state?.data as EntityRow | undefined;
   if (row) {
-    if (row.archivedAt) return null;
+    if (row.trashedAt) return null;
     return {
       type,
       id,

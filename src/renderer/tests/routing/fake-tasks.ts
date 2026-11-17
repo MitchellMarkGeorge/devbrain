@@ -49,7 +49,7 @@ export function fakeTask(
     updatedAt: EPOCH,
     favoritedAt: null,
     viewedAt: null,
-    archivedAt: null,
+    trashedAt: null,
     completedAt: null,
     ...extra,
   };
@@ -68,7 +68,7 @@ export function fakeProject(id: string, title: string, extra: Partial<Project> =
     updatedAt: EPOCH,
     favoritedAt: null,
     viewedAt: null,
-    archivedAt: null,
+    trashedAt: null,
     completedAt: null,
     ...extra,
   } as Project;
@@ -93,7 +93,7 @@ export function fakeNote(
     updatedAt: EPOCH,
     favoritedAt: null,
     viewedAt: null,
-    archivedAt: null,
+    trashedAt: null,
     ...extra,
   };
 }
@@ -132,16 +132,16 @@ export class FakeTasks {
   /** each note's markdown, by id */
   readonly contents = new Map<string, string>();
 
-  // an active project, or with `includeArchived` one in the trash too, as core's getById
-  findProject(id: unknown, { includeArchived = false } = {}): Project | undefined {
+  // an active project, or with `includeTrashed` one in the trash too, as core's getById
+  findProject(id: unknown, { includeTrashed = false } = {}): Project | undefined {
     return this.projects.find(
-      (project) => project.id === id && (includeArchived || project.archivedAt === null),
+      (project) => project.id === id && (includeTrashed || project.trashedAt === null),
     );
   }
 
   /** a project's counts of its active tasks, as core's projects.stats */
   statsOf(id: unknown): ProjectStats {
-    const tasks = this.tasks.filter((t) => t.projectId === id && t.archivedAt === null);
+    const tasks = this.tasks.filter((t) => t.projectId === id && t.trashedAt === null);
     const count = (status: TaskStatus) => tasks.filter((t) => t.status === status).length;
     return {
       numOfNotStarted: count(TaskStatus.NOT_STARTED),
@@ -170,13 +170,13 @@ export class FakeTasks {
   }
 
   find(id: unknown): TaskListItem | undefined {
-    return this.tasks.find((task) => task.id === id && task.archivedAt === null);
+    return this.tasks.find((task) => task.id === id && task.trashedAt === null);
   }
 
   list(filter: Filter = {}): TaskListItem[] {
     return this.tasks.filter(
       (task) =>
-        task.archivedAt === null &&
+        task.trashedAt === null &&
         (filter.status === undefined || task.status === filter.status) &&
         (filter.priority === undefined || task.priority === filter.priority) &&
         (filter.projectId === undefined || task.projectId === filter.projectId) &&
@@ -197,7 +197,7 @@ export class FakeTasks {
     return this.notes
       .filter(
         (note) =>
-          note.archivedAt === null &&
+          note.trashedAt === null &&
           (filter.projectId === undefined || note.projectId === filter.projectId) &&
           (filter.linkedEventId === undefined || note.linkedEventId === filter.linkedEventId) &&
           (filter.linkedTaskId === undefined || note.linkedTaskId === filter.linkedTaskId) &&
@@ -224,7 +224,7 @@ export class FakeTasks {
   }
 
   subtasks(id: unknown): TaskListItem[] {
-    return this.tasks.filter((task) => task.parentTaskId === id && task.archivedAt === null);
+    return this.tasks.filter((task) => task.parentTaskId === id && task.trashedAt === null);
   }
 
   patch(id: unknown, fields: Partial<TaskListItem>): Task {

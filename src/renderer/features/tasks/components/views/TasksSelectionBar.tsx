@@ -48,7 +48,7 @@ const ABOVE = { side: 'top', align: 'start', sideOffset: 8 } as const;
 /**
  * The selection bar (Figma `7424:38163`) over the list and group views: the count, then Status,
  * Priority, Due date and Move for every selected task at once (`tasks.updateMany`, all or
- * nothing), a "more" menu with Favorite and Move to trash (`archive.archiveTasks`), and clear.
+ * nothing), a "more" menu with Favorite and Move to trash (`trash.trashTasks`), and clear.
  */
 export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBarProps) {
   const done = (run: () => unknown) => () => {

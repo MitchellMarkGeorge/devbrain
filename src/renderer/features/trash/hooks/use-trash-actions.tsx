@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { ArchivedEntity, EmptyTrashResult, TrashSelection } from '@common/types';
+import type { TrashedEntity, EmptyTrashResult, TrashSelection } from '@common/types';
 import { isId } from '@common/ids';
 import { toast } from '@renderer/components';
 import { ipc } from '@renderer/ipc';
@@ -9,10 +9,10 @@ import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 
 // What Trash does to its rows (docs/deleting.md): restore one, delete one for good, or empty the
 // whole trash; or restore or delete the selected rows together, in one call that core runs as one
-// transaction (archive.restoreMany, archive.deleteMany). Each write goes straight to core; what it changed comes back in its `changed`, so
+// transaction (trash.restoreMany, trash.deleteMany). Each write goes straight to core; what it changed comes back in its `changed`, so
 // the list refetches without help. Deleting asks first when `confirmBeforeDeleting` is on.
 
-export type TrashEntry = Pick<ArchivedEntity, 'id' | 'entityType' | 'title'>;
+export type TrashEntry = Pick<TrashedEntity, 'id' | 'entityType' | 'title'>;
 
 const NOUN = { tasks: 'task', projects: 'project', notes: 'note' } as const;
 const PLACE = { tasks: 'Tasks', projects: 'Projects', notes: 'Notes' } as const;
@@ -32,9 +32,9 @@ export function deleteConsequence(item: TrashEntry): string {
 
 async function restore(item: TrashEntry): Promise<void> {
   const { id } = item;
-  if (isId('task', id)) await ipc.archive.restoreTask.mutate({ id });
-  else if (isId('project', id)) await ipc.archive.restoreProject.mutate({ id });
-  else if (isId('note', id)) await ipc.archive.restoreNote.mutate({ id });
+  if (isId('task', id)) await ipc.trash.restoreTask.mutate({ id });
+  else if (isId('project', id)) await ipc.trash.restoreProject.mutate({ id });
+  else if (isId('note', id)) await ipc.trash.restoreNote.mutate({ id });
 }
 
 async function remove(item: TrashEntry): Promise<void> {
@@ -46,7 +46,7 @@ async function remove(item: TrashEntry): Promise<void> {
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
-/** The rows' ids by kind, as archive.restoreMany and archive.deleteMany take them. */
+/** The rows' ids by kind, as trash.restoreMany and trash.deleteMany take them. */
 export function selectionOf(items: readonly TrashEntry[]): TrashSelection {
   const selection: TrashSelection = { taskIds: [], projectIds: [], noteIds: [] };
   for (const { id } of items) {
@@ -150,7 +150,7 @@ export function useTrashActions(): TrashActions {
       async restoreAll(items) {
         if (items.length === 1) return actions.restore(items[0]);
         try {
-          await ipc.archive.restoreMany.mutate(selectionOf(items));
+          await ipc.trash.restoreMany.mutate(selectionOf(items));
         } catch (error) {
           showError(error, `Couldn’t restore the ${plural(items.length, 'item')}`);
           return false;
@@ -174,7 +174,7 @@ export function useTrashActions(): TrashActions {
         if (!ok) return false;
         let result: EmptyTrashResult;
         try {
-          result = await ipc.archive.deleteMany.mutate(selectionOf(items));
+          result = await ipc.trash.deleteMany.mutate(selectionOf(items));
         } catch (error) {
           showError(error, `Couldn’t delete the ${plural(items.length, 'item')}`);
           return false;
@@ -199,7 +199,7 @@ export function useTrashActions(): TrashActions {
         if (!ok) return;
         let result: EmptyTrashResult;
         try {
-          result = await ipc.archive.emptyTrash.mutate();
+          result = await ipc.trash.emptyTrash.mutate();
         } catch (error) {
           showError(error, 'Couldn’t empty the trash');
           return;

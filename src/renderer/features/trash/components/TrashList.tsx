@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { RotateCcw, SquareArrowOutUpRight, Trash2 } from 'lucide-react';
-import type { ArchivedEntity, ExternalRef, ProjectSummary } from '@common/types';
+import type { TrashedEntity, ExternalRef, ProjectSummary } from '@common/types';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -22,7 +22,7 @@ import type { TrashActions } from '../hooks/use-trash-actions';
 import styles from './TrashPage.module.css';
 
 export interface TrashListProps {
-  items: readonly ArchivedEntity[];
+  items: readonly TrashedEntity[];
   actions: TrashActions;
   /** asks for the next page, once the rows drawn come near the end of those loaded */
   onEndReached?: () => void;
@@ -31,7 +31,7 @@ export interface TrashListProps {
   /** the selected rows' ids */
   selected?: ReadonlySet<string>;
   /** selects or unselects a row (its checkbox, or X on it) */
-  onToggle?: (item: ArchivedEntity) => void;
+  onToggle?: (item: TrashedEntity) => void;
 }
 
 /**
@@ -53,7 +53,7 @@ export function TrashList({
     return item !== undefined && selected.has(item.id);
   };
   const scroller = useRef<HTMLDivElement>(null);
-  const [menuItem, setMenuItem] = useState<ArchivedEntity | null>(null);
+  const [menuItem, setMenuItem] = useState<TrashedEntity | null>(null);
   const byId = useMemo(() => new Map(items.map((item) => [item.id as string, item])), [items]);
   const virtualizer = useVirtualList({
     scrollerRef: scroller,
@@ -144,26 +144,26 @@ export function TrashList({
 }
 
 /**
- * What a row draws of its item, from the row `archive.listArchived` returned: a task's status, its
+ * What a row draws of its item, from the row `trash.listTrashed` returned: a task's status, its
  * key (a synced task's, straight after the title) and project; a project's colour, key and status;
  * a note's first line and project. Colours go to the components as they came: they parse them.
  */
-function rowOf(item: ArchivedEntity): {
+function rowOf(item: TrashedEntity): {
   data: TrashRowData;
   titlePills?: ReactNode;
   pills?: ReactNode;
 } {
-  const { entityType, title, archivedAt } = item;
+  const { entityType, title, trashedAt } = item;
   switch (item.entityType) {
     case 'tasks':
       return {
-        data: { entityType, title, archivedAt, status: item.status },
+        data: { entityType, title, trashedAt, status: item.status },
         titlePills: keyPill(item.external),
         pills: projectPill(item.project),
       };
     case 'projects':
       return {
-        data: { entityType, title, archivedAt, color: item.color },
+        data: { entityType, title, trashedAt, color: item.color },
         titlePills: keyPill(item.external),
         pills: (
           <EntityPill glyph={<ProjectStatusIcon status={item.status} size={12} />}>
@@ -173,7 +173,7 @@ function rowOf(item: ArchivedEntity): {
       };
     case 'notes':
       return {
-        data: { entityType, title, archivedAt, preview: item.preview },
+        data: { entityType, title, trashedAt, preview: item.preview },
         pills: projectPill(item.project),
       };
   }

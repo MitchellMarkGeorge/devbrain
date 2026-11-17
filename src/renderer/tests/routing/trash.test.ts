@@ -6,7 +6,7 @@ import {
   Provider,
   ProjectStatus,
   TaskStatus,
-  type ArchivedEntity,
+  type TrashedEntity,
   type EmptyTrashResult,
 } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
@@ -21,10 +21,10 @@ const TRASHED = new Date(2026, 10, 9, 9);
 
 afterEach(() => stopApps());
 
-// a row as archive.listArchived returns it, of the kind its id names
-function archived(id: string, title: string, extra: Partial<ArchivedEntity> = {}): ArchivedEntity {
-  const base = { title, archivedAt: TRASHED };
-  const row: ArchivedEntity = id.startsWith('tsk')
+// a row as trash.listTrashed returns it, of the kind its id names
+function trashed(id: string, title: string, extra: Partial<TrashedEntity> = {}): TrashedEntity {
+  const base = { title, trashedAt: TRASHED };
+  const row: TrashedEntity = id.startsWith('tsk')
     ? {
         ...base,
         id: id as TaskId,
@@ -43,7 +43,7 @@ function archived(id: string, title: string, extra: Partial<ArchivedEntity> = {}
           external: null,
         }
       : { ...base, id: id as NoteId, entityType: 'notes', preview: null, project: null };
-  return { ...row, ...extra } as ArchivedEntity;
+  return { ...row, ...extra } as TrashedEntity;
 }
 
 function trashPage(search = '', items = SAMPLE, confirm = true) {
@@ -55,7 +55,7 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
       trash.findIndex((item) => item.id === id),
       1,
     );
-  main.routes.set('archive.listArchived', (args) => [
+  main.routes.set('trash.listTrashed', (args) => [
     {
       items: trash.filter(
         (item) =>
@@ -65,13 +65,13 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
     },
     [],
   ]);
-  // as core: a row no longer in the trash (a cascade took it) is not archived, or not found
-  const inTrash = (id: unknown, code: 'not_archived' | 'not_found') => {
+  // as core: a row no longer in the trash (a cascade took it) is not trashed, or not found
+  const inTrash = (id: unknown, code: 'not_in_trash' | 'not_found') => {
     if (!trash.some((item) => item.id === id)) throw FakeMain.error(code, `${String(id)}`);
   };
   for (const kind of ['Task', 'Project', 'Note']) {
-    main.routes.set(`archive.restore${kind}`, (args) => {
-      inTrash(args.id, 'not_archived');
+    main.routes.set(`trash.restore${kind}`, (args) => {
+      inTrash(args.id, 'not_in_trash');
       drop(args.id);
       return [undefined, [kind.toLowerCase() as 'task']];
     });
@@ -86,11 +86,11 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
   // the selection bar's: every row named leaves the trash in one call
   const selected = (args: Record<string, unknown>) =>
     ['taskIds', 'projectIds', 'noteIds'].flatMap((key) => args[key] as string[]);
-  main.routes.set('archive.restoreMany', (args) => {
+  main.routes.set('trash.restoreMany', (args) => {
     for (const id of selected(args)) drop(id);
     return [args, ['task', 'project', 'note']];
   });
-  main.routes.set('archive.deleteMany', (args) => {
+  main.routes.set('trash.deleteMany', (args) => {
     for (const id of selected(args)) drop(id);
     const result: EmptyTrashResult = {
       taskIds: args.taskIds as never,
@@ -101,7 +101,7 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
     };
     return [result, ['task', 'project', 'note']];
   });
-  main.routes.set('archive.emptyTrash', () => {
+  main.routes.set('trash.emptyTrash', () => {
     const result: EmptyTrashResult = {
       taskIds: trash
         .filter((i) => i.entityType === 'tasks' && i.id !== 'tsk_kept')
@@ -119,9 +119,9 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
 }
 
 const SAMPLE = [
-  archived('prj_ai', 'AI Action Items'),
-  archived('tsk_summary', 'Summarise sprint feedback'),
-  archived('nte_retro', 'Sprint 14 retro'),
+  trashed('prj_ai', 'AI Action Items'),
+  trashed('tsk_summary', 'Summarise sprint feedback'),
+  trashed('nte_retro', 'Sprint 14 retro'),
 ];
 
 // the open selection bar, or null
@@ -151,7 +151,7 @@ describe('the trash page', () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/trash?tab=tasks`));
     await eventually(() => expect(row('AI Action Items')).toBeUndefined());
     expect(row('Summarise sprint feedback')).toBeDefined();
-    expect(main.callsTo('archive.listArchived').map((call) => call.input)).toContainEqual(
+    expect(main.callsTo('trash.listTrashed').map((call) => call.input)).toContainEqual(
       expect.objectContaining({ entityType: 'tasks' }),
     );
   });
@@ -166,7 +166,7 @@ describe('the trash page', () => {
     const { app, main } = trashPage();
     await eventually(() => expect(row('Summarise sprint feedback')).toBeDefined());
     click(byText(row('Summarise sprint feedback')!, 'button', 'Restore'));
-    await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
+    await eventually(() => expect(main.callsTo('trash.restoreTask')).toHaveLength(1));
     await eventually(() =>
       expect(document.body.textContent).toContain('Restored “Summarise sprint feedback”'),
     );
@@ -200,13 +200,13 @@ describe('the trash page', () => {
   it('empties the trash after asking, and says what stayed', async () => {
     const { app, main } = trashPage('', [
       ...SAMPLE,
-      archived('tsk_kept', 'Parent with live subtasks'),
+      trashed('tsk_kept', 'Parent with live subtasks'),
     ]);
     await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
     click(byText(app.container, 'button', 'Empty Trash'));
     await eventually(() => expect(document.body.textContent).toContain('Empty the trash?'));
     click(byText(document.querySelector('[role="alertdialog"]')!, 'button', 'Empty Trash'));
-    await eventually(() => expect(main.callsTo('archive.emptyTrash')).toHaveLength(1));
+    await eventually(() => expect(main.callsTo('trash.emptyTrash')).toHaveLength(1));
     await eventually(() => expect(document.body.textContent).toContain('Deleted 3 items'));
     expect(document.body.textContent).toContain('1 task stayed');
     await eventually(() => expect(row('Sprint 14 retro')).toBeUndefined());
@@ -217,9 +217,7 @@ describe('the trash page', () => {
     const { app, main } = trashPage();
     main.taskStores.set(
       WORK,
-      new FakeTasks([
-        fakeTask('tsk_summary', 'Summarise sprint feedback', { archivedAt: TRASHED }),
-      ]),
+      new FakeTasks([fakeTask('tsk_summary', 'Summarise sprint feedback', { trashedAt: TRASHED })]),
     );
     await eventually(() => expect(row('Summarise sprint feedback')).toBeDefined());
     click(row('Summarise sprint feedback')!);
@@ -227,14 +225,14 @@ describe('the trash page', () => {
     await eventually(() => expect(app.text()).toContain('This task is in the trash'));
     expect(app.container.querySelector('[data-trashed]')?.hasAttribute('inert')).toBe(true);
     click(byText(app.container, 'button', 'Restore'));
-    await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
+    await eventually(() => expect(main.callsTo('trash.restoreTask')).toHaveLength(1));
   });
 
   it('draws each row’s own fields and pills from the list', async () => {
     const project = { id: 'prj_api' as ProjectId, title: 'API Gateway v2', color: '#f59e0b' };
     trashPage('', [
-      archived('prj_ai', 'AI Action Items', { status: ProjectStatus.ON_HOLD, color: '#22c55e' }),
-      archived('tsk_gateway', 'Set up API Gateway', {
+      trashed('prj_ai', 'AI Action Items', { status: ProjectStatus.ON_HOLD, color: '#22c55e' }),
+      trashed('tsk_gateway', 'Set up API Gateway', {
         status: TaskStatus.COMPLETED,
         project,
         external: {
@@ -247,7 +245,7 @@ describe('the trash page', () => {
           lastSyncedAt: TRASHED,
         },
       }),
-      archived('nte_retro', 'Sprint 14 retro', {
+      trashed('nte_retro', 'Sprint 14 retro', {
         preview: 'What went well, and what to change.',
         project,
       }),
@@ -269,7 +267,7 @@ describe('the trash page', () => {
     const { app, main } = trashPage();
     main.taskStores.set(
       WORK,
-      new FakeTasks([], [fakeProject('prj_ai', 'AI Action Items', { archivedAt: TRASHED })]),
+      new FakeTasks([], [fakeProject('prj_ai', 'AI Action Items', { trashedAt: TRASHED })]),
     );
     await eventually(() => expect(row('AI Action Items')).toBeDefined());
     click(row('AI Action Items')!);
@@ -278,8 +276,8 @@ describe('the trash page', () => {
     expect(app.container.querySelector('[data-trashed]')?.hasAttribute('inert')).toBe(true);
     expect(app.text()).toContain('AI Action Items');
     click(byText(app.container, 'button', 'Restore'));
-    await eventually(() => expect(main.callsTo('archive.restoreProject')).toHaveLength(1));
-    expect(main.callsTo('archive.restoreProject')[0].input).toEqual({ id: 'prj_ai' });
+    await eventually(() => expect(main.callsTo('trash.restoreProject')).toHaveLength(1));
+    expect(main.callsTo('trash.restoreProject')[0].input).toEqual({ id: 'prj_ai' });
   });
 
   it('opens a trashed note read-only, with its body and Restore', async () => {
@@ -287,7 +285,7 @@ describe('the trash page', () => {
     const store = new FakeTasks(
       [],
       [],
-      [fakeNote('nte_retro', 'Sprint 14 retro', { archivedAt: TRASHED })],
+      [fakeNote('nte_retro', 'Sprint 14 retro', { trashedAt: TRASHED })],
     );
     store.contents.set('nte_retro' as NoteId, 'Ship smaller pull requests.');
     main.taskStores.set(WORK, store);
@@ -300,7 +298,7 @@ describe('the trash page', () => {
     const editor = app.container.querySelector('[role="textbox"][aria-label="Note"]');
     expect(editor?.getAttribute('contenteditable')).toBe('false');
     click(byText(app.container, 'button', 'Restore'));
-    await eventually(() => expect(main.callsTo('archive.restoreNote')).toHaveLength(1));
+    await eventually(() => expect(main.callsTo('trash.restoreNote')).toHaveLength(1));
     expect(main.callsTo('notes.updateContent')).toHaveLength(0);
   });
 
@@ -315,11 +313,11 @@ describe('the trash page', () => {
 
     click(byText(bar()!, 'button', 'Restore'));
     await eventually(() => expect(document.body.textContent).toContain('Restored 2 items'));
-    expect(main.callsTo('archive.restoreMany').map((call) => call.input)).toEqual([
+    expect(main.callsTo('trash.restoreMany').map((call) => call.input)).toEqual([
       { taskIds: ['tsk_summary'], projectIds: ['prj_ai'], noteIds: [] },
     ]);
-    expect(main.callsTo('archive.restoreProject')).toHaveLength(0);
-    expect(main.callsTo('archive.restoreTask')).toHaveLength(0);
+    expect(main.callsTo('trash.restoreProject')).toHaveLength(0);
+    expect(main.callsTo('trash.restoreTask')).toHaveLength(0);
     await eventually(() => expect(row('AI Action Items')).toBeUndefined());
     expect(row('Sprint 14 retro')).toBeDefined();
     await eventually(() => expect(bar()?.hasAttribute('inert') ?? true).toBe(true));
@@ -336,10 +334,10 @@ describe('the trash page', () => {
     await eventually(() =>
       expect(document.body.textContent).toContain('Delete 2 items permanently?'),
     );
-    expect(main.callsTo('archive.deleteMany')).toHaveLength(0);
+    expect(main.callsTo('trash.deleteMany')).toHaveLength(0);
     click(byText(document.querySelector('[role="alertdialog"]')!, 'button', 'Delete 2 Items'));
     await eventually(() => expect(document.body.textContent).toContain('Deleted 2 items'));
-    expect(main.callsTo('archive.deleteMany').map((call) => call.input)).toEqual([
+    expect(main.callsTo('trash.deleteMany').map((call) => call.input)).toEqual([
       { taskIds: [], projectIds: ['prj_ai'], noteIds: ['nte_retro'] },
     ]);
     expect(main.callsTo('projects.delete')).toHaveLength(0);
@@ -349,8 +347,8 @@ describe('the trash page', () => {
 
   it('keeps the whole selection when the call fails, and says so', async () => {
     const { main } = trashPage('', SAMPLE, false);
-    main.routes.set('archive.deleteMany', () => {
-      throw FakeMain.error('not_archived', 'nte_retro');
+    main.routes.set('trash.deleteMany', () => {
+      throw FakeMain.error('not_in_trash', 'nte_retro');
     });
     await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
     select('AI Action Items');

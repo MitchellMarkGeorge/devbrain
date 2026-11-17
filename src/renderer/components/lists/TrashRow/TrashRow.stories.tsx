@@ -13,7 +13,7 @@ const meta = {
       entityType: 'notes',
       title: 'Sprint 14 retro',
       preview: 'What went well, what to change and action items for sprint 15.',
-      archivedAt: storyAgo(60 * 24 * 3),
+      trashedAt: storyAgo(60 * 24 * 3),
     },
     onSelect: () => {},
     onRestore: () => {},
@@ -43,7 +43,7 @@ export const Kinds: Story = {
           entityType: 'projects',
           title: 'AI Action Items',
           color: 'green',
-          archivedAt: storyAgo(60 * 24),
+          trashedAt: storyAgo(60 * 24),
         }}
       />
       <TrashRow
@@ -51,7 +51,7 @@ export const Kinds: Story = {
           entityType: 'tasks',
           title: 'Set up API Gateway',
           status: TaskStatus.COMPLETED,
-          archivedAt: storyAgo(60 * 24 * 5),
+          trashedAt: storyAgo(60 * 24 * 5),
         }}
         titlePills={<SourcePill>ENG-102</SourcePill>}
       >
@@ -62,7 +62,7 @@ export const Kinds: Story = {
           entityType: 'notes',
           title: 'Mitchell / Jesse 1:1 notes',
           preview: 'Agenda, follow-ups and decisions from the weekly 1:1.',
-          archivedAt: storyAgo(60 * 24 * 8),
+          trashedAt: storyAgo(60 * 24 * 8),
         }}
       />
     </div>

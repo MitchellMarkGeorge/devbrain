@@ -26,7 +26,7 @@ const t = initTRPC.create();
 const testRouter = t.router({
   tasks: t.router({
     get: t.procedure.input(z.object({ id: z.string() })).query(({ input }) => input),
-    archive: t.procedure.input(z.object({ id: z.string() })).mutation(() => null),
+    trash: t.procedure.input(z.object({ id: z.string() })).mutation(() => null),
   }),
 });
 
@@ -124,7 +124,7 @@ describe('ipcLink', () => {
     const bridge = fakeBridge({ ok: true, data: null, changed: ['task', 'note'] });
 
     const pending = client({ bridge, onChanged })
-      .tasks.archive.mutate({ id: 'tsk_1' })
+      .tasks.trash.mutate({ id: 'tsk_1' })
       .then(() => order.push('resolved'));
     await vi.waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(order).toEqual(['onChanged task,note']);
@@ -143,7 +143,7 @@ describe('ipcLink', () => {
     const bridge = fakeBridge({ ...rateLimited, changed: ['task'] });
 
     await client({ bridge, onChanged })
-      .tasks.archive.mutate({ id: 'tsk_1' })
+      .tasks.trash.mutate({ id: 'tsk_1' })
       .catch(() => order.push('rejected'));
 
     expect(order).toEqual(['onChanged task', 'rejected']);

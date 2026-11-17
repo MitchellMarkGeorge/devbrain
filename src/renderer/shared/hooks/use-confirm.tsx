@@ -6,10 +6,10 @@ import { KeyScope } from '@renderer/keyboard';
 import { useModals } from '@renderer/app/modals';
 
 /**
- * Which setting decides whether to ask: `archive` (moving to trash) follows
- * `general.confirmBeforeArchiving`, `delete` (deleting for good) `general.confirmBeforeDeleting`.
+ * Which setting decides whether to ask: `trash` (moving to trash) follows
+ * `general.confirmBeforeTrashing`, `delete` (deleting for good) `general.confirmBeforeDeleting`.
  */
-export type ConfirmKind = 'archive' | 'delete';
+export type ConfirmKind = 'trash' | 'delete';
 
 export type ConfirmOptions = Pick<
   ConfirmDialogProps,
@@ -27,11 +27,11 @@ export type ConfirmOptions = Pick<
 export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
   const modals = useModals();
   const general = useQuery(trpc.settings.get.queryOptions()).data?.general;
-  const askArchive = general?.confirmBeforeArchiving ?? false;
+  const askTrash = general?.confirmBeforeTrashing ?? false;
   const askDelete = general?.confirmBeforeDeleting ?? true;
   return useCallback(
     ({ kind, ...dialog }) => {
-      if (!(kind === 'archive' ? askArchive : askDelete)) return Promise.resolve(true);
+      if (!(kind === 'trash' ? askTrash : askDelete)) return Promise.resolve(true);
       return new Promise<boolean>((resolve) => {
         let confirmed = false;
         modals.open((props) => (
@@ -52,6 +52,6 @@ export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
         ));
       });
     },
-    [modals, askArchive, askDelete],
+    [modals, askTrash, askDelete],
   );
 }

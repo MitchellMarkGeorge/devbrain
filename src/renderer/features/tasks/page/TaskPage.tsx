@@ -58,7 +58,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   const [adding, setAdding] = useState<AddingProperty>(null);
   const synced = isSynced(task);
   // opened from Trash: shown as it is, read-only, until it's restored
-  const trashed = task.archivedAt !== null;
+  const trashed = task.trashedAt !== null;
 
   // the task note in the sheet beside the page (?note=nte_…), with an entry of its own, so Back
   // closes it; it stays mounted once `note` leaves the URL, until it has slid out
@@ -129,7 +129,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
             <TrashedNotice
               noun="task"
               onRestore={() =>
-                void ipc.archive.restoreTask
+                void ipc.trash.restoreTask
                   .mutate({ id: task.id })
                   .catch((error: unknown) => showError(error, 'Couldn’t restore the task'))
               }

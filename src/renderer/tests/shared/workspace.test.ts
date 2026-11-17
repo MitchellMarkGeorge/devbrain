@@ -11,7 +11,7 @@ const general = (openToLastPage: boolean) => ({
     defaultLandingPage: 'tasks' as const,
     launchOnStartup: false,
     confirmBeforeDeleting: true,
-    confirmBeforeArchiving: false,
+    confirmBeforeTrashing: false,
     timeFormat: '12' as const,
   },
 });

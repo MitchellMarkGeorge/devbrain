@@ -171,7 +171,7 @@ describe('a switch', () => {
     const app = await onWorkTasks(main);
     await app.router.navigate({ to: '/app/$workspaceId/notes', params: { workspaceId: HOME } });
     await app.router.navigate({ to: '/app/$workspaceId/trash', params: { workspaceId: SIDE } });
-    await eventually(() => expect(app.text()).toContain('Side archive.listArchived'));
+    await eventually(() => expect(app.text()).toContain('Side trash.listTrashed'));
 
     // each open waits until released, so the navigations pile up
     const release = main.hold('open');

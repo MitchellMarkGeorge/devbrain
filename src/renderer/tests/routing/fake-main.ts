@@ -44,7 +44,7 @@ const PAGE_ROUTES = new Set([
   'recents.list',
   'projects.list',
   'integrations.list',
-  'archive.listArchived',
+  'trash.listTrashed',
 ]);
 
 export function workspace(
@@ -92,7 +92,7 @@ export class FakeMain {
     launchOnStartup: false,
     openToLastPage: false,
     confirmBeforeDeleting: true,
-    confirmBeforeArchiving: false,
+    confirmBeforeTrashing: false,
     timeFormat: '12',
   };
   readonly calls: Call[] = [];
@@ -377,11 +377,11 @@ export class FakeMain {
           }),
           ['task'],
         ];
-      case 'archive.archiveTask':
-        return [store.patch(task().id, { archivedAt: new Date() }), ['task']];
-      case 'archive.archiveTasks':
+      case 'trash.trashTask':
+        return [store.patch(task().id, { trashedAt: new Date() }), ['task']];
+      case 'trash.trashTasks':
         return [
-          (args.ids as string[]).map((id) => store.patch(id, { archivedAt: new Date() })),
+          (args.ids as string[]).map((id) => store.patch(id, { trashedAt: new Date() })),
           ['task'],
         ];
       case 'tasks.promote':
@@ -397,10 +397,10 @@ export class FakeMain {
           ['task'],
         ];
       }
-      case 'archive.archiveNote':
-        return [store.patchNote(args.id, { archivedAt: new Date() }), ['note']];
-      case 'archive.restoreNote':
-        return [store.patchNote(args.id, { archivedAt: null }), ['note']];
+      case 'trash.trashNote':
+        return [store.patchNote(args.id, { trashedAt: new Date() }), ['note']];
+      case 'trash.restoreNote':
+        return [store.patchNote(args.id, { trashedAt: null }), ['note']];
       case 'tasks.duplicate': {
         const { id, ...fields } = task();
         void id;
@@ -413,15 +413,15 @@ export class FakeMain {
         return [`# ${task().title}\n`, []];
       case 'tasks.convertToProject': {
         const found = task();
-        store.patch(found.id, { archivedAt: new Date() });
+        store.patch(found.id, { trashedAt: new Date() });
         const project = fakeProject(`prj_${found.id.slice(4)}`, found.title);
         store.projects.push(project);
         return [project, ['task', 'project']];
       }
-      case 'archive.restoreTask': {
-        const archived = store.tasks.find((t) => t.id === args.id);
-        if (archived) archived.archivedAt = null;
-        return [archived, ['task']];
+      case 'trash.restoreTask': {
+        const trashed = store.tasks.find((t) => t.id === args.id);
+        if (trashed) trashed.trashedAt = null;
+        return [trashed, ['task']];
       }
       default:
         return [undefined, []];
@@ -440,7 +440,7 @@ export class FakeMain {
       case 'projects.list': {
         const filter = (args.filter ?? {}) as { status?: number; dueBefore?: Date };
         const items = store.projects
-          .filter((p) => p.archivedAt === null)
+          .filter((p) => p.trashedAt === null)
           .filter((p) => filter.status === undefined || p.status === filter.status)
           .filter((p) => !filter.dueBefore || (p.dueDate !== null && p.dueDate < filter.dueBefore))
           .map((p) => ({ ...p, stats: store.statsOf(p.id) }));
@@ -448,7 +448,7 @@ export class FakeMain {
       }
       // a project in the trash too, as core's projects.get
       case 'projects.get': {
-        const found = store.findProject(args.id, { includeArchived: true });
+        const found = store.findProject(args.id, { includeTrashed: true });
         if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
         return [found, []];
       }
@@ -472,8 +472,8 @@ export class FakeMain {
           Object.assign(project(), { favoritedAt: args.favorite ? new Date() : null }),
           ['project'],
         ];
-      case 'archive.archiveProject':
-        return [Object.assign(project(), { archivedAt: new Date() }), ['project']];
+      case 'trash.trashProject':
+        return [Object.assign(project(), { trashedAt: new Date() }), ['project']];
       case 'projects.toMarkdown':
         return [`# ${project().title}\n`, []];
       default:
@@ -551,7 +551,7 @@ export class FakeMain {
     }
     if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
     if (
-      (path.startsWith('projects.') || path === 'archive.archiveProject') &&
+      (path.startsWith('projects.') || path === 'trash.trashProject') &&
       this.open !== null &&
       this.taskStores.has(this.open)
     ) {
@@ -560,8 +560,7 @@ export class FakeMain {
     const home = this.answerHome(path, args);
     if (home) return home;
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];
-    if (path.startsWith('tasks.') || path.startsWith('archive.'))
-      return this.answerTasks(path, args);
+    if (path.startsWith('tasks.') || path.startsWith('trash.')) return this.answerTasks(path, args);
     switch (path) {
       case 'app.version':
         return ['0.0.1', []];
@@ -745,9 +744,9 @@ export class FakeMain {
         };
         return { items: [{ id, title, status: 3, color: null, stats }], nextCursor: null };
       }
-      case 'archive.listArchived':
+      case 'trash.listTrashed':
         return {
-          items: [{ id, title, entityType: 'tasks', archivedAt: new Date(2026, 5, 22, 9) }],
+          items: [{ id, title, entityType: 'tasks', trashedAt: new Date(2026, 5, 22, 9) }],
           nextCursor: null,
         };
       default:

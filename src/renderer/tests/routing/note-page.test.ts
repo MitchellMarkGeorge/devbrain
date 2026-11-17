@@ -221,7 +221,7 @@ describe('the note page', () => {
     );
     click(byText(document.body, '[role="menuitem"]', 'Move to trash'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
-    expect(main.callsTo('archive.archiveNote').map((call) => call.input)).toEqual([{ id: NOTE }]);
+    expect(main.callsTo('trash.trashNote').map((call) => call.input)).toEqual([{ id: NOTE }]);
   });
 
   it('links an existing task from Link Task', async () => {

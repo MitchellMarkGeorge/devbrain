@@ -93,11 +93,11 @@ describe('the list view', () => {
     key(row('Plan the launch')!, 'x');
     await eventually(() => expect(app.text()).toContain('1 selected'));
     key(document.activeElement!, 'Backspace', { metaKey: true });
-    await eventually(() => expect(main.callsTo('archive.archiveTask')).toHaveLength(1));
+    await eventually(() => expect(main.callsTo('trash.trashTask')).toHaveLength(1));
     await eventually(() => expect(document.body.textContent).toContain('Moved to trash'));
     await eventually(() => expect(app.text()).not.toContain('Plan the launch'));
     click(byText(document.body, 'button', 'Undo'));
-    await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
+    await eventually(() => expect(main.callsTo('trash.restoreTask')).toHaveLength(1));
     await eventually(() => expect(app.text()).toContain('Plan the launch'));
   });
 

@@ -87,7 +87,7 @@ function ProjectPageContent({ project }: { project: Project }) {
   const tab = search.tab ?? 'overview';
   const showError = useMutationErrorToast();
   // opened from Trash: shown as it is, read-only, until it's restored
-  const trashed = project.archivedAt !== null;
+  const trashed = project.trashedAt !== null;
 
   // a tab is a section of the page: switching replaces the entry, and leaves the other tab's params
   const setTab = (next: ProjectTab) =>
@@ -140,7 +140,7 @@ function ProjectPageContent({ project }: { project: Project }) {
           <TrashedNotice
             noun="project"
             onRestore={() =>
-              void ipc.archive.restoreProject
+              void ipc.trash.restoreProject
                 .mutate({ id: project.id })
                 .catch((error: unknown) => showError(error, 'Couldn’t restore the project'))
             }

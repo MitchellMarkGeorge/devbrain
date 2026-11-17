@@ -42,9 +42,9 @@ export function mutationErrorCopy(
     }
     case 'not_found':
       return { title: action, description: 'It may have been deleted.' };
-    case 'already_archived':
+    case 'already_in_trash':
       return { title: action, description: 'It’s already in the trash.' };
-    case 'not_archived':
+    case 'not_in_trash':
       return { title: action, description: 'It’s no longer in the trash.' };
     case 'task_hierarchy':
       return { title: action, description: serialized?.message };

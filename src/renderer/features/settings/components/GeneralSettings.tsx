@@ -250,9 +250,9 @@ export function PreferencesSettings() {
             control={
               <SettingSwitch
                 label="Ask before moving to trash"
-                checked={general.confirmBeforeArchiving}
+                checked={general.confirmBeforeTrashing}
                 onChange={(value) =>
-                  void set({ path: 'settings.general.confirmBeforeArchiving', value })
+                  void set({ path: 'settings.general.confirmBeforeTrashing', value })
                 }
               />
             }

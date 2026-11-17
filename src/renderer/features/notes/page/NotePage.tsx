@@ -67,7 +67,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   const { formatRelative } = useFormat('minute');
   const title = useRef<HTMLHeadingElement>(null);
   // opened from Trash: shown as it is, read-only, until it's restored
-  const trashed = note.archivedAt !== null;
+  const trashed = note.trashedAt !== null;
 
   // a task made from the note, in the sheet beside the page (?open=tsk_…), with an entry of its
   // own, so Back closes it; it stays mounted once `open` leaves the URL, until it has slid out
@@ -138,7 +138,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
             <TrashedNotice
               noun="note"
               onRestore={() =>
-                void ipc.archive.restoreNote
+                void ipc.trash.restoreNote
                   .mutate({ id: note.id })
                   .catch((error: unknown) => showError(error, 'Couldn’t restore the note'))
               }

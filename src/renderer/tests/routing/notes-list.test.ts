@@ -192,7 +192,7 @@ describe('the notes list', () => {
     await eventually(() => expect(row('PKCE design notes')!.tabIndex).toBe(0));
     key(row('PKCE design notes')!, 'Backspace', { metaKey: true });
     await eventually(() =>
-      expect(main.callsTo('archive.archiveNote').map((call) => call.input)).toEqual([
+      expect(main.callsTo('trash.trashNote').map((call) => call.input)).toEqual([
         { id: 'nte_pkce' },
       ]),
     );
@@ -261,7 +261,7 @@ describe('selecting notes', () => {
       // in the list's order, which favoriting changed (it touches each note's edit time)
       expect(
         main
-          .callsTo('archive.archiveNote')
+          .callsTo('trash.trashNote')
           .map((call) => (call.input as { id: string }).id)
           .sort(),
       ).toEqual(['nte_1on1', 'nte_plan']),

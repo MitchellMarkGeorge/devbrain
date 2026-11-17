@@ -17,7 +17,7 @@ const SETTINGS: AppSettings = {
     launchOnStartup: false,
     openToLastPage: true,
     confirmBeforeDeleting: true,
-    confirmBeforeArchiving: false,
+    confirmBeforeTrashing: false,
     timeFormat: '12',
   },
   tasks: {

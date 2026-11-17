@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ArchivableEntityType } from '@common/types';
+import type { TrashableEntityType } from '@common/types';
 
 // The trash page's search params (docs/renderer/implementation-plan.md, "/app/trash"): which kind
 // of item it lists, and its sort. Each is `.optional().catch(undefined)`: a bad value falls back to
@@ -16,7 +16,7 @@ export const trashSearchSchema = z.object({
 
 export type TrashSearch = z.infer<typeof trashSearchSchema>;
 
-/** What `archive.listArchived` takes for a tab. */
-export function trashEntityType(tab: TrashTab | undefined): ArchivableEntityType | 'all' {
+/** What `trash.listTrashed` takes for a tab. */
+export function trashEntityType(tab: TrashTab | undefined): TrashableEntityType | 'all' {
   return tab ?? 'all';
 }
