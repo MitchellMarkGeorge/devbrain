@@ -200,7 +200,8 @@ button.groupLabel:focus-visible {
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: inherit;
+  /* quiet until pointed at or current, so the title bar leads */
+  color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   text-align: left;
   text-decoration: none;
@@ -215,10 +216,8 @@ button.groupLabel:focus-visible {
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
 }
-/* the outline is drawn inside, so labels line up whether or not an item is current */
 .item[data-active] {
   background: var(--sidebar-accent);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
   color: var(--sidebar-accent-foreground);
 }
 .item:focus-visible {
