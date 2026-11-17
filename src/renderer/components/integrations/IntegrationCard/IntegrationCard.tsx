@@ -1,6 +1,6 @@
 import { forwardRef, useId, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { cva } from 'class-variance-authority';
-import { TriangleAlert } from 'lucide-react';
+import { Info, TriangleAlert } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { AccountStatus, type AccountState } from '../AccountStatus';
 import { Icon } from '../../ui/Icon';
@@ -92,16 +92,30 @@ export const IntegrationCard = forwardRef<HTMLElement, IntegrationCardProps>(
 );
 
 export interface IntegrationCardAlertProps extends ComponentPropsWithoutRef<'div'> {
-  /** a "Reconnect" or "Update key" button at the right */
+  /** a "Reconnect" or "Update key" button at the right, or a few buttons in a row */
   action?: ReactNode;
+  /**
+   * `warning` (amber, the default): something is wrong and syncing has stopped. `info` (blue): an
+   * offer the user can take or leave, with nothing broken; announced politely, not as an alert.
+   */
+  tone?: 'warning' | 'info';
 }
 
-/** The amber notice inside an account card: what went wrong and the button that fixes it. */
+/**
+ * The notice inside an account card: amber for what went wrong and the button that fixes it, blue
+ * for an offer (reattaching the tasks a disconnect kept).
+ */
 export const IntegrationCardAlert = forwardRef<HTMLDivElement, IntegrationCardAlertProps>(
-  function IntegrationCardAlert({ action, className, children, ...props }, ref) {
+  function IntegrationCardAlert({ action, tone = 'warning', className, children, ...props }, ref) {
+    const info = tone === 'info';
     return (
-      <div ref={ref} role="alert" className={cn(styles.alert, className)} {...props}>
-        <Icon icon={TriangleAlert} size={16} className={styles.alertIcon} />
+      <div
+        ref={ref}
+        role={info ? 'status' : 'alert'}
+        className={cn(styles.alert, info && styles.alertInfo, className)}
+        {...props}
+      >
+        <Icon icon={info ? Info : TriangleAlert} size={16} className={styles.alertIcon} />
         <div className={styles.alertText}>{children}</div>
         {action}
       </div>

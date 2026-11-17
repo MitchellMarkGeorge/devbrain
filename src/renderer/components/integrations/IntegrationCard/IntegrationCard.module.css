@@ -72,6 +72,14 @@
   flex: 1;
   min-width: 0;
 }
+/* an offer, nothing wrong: the editor's Note blue */
+.alertInfo {
+  border-color: color-mix(in oklab, var(--swatch-blue) 35%, transparent);
+  background: color-mix(in oklab, var(--swatch-blue) 10%, transparent);
+}
+.alertInfo .alertIcon {
+  color: var(--swatch-blue);
+}
 
 .sources {
   display: flex;

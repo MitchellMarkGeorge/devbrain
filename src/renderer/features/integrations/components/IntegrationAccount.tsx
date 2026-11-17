@@ -65,7 +65,7 @@ export interface IntegrationAccountProps {
  *
  * After the account was disconnected keeping local copies and then connected again, its first
  * sync matches those tasks back to it (`integrations.keptCopies`), and the alert offers to
- * reattach them or keep them local. Not in Figma; it reuses the card's alert.
+ * reattach them or keep them local, in the alert's blue info tone (not in Figma yet).
  */
 export function IntegrationAccount({
   integration,
@@ -170,6 +170,7 @@ export function IntegrationAccount({
         ) : (
           kept > 0 && (
             <IntegrationCardAlert
+              tone="info"
               data-testid="kept-copies"
               action={
                 <span className={styles.alertActions}>

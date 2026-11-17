@@ -176,7 +176,6 @@ Left to do:
 - **The offer waits for the first sync.** A kept copy has no source until the sync lists its item, so the count grows as that sync runs. A copy whose item is no longer assigned to the user is never matched, so it is never offered either.
 - **A refused task stays offered.** One that is gone or reassigned is reported and stays a kept copy, so the offer remains until the user picks Keep Local. Clearing the marker for a refusal that won't change (gone, reassigned) would end the offer by itself.
 - **One provider lookup per top-level task**, one after another. Fine for tens of tasks; hundreds would want the reconciler's lookup batched across tasks.
-- **The offer reuses the card's amber alert**, which Figma doesn't show. A calmer, informational style would need a design and an `IntegrationCardAlert` tone.
 
 ### Viewing months before the synced history
 

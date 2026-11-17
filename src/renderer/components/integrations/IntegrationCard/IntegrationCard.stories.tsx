@@ -70,6 +70,30 @@ export const NeedsReconnect: Story = {
   },
 };
 
+/** An offer, nothing wrong: the blue info tone, with two buttons */
+export const ReattachOffer: Story = {
+  args: {
+    alert: (
+      <IntegrationCardAlert
+        tone="info"
+        action={
+          <span style={{ display: 'flex', gap: 8 }}>
+            <Button variant="ghost" size="sm">
+              Keep Local
+            </Button>
+            <Button variant="outline" size="sm" icon={RotateCcw}>
+              Reattach…
+            </Button>
+          </span>
+        }
+      >
+        12 tasks from Linear are still local copies from when this account was disconnected.
+        Reattach to sync them again, or keep them as your own.
+      </IntegrationCardAlert>
+    ),
+  },
+};
+
 /** Turned off: the tile and the sources fade */
 export const Off: Story = {
   args: {

@@ -343,6 +343,10 @@ describe('the integrations page', () => {
         '3 tasks from Linear are still local copies from when this account was disconnected. Reattach to sync them again',
       ),
     );
+    // an offer, not an alert: the blue info tone
+    expect(
+      card('int_linear')!.querySelector('[data-testid="kept-copies"]')!.getAttribute('role'),
+    ).toBe('status');
     click(byText(card('int_linear')!, 'button', 'Reattach…'));
     await eventually(() => expect(document.body.textContent).toContain('Reattach 3 tasks?'));
     expect(document.body.textContent).toContain(
