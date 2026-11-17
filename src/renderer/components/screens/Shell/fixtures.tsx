@@ -1,9 +1,8 @@
 /** The Figma screens' sample data, shared by the screen stories. */
 import { ArrowUpDown, Group, List, ListFilter, Plus, SquareKanban } from 'lucide-react';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
-import { PageHeader, PageToolbar } from '../../shell/PageHeader';
+import { PageToolbar } from '../../shell/Page';
 import type { TaskRowData } from '../../lists/TaskRow';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import {
@@ -88,15 +87,6 @@ export const FIGMA_TASKS: TaskRowData[] = [
     project: sampleProject('API Gateway v2', 'amber'),
   }),
 ];
-
-/** "Tasks › List": the Tasks page's header. */
-export function TasksHeader() {
-  return (
-    <PageHeader>
-      <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-    </PageHeader>
-  );
-}
 
 /** Filter at the left; Sort, the view switch and New Task at the right. */
 export function TasksToolbar({ compact = false }: { compact?: boolean }) {

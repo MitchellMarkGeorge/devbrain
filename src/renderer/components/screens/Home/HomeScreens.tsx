@@ -12,7 +12,7 @@ import { HomeCards, HomeSection } from '../../home/HomeSection';
 import { Kbd } from '../../ui/Kbd';
 import { Logomark } from '../../ui/Logomark';
 import { NoteCard } from '../../notes/NoteCard';
-import { PageContent } from '../../shell/PageHeader';
+import { PageContent } from '../../shell/Page';
 import { ProviderTile } from '../../entities/ProviderTile';
 import { SetupRow } from '../../home/SetupRow';
 import { TaskRow } from '../../lists/TaskRow';

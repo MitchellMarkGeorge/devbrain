@@ -1,15 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, CircleCheck, LayoutGrid, List, ListFilter, Plus } from 'lucide-react';
-import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
 import { CardGrid } from '../../shell/CardGrid';
 import { EmptyState } from '../../ui/EmptyState';
-import { PageContent, PageHeader, PageToolbar } from '../../shell/PageHeader';
+import { PageContent, PageToolbar } from '../../shell/Page';
 import { NoteCardSkeleton, Skeleton } from '../../ui/Skeleton';
 import { TaskRow } from '../../lists/TaskRow';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { ScreenFrame } from '../Shell/AppFrame';
-import { FIGMA_TASKS, TasksHeader, TasksToolbar } from '../Shell/fixtures';
+import { FIGMA_TASKS, TasksToolbar } from '../Shell/fixtures';
 
 const meta = {
   title: 'Screens/States/States',
@@ -22,7 +21,7 @@ type Story = StoryObj<typeof meta>;
 /** Figma "Tasks (list) — empty" (7175:35659): the empty state 160px under the toolbar. */
 export const TasksEmpty: Story = {
   render: () => (
-    <ScreenFrame page="Tasks" header={<TasksHeader />}>
+    <ScreenFrame page="Tasks" title="Tasks">
       <TasksToolbar />
       <PageContent layout="list">
         <EmptyState
@@ -43,14 +42,7 @@ export const TasksEmpty: Story = {
 /** Figma "Notes (cards) — loading" (7175:36096): six card skeletons; the count's place pulses in the toolbar. */
 export const NotesLoading: Story = {
   render: () => (
-    <ScreenFrame
-      page="Notes"
-      header={
-        <PageHeader>
-          <Breadcrumb items={['Notes', { label: 'Cards', icon: LayoutGrid }]} />
-        </PageHeader>
-      }
-    >
+    <ScreenFrame page="Notes" title="Notes">
       <PageToolbar
         start={
           <Button icon={ListFilter} value="All">
@@ -89,7 +81,7 @@ export const NotesLoading: Story = {
 /** Figma "Tasks (list) — sync failed" (7175:37244): the sync line at the top of the sidebar's footer. */
 export const SyncFailed: Story = {
   render: () => (
-    <ScreenFrame page="Tasks" header={<TasksHeader />} sync="error">
+    <ScreenFrame page="Tasks" title="Tasks" sync="error">
       <TasksToolbar />
       <PageContent layout="list">
         {FIGMA_TASKS.filter((t) => t.id !== 'tsk_mobile').map((task) => (

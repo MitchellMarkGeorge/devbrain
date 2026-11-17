@@ -19,7 +19,6 @@ import {
   TabsTab,
   useFormat,
   Page,
-  PageHeader,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
@@ -102,18 +101,14 @@ function ProjectPageContent({ project }: { project: Project }) {
   return (
     <Page
       title={project.title}
-      header={
-        <PageHeader
-          actions={
-            <>
-              <PageFavoriteButton
-                favorite={project.favoritedAt !== null}
-                onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
-              />
-              <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
-            </>
-          }
-        ></PageHeader>
+      actions={
+        <>
+          <PageFavoriteButton
+            favorite={project.favoritedAt !== null}
+            onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
+          />
+          <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
+        </>
       }
     >
       <div className={styles.tabsBar}>

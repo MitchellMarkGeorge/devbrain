@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { PageContent } from '../../shell/PageHeader';
+import { PageContent } from '../../shell/Page';
 import { TaskRow } from '../../lists/TaskRow';
 import { ScreenFrame } from './AppFrame';
-import { FIGMA_TASKS, TasksHeader, TasksToolbar } from './fixtures';
+import { FIGMA_TASKS, TasksToolbar } from './fixtures';
 
 const meta = {
   title: 'Screens/Shell/Tasks list',
@@ -28,7 +28,7 @@ function TasksPage({ compact = false, hovered }: { compact?: boolean; hovered?: 
 /** Figma "Tasks (list)" (7155:5231): the full sidebar with its window row. */
 export const Expanded: Story = {
   render: () => (
-    <ScreenFrame page="Tasks" header={<TasksHeader />}>
+    <ScreenFrame page="Tasks" title="Tasks">
       <TasksPage hovered={3} />
     </ScreenFrame>
   ),
@@ -41,7 +41,7 @@ export const Expanded: Story = {
  */
 export const SidebarCollapsed: Story = {
   render: () => (
-    <ScreenFrame page="Tasks" header={<TasksHeader />} defaultCollapsed>
+    <ScreenFrame page="Tasks" title="Tasks" defaultCollapsed>
       <TasksPage hovered={2} />
     </ScreenFrame>
   ),
@@ -53,7 +53,7 @@ export const SidebarCollapsed: Story = {
  */
 export const Compact: Story = {
   render: () => (
-    <ScreenFrame page="Tasks" header={<TasksHeader />} width={960} height={640}>
+    <ScreenFrame page="Tasks" title="Tasks" width={960} height={640}>
       <TasksPage compact hovered={2} />
     </ScreenFrame>
   ),
@@ -65,7 +65,7 @@ export const Compact: Story = {
  */
 export const CompactDrawer: Story = {
   render: () => (
-    <ScreenFrame page="Tasks" header={<TasksHeader />} width={960} height={640} defaultDrawerOpen>
+    <ScreenFrame page="Tasks" title="Tasks" width={960} height={640} defaultDrawerOpen>
       <TasksPage compact hovered={2} />
     </ScreenFrame>
   ),

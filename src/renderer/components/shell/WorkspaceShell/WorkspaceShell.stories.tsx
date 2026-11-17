@@ -8,14 +8,7 @@ import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle } from '../
 import { useWorkspaceShell } from './context';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
 import { Heading } from '../../layout/Heading';
-import {
-  Page,
-  PageContent,
-  PageFavoriteButton,
-  PageHeader,
-  PageMenuButton,
-  PageToolbar,
-} from '../PageHeader';
+import { Page, PageContent, PageFavoriteButton, PageMenuButton, PageToolbar } from '../Page';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar, demoTitleBar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
@@ -116,21 +109,17 @@ export const DetailPage: Story = {
         <ShellWithKeys sidebar={<DemoSidebar active="Projects" />} {...demoTitleBar()}>
           <Page
             title="Implement OAuth2 PKCE flow"
-            header={
-              <PageHeader
-                actions={
-                  <>
-                    <PageFavoriteButton favorite />
-                    <PageMenuButton>
-                      <DropdownMenuItem icon={<Copy />}>Copy as Markdown</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem icon={<Trash2 />} variant="destructive">
-                        Move to trash
-                      </DropdownMenuItem>
-                    </PageMenuButton>
-                  </>
-                }
-              />
+            actions={
+              <>
+                <PageFavoriteButton favorite />
+                <PageMenuButton>
+                  <DropdownMenuItem icon={<Copy />}>Copy as Markdown</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem icon={<Trash2 />} variant="destructive">
+                    Move to trash
+                  </DropdownMenuItem>
+                </PageMenuButton>
+              </>
             }
           >
             <PageContent layout="document">

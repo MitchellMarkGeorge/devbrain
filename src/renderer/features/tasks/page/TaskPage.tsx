@@ -3,14 +3,7 @@ import type { NoteId } from '@common/ids';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import type { TaskListItem, TaskSummary } from '@common/types';
-import {
-  EditorTitle,
-  PageContent,
-  PageFavoriteButton,
-  Stack,
-  Page,
-  PageHeader,
-} from '@renderer/components';
+import { EditorTitle, PageContent, PageFavoriteButton, Stack, Page } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
@@ -118,20 +111,16 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   return (
     <Page
       title={task.title}
-      header={
-        <PageHeader
-          actions={
-            !trashed && (
-              <>
-                <PageFavoriteButton
-                  favorite={task.favoritedAt !== null}
-                  onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
-                />
-                <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
-              </>
-            )
-          }
-        ></PageHeader>
+      actions={
+        !trashed && (
+          <>
+            <PageFavoriteButton
+              favorite={task.favoritedAt !== null}
+              onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
+            />
+            <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
+          </>
+        )
       }
     >
       <PageContent layout="document" data-testid="task-page">

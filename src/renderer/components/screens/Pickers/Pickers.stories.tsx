@@ -8,7 +8,6 @@ import { Button } from '../../ui/Button';
 import { DatePicker } from '../../ui/DatePicker';
 import { DateRangePicker, type DateRangeEnd } from '../../ui/DateRangePicker';
 import { DetailSection } from '../../detail/DetailSection';
-import { DocumentPage } from '../../shell/DocumentPage';
 import { EntityPill } from '../../entities/EntityPill';
 import { Icon } from '../../ui/Icon';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
@@ -20,7 +19,7 @@ import { StatusIcon } from '../../entities/StatusIcon';
 import { TaskList } from '../../lists/TaskList';
 import { TaskNoteCard } from '../../detail/TaskNoteCard';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../TaskDetail/data';
-import { AppWindow, DetailTopBar } from '../TaskDetail/frame';
+import { AppWindow, DetailPage, DetailTopBar } from '../TaskDetail/frame';
 
 const meta = {
   title: 'Screens/Pickers',
@@ -50,9 +49,8 @@ function OpenPill({ pill, children }: { pill: ReactNode; children: ReactNode }) 
 function TaskPage({ dates }: { dates: ReactNode }) {
   return (
     <AppWindow active="Tasks">
-      <DocumentPage
-        style={{ flex: 1 }}
-        header={
+      <DetailPage
+        top={
           <DetailTopBar
             items={[
               { label: 'Tasks', href: '#' },
@@ -112,7 +110,7 @@ function TaskPage({ dates }: { dates: ReactNode }) {
             />
           </DetailSection>
         </div>
-      </DocumentPage>
+      </DetailPage>
     </AppWindow>
   );
 }

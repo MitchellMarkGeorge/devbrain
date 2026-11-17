@@ -19,7 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { WorkspaceShell, type WorkspaceShellProps } from '../../shell/WorkspaceShell';
-import { Page } from '../../shell/PageHeader';
+import { Page } from '../../shell/Page';
 import {
   Sidebar,
   SidebarContent,
@@ -165,9 +165,9 @@ export interface ScreenFrameProps extends Omit<WorkspaceShellProps, 'sidebar' | 
   height?: number;
   sidebar?: ReactNode;
   /** the page's title, in the title bar's search field */
-  title?: ReactNode;
-  /** the page's header (a `PageHeader`); the children are drawn in a `Page` under it */
-  header?: ReactNode;
+  title?: string;
+  /** the page's actions, at the title bar's end; the children are drawn in its `Page` */
+  actions?: ReactNode;
   /** open the workspace menu (the switcher screen) */
   workspaceMenuOpen?: boolean;
   /** props for the default `DemoSidebar` */
@@ -185,7 +185,7 @@ export function ScreenFrame({
   height = 1024,
   sidebar,
   title,
-  header,
+  actions,
   page,
   emptySidebar,
   sync,
@@ -202,7 +202,7 @@ export function ScreenFrame({
         {...demoTitleBar(workspaceMenuOpen)}
         {...props}
       >
-        <Page title={title} header={header}>
+        <Page title={title} actions={actions}>
           {children}
         </Page>
       </WorkspaceShell>

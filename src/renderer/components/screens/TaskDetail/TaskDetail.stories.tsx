@@ -7,7 +7,6 @@ import { AddSlot } from '../../detail/AddSlot';
 import { Button } from '../../ui/Button';
 import { DateRange } from '../../detail/DateRange';
 import { DetailSection } from '../../detail/DetailSection';
-import { DocumentPage } from '../../shell/DocumentPage';
 import { EntityPill } from '../../entities/EntityPill';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
@@ -17,7 +16,7 @@ import { SyncedBadge } from '../../entities/SyncedBadge';
 import { TaskList } from '../../lists/TaskList';
 import { TaskNoteCard } from '../../detail/TaskNoteCard';
 import type { TaskRowData } from '../../lists/TaskRow';
-import { AppWindow, DetailTopBar } from './frame';
+import { AppWindow, DetailPage, DetailTopBar } from './frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from './data';
 import { sampleLinear, sampleTask } from '../../lists/TaskRow/fixtures';
 import { storyDate } from '../../lib/story-dates';
@@ -80,9 +79,8 @@ function TaskPage({
 }: TaskPageProps) {
   return (
     <AppWindow active="Tasks">
-      <DocumentPage
-        style={{ flex: 1 }}
-        header={
+      <DetailPage
+        top={
           <DetailTopBar
             items={[
               { label: 'Tasks', href: '#' },
@@ -90,7 +88,6 @@ function TaskPage({
             ]}
           />
         }
-        columnClassName="task-page"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
           <Heading level={1} variant="document">
@@ -127,7 +124,7 @@ function TaskPage({
             {taskNote}
           </DetailSection>
         </div>
-      </DocumentPage>
+      </DetailPage>
     </AppWindow>
   );
 }

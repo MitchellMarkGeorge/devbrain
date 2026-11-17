@@ -176,8 +176,8 @@
   z-index: calc(var(--z-overlay) + 1);
 }
 .titleSlot {
-  /* the page's header (its actions) fills the bar's height */
-  --page-header-height: var(--title-bar-height);
+  /* the page's actions fill the bar's height */
+  --page-actions-height: var(--title-bar-height);
   grid-row: 1;
   grid-column: 3;
   position: relative;
@@ -189,7 +189,7 @@
   flex: 1;
   min-width: 0;
 }
-/* one page's header at a time: a page still mounted under the next one's loading keeps its own out */
+/* one page's actions at a time: a page still mounted under the next one's loading keeps its own out */
 .titleSlot > :not(:last-child) {
   display: none;
 }

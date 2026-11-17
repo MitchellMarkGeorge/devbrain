@@ -11,7 +11,6 @@ import {
   Text,
   useFormat,
   Page,
-  PageHeader,
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
@@ -118,18 +117,14 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   return (
     <Page
       title={note.title || 'Untitled'}
-      header={
-        <PageHeader
-          actions={
-            <>
-              <PageFavoriteButton
-                favorite={note.favoritedAt !== null}
-                onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
-              />
-              <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
-            </>
-          }
-        ></PageHeader>
+      actions={
+        <>
+          <PageFavoriteButton
+            favorite={note.favoritedAt !== null}
+            onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
+          />
+          <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
+        </>
       }
     >
       <PageContent layout="document" data-testid="note-page">

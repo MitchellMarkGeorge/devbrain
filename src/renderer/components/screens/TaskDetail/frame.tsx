@@ -1,7 +1,7 @@
 /*
  * The window around the detail-page screen stories (task, note, editor, create dialogs): the
- * sidebar as the Figma screens show it, and an inline top bar (breadcrumb, star, "…"). The real
- * top bar is PageHeader (agent E1); these stories draw their own so they don't depend on it.
+ * sidebar as the Figma screens show it, and an inline top bar (breadcrumb, star, "…") as those
+ * screens drew it, before the title bar took the page's title and actions.
  */
 import type { ReactNode } from 'react';
 import { WorkspaceButton } from '../../shell/WorkspaceSwitcher';
@@ -35,6 +35,7 @@ import {
 } from '../../shell/Sidebar';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TooltipProvider } from '../../ui/Tooltip';
+import { Page, PageContent } from '../../shell/Page';
 
 const NAV = [
   { label: 'Home', icon: House },
@@ -153,5 +154,20 @@ export function AppWindow({
         </main>
       </div>
     </TooltipProvider>
+  );
+}
+
+/**
+ * A detail screen's page: its top bar across the page, then the content in the `document` column
+ * (720px, centred) that scrolls under it.
+ */
+export function DetailPage({ top, children }: { top: ReactNode; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flex: 1, flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+      {top}
+      <Page style={{ flex: 1 }}>
+        <PageContent layout="document">{children}</PageContent>
+      </Page>
+    </div>
   );
 }
