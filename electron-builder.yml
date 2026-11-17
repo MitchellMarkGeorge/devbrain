@@ -1,20 +1,95 @@
+# Packaging (npm run compile, after npm run build): docs/releasing.md. npm run smoke:packaged
+# launches the result and checks what this file is meant to give it (scripts/smoke.mts).
+
+# A placeholder, not DevBrain's id: choose the real reverse-DNS id before the first release. It
+# names the macOS bundle and the Windows app (taskbar grouping, notifications), and changing it
+# later makes the OS treat DevBrain as a different app.
 appId: com.example.devbrain
 productName: DevBrain
 directories:
   output: release
+  # the icons (npm run icons)
   buildResources: build
+
+# What goes in the app's asar. Vite bundles every dependency into dist except what
+# vite/main.config.ts leaves external, so the only node_modules shipped are those (and what they
+# load): better-sqlite3, through bindings, and electron-log. A new external needs its line here,
+# and npm run smoke:packaged fails without it. Never .env: it holds the building machine's local
+# secrets (see loadDevelopmentEnv in src/main/index.ts).
 files:
-  - dist/**
   - package.json
-# never .env: it holds the building machine's local secrets (see loadDevelopmentEnv in
-# src/main/index.ts)
+  - dist/main/**
+  - dist/preload/**
+  - dist/renderer/**
+  - '!node_modules/**'
+  - node_modules/better-sqlite3/package.json
+  - node_modules/better-sqlite3/lib/**
+  - node_modules/better-sqlite3/build/Release/better_sqlite3.node
+  - node_modules/bindings/**
+  - node_modules/file-uri-to-path/**
+  - node_modules/electron-log/**
+asar: true
+# A native module can't be loaded from inside an asar: it is unpacked beside it
+# (app.asar.unpacked), where Electron loads it from
+asarUnpack:
+  - node_modules/better-sqlite3/build/Release/*.node
+# electron-builder rebuilds better-sqlite3 for the packaged Electron (as postinstall does for
+# development) before it copies node_modules
+npmRebuild: true
+# found from process.resourcesPath at runtime (src/main/runtime/migrations.ts)
 extraResources:
   - from: ./src/main/db/migrations
     to: migrations
+
+# Electron's fuses, flipped in the packaged binary: it can't be run as plain Node, and ignores
+# NODE_OPTIONS and --inspect, so nothing can run other code in DevBrain's process, with its access
+# to the keychain; it only loads the app from its asar, and on macOS and Windows checks the asar
+# against the hash built into the app. The app's file:// page needs file: to keep its privileges.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+  grantFileProtocolExtraPrivileges: true
+
+# No auto-update, so nothing to publish to yet (docs/releasing.md): without this, electron-builder
+# guesses GitHub releases from the repository, and publishes on CI when it builds a tag
+publish: null
+
+artifactName: ${productName}-${version}-${arch}.${ext}
+
 mac:
-  target: dmg
+  target:
+    - target: dmg
+      arch: [arm64, x64]
   category: public.app-category.utilities
+  # Notarization needs the hardened runtime; electron-builder's default entitlements give
+  # Electron what it needs under it (JIT for V8). Signing and notarizing happen when their
+  # credentials are in the environment (docs/releasing.md); without them the app is unsigned.
+  hardenedRuntime: true
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
 win:
-  target: nsis
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  # the installer for one user, needing no administrator
+  oneClick: true
+  perMachine: false
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
 linux:
-  target: AppImage
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Utility
+  synopsis: The all-in-one productivity platform for developers
+appImage:
+  # electron-builder's default launches the AppImage with --no-sandbox from its desktop entry,
+  # which turns Chromium's sandbox off for every process. Without it, the AppImage's AppRun still
+  # adds --no-sandbox when the system has no unprivileged user namespaces, which the sandbox
+  # needs there (docs/releasing.md)
+  executableArgs: []
