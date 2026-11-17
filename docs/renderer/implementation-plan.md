@@ -1245,8 +1245,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   title's matches in bold; each picker leaves out what it can't offer from `entity` (closed tasks,
   subtasks, synced parents). Project pickers load every open project (`projects.list`'s
   `excludeCompleted`, page after page) and keep the menu's own filter.
-- **R2 (later): `entities.summaries(ids)`** batch route if notes with many pills make per-pill
-  `get` queries noticeable.
+- **R2 (done): `entities.summaries(ids)`**, a batch route for the pills. A 200 KB note with about
+  550 task pills made 550 `tasks.get` calls on opening and again after every save; its pills now
+  load in two calls (docs/performance.md).
 
 ### Calendar
 
@@ -1301,26 +1302,27 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Summary
 
-| Id                                     | Change                                                   | Needed by                                    | Blocking                   |
-| -------------------------------------- | -------------------------------------------------------- | -------------------------------------------- | -------------------------- |
-| N1                                     | `notes.readContent`, `content` in `notes.create`         | Note page, task note, event note             | Done (#110)                |
-| X1                                     | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
-| T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
-| S2                                     | Each workspace's `lastPage`, in its manifest             | Reopen last page                             | Done                       |
-| T6                                     | Optional `dueDate` on create                             | Create dialogs                               | Done                       |
-| P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | Done                       |
-| T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
-| S1                                     | Partial settings update, reset                           | Settings                                     | No (whole object)          |
-| A2                                     | Menu commands event, menu items                          | Menu                                         | Done                       |
-| C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | Done                       |
-| N2                                     | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
-| E1                                     | Empty trash                                              | Trash                                        | No (hide action)           |
-| R1                                     | Status/colour in search                                  | ⌘K, "@" menu                                 | Done                       |
-| R4                                     | Match counts per type                                    | ⌘K's type filter                             | Done                       |
-| K0                                     | `readRange` skips unselected synced calendars            | Calendar (unticked calendars vanish at once) | No, but cheap              |
-| T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above                                                |                                              | No                         |
-| S5                                     | `keyboardMode` setting                                   | Vim mode                                     | Later                      |
-| S3                                     | `calendar.hideWeekends`                                  | Settings, Calendar                           | No                         |
+| Id                                 | Change                                                   | Needed by                                    | Blocking                   |
+| ---------------------------------- | -------------------------------------------------------- | -------------------------------------------- | -------------------------- |
+| N1                                 | `notes.readContent`, `content` in `notes.create`         | Note page, task note, event note             | Done (#110)                |
+| X1                                 | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
+| T5                                 | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
+| S2                                 | Each workspace's `lastPage`, in its manifest             | Reopen last page                             | Done                       |
+| T6                                 | Optional `dueDate` on create                             | Create dialogs                               | Done                       |
+| P1                                 | Stats on `projects.list`                                 | Projects list/cards                          | Done                       |
+| T2                                 | Bulk task updates                                        | Selection bar                                | No (sequential)            |
+| S1                                 | Partial settings update, reset                           | Settings                                     | No (whole object)          |
+| A2                                 | Menu commands event, menu items                          | Menu                                         | Done                       |
+| C1–C4                              | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | Done                       |
+| N2                                 | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
+| E1                                 | Empty trash                                              | Trash                                        | No (hide action)           |
+| R1                                 | Status/colour in search                                  | ⌘K, "@" menu                                 | Done                       |
+| R4                                 | Match counts per type                                    | ⌘K's type filter                             | Done                       |
+| K0                                 | `readRange` skips unselected synced calendars            | Calendar (unticked calendars vanish at once) | No, but cheap              |
+| R2                                 | `entities.summaries` for entity pills                    | Notes with many pills                        | Done                       |
+| T1, T3, T4, P2, A1, A3, A4, K1, E2 | See above                                                |                                              | No                         |
+| S5                                 | `keyboardMode` setting                                   | Vim mode                                     | Later                      |
+| S3                                 | `calendar.hideWeekends`                                  | Settings, Calendar                           | No                         |
 
 ## Milestones and PR breakdown
 

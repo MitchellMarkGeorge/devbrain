@@ -5,6 +5,7 @@ import { EventService } from '../events/service';
 import { EventFetcher } from '../events/fetcher';
 import { FavoritesService } from '../favorites/service';
 import { RecentsService } from '../recents/service';
+import { EntityService } from '../entities/service';
 import { CalendarService } from '../calendars/service';
 import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
@@ -61,6 +62,7 @@ export class Workspace {
   readonly archive: ArchiveService;
   readonly favorites: FavoritesService;
   readonly recents: RecentsService;
+  readonly entities: EntityService;
   readonly search: SearchService;
   // importing tasks and notes from files, and exporting them (docs/import-export.md)
   readonly transfer: TransferService;
@@ -98,6 +100,7 @@ export class Workspace {
     this.archive = new ArchiveService(db, this.notes);
     this.favorites = new FavoritesService(db);
     this.recents = new RecentsService(db);
+    this.entities = new EntityService(db);
     this.search = new SearchService(db, info.path);
     // imports create through the services, so search and the change events follow them
     this.transfer = new TransferService({

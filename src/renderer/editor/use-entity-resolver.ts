@@ -1,39 +1,76 @@
 import {
   QueryObserver,
+  queryOptions,
   useQueryClient,
   type QueryClient,
-  type QueryObserverOptions,
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { isId } from '@common/ids';
+import type { EntitySummary, StampedId } from '@common/types';
 import { resolveColor } from '@renderer/components';
-import { trpc } from '@renderer/ipc';
-import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
+import { ipc } from '@renderer/ipc';
 import type { EditorEntity, EditorEntityType, EditorHost } from './types';
 
-// The entities behind an editor's pills, from React Query's cache: one query per pill, through the
-// routes that read one entity (`tasks.get`, `projects.get`, `notes.get`, `events.get`). The query
-// invalidator refetches them when core reports a change, so a renamed or completed task updates
-// its pills.
+// The entities behind an editor's pills, from React Query's cache: one query per pill, keyed as
+// `entities.summaries` for that one id, so the query invalidator refetches it when core reports a
+// change and a renamed or completed task updates its pills. The queries a turn starts (a note's
+// pills mounting, or all of them refetching after a change) are sent as one call: a note with 550
+// task pills made 550 calls of `tasks.get` on opening and again after each save
+// (docs/performance.md).
 
-function entityQuery(type: EditorEntityType, id: string) {
-  switch (type) {
-    case 'task':
-      return isId('task', id) ? trpc.tasks.get.queryOptions({ id }) : null;
-    case 'project':
-      return isId('project', id) ? trpc.projects.get.queryOptions({ id }) : null;
-    case 'note':
-      return isId('note', id) ? trpc.notes.get.queryOptions({ id }) : null;
-    case 'event':
-      return isId('event', id) ? trpc.events.get.queryOptions({ id }) : null;
-  }
+/** the most ids one `entities.summaries` call takes (its route's MAX_SUMMARY_IDS) */
+const BATCH_SIZE = 500;
+
+interface Waiter {
+  resolve(summary: EntitySummary | null): void;
+  reject(error: unknown): void;
 }
 
-interface EntityRow {
-  title: string;
-  archivedAt?: Date | null;
-  status?: EditorEntity['status'];
-  color?: string | null;
+/**
+ * Loads summaries by id, gathering the ids asked for in one turn into calls of up to BATCH_SIZE.
+ * Resolves each with its summary, or null when the entity is gone or archived.
+ */
+export function createSummaryLoader(
+  fetch: (ids: StampedId[]) => Promise<EntitySummary[]>,
+): (id: StampedId) => Promise<EntitySummary | null> {
+  let waiting = new Map<StampedId, Waiter[]>();
+  const send = () => {
+    const batch = waiting;
+    waiting = new Map();
+    const ids = [...batch.keys()];
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const chunk = ids.slice(i, i + BATCH_SIZE);
+      fetch(chunk).then(
+        (summaries) => {
+          const byId = new Map(summaries.map((summary) => [summary.id, summary]));
+          for (const id of chunk) {
+            for (const waiter of batch.get(id)!) waiter.resolve(byId.get(id) ?? null);
+          }
+        },
+        (error: unknown) => {
+          for (const id of chunk) for (const waiter of batch.get(id)!) waiter.reject(error);
+        },
+      );
+    }
+  };
+  return (id) =>
+    new Promise((resolve, reject) => {
+      if (waiting.size === 0) setTimeout(send, 0);
+      waiting.set(id, [...(waiting.get(id) ?? []), { resolve, reject }]);
+    });
+}
+
+const loadSummary = createSummaryLoader((ids) => ipc.entities.summaries.query({ ids }));
+
+function entityQuery(type: EditorEntityType, id: string) {
+  // an id of no entity of its type is no entity
+  if (!isId(type, id)) return null;
+  return queryOptions({
+    // tRPC's key for `entities.summaries` of this one id, which the query invalidator reads the
+    // route from; its data is that id's summary
+    queryKey: [['entities', 'summaries'], { input: { ids: [id] }, type: 'query' }] as const,
+    queryFn: () => loadSummary(id as StampedId),
+  });
 }
 
 function resolve(
@@ -42,22 +79,22 @@ function resolve(
   id: string,
 ): EditorEntity | null | undefined {
   const options = entityQuery(type, id);
-  // an id of no entity of its type is no entity
   if (!options) return null;
   const state = queryClient.getQueryState(options.queryKey);
-  const row = state?.data as EntityRow | undefined;
-  if (row) {
-    if (row.archivedAt) return null;
-    return {
-      type,
-      id,
-      title: row.title,
-      status: type === 'task' ? row.status : undefined,
-      color: type === 'project' || type === 'event' ? resolveColor(row.color) : undefined,
-    };
-  }
-  if (state?.status === 'error' && ipcErrorCode(state.error) === 'not_found') return null;
-  return undefined;
+  if (state?.data === undefined) return undefined;
+  const summary = state.data as EntitySummary | null;
+  // gone, archived, or an id of another type
+  if (summary === null || summary.type !== type) return null;
+  return {
+    type,
+    id,
+    title: summary.title,
+    status: summary.type === 'task' ? summary.status : undefined,
+    color:
+      summary.type === 'project' || summary.type === 'event'
+        ? resolveColor(summary.color)
+        : undefined,
+  };
 }
 
 /**
@@ -75,10 +112,7 @@ export function useEntityResolver(): Pick<EditorHost, 'resolveEntity' | 'watchEn
         const options = entityQuery(type, id);
         if (!options) return () => {};
         // an observer loads the entity (once, while it's fresh) and hears every change to it
-        const observer = new QueryObserver(queryClient, {
-          ...(options as QueryObserverOptions<EntityRow>),
-          retry: false,
-        });
+        const observer = new QueryObserver(queryClient, { ...options, retry: false });
         return observer.subscribe(() => onChange());
       },
     }),

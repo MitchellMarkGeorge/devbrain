@@ -168,6 +168,21 @@ describe('the note page', () => {
     expect(app.text()).not.toContain('Old title');
   });
 
+  it('loads all its pills in one call', async () => {
+    const { main, app } = notePage(
+      `See [Old title](devbrain://task/${OTHER.id}), [x](devbrain://task/tsk_pkce) and ` +
+        `[Gone](devbrain://task/tsk_gone)`,
+    );
+    await eventually(() => expect(app.text()).toContain('Audit token storage'));
+    expect(app.text()).toContain('Implement PKCE flow');
+    const calls = main.callsTo('entities.summaries');
+    expect(calls).toHaveLength(1);
+    expect([...(calls[0].input as { ids: string[] }).ids].sort()).toEqual(
+      [OTHER.id, 'tsk_gone', 'tsk_pkce'].sort(),
+    );
+    expect(main.callsTo('tasks.get')).toEqual([]);
+  });
+
   it('shows the note’s file in Finder from the menu', async () => {
     const { main, app } = notePage();
     await eventually(() => expect(app.text()).toContain('The implicit flow leaks tokens.'));

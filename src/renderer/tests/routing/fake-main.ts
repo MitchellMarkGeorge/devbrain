@@ -1,6 +1,7 @@
 import type { AppEvents } from '@common/events';
 import type { ChangedEntity } from '@common/changes';
 import type { WorkspaceId } from '@common/ids';
+import type { EntitySummary } from '@common/types';
 import type {
   InitialLoadContext,
   IpcBridge,
@@ -347,6 +348,20 @@ export class FakeMain {
       }
       case 'tasks.subtasks':
         return [page(store.subtasks(args.id)), []];
+      // as core: the tasks and projects asked for, as pills draw them, leaving out archived ones
+      case 'entities.summaries': {
+        const ids = args.ids as string[];
+        const summaries = ids.flatMap((id): EntitySummary[] => {
+          const found = store.tasks.find((t) => t.id === id && t.archivedAt === null);
+          if (found)
+            return [{ type: 'task', id: found.id, title: found.title, status: found.status }];
+          const project = store.findProject(id as never);
+          return project
+            ? [{ type: 'project', id: project.id, title: project.title, color: project.color }]
+            : [];
+        });
+        return [summaries, []];
+      }
       case 'tasks.updateStatus':
         return [store.patch(task().id, { status: args.status as never }), ['task']];
       case 'tasks.update': {
@@ -560,7 +575,7 @@ export class FakeMain {
     const home = this.answerHome(path, args);
     if (home) return home;
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];
-    if (path.startsWith('tasks.') || path.startsWith('archive.'))
+    if (path.startsWith('tasks.') || path.startsWith('archive.') || path === 'entities.summaries')
       return this.answerTasks(path, args);
     switch (path) {
       case 'app.version':

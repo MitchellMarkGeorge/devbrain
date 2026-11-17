@@ -42,6 +42,9 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   events: ['event', 'calendar'],
   // a disconnect turns its calendars into local ones
   calendars: ['calendar', 'externalSource'],
+  // an entity pill's title, a task's status, a project's or event's colour (an event's falls back
+  // to its calendar's)
+  entities: ['task', 'project', 'note', 'event', 'calendar'],
   favorites: ['task', 'project', 'note', 'event'],
   // titles come from the entities, so an edit or archive changes the list too
   recents: ['recent', 'task', 'project', 'note', 'event'],

@@ -118,6 +118,35 @@ function syncedCalendar(): CalendarId {
     .get().id;
 }
 
+describe('entities', () => {
+  it('gives the summaries of tasks, projects, notes and events in one call, changing nothing', async () => {
+    const project = workspace().projects.createProject({ title: 'Apollo', dueDate: DUE });
+    const task = workspace().tasks.createTask({ title: 'Launch', dueDate: DUE });
+    const note = await workspace().notes.createNote({ title: 'Plan' });
+
+    expect(
+      await call('entities.summaries', { ids: [note.id, task.id, 'tsk_gone', project.id] }),
+    ).toMatchObject({
+      ok: true,
+      data: [
+        { type: 'note', id: note.id, title: 'Plan' },
+        { type: 'task', id: task.id, title: 'Launch', status: TaskStatus.NOT_STARTED },
+        { type: 'project', id: project.id, title: 'Apollo' },
+      ],
+      changed: [],
+    });
+  });
+
+  it('refuses an id of another kind, and more ids than a call takes', async () => {
+    expect(await call('entities.summaries', { ids: ['cal_default'] })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'invalid_input' } },
+    });
+    const many = Array.from({ length: 501 }, (_, i) => `tsk_${i}`);
+    expect(await call('entities.summaries', { ids: many })).toMatchObject({ ok: false });
+  });
+});
+
 describe('notes', () => {
   it('creates, lists a page at a time, gets and renames notes, each returning the row', async () => {
     const created = await mutate('notes.create', { title: 'Plan' });
