@@ -7,6 +7,12 @@ executors:
       - image: cimg/node:24.0
     working_directory: ~/project
 
+  # Electron needs the system libraries Chrome does, which the -browsers image has
+  browsers:
+    docker:
+      - image: cimg/node:24.0-browsers
+    working_directory: ~/project
+
 commands:
   install_deps:
     steps:
@@ -23,6 +29,17 @@ commands:
           paths:
             - ~/.npm
 
+  # what launching the app on Linux needs beyond the -browsers image: a display (xvfb-run), if it
+  # lacks one
+  install_xvfb:
+    steps:
+      - run:
+          name: Install xvfb
+          command: |
+            if ! command -v xvfb-run > /dev/null; then
+              sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth
+            fi
+
 jobs:
   lint:
     executor: node
@@ -38,11 +55,8 @@ jobs:
       - run: npm run typecheck
 
   test:
-    # the tests run on Electron's Node (scripts/vitest.mts), and the Electron binary needs the
-    # system libraries Chrome does, which the -browsers image has
-    docker:
-      - image: cimg/node:24.0-browsers
-    working_directory: ~/project
+    # the tests run on Electron's Node (scripts/vitest.mts), so they need the -browsers image too
+    executor: browsers
     steps:
       - install_deps
       - run:
@@ -59,6 +73,44 @@ jobs:
       - store_artifacts:
           path: dist
 
+  # Launches the built app and fails on any startup error (scripts/smoke.mts). --no-sandbox: the
+  # container has no user namespaces for Chromium's sandbox, and its SUID helper isn't set up
+  smoke:
+    executor: browsers
+    steps:
+      - install_deps
+      - install_xvfb
+      - run: npm run smoke -- --no-sandbox
+
+  # Packages the Linux AppImage, then launches it (extracted) and checks it starts and opens a
+  # workspace (npm run smoke:packaged). macOS and Windows aren't built here (docs/releasing.md).
+  package_linux:
+    executor: browsers
+    steps:
+      - install_deps
+      - install_xvfb
+      - restore_cache:
+          keys:
+            - electron-builder-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+            - electron-builder-v1-{{ arch }}-
+      - run:
+          name: Package the AppImage
+          command: npm run compile
+      - save_cache:
+          key: electron-builder-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.cache/electron
+            - ~/.cache/electron-builder
+      - run:
+          name: Smoke check the AppImage
+          command: npm run smoke:packaged -- --no-sandbox
+      # the AppImage alone: release/ also holds linux-unpacked, the same app unpacked
+      - run:
+          name: Collect the AppImage
+          command: mkdir -p artifacts && cp release/*.AppImage artifacts/
+      - store_artifacts:
+          path: artifacts
+
 workflows:
   ci:
     jobs:
@@ -66,3 +118,5 @@ workflows:
       - typecheck
       - test
       - build
+      - smoke
+      - package_linux
