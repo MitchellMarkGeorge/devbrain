@@ -52,7 +52,6 @@
 }
 .viewport {
   padding: var(--space-1);
-  overscroll-behavior: contain;
 }
 /* a picker's search row stays at the top while the rows scroll under it */
 .viewport .search {

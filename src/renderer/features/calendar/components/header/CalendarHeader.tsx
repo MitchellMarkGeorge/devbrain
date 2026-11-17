@@ -217,6 +217,8 @@ export function CalendarFilterMenu({
   );
   const groups = filterGroups(calendars);
   const listed = groups.flat();
+  // some calendar is hidden: the Filter draws pressed wherever its value doesn't show
+  const active = listed.some((calendar) => !calendar.visible);
   const accountOf = (calendar: Calendar) =>
     integrations?.find((integration) =>
       integration.sources.some((source) => source.id === calendar.sourceId),
@@ -232,6 +234,7 @@ export function CalendarFilterMenu({
               size="icon"
               icon={ListFilter}
               aria-label={`Filter: ${filterValue(listed)}`}
+              data-pressed={active ? '' : undefined}
             />
           ) : (
             <Button
@@ -239,6 +242,7 @@ export function CalendarFilterMenu({
               icon={ListFilter}
               value={filterValue(listed)}
               hideValue={display === 'label' || size === 'compact'}
+              active={active}
             >
               Filter
             </Button>

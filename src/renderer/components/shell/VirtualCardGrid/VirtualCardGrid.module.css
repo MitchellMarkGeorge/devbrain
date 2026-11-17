@@ -13,7 +13,6 @@
 /* the ScrollArea's viewport, which scrolls; its scrollbar is drawn over the edge */
 .viewport {
   padding: 3px;
-  overscroll-behavior: contain;
   /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
   overflow-anchor: none;
 }

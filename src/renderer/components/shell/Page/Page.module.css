@@ -15,7 +15,6 @@
 .scrollViewport {
   display: flex;
   flex-direction: column;
-  overscroll-behavior: contain;
 }
 
 /*

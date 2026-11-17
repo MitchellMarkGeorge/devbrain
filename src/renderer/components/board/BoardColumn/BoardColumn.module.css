@@ -1,10 +1,26 @@
 /* The board: open status columns, 24px apart. See docs/design-system/components/BoardColumn.md */
+/*
+ * The board fills the height its container gives it, and scrolls sideways once it is narrower than
+ * its columns (a docked sheet beside it), in a horizontal ScrollArea.
+ */
+.scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* as each column's scroller below: room for the outer cards' focus rings, taken back out */
+  margin: 0 -3px;
+}
+.viewport {
+  display: flex;
+  padding: 0 3px;
+}
 .board {
   display: grid;
-  flex: 1 1 auto;
+  flex: 1 0 0;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  /* the columns share the width, down to board-column-min-width each */
+  grid-auto-columns: minmax(var(--board-column-min-width), 1fr);
   gap: var(--space-6);
+  min-width: min-content;
   /* the columns fill the board's height, and each scrolls its own cards */
   min-height: 0;
 }
@@ -48,7 +64,6 @@
   flex-direction: column;
   gap: var(--board-card-gap);
   padding: 3px;
-  overscroll-behavior: contain;
   overflow-anchor: none;
 }
 .cards > * {

@@ -23,12 +23,23 @@ import styles from './BoardColumn.module.css';
 
 export type BoardProps = ComponentPropsWithoutRef<'div'>;
 
-/** The board: its columns side by side in equal widths, 24px apart. */
+/**
+ * The board: its columns side by side in equal widths, 24px apart, each at least
+ * `board-column-min-width`; a board narrower than that scrolls sideways.
+ */
 export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
   { className, ...props },
   ref,
 ) {
-  return <div ref={ref} className={cn(styles.board, className)} {...props} />;
+  return (
+    <ScrollArea
+      orientation="horizontal"
+      className={styles.scroller}
+      viewportClassName={styles.viewport}
+    >
+      <div ref={ref} className={cn(styles.board, className)} {...props} />
+    </ScrollArea>
+  );
 });
 
 /** A task on the board: what a card draws, and the id it is kept by. */

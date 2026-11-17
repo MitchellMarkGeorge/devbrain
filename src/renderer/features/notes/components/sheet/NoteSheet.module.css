@@ -8,6 +8,8 @@
   background: transparent;
   color: inherit;
   font: inherit;
+  /* a long title ends in "…" at the sheet's width until it is focused, rather than being cut */
+  text-overflow: ellipsis;
   outline: none;
 }
 .pills {

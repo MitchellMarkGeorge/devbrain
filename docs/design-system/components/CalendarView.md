@@ -28,8 +28,9 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
 - **Now**: the red `NowIndicator` (1px line, 8px dot at the left edge) in today's column, at `now`.
   Today's column has no tint.
 
-The headers and all-day row stay put while the hours scroll; the view opens scrolled to
-`scrollToHour`. FullCalendar's scrollers hide their native scrollbar, so it takes no width on any
+The headers and all-day row stay put while the hours scroll; the view opens scrolled to a
+quarter hour above `scrollToHour`, so that hour's label shows whole under the all-day row rather
+than cut in half. FullCalendar's scrollers hide their native scrollbar, so it takes no width on any
 platform (README, "A scrollbar never takes width"); the hours scroll with the wheel, the trackpad
 and the keyboard.
 
@@ -38,7 +39,8 @@ and the keyboard.
 A 32px row of weekday names (12px `muted-foreground`, 8px in), then five or six equal weeks of cells
 split by `border` lines (no outer frame). Each cell (6px padding) shows its date in a 24px box (14px
 medium; today on the red `now-indicator` disc, other months' days `subtle-foreground`), then up to
-`maxEvents` (3) 20px event lines, 2px apart: the calendar's `ColourBar`, the start time ("9:30",
+`maxEvents` (3) 20px event lines, 2px apart (in a view too short for six weeks of them, about 760px, as
+many as the cell fits, so a 640px window shows the whole month without scrolling): the calendar's `ColourBar`, the start time ("9:30",
 `subtle-foreground`) and the title (12px `foreground`, cut with "…"). All-day events come first and
 have no time; one that spans days is one line across them. Out of office and focus time have a grey
 bar and a `muted-foreground` title; tentative events are at 70%. More than `maxEvents` → "+2 more"

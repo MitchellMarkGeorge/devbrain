@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
-import { Archive, ArrowUpDown, Clock, Trash2 } from 'lucide-react';
+import { Archive, ArrowUpDown, CircleX, Clock, Trash2 } from 'lucide-react';
 import {
   Button,
   DropdownMenu,
@@ -109,7 +109,19 @@ export function TrashPage() {
         }
       />
       <PageContent layout="list" data-testid="page" data-tab={tab}>
-        {list.data && items.length === 0 ? (
+        {list.isError && items.length === 0 ? (
+          // the trash couldn't be read: why, and Retry, as the other lists do
+          <EmptyState
+            icon={CircleX}
+            title="The trash couldn’t be loaded"
+            description="Something went wrong reading this workspace’s trash."
+            action={
+              <Button size="sm" onClick={() => void list.refetch()}>
+                Retry
+              </Button>
+            }
+          />
+        ) : list.data && items.length === 0 ? (
           <EmptyState icon={Archive} {...EMPTY[tab]} />
         ) : (
           <TrashList

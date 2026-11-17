@@ -3,6 +3,7 @@ import { Button as BaseButton } from '@base-ui/react/button';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { mergeClassName } from '../../lib/cn';
 import { renderIcon, type IconSource } from '../Icon';
+import { Tooltip } from '../Tooltip';
 import styles from './Button.module.css';
 
 export const buttonVariants = cva(styles.button, {
@@ -48,9 +49,15 @@ export interface ButtonProps
   value?: ReactNode;
   /**
    * hides `value` but keeps the label's toolbar look: the compact toolbar of a narrow window shows
-   * just "Filter" and "Sort". The value stays readable to screen readers.
+   * just "Filter" and "Sort". The value moves to the button's tooltip, and stays readable to screen
+   * readers.
    */
   hideValue?: boolean;
+  /**
+   * the choice in `value` is set away from its default (a filter is on). While `hideValue` hides
+   * the value, the button draws pressed, so a compact toolbar still shows that a filter is on.
+   */
+  active?: boolean;
 }
 
 const SMALL_SIZES: ButtonSize[] = ['xs', 'icon-xs'];
@@ -61,16 +68,18 @@ const SMALL_SIZES: ButtonSize[] = ['xs', 'icon-xs'];
  * Icon-only buttons need an `aria-label`.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant, size, icon, trailingIcon, value, hideValue, className, children, ...props },
+  { variant, size, icon, trailingIcon, value, hideValue, active, className, children, ...props },
   ref,
 ) {
   const iconSize = SMALL_SIZES.includes(size ?? 'default') ? 12 : 16;
-  return (
+  const valueHidden = hideValue === true && value != null && value !== '';
+  const button = (
     <BaseButton
       ref={ref}
       data-slot="button"
       data-variant={variant ?? 'default'}
       data-size={size ?? 'default'}
+      data-pressed={valueHidden && active ? '' : undefined}
       className={mergeClassName(buttonVariants({ variant, size }), className)}
       {...props}
     >
@@ -86,4 +95,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {renderIcon(trailingIcon, iconSize)}
     </BaseButton>
   );
+  if (!valueHidden) return button;
+  return <Tooltip content={value}>{button}</Tooltip>;
 });

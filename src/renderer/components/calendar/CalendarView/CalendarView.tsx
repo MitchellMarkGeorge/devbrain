@@ -4,6 +4,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
@@ -45,6 +46,23 @@ const PLUGINS = [timeGridPlugin, dayGridPlugin, interactionPlugin, rrulePlugin];
 /** pixels per hour, and the height under which a block is compact (title only) */
 const HOUR_HEIGHT = 48;
 const COMPACT_BELOW = 40;
+/**
+ * A month week's height with `maxEvents` lines in each cell: 6px padding top and bottom, the 24px
+ * date, the 20px lines 2px apart, and the "+N more" line. Six such weeks under the 32px weekday row
+ * need ~760px; a shorter view (a 640px window) fits fewer lines a cell instead of scrolling.
+ */
+const monthWeekHeight = (lines: number) => 12 + 24 + lines * 22 + 20;
+const MONTH_WEEKS = 6;
+const WEEKDAY_ROW = 32;
+/** the week and day views open a quarter hour above `scrollToHour`, so its label shows whole */
+const SCROLL_MARGIN_MINUTES = 15;
+
+/** "07:45:00": the time a quarter hour before `hour`, as FullCalendar's scrollTime takes it */
+function scrollTimeBefore(hour: number): string {
+  const minutes = Math.max(0, hour * 60 - SCROLL_MARGIN_MINUTES);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}:00`;
+}
 
 const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 
@@ -213,6 +231,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
 ) {
   const calendarRef = useRef<CalendarRef>(null);
   useImperativeHandle(ref, () => ({ getApi: () => calendarRef.current!.getApi() }), []);
+  const [viewRef, monthFits] = useMonthFits(maxEvents);
 
   // `initialView` and `initialDate` are read once: later changes go through the API. Compared
   // with what was last applied rather than skipped on mount, as StrictMode runs the effect twice
@@ -281,7 +300,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   );
 
   return (
-    <div className={cn(styles.view, className)} style={style} data-view={view}>
+    <div ref={viewRef} className={cn(styles.view, className)} style={style} data-view={view}>
       <FullCalendar
         ref={calendarRef}
         plugins={PLUGINS}
@@ -312,7 +331,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         slotMinHeight={HOUR_HEIGHT}
         slotMinTime={`${String(startHour).padStart(2, '0')}:00:00`}
         slotMaxTime={`${String(endHour).padStart(2, '0')}:00:00`}
-        scrollTime={`${String(scrollToHour).padStart(2, '0')}:00:00`}
+        scrollTime={scrollTimeBefore(scrollToHour)}
         scrollTimeReset={false}
         slotEventOverlap={false}
         // 16px drawn, inside its 1px margins
@@ -326,7 +345,8 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         nowIndicatorLineContent={() => <NowIndicator className={styles.now} />}
         // the month view: five or six weeks that fill the height
         fixedWeekCount={false}
-        dayMaxEvents={maxEvents}
+        // `maxEvents` lines a cell where six weeks of them fit; in a shorter view, as many as fit
+        dayMaxEvents={monthFits ? maxEvents : true}
         dayCellTopContent={(arg: DayCellInfo) => <DayNumber arg={arg} />}
         moreLinkContent={(arg: { num: number }) => `+${arg.num} more`}
         views={{ dayGridMonth: { expandRows: true } }}
@@ -436,4 +456,22 @@ export function calendarEventInput(event: CalendarEvent): EventInput {
     ...(event.color && { color: event.color }),
     extendedProps: props,
   };
+}
+
+/**
+ * Whether six month weeks of `maxEvents` lines each fit the view's height, measured as the view
+ * resizes. Assumed to fit until measured (and where there is no ResizeObserver).
+ */
+function useMonthFits(maxEvents: number) {
+  const [height, setHeight] = useState<number | null>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    observer.current = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height));
+    observer.current.observe(element);
+  }, []);
+  const fits = height === null || height >= WEEKDAY_ROW + MONTH_WEEKS * monthWeekHeight(maxEvents);
+  return [ref, fits] as const;
 }

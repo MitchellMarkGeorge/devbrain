@@ -90,7 +90,12 @@ export function ProjectsFilterMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button icon={ListFilter} value={filterValue(resolved)} hideValue={size === 'compact'}>
+          <Button
+            icon={ListFilter}
+            value={filterValue(resolved)}
+            hideValue={size === 'compact'}
+            active={resolved.status !== 'active' || resolved.source !== undefined}
+          >
             Filter
           </Button>
         }

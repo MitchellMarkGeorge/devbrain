@@ -133,6 +133,20 @@ function filterValue(resolved: ResolvedTasksSearch, projectName: string | undefi
   return parts.join(' · ');
 }
 
+// a filter is on: the status differs from the page's default, or any other filter is set
+function filterActive(
+  resolved: ResolvedTasksSearch,
+  defaultStatus: ResolvedTasksSearch['status'],
+): boolean {
+  return (
+    resolved.status !== defaultStatus ||
+    resolved.priority !== undefined ||
+    resolved.project !== undefined ||
+    resolved.due !== undefined ||
+    resolved.source !== undefined
+  );
+}
+
 // a radio submenu of a filter: "Any" clears it
 function FilterSubmenu<Value extends string>({
   icon,
@@ -206,6 +220,10 @@ export function FilterMenu({
               projectName,
             )}
             hideValue={size === 'compact'}
+            active={filterActive(
+              fixedProject ? { ...resolved, project: undefined } : resolved,
+              defaultStatus,
+            )}
           >
             Filter
           </Button>

@@ -131,6 +131,24 @@ export const FullBoard: Story = {
 };
 
 /**
+ * A board narrower than its columns (a docked sheet beside it in a medium window): the columns
+ * keep `board-column-min-width` (280px) and the board scrolls sideways, under a scrollbar along
+ * its bottom edge.
+ */
+export const NarrowBoard: Story = {
+  parameters: { layout: 'fullscreen' },
+  render: () => (
+    <div style={{ padding: 24, maxWidth: 640 }}>
+      <Board>
+        <BoardColumn status={TaskStatus.NOT_STARTED} tasks={notStarted} />
+        <BoardColumn status={TaskStatus.IN_PROGRESS} tasks={inProgress} />
+        <BoardColumn status={TaskStatus.COMPLETED} tasks={completed} add={false} />
+      </Board>
+    </div>
+  ),
+};
+
+/**
  * 1,000 cards a column, loaded 100 at a time as `onEndReached` fires: the board fills the
  * window's height and each column scrolls its own cards under its header, drawing only the cards
  * in view, measured as they draw (pills wrap). ↑/↓ on a card scroll the next into view.

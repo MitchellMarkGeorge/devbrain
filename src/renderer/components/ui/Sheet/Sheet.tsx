@@ -151,7 +151,7 @@ export interface SheetBodyProps extends Omit<ScrollAreaProps, 'className' | 'vie
 
 export function SheetBody({ className, children, ...props }: SheetBodyProps) {
   return (
-    <ScrollArea className={styles.bodyArea} viewportClassName={styles.bodyViewport} {...props}>
+    <ScrollArea className={styles.bodyArea} {...props}>
       <div className={cn(styles.body, className)}>{children}</div>
     </ScrollArea>
   );
