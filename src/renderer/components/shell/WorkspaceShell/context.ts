@@ -45,6 +45,11 @@ export interface WorkspaceShellContextValue {
    * `header` into it. Null outside a shell, where a `Page` draws its header itself
    */
   titleBarContainer: HTMLElement | null;
+  /**
+   * The title bar's search field, which shows where you are: `Page` portals its `title` into it.
+   * Null outside a shell
+   */
+  locationContainer: HTMLElement | null;
 }
 
 const noop = () => {};
@@ -64,6 +69,7 @@ export const WorkspaceShellContext = createContext<WorkspaceShellContextValue>({
   canGoForward: false,
   sheetContainer: null,
   titleBarContainer: null,
+  locationContainer: null,
 });
 
 /** The shell around this component: window size, whether the sidebar is hidden, the drawer, and the window controls. */

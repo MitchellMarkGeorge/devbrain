@@ -1,9 +1,8 @@
 /* The note editor page the Notes and Editor screen stories share. */
 import type { ReactNode } from 'react';
 import { FileText } from 'lucide-react';
-import { DocumentPage } from '../../shell/DocumentPage';
 import { EditorTitle } from '../../editor/EditorContent';
-import { AppWindow, DetailTopBar } from '../TaskDetail/frame';
+import { AppWindow, DetailPage, DetailTopBar } from '../TaskDetail/frame';
 
 export function NotePage({
   title,
@@ -18,9 +17,8 @@ export function NotePage({
 }) {
   return (
     <AppWindow active="Notes">
-      <DocumentPage
-        style={{ flex: 1 }}
-        header={
+      <DetailPage
+        top={
           <DetailTopBar
             items={[
               { label: 'Notes', href: '#' },
@@ -44,7 +42,7 @@ export function NotePage({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>{pills}</div>
           <div style={{ marginTop: 32 }}>{children}</div>
         </div>
-      </DocumentPage>
+      </DetailPage>
     </AppWindow>
   );
 }

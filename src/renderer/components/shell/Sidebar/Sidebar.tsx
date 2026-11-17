@@ -8,24 +8,22 @@ import {
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { Collapsible } from '@base-ui/react/collapsible';
-import { ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Kbd } from '../../ui/Kbd';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { Tooltip } from '../../ui/Tooltip';
-import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import { cssColor, type Swatch } from '../../types';
 import styles from './Sidebar.module.css';
 
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
   /**
-   * The row pinned at the top: a `SidebarHeader` (the workspace switcher, then search and "new").
-   * It stays put while the rest scrolls. The window's controls aren't the sidebar's: they are in
-   * the `WorkspaceShell`'s title bar, above it.
+   * A row pinned at the top, staying put while the rest scrolls: a `SidebarHeader`, or the settings'
+   * Back to app. The app's sidebar has none: its workspace switcher, search and New are in the
+   * `WorkspaceShell`'s title bar, with the window's controls.
    */
   header?: ReactNode;
 }
@@ -51,7 +49,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
       <ScrollArea className={styles.area} viewportClassName={styles.scroller}>
         {header && <div className={styles.top}>{header}</div>}
-        {children}
+        <div className={styles.body}>{children}</div>
       </ScrollArea>
     </nav>
   );
@@ -108,43 +106,6 @@ function TooltipLabel({ label, shortcut }: { label: string; shortcut?: string })
       {label}
       <Kbd>{shortcut}</Kbd>
     </span>
-  );
-}
-
-export interface SidebarWorkspaceProps {
-  /** the workspace's name; its first letter goes on the tile */
-  name: string;
-  color?: Swatch;
-  /** the workspace menu (`WorkspaceSwitcher`, or `DropdownMenuItem`s) */
-  children?: ReactNode;
-  open?: boolean;
-  defaultOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-/**
- * The workspace switcher: the 20px tile, the name (14px medium) and an up-down chevron that opens
- * the workspace menu (pressed while open).
- */
-export function SidebarWorkspace({
-  name,
-  color,
-  children,
-  open,
-  defaultOpen,
-  onOpenChange,
-}: SidebarWorkspaceProps) {
-  return (
-    <DropdownMenu open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger className={styles.workspace} aria-label={`Workspace: ${name}`}>
-        <WorkspaceTile letter={name} color={color} />
-        <span className={styles.workspaceName}>{name}</span>
-        <Icon icon={ChevronsUpDown} size={12} className={styles.chevron} />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" width="lg">
-        {children}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

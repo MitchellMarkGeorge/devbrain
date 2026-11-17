@@ -2,14 +2,12 @@ export {
   Page,
   PageContent,
   PageFavoriteButton,
-  PageHeader,
   PageMenuButton,
   PageToolbar,
   pageContentVariants,
   type PageContentProps,
   type PageFavoriteButtonProps,
-  type PageHeaderProps,
   type PageMenuButtonProps,
   type PageProps,
   type PageToolbarProps,
-} from './PageHeader';
+} from './Page';

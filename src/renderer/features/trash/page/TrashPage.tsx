@@ -16,8 +16,6 @@ import {
   ToggleGroup,
   useWorkspaceShell,
   Page,
-  PageHeader,
-  Breadcrumb,
 } from '@renderer/components';
 import { trashListQuery } from '../api/queries';
 import { TRASH_TABS, trashEntityType, type TrashTab } from '../api/search';
@@ -65,13 +63,7 @@ export function TrashPage() {
     items.length > 0 || (anything.data?.pages.some((page) => page.items.length > 0) ?? false);
 
   return (
-    <Page
-      header={
-        <PageHeader>
-          <Breadcrumb items={['Trash']} />
-        </PageHeader>
-      }
-    >
+    <Page title="Trash">
       <PageToolbar
         start={
           <ToggleGroup

@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { WorkspaceShell, type WorkspaceShellControls } from '@renderer/components';
+import { useOpenSearch } from '@renderer/features/search/hooks/use-open-search';
 import { AppSidebar } from './AppSidebar';
+import { CreateMenu } from './CreateMenu';
+import { WorkspaceMenu } from './WorkspaceMenu';
 import { SettingsSidebar } from './SettingsSidebar';
 import { useTransferCommands } from '@renderer/features/settings/hooks/use-transfers';
 import { useAppCommands } from './hooks/use-app-commands';
@@ -10,10 +13,10 @@ import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position'
 import { useModalShown } from '@renderer/app/modals';
 
 /**
- * Every page in a workspace: the shell with the sidebar, the window bar's back and forward on the
- * router's history, the app-wide commands (from the keys and the app menu), import and export
- * (for the app menu), and the page. Each page draws its own header (a `Page` with a `PageHeader`,
- * or none), so the layout holds nothing of the page's. While the settings are open the sidebar is
+ * Every page in a workspace: the shell with the sidebar; in its title bar the workspace menu, back
+ * and forward on the router's history, search (the field opens it, as ⌘K does) and New; the app-wide commands (from the keys and the app menu), import and export
+ * (for the app menu), and the page. Each page declares its own title and actions (its `Page`'s), so
+ * the layout holds nothing of the page's. While the settings are open the sidebar is
  * theirs (`SettingsSidebar`), whose Back to app returns to the last page outside them.
  */
 export function AppLayout() {
@@ -32,6 +35,7 @@ export function AppLayout() {
     else void router.navigate({ to: '/app/$workspaceId/home', params: { workspaceId } });
   };
   const position = useHistoryPosition();
+  const openSearch = useOpenSearch();
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
   useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
@@ -53,6 +57,9 @@ export function AppLayout() {
       onForward={() => router.history.forward()}
       canGoBack={position.canGoBack}
       canGoForward={position.canGoForward}
+      workspace={<WorkspaceMenu />}
+      onSearch={openSearch}
+      create={<CreateMenu />}
     >
       <Outlet />
     </WorkspaceShell>

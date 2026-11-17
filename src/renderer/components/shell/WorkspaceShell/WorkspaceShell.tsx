@@ -12,10 +12,13 @@ import {
   type Ref,
 } from 'react';
 import { Drawer } from '@base-ui/react/drawer';
+import { Search } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
 import { TooltipProvider } from '../../ui/Tooltip';
-import { CaptionButtons, WindowBar } from '../WindowBar';
+import { useFormatKeys } from '../../lib/platform';
+import { Kbd } from '../../ui/Kbd';
+import { CaptionButtons, HistoryControls, WindowBar } from '../WindowBar';
 import { WorkspaceShellContext, type WorkspaceShellContextValue, type WindowSize } from './context';
 import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY, windowSizeFor } from './layout';
 import { useStillPointer } from './use-still-pointer';
@@ -38,6 +41,15 @@ export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'
   onForward?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
+  /**
+   * the open workspace, at the title bar's start between the window's start and the sidebar toggle:
+   * a `WorkspaceButton`, opening the workspace menu
+   */
+  workspace?: ReactNode;
+  /** the title bar's search field was pressed: open search (the app's ⌘K) */
+  onSearch?: () => void;
+  /** after the search field: the app's New menu (a `DropdownMenu` on a "+" `IconButton`) */
+  create?: ReactNode;
   /**
    * What the code that renders the shell can ask of it: the app's keymap toggles the sidebar on ⌘\
    * through it. Inside the shell, `useWorkspaceShell()` gives the same
@@ -83,6 +95,9 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       onForward,
       canGoBack = true,
       canGoForward = false,
+      workspace,
+      onSearch,
+      create,
       controlsRef,
       className,
       ...props
@@ -95,6 +110,9 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
     const [sheetContainer, setSheetContainer] = useState<HTMLElement | null>(null);
     // the title bar's slot for the page's header, likewise
     const [titleBarContainer, setTitleBarContainer] = useState<HTMLElement | null>(null);
+    // the search field's slot for the page's title, likewise
+    const [locationContainer, setLocationContainer] = useState<HTMLElement | null>(null);
+    const formatKeys = useFormatKeys();
     const drawerPopup = useRef<HTMLDivElement>(null);
 
     const [measured, setMeasured] = useState<WindowSize>(() =>
@@ -204,10 +222,12 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
         canGoForward,
         sheetContainer,
         titleBarContainer,
+        locationContainer,
       }),
       [
         sheetContainer,
         titleBarContainer,
+        locationContainer,
         size,
         hidden,
         drawer,
@@ -239,12 +259,30 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             {...props}
           >
             {/*
-             * the title bar: always there, across the window, so its controls never move; the
-             * page's header (a `Page`'s) is portalled into its slot, which starts at the card's
-             * left edge while the sidebar is docked, and after the controls while it's hidden
+             * the title bar: always there, across the window, so nothing in it moves. Its start
+             * is as wide as the sidebar (the window's start, the workspace, the toggle); centred
+             * on the window, back, forward, the search field showing the page's title (a
+             * `Page`'s, portalled in) and New; at its end the page's actions (its header,
+             * portalled in)
              */}
             <div className={styles.titleBar}>
-              <WindowBar className={styles.bar} />
+              <WindowBar className={styles.bar} workspace={workspace} />
+              <div className={styles.center}>
+                <HistoryControls />
+                <button
+                  type="button"
+                  className={styles.search}
+                  aria-label="Search"
+                  aria-keyshortcuts="Meta+K"
+                  onClick={onSearch}
+                >
+                  <Search className={styles.searchIcon} aria-hidden />
+                  <span ref={setLocationContainer} className={styles.location} />
+                  <span className={styles.placeholder}>Search or jump to…</span>
+                  <Kbd className={styles.searchKey}>{formatKeys('⌘K')}</Kbd>
+                </button>
+                {create}
+              </div>
               <div ref={setTitleBarContainer} className={styles.titleSlot} />
             </div>
             {/*

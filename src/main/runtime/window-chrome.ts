@@ -16,7 +16,7 @@ import {
 export { TITLE_BAR_HEIGHT };
 
 // Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in, and
-// centred down the title bar (14px in a 40px bar).
+// centred down the title bar (16px in a 44px bar).
 const TRAFFIC_LIGHT_SIZE = 12;
 export const TRAFFIC_LIGHT_POSITION = {
   x: 16,

@@ -3,21 +3,11 @@ import type { NoteId } from '@common/ids';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import type { TaskListItem, TaskSummary } from '@common/types';
-import {
-  Breadcrumb,
-  EditorTitle,
-  PageContent,
-  PageFavoriteButton,
-  Stack,
-  StatusIcon,
-  Page,
-  PageHeader,
-} from '@renderer/components';
+import { EditorTitle, PageContent, PageFavoriteButton, Stack, Page } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
@@ -41,8 +31,7 @@ import { useTaskActions } from '../hooks/use-task-actions';
  * task before the first frame; a task deleted while it is open shows not-found.
  */
 export function TaskPage() {
-  const { taskId, workspaceId } = taskRoute.useParams();
-  const crumbLink = useCrumbLink();
+  const { taskId } = taskRoute.useParams();
   const task = useQuery({
     ...trpc.tasks.get.queryOptions({ id: taskId }),
     // a task trashed or converted from this page is gone for good: retrying would hold up the
@@ -53,11 +42,7 @@ export function TaskPage() {
   if (task.data === undefined) {
     if (task.isError && ipcErrorCode(task.error) === 'not_found') return <NotFoundPage />;
     // not loaded yet (the loader normally has it): the section's crumb, so the header is there
-    return (
-      <SectionPage
-        section={crumbLink('Tasks', { to: '/app/$workspaceId/tasks', params: { workspaceId } })}
-      />
-    );
+    return <SectionPage title="Tasks" />;
   }
   // a new task, a fresh page: the title and description start from it
   return <TaskPageContent key={task.data.id} task={task.data} />;
@@ -68,7 +53,6 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   const router = useRouter();
   const navigate = useNavigate();
   const { canGoBack } = useHistoryPosition();
-  const crumbLink = useCrumbLink();
   const actions = useTaskActions();
   const showError = useMutationErrorToast();
   const [adding, setAdding] = useState<AddingProperty>(null);
@@ -126,27 +110,17 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
 
   return (
     <Page
-      header={
-        <PageHeader
-          actions={
-            !trashed && (
-              <>
-                <PageFavoriteButton
-                  favorite={task.favoritedAt !== null}
-                  onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
-                />
-                <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
-              </>
-            )
-          }
-        >
-          <Breadcrumb
-            items={[
-              crumbLink('Tasks', { to: '/app/$workspaceId/tasks', params: { workspaceId } }),
-              { label: task.title, icon: <StatusIcon status={task.status} /> },
-            ]}
-          />
-        </PageHeader>
+      title={task.title}
+      actions={
+        !trashed && (
+          <>
+            <PageFavoriteButton
+              favorite={task.favoritedAt !== null}
+              onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
+            />
+            <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
+          </>
+        )
       }
     >
       <PageContent layout="document" data-testid="task-page">

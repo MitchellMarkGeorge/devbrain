@@ -1,24 +1,16 @@
 import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Copy, Folder, List, Trash2 } from 'lucide-react';
+import { Copy, Trash2 } from 'lucide-react';
 import { Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
-import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle } from '../../ui/Sheet';
 import { useWorkspaceShell } from './context';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
 import { Heading } from '../../layout/Heading';
-import {
-  Page,
-  PageContent,
-  PageFavoriteButton,
-  PageHeader,
-  PageMenuButton,
-  PageToolbar,
-} from '../PageHeader';
+import { Page, PageContent, PageFavoriteButton, PageMenuButton, PageToolbar } from '../Page';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
-import { DemoSidebar } from '../../screens/Shell/AppFrame';
+import { DemoSidebar, demoTitleBar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
 import { manyTasks } from '../../lists/TaskRow/fixtures';
 import { WorkspaceShell, type WorkspaceShellControls } from './WorkspaceShell';
@@ -57,14 +49,8 @@ function Frame({
   return (
     <div style={{ width, height }}>
       <KeyboardProvider keymap={defaultKeymap}>
-        <ShellWithKeys sidebar={<DemoSidebar active="Tasks" />} {...props}>
-          <Page
-            header={
-              <PageHeader actions={<PageFavoriteButton favorite={false} />}>
-                <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-              </PageHeader>
-            }
-          >
+        <ShellWithKeys sidebar={<DemoSidebar active="Tasks" />} {...demoTitleBar()} {...props}>
+          <Page title="Tasks">
             <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
             <PageContent>
               <Text tone="subtle">
@@ -79,7 +65,11 @@ function Frame({
   );
 }
 
-/** Wide (1280px and up): the title bar across the top, the docked sidebar under it, the page's card beside it. */
+/**
+ * Wide (1280px and up): the title bar across the top (the workspace and the sidebar toggle over the
+ * sidebar; back, forward, the search field showing the page's title, and New over the card), the
+ * docked sidebar under it, the page's card beside it.
+ */
 export const Wide: Story = { render: () => <Frame width={1440} height={720} /> };
 
 const LONG_LIST = manyTasks(1000);
@@ -92,14 +82,8 @@ const LONG_LIST = manyTasks(1000);
 export const ListPage: Story = {
   render: () => (
     <div style={{ width: 1280, height: 720 }}>
-      <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />}>
-        <Page
-          header={
-            <PageHeader actions={<PageFavoriteButton favorite={false} />}>
-              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-            </PageHeader>
-          }
-        >
+      <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />} {...demoTitleBar()}>
+        <Page title="Tasks">
           <PageToolbar
             start={<Button value="Open">Filter</Button>}
             end={<Button value="Priority">Sort</Button>}
@@ -114,40 +98,28 @@ export const ListPage: Story = {
 };
 
 /**
- * A detail page: its `Page`'s header (the breadcrumb, the star and the "…" menu) goes up into the
- * title bar after the window's controls, starting at the card's left edge while the sidebar is
- * docked; the document starts at the top of the card. Hide the sidebar (⌘\) and the header moves
- * up to the controls.
+ * A detail page: its title shows in the title bar's search field, and its header (the star and the
+ * "…" menu) at the title bar's end; the document starts at the top of the card. Hiding the sidebar
+ * (⌘\) moves nothing in the title bar.
  */
 export const DetailPage: Story = {
   render: () => (
     <div style={{ width: 1280, height: 720 }}>
       <KeyboardProvider keymap={defaultKeymap}>
-        <ShellWithKeys sidebar={<DemoSidebar active="Projects" />}>
+        <ShellWithKeys sidebar={<DemoSidebar active="Projects" />} {...demoTitleBar()}>
           <Page
-            header={
-              <PageHeader
-                actions={
-                  <>
-                    <PageFavoriteButton favorite />
-                    <PageMenuButton>
-                      <DropdownMenuItem icon={<Copy />}>Copy as Markdown</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem icon={<Trash2 />} variant="destructive">
-                        Move to trash
-                      </DropdownMenuItem>
-                    </PageMenuButton>
-                  </>
-                }
-              >
-                <Breadcrumb
-                  items={[
-                    { label: 'Projects', href: '#' },
-                    { label: 'Auth Overhaul', href: '#', icon: Folder },
-                    'Implement OAuth2 PKCE flow',
-                  ]}
-                />
-              </PageHeader>
+            title="Implement OAuth2 PKCE flow"
+            actions={
+              <>
+                <PageFavoriteButton favorite />
+                <PageMenuButton>
+                  <DropdownMenuItem icon={<Copy />}>Copy as Markdown</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem icon={<Trash2 />} variant="destructive">
+                    Move to trash
+                  </DropdownMenuItem>
+                </PageMenuButton>
+              </>
             }
           >
             <PageContent layout="document">
@@ -290,14 +262,8 @@ function SheetFrame({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ width: 1440, height: 720 }}>
-      <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />}>
-        <Page
-          header={
-            <PageHeader>
-              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-            </PageHeader>
-          }
-        >
+      <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />} {...demoTitleBar()}>
+        <Page title="Tasks">
           <DockedSheetPage open={open} onOpenChange={setOpen} />
         </Page>
       </WorkspaceShell>

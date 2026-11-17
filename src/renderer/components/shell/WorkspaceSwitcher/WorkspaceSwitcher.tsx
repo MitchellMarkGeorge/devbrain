@@ -28,9 +28,9 @@ export interface WorkspaceSwitcherProps {
 }
 
 /**
- * The workspace menu that `SidebarWorkspace` opens: "Workspaces", each one with its 16px tile
+ * The workspace menu that `WorkspaceButton` opens: "Workspaces", each one with its 16px tile
  * (the open one ticked; the others open on click), then "New workspace…" and "Open folder…",
- * then "Show in Finder" for the open workspace. Pass it as `SidebarWorkspace`'s children.
+ * then "Show in Finder" for the open workspace. Pass it as `WorkspaceButton`'s children.
  */
 export function WorkspaceSwitcher({
   workspaces,

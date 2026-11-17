@@ -148,7 +148,7 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
 - `app/`: what starts the window and holds every page: the router (`router.tsx`), the root
   layout, splash and error pages, `theme.tsx`, `modals.tsx`, `workspace-route.ts`.
 - `layouts/workspace/`: the shell around a workspace's pages (`AppLayout`, the sidebar, the
-  workspace menu, the page header slots, the app-wide commands).
+  workspace menu, the app-wide commands).
 - `features/<feature>/`: one per area (tasks, notes, projects, calendar, home, search, settings,
   integrations, trash, onboarding, workspaces), each split the same way:
   - `api/`: `queries.ts` (query options and keys), `loaders.ts`, `search.ts` (search params),
@@ -198,10 +198,12 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   stops the splash showing at startup.
 - **A saved page names its workspace** (`lastPageSchema`); main keeps one per workspace. Don't send
   the location over IPC.
-- **Each page draws its own header.** A page component renders a `Page` (`src/renderer/components`)
-  with its `PageHeader` (breadcrumb from `useCrumbLink`, actions), or no `header` at all. The
-  workspace layout holds nothing of the page's; `Page` itself puts the header in the window's
-  title bar (`WorkspaceShell`'s `titleBarContainer`), so a page never fills a slot of its own.
+- **Each page declares its own title and actions.** A page component renders a `Page`
+  (`src/renderer/components`) with its `title` ("Tasks", the task's title), shown in the title
+  bar's search field and as the window's title, and its `actions` (a detail page's star and "…"),
+  or none. There are no breadcrumbs. The workspace layout holds nothing of the page's; `Page` itself puts both in the
+  window's title bar (`WorkspaceShell`'s `locationContainer` and `titleBarContainer`), so a page
+  never fills a slot of its own.
 - **Settings has its own sidebar.** Under `/app/$workspaceId/settings/…` the workspace layout gives
   the shell `SettingsSidebar` (Back to app, then a page per section) in place of `AppSidebar`. List
   a new setting under **Current workspace** when the workspace stores it (its database, its

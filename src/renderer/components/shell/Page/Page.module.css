@@ -1,6 +1,6 @@
-/* The page's frame, top bar, toolbar and content. See docs/design-system/components/PageHeader.md */
+/* The page's frame, its actions, toolbar and content. See docs/design-system/components/Page.md */
 
-/* ---------- page: the header, then the scroller under it ---------- */
+/* ---------- page: its actions (outside a shell), then the scroller under them ---------- */
 .page {
   display: flex;
   flex-direction: column;
@@ -19,35 +19,24 @@
 }
 
 /*
- * In a shell the page is a card under the title bar, its header (if any) up in the bar: a toolbar
- * at the card's top keeps 12px clear of its edge, whether the page has a header or not
+ * In a shell the page is a card under the title bar, its actions (if any) up in the bar: a toolbar
+ * at the card's top keeps 12px clear of its edge, whether the page has actions or not
  */
 .page[data-in-shell] .toolbar {
   padding-top: var(--space-3);
 }
 
-/* ---------- header ---------- */
-.header {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-  /* 48px topping a page; as tall as the title bar inside it (WorkspaceShell sets this) */
-  height: var(--page-header-height, 48px);
-  min-width: 0;
-  padding: 0 var(--space-6);
-}
-.place {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-width: 0;
-}
+/* ---------- actions: 48px topping a page; as tall as the title bar inside it ---------- */
 .actions {
   display: flex;
   flex: none;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
+  /* WorkspaceShell sets the height in its title bar */
+  height: var(--page-actions-height, 48px);
+  min-width: 0;
+  padding: 0 var(--space-6);
 }
 .favorite[data-favorite] {
   color: var(--date-today);

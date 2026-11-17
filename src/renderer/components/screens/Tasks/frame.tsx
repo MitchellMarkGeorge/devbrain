@@ -4,6 +4,7 @@
  * once they exist these stories should use them instead.
  */
 import type { CSSProperties, ReactNode } from 'react';
+import { WorkspaceButton } from '../../shell/WorkspaceSwitcher';
 import { TaskStatus } from '@common/types';
 import {
   Calendar,
@@ -29,7 +30,6 @@ import {
   SidebarHeader,
   SidebarHeaderActions,
   SidebarItem,
-  SidebarWorkspace,
 } from '../../shell/Sidebar';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TooltipProvider } from '../../ui/Tooltip';
@@ -50,7 +50,7 @@ function AppSidebar({ active }: { active: Page }) {
     <Sidebar
       header={
         <SidebarHeader>
-          <SidebarWorkspace name="SurveyMonkey" color="green" />
+          <WorkspaceButton name="SurveyMonkey" color="green" />
           <SidebarHeaderActions>
             <Button variant="ghost" size="icon-xs" icon={Search} aria-label="Search" />
             <Button variant="ghost" size="icon-xs" icon={SquarePen} aria-label="New task" />

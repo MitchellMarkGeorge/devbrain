@@ -48,7 +48,7 @@ export function HomePage() {
   );
 
   return (
-    <Page>
+    <Page title="Home">
       <PageContent layout="home">
         <div className={styles.column}>
           <header className={styles.header}>

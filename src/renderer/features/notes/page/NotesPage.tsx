@@ -1,13 +1,8 @@
-import { Breadcrumb, PageContent, PageToolbar, Page, PageHeader } from '@renderer/components';
+import { PageContent, PageToolbar, Page } from '@renderer/components';
 import { CLEAR_FILTERS } from '../api/search';
 import { useCreateNote } from '../hooks/use-create-note';
 import { useNotesSearch } from '../hooks/use-notes-search';
-import {
-  NotesFilterMenu,
-  NotesToolbarEnd,
-  VIEW_ICONS,
-  VIEW_LABELS,
-} from '../components/views/NotesToolbar';
+import { NotesFilterMenu, NotesToolbarEnd } from '../components/views/NotesToolbar';
 import { NotesView } from '../components/views/NotesViews';
 
 /**
@@ -23,18 +18,7 @@ export function NotesPage() {
       projectId: resolved.project && resolved.project !== 'none' ? resolved.project : undefined,
     });
   return (
-    <Page
-      header={
-        <PageHeader>
-          <Breadcrumb
-            items={[
-              'Notes',
-              { label: VIEW_LABELS[resolved.view], icon: VIEW_ICONS[resolved.view] },
-            ]}
-          />
-        </PageHeader>
-      }
-    >
+    <Page title="Notes">
       <PageToolbar
         start={<NotesFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<NotesToolbarEnd resolved={resolved} setSearch={setSearch} onNewNote={newNote} />}

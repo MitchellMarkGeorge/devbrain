@@ -1,4 +1,4 @@
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -7,35 +7,46 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui
 import { IconButton } from '../../ui/IconButton';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
-import styles from './PageHeader.module.css';
+import styles from './Page.module.css';
 
-export interface PageProps extends ComponentPropsWithoutRef<'div'> {
+export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
   /**
-   * The page's header: a `PageHeader` with its breadcrumb and actions, or a bar of the page's own.
-   * Inside a `WorkspaceShell` it goes in the window's title bar, after the window's controls (so
-   * it stays put while the page scrolls, and takes no room in the page); elsewhere the page draws
-   * it at its top. Leave it out for a page with no header (Home, the calendar, Settings, Integrations)
+   * Where you are, in a few words: "Tasks", a task's or note's title. Inside a `WorkspaceShell` it
+   * shows in the title bar's search field (which opens search) and names the window; elsewhere it
+   * isn't drawn. A page still loading leaves it out, and the field reads "Search or jump to…"
    */
-  header?: ReactNode;
+  title?: string;
+  /**
+   * The page's actions, 8px apart: a detail page's `PageFavoriteButton` and `PageMenuButton`.
+   * Inside a `WorkspaceShell` they go at the title bar's end (so they stay put while the page
+   * scrolls, and take no room in the page); elsewhere the page draws them in a 48px bar at its top.
+   * Toolbars (filter, sort, view, "New Task") go in a `PageToolbar` in the page instead.
+   */
+  actions?: ReactNode;
   /** classes for the scrolling element (the ScrollArea's viewport) */
   scrollClassName?: string;
 }
 
 /**
- * A page in a `WorkspaceShell`: its header, in the shell's title bar, and everything else (a
- * `PageToolbar` and a `PageContent`, or a layout of the page's own) in the page's scroller. Every
- * page renders one, so each decides its own header, or none. The header is still the page's own
- * JSX, so it can use the page's state; the shell only gives it a place. A list or grid page's content fills the scroller and
- * scrolls itself; a Home or document page keeps its height, and the scroller scrolls it whole.
+ * A page in a `WorkspaceShell`: its title, in the title bar's search field; its actions, at the
+ * title bar's end; and everything else (a `PageToolbar` and a `PageContent`, or a layout of the
+ * page's own) in the page's scroller. Every page renders one. The actions are still the page's own
+ * JSX, so they can use the page's state; the shell only gives them a place. A list or grid page's
+ * content fills the scroller and scrolls itself; a Home or document page keeps its height, and the
+ * scroller scrolls it whole.
  */
 export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
-  { header, scrollClassName, className, children, ...props },
+  { title, actions, scrollClassName, className, children, ...props },
   ref,
 ) {
-  const { titleBarContainer } = useWorkspaceShell();
-  // in a shell, the page is the card under the title bar, header or not
+  const { titleBarContainer, locationContainer } = useWorkspaceShell();
+  // in a shell, the page is the card under the title bar, actions or not
   const inShell = titleBarContainer !== null;
-  const inTitleBar = header != null && inShell;
+  // the window's title (Electron's, for the Window menu and Mission Control) follows the page's
+  useEffect(() => {
+    if (inShell && title) document.title = title;
+  }, [inShell, title]);
+  const bar = actions && <div className={styles.actions}>{actions}</div>;
   return (
     <div
       ref={ref}
@@ -43,7 +54,8 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
       className={cn(styles.page, className)}
       {...props}
     >
-      {inTitleBar ? createPortal(header, titleBarContainer) : header}
+      {inShell && bar ? createPortal(bar, titleBarContainer) : bar}
+      {title && locationContainer && createPortal(<span>{title}</span>, locationContainer)}
       {/*
        * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
        * on its scrolling element: the app's router restores it, and scrolls it to the top on a
@@ -57,35 +69,6 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
         {children}
       </ScrollArea>
     </div>
-  );
-});
-
-export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
-  /** the page's place, at the left: a `Breadcrumb` ("Tasks › List"), or its title */
-  children?: ReactNode;
-  /**
-   * The page's actions at the right, 8px apart: a detail page's `PageFavoriteButton` and
-   * `PageMenuButton`, a sheet toggle. Toolbars (filter, sort, view, "New Task") go in the
-   * `PageToolbar` under the header instead.
-   */
-  actions?: ReactNode;
-}
-
-/**
- * A page's header (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
- * page's actions at the right, 24px in from the sides. Inside a `WorkspaceShell` it fills the
- * title bar after the window's controls (its buttons and links don't drag the window; the bar
- * around them does); elsewhere it tops the page.
- */
-export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
-  { actions, className, children, ...props },
-  ref,
-) {
-  return (
-    <header ref={ref} className={cn(styles.header, className)} {...props}>
-      <div className={styles.place}>{children}</div>
-      {actions && <div className={styles.actions}>{actions}</div>}
-    </header>
   );
 });
 
@@ -118,7 +101,7 @@ export interface PageMenuButtonProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-/** The detail page's "…" menu, aligned to the header's right edge. */
+/** The detail page's "…" menu, aligned to the actions' right edge. */
 export function PageMenuButton({ children, open, defaultOpen, onOpenChange }: PageMenuButtonProps) {
   return (
     <DropdownMenu open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
@@ -138,7 +121,7 @@ export interface PageToolbarProps extends ComponentPropsWithoutRef<'div'> {
 }
 
 /**
- * The toolbar row under the header: 32px controls 8px apart, the left group and the right group
+ * The toolbar row at the page's top: 32px controls 8px apart, the left group and the right group
  * pushed apart, 12px above the content. In compact windows the toolbar buttons hide their values
  * (`Button value`), which is the buttons' own job.
  */
