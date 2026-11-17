@@ -154,6 +154,11 @@ A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left
    token, and `renderMarkdown` to write it back exactly;
 2. `parseHTML`/`renderHTML` for copy and paste;
 3. for a React view, `addNodeView()` with `ReactNodeViewRenderer`, as `EntityPillView.tsx` does.
+   An element with editable text inside (a `NodeViewContent`) that a note can hold hundreds of
+   should be a plain node view with only its controls in React (a `ReactRenderer`), as
+   `TaskItemView.tsx` does: each `NodeViewContent` reads the page's selection as it mounts, which
+   lays out the whole page while nothing is selected, as when a note opens
+   (docs/performance.md).
 
 Add the schema node to `createDocumentExtensions` and its view in `RichTextEditor`, and a round
 trip case to the tests. Menus that open on a character use `createSuggestionMenu`

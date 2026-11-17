@@ -22,3 +22,18 @@
   text-decoration: underline dotted var(--border-strong);
   text-underline-offset: 3px;
 }
+
+/*
+ * A long note lays out only the blocks near the view: the rest skip layout and paint until they
+ * scroll close, keeping the size they last had (or 3em before they are first drawn). Every edit and
+ * every node view mounting lays the page out again, so in a 200 KB note this halves the time to
+ * type a character and cuts a second off opening it (docs/performance.md). Only blocks whose
+ * children's margins don't reach through their edges: containment stops margins collapsing through
+ * the block, which would add space inside quotes, callouts, sections and tables. The clip margin
+ * keeps what paints just outside a block (a checkbox's ring) as it was.
+ */
+.content > :is(p, h1, h2, h3, h4, h5, h6, ul, ol, pre, hr) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 3em;
+  overflow-clip-margin: 8px;
+}
