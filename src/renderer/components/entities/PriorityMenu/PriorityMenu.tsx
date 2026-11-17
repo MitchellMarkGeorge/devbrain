@@ -7,13 +7,13 @@ import {
   type ValueMenuContentProps,
   type ValueMenuOption,
 } from '../StatusMenu';
-import type { TaskPriority } from '@common/types';
+import { type SettablePriority, TaskPriority } from '@common/types';
 import { PRIORITIES, PRIORITY_LABELS } from '../../types';
 
 // ⇧1, ⇧2, ⇧3 arrive as the shifted characters on a US layout
 const SHIFTED = ['!', '@', '#'];
 
-const PRIORITY_OPTIONS: ValueMenuOption<TaskPriority>[] = PRIORITIES.map((priority, index) => ({
+const PRIORITY_OPTIONS: ValueMenuOption<SettablePriority>[] = PRIORITIES.map((priority, index) => ({
   value: priority,
   label: PRIORITY_LABELS[priority],
   icon: <PriorityIcon priority={priority} />,
@@ -22,26 +22,26 @@ const PRIORITY_OPTIONS: ValueMenuOption<TaskPriority>[] = PRIORITIES.map((priori
 }));
 
 export interface PriorityMenuContentProps extends Omit<
-  ValueMenuContentProps<TaskPriority>,
+  ValueMenuContentProps<SettablePriority>,
   'label' | 'options' | 'value'
 > {
-  /** the task's priority; the matching item is ticked and highlighted */
+  /** the task's priority; the matching item is ticked and highlighted (none for `NONE`) */
   priority: TaskPriority | undefined;
 }
 
 /**
  * The priority menu's popup: a "Priority" label, then High, Medium and Low with their
- * `PriorityIcon`s. The current priority is ticked; the others show ⇧1, ⇧2, ⇧3.
+ * `PriorityIcon`s. The current priority is ticked; the others show ⇧1, ⇧2, ⇧3. No priority
+ * (`NONE`, which only sync sets) is never offered, and ticks nothing.
  */
 export function PriorityMenuContent({ priority, ...props }: PriorityMenuContentProps) {
-  return (
-    <ValueMenuContent label="Priority" options={PRIORITY_OPTIONS} value={priority} {...props} />
-  );
+  const value = priority === TaskPriority.NONE ? undefined : priority;
+  return <ValueMenuContent label="Priority" options={PRIORITY_OPTIONS} value={value} {...props} />;
 }
 
 export interface PriorityMenuProps {
   priority: TaskPriority | undefined;
-  onPriorityChange?: (priority: TaskPriority) => void;
+  onPriorityChange?: (priority: SettablePriority) => void;
   /** the element that opens the menu: a priority badge or icon button */
   trigger: ReactElement;
   open?: boolean;

@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { TaskPriority, type AppSettings } from '@common/types';
+import { type SettablePriority, TaskPriority, type AppSettings } from '@common/types';
 import { PRIORITY_LABELS, SettingsGroup, SettingsRow, SettingsSection } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { SettingSelect, SettingSwitch, SettingToggle, type Option } from './controls';
@@ -16,11 +16,9 @@ const SORTS: readonly Option<Tasks['defaultSort']>[] = [
   { value: 'dueDate', label: 'Due date' },
   { value: 'status', label: 'Status' },
 ];
-const PRIORITIES: readonly Option<`${TaskPriority}`>[] = [
-  TaskPriority.HIGH,
-  TaskPriority.MEDIUM,
-  TaskPriority.LOW,
-].map((priority) => ({ value: `${priority}` as const, label: PRIORITY_LABELS[priority] }));
+const PRIORITIES: readonly Option<`${SettablePriority}`>[] = (
+  [TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW] as const
+).map((priority) => ({ value: `${priority}` as const, label: PRIORITY_LABELS[priority] }));
 const DUE_DATES: readonly Option<Tasks['defaultDueDate']>[] = [
   { value: 'today', label: 'Today' },
   { value: 'tomorrow', label: 'Tomorrow' },
@@ -62,7 +60,7 @@ export function TasksSettings() {
                 onChange={(value) =>
                   void set({
                     path: 'settings.tasks.defaultPriority',
-                    value: Number(value) as TaskPriority,
+                    value: Number(value) as SettablePriority,
                   })
                 }
               />

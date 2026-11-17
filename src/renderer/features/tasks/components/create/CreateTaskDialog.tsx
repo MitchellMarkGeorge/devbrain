@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Ellipsis } from 'lucide-react';
 import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 import {
+  type SettablePriority,
+  TaskPriority,
   TaskStatus,
   type AppSettings,
   type ProjectSummary,
-  type TaskPriority,
   type TaskSummary,
 } from '@common/types';
 import {
@@ -43,7 +44,7 @@ export interface CreateTaskDefaults {
   /** ⌘K's "New Task" with what was searched */
   title?: string;
   status?: TaskStatus;
-  priority?: TaskPriority;
+  priority?: SettablePriority;
   /** null: no due date, over the setting's default */
   dueDate?: Date | null;
   projectId?: ProjectId | null;
@@ -91,8 +92,8 @@ export function CreateTaskDialog({
   const [title, setTitle] = useState(defaults.title ?? '');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState(defaults.status ?? TaskStatus.NOT_STARTED);
-  const [priority, setPriority] = useState<TaskPriority>(
-    defaults.priority ?? settings?.tasks.defaultPriority ?? (1 as TaskPriority),
+  const [priority, setPriority] = useState<SettablePriority>(
+    defaults.priority ?? settings?.tasks.defaultPriority ?? TaskPriority.LOW,
   );
   const [dueDate, setDueDate] = useState<Date | null>(() =>
     defaults.dueDate !== undefined

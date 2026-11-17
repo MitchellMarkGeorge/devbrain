@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { safeUrlSchema } from '@common/safe-url';
-import { type TaskDeleteResult, type TaskListItem, TaskPriority, TaskStatus } from '@common/types';
+import {
+  settablePrioritySchema,
+  type TaskDeleteResult,
+  type TaskListItem,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -11,7 +17,9 @@ import { zId, zPageFields } from '../zod';
 const byId = z.object({ id: zId('task') });
 
 const title = z.string().trim().min(1);
-const priority = z.enum(TaskPriority);
+// a filter can ask for NONE (synced tasks with no priority); a write sets only what a user can
+const priorityFilter = z.enum(TaskPriority);
+const priority = settablePrioritySchema;
 const status = z.enum(TaskStatus);
 
 // core's TaskFilterOptions
@@ -21,7 +29,7 @@ const filter = z.object({
   projectId: zId('project').nullable().optional(),
   noteId: zId('note').nullable().optional(),
   eventId: zId('event').nullable().optional(),
-  priority: priority.optional(),
+  priority: priorityFilter.optional(),
   dueOn: z.date().optional(),
   dueBefore: z.date().optional(),
   dueAfter: z.date().optional(),

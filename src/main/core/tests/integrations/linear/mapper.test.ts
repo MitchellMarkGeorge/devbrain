@@ -71,7 +71,7 @@ describe('Linear mapper — issues', () => {
   });
 
   it.each([
-    [0, 'No priority', TaskPriority.LOW],
+    [0, 'No priority', TaskPriority.NONE],
     [1, 'Urgent', TaskPriority.HIGH],
     [2, 'High', TaskPriority.HIGH],
     [3, 'Medium', TaskPriority.MEDIUM],

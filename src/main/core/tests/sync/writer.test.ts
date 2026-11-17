@@ -231,6 +231,16 @@ describe('SyncWriter — no link: insert', () => {
     });
   });
 
+  it("writes an issue with no priority as NONE, and Linear's label with it", () => {
+    const item = issue({ priority: TaskPriority.NONE, priorityLabel: 'No priority' });
+
+    writer.applyTaskPage(sourceId, page({ tasks: [item] }));
+
+    const task = tasks.getById(taskIdOf(item.externalId));
+    expect(task.priority).toBe(TaskPriority.NONE);
+    expect(task.external?.priorityLabel).toBe('No priority');
+  });
+
   it('inserts the project and its link, and puts the task in it', async () => {
     const proj = project({ title: 'Checkout revamp', dueDate: null });
     const item = issue({ projectExternalId: proj.externalId });

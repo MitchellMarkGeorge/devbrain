@@ -10,7 +10,10 @@ const meta = {
   component: PriorityIcon,
   args: { priority: TaskPriority.HIGH, size: 16 },
   argTypes: {
-    priority: { control: { type: 'inline-radio', labels: PRIORITY_LABELS }, options: PRIORITIES },
+    priority: {
+      control: { type: 'inline-radio', labels: PRIORITY_LABELS },
+      options: [...PRIORITIES, TaskPriority.NONE],
+    },
     size: { control: 'inline-radio', options: [12, 16, 24] },
   },
 } satisfies Meta<typeof PriorityIcon>;
@@ -29,6 +32,13 @@ export const AllPriorities: Story = {
           <Text>{PRIORITY_LABELS[priority]}</Text>
         </Flex>
       ))}
+      <Flex gap="2" align="center">
+        <PriorityIcon priority={TaskPriority.NONE} />
+        <Text>{PRIORITY_LABELS[TaskPriority.NONE]}</Text>
+      </Flex>
     </Stack>
   ),
 };
+
+/** A synced task whose provider has no priority set (Linear's "No priority"): neutral. */
+export const NoPriority: Story = { args: { priority: TaskPriority.NONE } };

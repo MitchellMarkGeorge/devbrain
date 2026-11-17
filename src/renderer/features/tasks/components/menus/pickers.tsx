@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Calendar, Plus } from 'lucide-react';
-import type { ProjectSummary, TaskPriority, TaskStatus } from '@common/types';
+import type { ProjectSummary, SettablePriority, TaskPriority, TaskStatus } from '@common/types';
 import {
   DatePicker,
   DropdownMenu,
@@ -52,7 +52,7 @@ export function PriorityPill({
   disabled,
 }: {
   value: TaskPriority;
-  onChange: (priority: TaskPriority) => void;
+  onChange: (priority: SettablePriority) => void;
   disabled?: boolean;
 }) {
   const pill = (

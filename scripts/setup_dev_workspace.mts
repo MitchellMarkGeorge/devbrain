@@ -52,6 +52,7 @@ import {
   type Project,
   ProjectStatus,
   Provider,
+  type SettablePriority,
   type Task,
   TaskPriority,
   TaskStatus,
@@ -756,8 +757,8 @@ function pickTaskStatus(dueDate: Date): TaskStatus {
       ]);
 }
 
-function pickTaskPriority(): TaskPriority {
-  return weightedPick([
+function pickTaskPriority(): SettablePriority {
+  return weightedPick<SettablePriority>([
     [TaskPriority.LOW, 0.4],
     [TaskPriority.MEDIUM, 0.35],
     [TaskPriority.HIGH, 0.25],
@@ -948,7 +949,8 @@ async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]
       const subtask = await workspace.tasks.createSubtask(parent.id, {
         title: pick(SUBTASK_FRAGMENTS),
         status,
-        priority: parent.priority,
+        // a seeded parent is local, so it has one; NONE only comes from sync
+        priority: parent.priority === TaskPriority.NONE ? undefined : parent.priority,
       });
       subtasks.push(subtask);
     }

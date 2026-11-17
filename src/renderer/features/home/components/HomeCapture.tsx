@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import type { CalendarId, ProjectId } from '@common/ids';
-import { TaskPriority } from '@common/types';
+import { type SettablePriority, TaskPriority } from '@common/types';
 import { CaptureBox, toast, useFormat, type CaptureKind } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
@@ -23,7 +23,7 @@ import {
 interface Picked {
   projectId?: ProjectId | null;
   date?: Date | null;
-  priority?: TaskPriority;
+  priority?: SettablePriority;
   calendarId?: CalendarId;
   /** an event's day and minutes after midnight */
   day?: Date;

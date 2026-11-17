@@ -196,12 +196,20 @@ describe('appSettingsSchema — tasks block', () => {
     ).toBe(false);
   });
 
-  it('accepts all TaskPriority values', () => {
-    for (const priority of [TaskPriority.HIGH, TaskPriority.LOW, TaskPriority.MEDIUM]) {
+  it('accepts the priorities a user sets', () => {
+    for (const priority of [TaskPriority.HIGH, TaskPriority.LOW, TaskPriority.MEDIUM] as const) {
       expect(
         appSettingsSchema.safeParse(withTasks({ defaultPriority: priority }).settings).success,
       ).toBe(true);
     }
+  });
+
+  it('rejects no priority as the default: only sync sets it', () => {
+    expect(
+      appSettingsSchema.safeParse(
+        withTasks({ defaultPriority: TaskPriority.NONE as never }).settings,
+      ).success,
+    ).toBe(false);
   });
 
   it('rejects an unknown defaultPriority value', () => {

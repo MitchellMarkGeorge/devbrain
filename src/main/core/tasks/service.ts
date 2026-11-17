@@ -287,7 +287,8 @@ export class TaskService {
       );
     }
 
-    if (filter.priority) clauses.push(eq(tasks.priority, filter.priority));
+    // NONE is 0, so test for a value, not truthiness
+    if (filter.priority !== undefined) clauses.push(eq(tasks.priority, filter.priority));
     // figure this out
     if (filter.dueBefore != null) clauses.push(lt(tasks.dueDate, filter.dueBefore));
     if (filter.dueAfter != null) clauses.push(gt(tasks.dueDate, filter.dueAfter));

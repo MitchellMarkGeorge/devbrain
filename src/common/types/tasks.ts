@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { EventId, NoteId, ProjectId, TaskId } from '../ids';
 import type { ExternalRef } from './integrations';
 import type {
@@ -12,10 +13,23 @@ import type {
 
 export enum TaskPriority {
   // migrated to ints so sorting works
+  // no priority: a synced task whose provider has none set (Linear's "No priority") or none
+  // DevBrain can read (a provider with no priority field). Only sync sets it, never a guess at
+  // one; the provider's own label, if any, is shown with it. It sorts below LOW.
+  NONE = 0,
   LOW = 1, //  'low'
   MEDIUM = 2, // 'medium'
   HIGH = 3, // 'high'
 }
+
+/** The priorities a user sets on a task. NONE comes only from a provider, through sync. */
+export type SettablePriority = Exclude<TaskPriority, TaskPriority.NONE>;
+
+export const settablePrioritySchema = z.literal([
+  TaskPriority.LOW,
+  TaskPriority.MEDIUM,
+  TaskPriority.HIGH,
+]);
 
 export enum TaskStatus {
   // migrated to ints so sorting works

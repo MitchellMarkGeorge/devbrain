@@ -82,6 +82,7 @@ export const PRIORITY_FILTER_LABELS: Record<PriorityFilter, string> = {
   high: 'High',
   medium: 'Medium',
   low: 'Low',
+  none: 'No priority',
 };
 export const DUE_FILTER_LABELS: Record<DueFilter, string> = {
   overdue: 'Overdue',

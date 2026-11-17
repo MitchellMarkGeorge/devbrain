@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
-import { LinkState, Provider, TaskStatus } from '@common/types';
+import { LinkState, Provider, TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';
@@ -152,6 +152,28 @@ describe('the task page', () => {
     expect(properties.querySelectorAll('button')).toHaveLength(0);
     const title = app.container.querySelector('[aria-label="Title"]')!;
     expect(title.getAttribute('contenteditable')).toBe('false');
+  });
+
+  it('shows a synced task with no priority as none, not as Low', async () => {
+    const synced = fakeTask('tsk_mit69', 'Re-run codegen', {
+      priority: TaskPriority.NONE,
+      external: {
+        provider: Provider.LINEAR,
+        state: LinkState.SYNCED,
+        key: 'MIT-69',
+        url: 'https://linear.app/x/issue/MIT-69',
+        statusLabel: 'Backlog',
+        priorityLabel: 'No priority',
+        lastSyncedAt: new Date(),
+      },
+    });
+    const app = startApp(mainWith(new FakeTasks([synced])), {
+      url: `/app/${WORK}/tasks/${synced.id}`,
+    });
+    await eventually(() => expect(app.text()).toContain('No priority'));
+    const properties = app.container.querySelector('[aria-label="Properties"]')!;
+    expect(properties.querySelector('[aria-label="No priority"]')).not.toBeNull();
+    expect(properties.querySelector('[aria-label="Low priority"]')).toBeNull();
   });
 
   it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {

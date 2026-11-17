@@ -3,6 +3,7 @@ import {
   ProjectHealth,
   ProjectStatus,
   Provider as CoreProvider,
+  type SettablePriority,
   TaskPriority,
   TaskStatus,
   type ExternalRef,
@@ -193,8 +194,11 @@ export function statusVar(status: TaskStatus, overdue = false): string {
   return `var(--status-${statusSlug(status, overdue)})`;
 }
 
-/** The priorities in menu order, highest first. */
-export const PRIORITIES: readonly TaskPriority[] = [
+/**
+ * The priorities in menu order, highest first: the ones a user sets. `TaskPriority.NONE` only comes
+ * from a provider, so no menu offers it.
+ */
+export const PRIORITIES: readonly SettablePriority[] = [
   TaskPriority.HIGH,
   TaskPriority.MEDIUM,
   TaskPriority.LOW,
@@ -204,6 +208,8 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   [TaskPriority.HIGH]: 'High',
   [TaskPriority.MEDIUM]: 'Medium',
   [TaskPriority.LOW]: 'Low',
+  // a synced task whose provider has none, or none DevBrain can read (Linear's wording)
+  [TaskPriority.NONE]: 'No priority',
 };
 
 export const HEALTH_LABELS: Record<ProjectHealth, string> = {

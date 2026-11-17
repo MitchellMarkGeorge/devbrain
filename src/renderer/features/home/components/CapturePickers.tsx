@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Calendar, Clock, Folder, Timer } from 'lucide-react';
 import { DateTime } from 'luxon';
 import type { CalendarId, ProjectId } from '@common/ids';
-import type { Calendar as CalendarRow, TaskPriority } from '@common/types';
+import type { Calendar as CalendarRow, SettablePriority } from '@common/types';
 import {
   CaptureBoxPicker,
   DatePicker,
@@ -114,8 +114,8 @@ export function CapturePriorityPicker({
   value,
   onChange,
 }: {
-  value: TaskPriority;
-  onChange: (priority: TaskPriority) => void;
+  value: SettablePriority;
+  onChange: (priority: SettablePriority) => void;
 }) {
   return (
     <PriorityMenu
