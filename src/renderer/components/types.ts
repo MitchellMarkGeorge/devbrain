@@ -208,7 +208,7 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   [TaskPriority.HIGH]: 'High',
   [TaskPriority.MEDIUM]: 'Medium',
   [TaskPriority.LOW]: 'Low',
-  // as Linear words it
+  // a synced task whose provider has none, or none DevBrain can read (Linear's wording)
   [TaskPriority.NONE]: 'No priority',
 };
 

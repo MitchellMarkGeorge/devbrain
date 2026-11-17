@@ -13,7 +13,9 @@ import type {
 
 export enum TaskPriority {
   // migrated to ints so sorting works
-  // none set: only a synced task has it (Linear's "No priority"), and it sorts below LOW
+  // no priority: a synced task whose provider has none set (Linear's "No priority") or none
+  // DevBrain can read (a provider with no priority field). Only sync sets it, never a guess at
+  // one; the provider's own label, if any, is shown with it. It sorts below LOW.
   NONE = 0,
   LOW = 1, //  'low'
   MEDIUM = 2, // 'medium'
