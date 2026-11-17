@@ -9,10 +9,10 @@ The window inside a workspace, the frame every page in it shares: the **title ba
 ┌─────────────────┬─────────────────────────────────────────────┐
 │ ●●● D Dev ⌃⌄ ◫  │   ←  →  [ Tasks           ⌘K ]  +      ☆  ⋯ │
 ├─────────────────┼─────────────────────────────────────────────┤
-│ sidebar         │ ╭─────────────────────────────┬───────────╮ │
-│                 │ │ page (a Page)               │ sheet     │ │
-│                 │ │                             │           │ │
-│                 │ ╰─────────────────────────────┴───────────╯ │
+│ ╭─────────────╮ │ ╭─────────────────────────────┬───────────╮ │
+│ │ sidebar     │ │ │ page (a Page)               │ sheet     │ │
+│ │             │ │ │                             │           │ │
+│ ╰─────────────╯ │ ╰─────────────────────────────┴───────────╯ │
 └─────────────────┴─────────────────────────────────────────────┘
 ```
 
@@ -30,7 +30,7 @@ There are no breadcrumbs: the field says which page this is, and a task or note 
 
 The sidebar is **docked or hidden**. `collapsed` is the user's choice (⌘\ or the sidebar toggle) and hides it at any size; a compact window hides it too. `useWorkspaceShell().sidebarHidden` says which.
 
-- **Docked:** the sidebar in its `sidebar-width` (256px) column under the title bar, the card beside it.
+- **Docked:** the sidebar in its `sidebar-width` (256px) column under the title bar, as a card of its own (inset 8px, `border` hairline, `radius-lg`, on `background`, like the page's), the page's card beside it.
 - **Hidden:** the column is 0 wide and the card spans the window under the title bar. The sidebar opens as a drawer over the page (below).
 - **Hiding and docking slide.** The column's width (`--workspace-sidebar-column`, a registered property the shell transitions) slides between the two in `duration-slow` (`ease-surface`), the sidebar sliding out (or in) with it so its right edge stays on the column's, and the card's left edge follows. Nothing moves under `prefers-reduced-motion`. While it slides shut the sidebar is `inert`; once shut it is unmounted and the drawer, which renders the sidebar again, takes over (so only during that slide are there two). Anything the sidebar keeps only in its own state (a scroll position) starts afresh; what should survive, such as folded groups, belongs in the app's state.
 - **Docking from the open drawer** doesn't slide: the sidebar is already showing where it docks, so the column opens at once under it (`data-instant` on the shell for that change).

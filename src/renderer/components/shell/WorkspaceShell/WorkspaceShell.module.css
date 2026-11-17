@@ -209,17 +209,23 @@
   min-height: 0;
   overflow: hidden;
 }
-/* doubled class: outranks the sidebar's own border and background */
+/*
+ * The sidebar is a card of its own, like the page's beside it: inset 8px from the window's edges and
+ * from the page's card, on the page colour with a `border` hairline and `radius-lg`. Doubled class:
+ * outranks the sidebar's own width, height, border and background.
+ */
 .sidebar.sidebar > * {
   flex: none;
-  width: var(--sidebar-width);
-  /* the card's edge separates them, so no hairline of its own */
-  border-right: none;
-  background: transparent;
+  width: calc(var(--sidebar-width) - 2 * var(--space-2));
+  height: auto;
+  margin: 0 var(--space-2) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
   transition: transform var(--duration-slow) var(--ease-surface);
 }
 .shell[data-sidebar='hidden'] .sidebar > * {
-  transform: translateX(-100%);
+  transform: translateX(calc(-100% - var(--space-2)));
 }
 
 /*
