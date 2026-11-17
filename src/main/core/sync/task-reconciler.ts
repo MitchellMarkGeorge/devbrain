@@ -1,23 +1,14 @@
 import { ExternalSourceId } from '@common/ids';
 import { consoleLogger, type Logger } from '../shared/logger';
-import { externalLinks } from '@main/db/schema/integrations';
-import { tasks as tasksTable } from '@main/db/schema/tasks';
-import { and, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { Auth } from '../integrations/auth';
 import { TaskSource } from '../integrations/providers/provider';
-import { LinkState, SourceType, TaskStatus } from '@common/types';
+import { SourceType } from '@common/types';
 import { ExternalProject, ExternalTask } from '../integrations/types';
 import { CLOSED_ISSUE_WINDOW_MS } from './constants';
 import type { IntegrationService } from '../integrations/service';
 import { PendingReconcile } from './syncer';
-import {
-  ReattachRefusal,
-  ReattachResult,
-  ReconcileItems,
-  ReconcilePlan,
-  SyncSkipReason,
-} from './types';
+import { ReattachRefusal, ReattachResult, ReconcileItems, SyncSkipReason } from './types';
+import { SyncReader } from './reader';
 import { SyncWriter } from './writer';
 
 // a detached root task and its detached descendants, by external id, to reattach together
@@ -27,8 +18,8 @@ export interface ReattachGroup {
 }
 
 export interface TaskReconcilerOptions {
-  // for the reads that plan a reconcile pass; writes go through `writer`
-  db: BetterSQLite3Database;
+  // the reads that plan a reconcile pass; writes go through `writer`
+  reader: SyncReader;
   // the gate, the provider and auth for a reattach, which is not a run
   integrations: Pick<IntegrationService, 'withSource'>;
   writer: SyncWriter;
@@ -42,14 +33,14 @@ export interface TaskReconcilerOptions {
  * (resolveTasks, resolveProjects) and leave the writing to SyncWriter.
  */
 export class TaskReconciler {
-  private readonly db: BetterSQLite3Database;
+  private readonly reader: SyncReader;
   private readonly integrations: Pick<IntegrationService, 'withSource'>;
   private readonly writer: SyncWriter;
   private readonly logger: Logger;
   private readonly now: () => Date;
 
   constructor(options: TaskReconcilerOptions) {
-    this.db = options.db;
+    this.reader = options.reader;
     this.integrations = options.integrations;
     this.writer = options.writer;
     this.logger = options.logger ?? consoleLogger;
@@ -63,7 +54,7 @@ export class TaskReconciler {
    * its transaction.
    *
    * 1. Ask the provider for the ids of the open tasks assigned to the viewer now.
-   * 2. Diff them against the watched links (planReconcile), and resolve the candidates and
+   * 2. Diff them against the watched links (SyncReader.reconcilePlan), and resolve the candidates and
    *    returning tasks, if any.
    * 3. Resolve the source's mirrored projects, on every pass. Incremental pulls see a project only
    *    inside a changed task, so this is what brings in a project edited or deleted while its
@@ -85,7 +76,7 @@ export class TaskReconciler {
     if (signal?.aborted) return null;
 
     // 2.
-    const plan = this.planReconcile(sourceId, assigned);
+    const plan = this.reader.reconcilePlan(sourceId, assigned);
     const ids = [...plan.candidates, ...plan.returning];
     const resolved =
       ids.length > 0
@@ -120,69 +111,6 @@ export class TaskReconciler {
         return this.writer.applyReconcile(sourceId, items, { settleBefore });
       },
     };
-  }
-
-  /**
-   * What a reconcile pass has to look up, given the ids of the open items assigned to the viewer
-   * now. Reads only.
-   *
-   * - candidates: watched links (synced, not settled, task still open locally) missing from the
-   *   snapshot, so reassigned, deleted or trashed since the last run, or closed in a way the
-   *   incremental query has not seen yet
-   * - returning: snapshot ids with no synced link: a `removed` link (e.g. restored from the trash,
-   *   which leaves updatedAt alone) or none yet. A detached link is the user's own and is skipped
-   * - projectIds: this source's synced projects, so one edited or deleted in the provider is
-   *   noticed
-   */
-  private planReconcile(sourceId: ExternalSourceId, assignedIds: string[]): ReconcilePlan {
-    const assigned = new Set(assignedIds);
-    // served by idx_external_links_source_id_state, then the tasks primary key
-    const watched = this.db
-      .select({ externalId: externalLinks.externalId })
-      .from(externalLinks)
-      .innerJoin(tasksTable, eq(tasksTable.id, externalLinks.taskId))
-      .where(
-        and(
-          eq(externalLinks.sourceId, sourceId),
-          eq(externalLinks.state, LinkState.SYNCED),
-          isNull(externalLinks.settledAt),
-          notInArray(tasksTable.status, CLOSED_STATUSES),
-        ),
-      )
-      .all();
-    const candidates = watched
-      .map((link) => link.externalId)
-      .filter((externalId) => !assigned.has(externalId));
-
-    // the snapshot's links, by uq_external_links_source_external_id
-    const known = new Map<string, LinkState>();
-    for (const batch of chunks([...assigned])) {
-      const links = this.db
-        .select({ externalId: externalLinks.externalId, state: externalLinks.state })
-        .from(externalLinks)
-        .where(and(eq(externalLinks.sourceId, sourceId), inArray(externalLinks.externalId, batch)))
-        .all();
-      links.forEach((link) => known.set(link.externalId, link.state));
-    }
-    const returning = [...assigned].filter((externalId) => {
-      const state = known.get(externalId);
-      return state === undefined || state === LinkState.REMOVED;
-    });
-
-    // served by idx_external_links_source_id_state
-    const projectLinks = this.db
-      .select({ externalId: externalLinks.externalId })
-      .from(externalLinks)
-      .where(
-        and(
-          eq(externalLinks.sourceId, sourceId),
-          eq(externalLinks.state, LinkState.SYNCED),
-          isNotNull(externalLinks.projectId),
-        ),
-      )
-      .all();
-
-    return { candidates, returning, projectIds: projectLinks.map((link) => link.externalId) };
   }
 
   /**
@@ -298,17 +226,4 @@ function rootRefusal(
   if (!root) return ReattachRefusal.UNREADABLE;
   if (!root.assignedToViewer) return ReattachRefusal.UNASSIGNED;
   return null;
-}
-
-// a closed task is not watched: its issue is out of the open-assignment snapshot by design
-const CLOSED_STATUSES = [TaskStatus.COMPLETED, TaskStatus.CANCELLED];
-
-// keeps an id list under SQLite's bound-parameter limit
-const CHUNK_SIZE = 500;
-function chunks(ids: string[]): string[][] {
-  const result: string[][] = [];
-  for (let start = 0; start < ids.length; start += CHUNK_SIZE) {
-    result.push(ids.slice(start, start + CHUNK_SIZE));
-  }
-  return result;
 }

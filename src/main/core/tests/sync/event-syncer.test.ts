@@ -4,8 +4,8 @@ import { ChangeTokenExpiredError } from '../../integrations/providers/provider';
 import { ExternalCalendar } from '../../integrations/types';
 import { EventSyncer } from '../../sync/event-syncer';
 import { EventCursor } from '../../sync/event-cursor';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SyncWriter } from '../../sync/writer';
+import { SyncReader } from '../../sync/reader';
 import { EventSyncPage } from '../../sync/types';
 import { EVENT_HISTORY_WINDOW_MS } from '../../sync/constants';
 import { RateLimitError } from '../../shared/errors';
@@ -47,7 +47,7 @@ const TEAM_CALENDAR: ExternalCalendar = {
 function source(steps: Parameters<typeof scriptedFetch>[0], now = () => NOW) {
   const fetch = scriptedFetch(steps);
   const calendars = createGoogleCalendarProvider({ fetch, now, client: null }).calendars!;
-  const events = new EventSyncer({} as BetterSQLite3Database, {} as SyncWriter, calendars, now);
+  const events = new EventSyncer({} as SyncReader, {} as SyncWriter, calendars, now);
   return { fetch, events };
 }
 

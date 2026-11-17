@@ -27,3 +27,13 @@ export const eventCursorSchema = z.object({
 
 export type CalendarSyncState = z.infer<typeof calendarSyncStateSchema>;
 export type EventCursor = z.infer<typeof eventCursorSchema>;
+
+// The cursor without one calendar's progress, for a calendar deselected outside a run: selecting
+// it again starts it with a full pass. A run in flight keeps its place in `pending` without it.
+export function withoutCalendar(cursor: EventCursor, calendarId: string): EventCursor {
+  const calendars = Object.fromEntries(
+    Object.entries(cursor.calendars).filter(([id]) => id !== calendarId),
+  );
+  if (cursor.pending === undefined) return { calendars };
+  return { calendars, pending: cursor.pending.filter((id) => id !== calendarId) };
+}

@@ -592,7 +592,7 @@ describe('calendars', () => {
     expect(result.changed).toEqual([]);
   });
 
-  it('deselects a synced calendar, and core syncs its source; hiding one syncs nothing', async () => {
+  it('deselects a synced calendar at once, without a sync; hiding one syncs nothing', async () => {
     const { sources } = await connectCalendar();
     const sourceId = sources[0].id;
     const synced = data<Calendar[]>(await call('calendars.list')).find(
@@ -617,10 +617,9 @@ describe('calendars', () => {
     );
 
     expect(data(result)).toMatchObject({ id: synced.id, selected: false });
+    // its events are gone in the call, which the calendar view reads as a calendar change
     expect(result.changed).toContain('calendar');
-    expect(trigger).toHaveBeenCalledExactlyOnceWith('connected', sourceId);
-    // the run ends and records it on the source
-    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
+    expect(trigger).not.toHaveBeenCalled();
 
     // the value it already has: nothing changes, and nothing syncs
     const again = await call(
@@ -629,7 +628,53 @@ describe('calendars', () => {
       'mutation',
     );
     expect(again).toMatchObject({ ok: true, changed: [] });
-    expect(trigger).toHaveBeenCalledOnce();
+
+    // selecting it again syncs its source, which gives it a full pass
+    await call('calendars.setSelected', { id: synced.id, selected: true }, 'mutation');
+    expect(trigger).toHaveBeenCalledExactlyOnceWith('connected', sourceId);
+    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
+  });
+
+  it("refreshes a source's calendars from the provider, pulling no events", async () => {
+    const { sources } = await connectCalendar();
+    const sourceId = sources[0].id;
+    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
+    calendarProvider.calendars.calendars.push({
+      id: 'team@example.com',
+      name: 'Team',
+      primary: false,
+      color: '#7986cb',
+      timeZone: 'UTC',
+    });
+    const pulls = calendarProvider.calendars.pulls.length;
+
+    const result = await call('calendars.refresh', { sourceId }, 'mutation');
+
+    expect(data<Calendar[]>(result).map((calendar) => [calendar.name, calendar.selected])).toEqual([
+      ['Ada', true],
+      ['Team', false],
+    ]);
+    expect(result.changed).toEqual(['calendar']);
+    expect(calendarProvider.calendars.pulls).toHaveLength(pulls);
+
+    // nothing new: listed, and nothing announced
+    expect(await call('calendars.refresh', { sourceId }, 'mutation')).toMatchObject({
+      ok: true,
+      changed: [],
+    });
+  });
+
+  it('refreshes nothing while the integration needs reauth, returning what is stored', async () => {
+    const { id, sources } = await connectCalendar();
+    const sourceId = sources[0].id;
+    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
+    workspace().integrations.markNeedsReauth(id);
+    const list = vi.spyOn(calendarProvider.calendars, 'listCalendars');
+
+    const result = await call('calendars.refresh', { sourceId }, 'mutation');
+
+    expect(data<Calendar[]>(result).map((calendar) => calendar.name)).toEqual(['Ada']);
+    expect(list).not.toHaveBeenCalled();
   });
 
   it("fetches a synced calendar's older events from the provider the first time a read reaches them", async () => {

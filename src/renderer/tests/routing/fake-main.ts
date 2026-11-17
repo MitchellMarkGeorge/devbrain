@@ -287,6 +287,8 @@ export class FakeMain {
     switch (path) {
       case 'calendars.list':
         return [store.calendars, []];
+      case 'calendars.refresh':
+        return [store.calendars.filter((calendar) => calendar.sourceId === args.sourceId), []];
       case 'calendars.setVisible':
         return [store.setVisible(args.id, args.visible as boolean), ['calendar']];
       case 'events.listForCalendar':

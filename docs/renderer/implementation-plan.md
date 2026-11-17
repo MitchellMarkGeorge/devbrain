@@ -1253,54 +1253,11 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Calendar
 
-- **K1: calendar changes without a sync** (follow-up "Calendar changes wait for a sync run").
-
-  **The short version:** DevBrain keeps its own copy of your Google calendars and their events, and
-  only talks to Google during a sync run. Ticking or unticking a calendar, and learning about new
-  calendars, all wait for the next run. Until it happens, DevBrain shows the old state.
-
-  | Time            | You do                                | DevBrain's database                                        | What you see                           |
-  | --------------- | ------------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
-  | 9:00            | Untick "Holidays" in Choose Calendars | `selected = false`; the 14 holiday events are still stored | The holidays, still on the week view   |
-  | 9:00 + 1s       | (a sync run starts by itself)         | The run reaches its first page and deletes the 14 events   | The holidays disappear                 |
-  | Offline instead | (the run fails before its first page) | Still `selected = false` with 14 events                    | The holidays stay until a run succeeds |
-
-  **Background.** A connected Google account has several calendars ("Work", "Personal",
-  "Holidays in Canada"). Each has two switches in DevBrain:
-  - **Selected** (Choose Calendars, `7175:34407`): whether DevBrain syncs it at all. Unselecting
-    should delete its events from the workspace.
-  - **Visible** (the calendar page's Filter menu): whether its synced events are drawn. Nothing is
-    deleted.
-
-  Visibility is a plain database flag and takes effect at once. Selection, and the list of
-  calendars itself, only change inside a sync run (`EventSyncer`), the same job that pulls events.
-  Three examples of what that means in the UI:
-
-  1. **A new Google calendar is missing from Choose Calendars.** You create "Gym" in Google
-     Calendar at 9:00. At 9:05 you open Choose Calendars in DevBrain. The list is the one stored by
-     the last run, so "Gym" isn't there. It appears after the next run (on a schedule, on window
-     focus, or Sync Now), and that run also pulls every selected calendar's events. There's no
-     "just refresh this list" request.
-  2. **An unticked calendar's events stay on screen.** You untick "Holidays in Canada".
-     `calendars.setSelected` flips the flag and starts a run in the background. Until that run
-     writes its first page, usually a second or two, the holidays are still drawn on the week view.
-     The calendar read (`EventService.readRange`) filters on `visible`, not `selected`, and the
-     events are still in the database.
-  3. **Offline, they stay indefinitely.** You untick "Holidays in Canada" on a plane, or while the
-     account says "Needs reconnect". The run fails before its first page, or is skipped, so it
-     never deletes them. The holidays stay on the calendar until a run succeeds.
-
-  The follow-up proposes two operations beside the run:
-  - `refreshCalendars(sourceId)` asks Google for the calendar list only (one request) and stores
-    it. Choose Calendars calls it when it opens, which fixes example 1.
-  - `deselectCalendar(sourceId, calendarId)` unticks, deletes the calendar's events and drops its
-    sync cursor entry in one transaction, with no network. That fixes examples 2 and 3.
-
-  **A smaller first step** fixes what the user sees in examples 2 and 3: make `readRange` also
-  skip events of synced calendars that aren't selected (`selected OR sourceId IS NULL`). That's a
-  one-line core change. Unticked calendars then vanish from the view at once, and the run deletes
-  the rows when it can. Recommended with the calendar page (milestone 7); the full K1 stays
-  optional.
+- **K1: calendar changes without a sync.** Done. Choose Calendars lists the account's calendars
+  again when it opens (`calendars.refresh`, one request, no events pulled), so a calendar created
+  in Google shows without a run. Unticking a calendar removes its events and its sync progress in
+  the same call (`SyncEngine.deselectCalendar`, database only), so they leave the view at once,
+  offline or while the account needs reconnecting. Ticking one still syncs its source.
 
 ### Summary
 

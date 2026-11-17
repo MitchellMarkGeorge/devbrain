@@ -28,6 +28,7 @@ import { SyncEngine } from '../../sync/engine';
 import { SyncStateManager } from '../../sync/sync-state';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
+import { SyncReader } from '../../sync/reader';
 import { SyncRunOutcome, SyncSkipReason } from '../../sync/types';
 import { CURSOR_OVERLAP_MS, REVOKE_TIMEOUT_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
@@ -283,7 +284,10 @@ beforeEach(async () => {
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const syncState = new SyncStateManager(db);
   engine = new SyncEngine(db, { integrations: service, syncState, writer, logger });
-  detach = new DetachService(db, new TaskReconciler({ db, integrations: service, writer, logger }));
+  detach = new DetachService(
+    db,
+    new TaskReconciler({ reader: new SyncReader(db), integrations: service, writer, logger }),
+  );
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   events = new EventService(db);

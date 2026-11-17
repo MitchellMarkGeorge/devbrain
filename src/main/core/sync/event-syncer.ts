@@ -1,7 +1,4 @@
-import { CalendarId, ExternalSourceId } from '@common/ids';
-import { calendars } from '@main/db/schema/calendars';
-import { and, eq } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { ExternalSourceId } from '@common/ids';
 import { Auth } from '../integrations/auth';
 import {
   CalendarEventPage,
@@ -11,10 +8,11 @@ import {
 } from '../integrations/providers/provider';
 import { ExternalCalendar } from '../integrations/types';
 import { EVENT_HISTORY_WINDOW_MS } from './constants';
-import { CalendarSyncState, EventCursor, eventCursorSchema } from './event-cursor';
+import { CalendarSyncState, EventCursor, eventCursorSchema, withoutCalendar } from './event-cursor';
 import { selectedOnFirstListing, SyncWriter } from './writer';
 import { ActiveSync, combineSummaries, NOTHING_APPLIED, RunContext, Syncer } from './syncer';
-import { EventSyncPage, FullPass, SyncCursor } from './types';
+import { EventSyncPage, FullPass, SyncCursor, SyncSummary } from './types';
+import { SyncReader } from './reader';
 
 const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
 
@@ -132,8 +130,16 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  * before its first page is applied writes nothing, so a deselected calendar keeps its events, and
  * its progress, until a run gets that far.
  *
- * A run syncs the calendars it chose when it started: a selection changed during a run takes
- * effect at the next one, which removes a calendar deselected meanwhile.
+ * A run syncs the calendars it chose when it started. One deselected while the run goes
+ * (SyncEngine.deselectCalendar, which removes its events at once) has the rest of its pages left
+ * unapplied, so its events stay out; the next run drops its progress.
+ *
+ * Outside a run
+ *
+ * - refreshCalendars lists the account's calendars and stores them, without pulling events: one
+ *   request, for the calendar picker.
+ * - Deselecting a calendar needs no provider: SyncEngine.deselectCalendar removes its events and
+ *   drops its progress from the cursor (withoutCalendar) at once, offline or not.
  *
  * Stateless
  *
@@ -146,10 +152,8 @@ export class EventSyncer implements Syncer {
   readonly cursorSchema = eventCursorSchema;
 
   constructor(
-    // Subject to change: for the two calendar reads at the bottom of this class. Syncers should
-    // not hold a database handle; the reads are expected to move to a sync-side reader (see
-    // docs/follow-ups.md).
-    private readonly db: BetterSQLite3Database,
+    // the calendar rows: which a run syncs, and the row each page is applied to
+    private readonly reader: SyncReader,
     private readonly writer: SyncWriter,
     private readonly calendars: CalendarSource,
     private readonly now: () => Date = () => new Date(),
@@ -157,12 +161,12 @@ export class EventSyncer implements Syncer {
 
   async start({ sourceId, auth, cursor, signal }: RunContext): Promise<ActiveSync<EventSyncPage>> {
     const listed = await this.calendars.listCalendars(auth, { signal });
-    const calendarsToSync = this.calendarsToSync(sourceId, listed);
+    const toSync = calendarsToSync(listed, this.reader.calendars(sourceId));
     let calendarWorkDone = false;
 
     return {
       cursor,
-      pull: (current) => this.pull(auth, current, calendarsToSync, signal),
+      pull: (current) => this.pull(auth, current, toSync, signal),
       apply: (page) => {
         let summary = NOTHING_APPLIED;
         if (!calendarWorkDone) {
@@ -174,13 +178,23 @@ export class EventSyncer implements Syncer {
           calendarWorkDone = true;
         }
 
+        // Calendars of the run deselected since it started (SyncEngine.deselectCalendar) leave the
+        // cursor this page saves, its queue included, so their progress stays dropped
+        const rows = this.reader.calendars(sourceId);
+        const deselected = toSync
+          .map((calendar) => calendar.id)
+          .filter((id) => rows.find((row) => row.externalId === id)?.selected === false);
+        page.nextCursor = deselected.reduce(withoutCalendar, page.nextCursor as EventCursor);
+
         // nothing was fetched, e.g. no calendar is selected: only the cursor is saved
         if (page.calendarExternalId === null) return summary;
-        const calendarId = this.rowIdOf(sourceId, page.calendarExternalId);
-        if (calendarId === undefined) {
+        const calendar = rows.find((row) => row.externalId === page.calendarExternalId);
+        if (calendar === undefined) {
           throw new Error('The run fetched a page of a calendar it does not sync');
         }
-        return combineSummaries(summary, this.writer.applyEventPage(sourceId, calendarId, page));
+        // deselected since the run started: its events were removed, and stay out
+        if (!calendar.selected) return summary;
+        return combineSummaries(summary, this.writer.applyEventPage(sourceId, calendar.id, page));
       },
     };
   }
@@ -298,49 +312,45 @@ export class EventSyncer implements Syncer {
     return { ...state, timeMin, startedAt: now.toISOString() };
   }
 
-  // The two calendar reads below are subject to change: they are here for now, and are expected
-  // to move out of the syncer so it holds no database handle (see docs/follow-ups.md).
-
   /**
-   * The calendars a run syncs, as the provider listed them, in the order it visits them: primary
-   * first, then by name. A listed calendar with a row syncs when the row is selected; one without
-   * a row syncs when the source has no rows yet and its first listing, stored with the run's first
-   * page, will select it (its primary calendar). A selected calendar the account no longer lists
-   * keeps its row but is left out, so it cannot fail the run.
+   * Lists the account's calendars and stores them (SyncWriter.applyCalendarList), pulling no
+   * events: new and renamed calendars show in the picker without a sync run. A source's first
+   * listing selects its primary calendar, as a run's would.
    */
-  private calendarsToSync(
+  async refreshCalendars(
     sourceId: ExternalSourceId,
-    listed: ExternalCalendar[],
-  ): ExternalCalendar[] {
-    const rows = new Map(
-      this.db
-        .select({ externalId: calendars.externalId, selected: calendars.selected })
-        .from(calendars)
-        .where(eq(calendars.sourceId, sourceId))
-        .all()
-        .map((row) => [row.externalId, row.selected]),
-    );
-    const firstListing = rows.size === 0;
-    return listed
-      .filter(
-        (calendar) => rows.get(calendar.id) ?? (firstListing && selectedOnFirstListing(calendar)),
-      )
-      .sort(
-        (a, b) =>
-          Number(b.primary) - Number(a.primary) ||
-          a.name.localeCompare(b.name) ||
-          a.id.localeCompare(b.id),
-      );
+    auth: Auth,
+    signal?: AbortSignal,
+  ): Promise<SyncSummary | null> {
+    const listed = await this.calendars.listCalendars(auth, { signal });
+    if (signal?.aborted) return null;
+    return this.writer.applyCalendarList(sourceId, listed);
   }
+}
 
-  // a calendar's row id, by the provider's id
-  private rowIdOf(sourceId: ExternalSourceId, externalId: string): CalendarId | undefined {
-    return this.db
-      .select({ id: calendars.id })
-      .from(calendars)
-      .where(and(eq(calendars.sourceId, sourceId), eq(calendars.externalId, externalId)))
-      .get()?.id;
-  }
+/**
+ * The calendars a run syncs, as the provider listed them, in the order it visits them: primary
+ * first, then by name. A listed calendar with a row syncs when the row is selected; one without
+ * a row syncs when the source has no rows yet and its first listing, stored with the run's first
+ * page, will select it (its primary calendar). A selected calendar the account no longer lists
+ * keeps its row but is left out, so it cannot fail the run.
+ */
+export function calendarsToSync(
+  listed: ExternalCalendar[],
+  rows: { externalId: string; selected: boolean }[],
+): ExternalCalendar[] {
+  const selected = new Map(rows.map((row) => [row.externalId, row.selected]));
+  const firstListing = rows.length === 0;
+  return listed
+    .filter(
+      (calendar) => selected.get(calendar.id) ?? (firstListing && selectedOnFirstListing(calendar)),
+    )
+    .sort(
+      (a, b) =>
+        Number(b.primary) - Number(a.primary) ||
+        a.name.localeCompare(b.name) ||
+        a.id.localeCompare(b.id),
+    );
 }
 
 // what to ask the source for, from a calendar's state

@@ -116,6 +116,10 @@ function integrationsPage(integrations: Integration[]) {
     source.enabled = args.enabled as boolean;
     return [source, ['externalSource']];
   });
+  main.routes.set('calendars.refresh', (args) => [
+    structuredClone(calendars.filter((c) => c.sourceId === args.sourceId)),
+    [],
+  ]);
   main.routes.set('calendars.setSelected', (args) => {
     const found = calendars.find((c) => c.id === args.id)!;
     found.selected = args.selected as boolean;
@@ -221,11 +225,13 @@ describe('the integrations page', () => {
     await eventually(() => expect(card('int_linear')!.textContent).toContain('24 so far'));
   });
 
-  it('chooses calendars, saving each tick', async () => {
+  it('chooses calendars, listing them again on opening and saving each tick', async () => {
     const { main } = integrationsPage([google({ status: IntegrationStatus.CONNECTED })]);
     await eventually(() => expect(card('int_google')).toBeDefined());
     click(byText(card('int_google')!, 'button', 'Choose Calendars'));
     await eventually(() => expect(document.body.textContent).toContain('2 of 3 selected'));
+    await eventually(() => expect(main.callsTo('calendars.refresh')).toHaveLength(1));
+    expect(main.callsTo('calendars.refresh')[0].input).toEqual({ sourceId: 'src_events' });
     const holidays = byText(document.body, 'label', 'Holidays')!;
     click(holidays.querySelector('[role="checkbox"]'));
     await eventually(() => expect(main.callsTo('calendars.setSelected')).toHaveLength(1));

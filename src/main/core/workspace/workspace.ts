@@ -20,6 +20,7 @@ import { SyncScheduler } from '../sync/scheduler';
 import { SyncStateManager } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
 import { TaskReconciler } from '../sync/task-reconciler';
+import { SyncReader } from '../sync/reader';
 import type { CredentialStore } from '../integrations/credential-store';
 import type { WorkspaceInfo } from '@common/types';
 import type { WorkspaceOptions } from './types';
@@ -75,6 +76,8 @@ export class Workspace {
   private readonly eventFetcher: EventFetcher;
   // for close, which waits for a token refresh in flight
   private readonly credentials: CredentialStore;
+  // for the calendar picker: refreshing a source's calendars and deselecting one
+  private readonly engine: SyncEngine;
   /**
    * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
    * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
@@ -96,7 +99,13 @@ export class Workspace {
     this.events = new EventService(db, (from, calendarIds) =>
       this.eventFetcher.fetchHistory(from, calendarIds),
     );
-    this.calendars = new CalendarService(db);
+    // the picker's refresh lists a source's calendars through the engine, built below
+    this.calendars = new CalendarService(db, async (sourceId) => {
+      const result = await this.engine.refreshCalendars(sourceId, {
+        signal: this.closing.signal,
+      });
+      return result.ok && result.value !== null && result.value.changed.length > 0;
+    });
     // emptying the trash removes the deleted notes' files through the note service
     this.archive = new ArchiveService(db, this.notes);
     this.favorites = new FavoritesService(db);
@@ -167,18 +176,24 @@ export class Workspace {
       logger,
     });
     const engine = new SyncEngine(db, { integrations, syncState, writer, logger });
+    this.engine = engine;
     // a reattach writes through SyncWriter, which indexes it, and a detach changes no indexed field;
     // edits to a detached task go through TaskService like any other
-    this.detach = new DetachService(db, new TaskReconciler({ db, integrations, writer, logger }), {
-      logger,
-    });
+    this.detach = new DetachService(
+      db,
+      new TaskReconciler({ reader: new SyncReader(db), integrations, writer, logger }),
+      { logger },
+    );
     this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
-    // A synced calendar chosen or dropped syncs its source at once, as a newly switched-on source
-    // does: the run gives a selected calendar a full pass and removes a deselected one's events.
+    // A synced calendar chosen syncs its source at once, as a newly switched-on source does, giving
+    // it a full pass. One dropped loses its events and its progress in the deselect's own
+    // transaction, with no provider call.
     this.calendars.onChange((change) => {
-      const { sourceId } = change.calendar;
-      if (change.type !== 'selection_changed' || sourceId === null) return;
-      void this.sync.trigger('connected', sourceId);
+      if (change.type !== 'selection_changed') return;
+      const { id, sourceId, selected } = change.calendar;
+      if (sourceId === null) return;
+      if (selected) void this.sync.trigger('connected', sourceId);
+      else engine.deselectCalendar(sourceId, id);
     });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }

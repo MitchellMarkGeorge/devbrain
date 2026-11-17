@@ -1,8 +1,15 @@
-import { ExternalSourceId } from '@common/ids';
+import { CalendarId, ExternalSourceId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';
 import { SyncStateManager, SyncTarget } from './sync-state';
-import type { IntegrationService, SourceProvider } from '../integrations/service';
+import type {
+  IntegrationService,
+  ProviderCallResult,
+  SourceProvider,
+} from '../integrations/service';
+import { SyncReader } from './reader';
+import { eventCursorSchema, withoutCalendar } from './event-cursor';
+import { NotFoundError } from '../shared/errors';
 import { SourceType, SyncEntityType } from '@common/types';
 import { ChangeListeners } from '../shared/changes';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
@@ -73,6 +80,7 @@ export interface BaseSyncEngine {
 export class SyncEngine implements BaseSyncEngine {
   private readonly integrations: EngineIntegrations;
   private readonly syncState: SyncStateManager;
+  private readonly reader: SyncReader;
   private readonly writer: SyncWriter;
   private readonly logger: Logger;
   private readonly now: () => Date;
@@ -91,6 +99,7 @@ export class SyncEngine implements BaseSyncEngine {
   ) {
     this.integrations = options.integrations;
     this.syncState = options.syncState;
+    this.reader = new SyncReader(db);
     this.writer = options.writer;
     this.logger = options.logger ?? consoleLogger;
     this.progress = new ChangeListeners<SyncProgress>('Sync progress', {
@@ -103,7 +112,7 @@ export class SyncEngine implements BaseSyncEngine {
     this.now = options.now ?? (() => new Date());
     this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
     const reconciler = new TaskReconciler({
-      db: this.db,
+      reader: this.reader,
       integrations: this.integrations,
       writer: this.writer,
       logger: this.logger,
@@ -114,7 +123,7 @@ export class SyncEngine implements BaseSyncEngine {
         provider.tasks ? new TaskSyncer(this.writer, provider.tasks, reconciler, this.now) : null,
       [SourceType.EVENTS]: ({ provider }) =>
         provider.calendars
-          ? new EventSyncer(this.db, this.writer, provider.calendars, this.now)
+          ? new EventSyncer(this.reader, this.writer, provider.calendars, this.now)
           : null,
       [SourceType.VERSION_CONTROL]: () => null,
     };
@@ -253,6 +262,53 @@ export class SyncEngine implements BaseSyncEngine {
   // returns a function that unsubscribes the listener
   onProgress(listener: SyncProgressListener): () => void {
     return this.progress.add(listener);
+  }
+
+  /**
+   * Lists an events source's calendars and stores them, pulling no events (EventSyncer
+   * .refreshCalendars): for the calendar picker, so new and renamed calendars show without a run.
+   * Not a run: no cursor moves and no outcome is recorded on the source, and it runs beside one.
+   * Refused, writing nothing, as a run would be skipped (the source or integration off, needing
+   * reauth, rate limited, or not an events source). Throws what the provider throws; rejected
+   * credentials move the integration to needs_reauth first (IntegrationService.withSource).
+   */
+  async refreshCalendars(
+    sourceId: ExternalSourceId,
+    options: RunOptions = {},
+  ): Promise<ProviderCallResult<SyncSummary | null>> {
+    return this.integrations.withSource(
+      sourceId,
+      SourceType.EVENTS,
+      ({ source, auth }) =>
+        new EventSyncer(this.reader, this.writer, source, this.now).refreshCalendars(
+          sourceId,
+          auth,
+          options.signal,
+        ),
+      options,
+    );
+  }
+
+  /**
+   * Takes a calendar the user deselected out of sync at once, in one transaction: its events go by
+   * the removal rule, with what is parked for it and its fetched history
+   * (SyncWriter.removeCalendarEvents), and its progress leaves the source's cursor, so selecting
+   * it again is a full pass. Database only, so it works offline and while the integration needs
+   * reauth. Its selection is CalendarService's, which calls this through the workspace as the last
+   * step of its own transaction. A run in flight leaves the rest of its pages unapplied (see
+   * EventSyncer). Throws NotFoundError for a calendar that is not one of the source's.
+   */
+  deselectCalendar(sourceId: ExternalSourceId, calendarId: CalendarId): SyncSummary {
+    return this.db.transaction(() => {
+      const calendar = this.reader.calendarById(sourceId, calendarId);
+      if (!calendar) throw new NotFoundError(calendarId);
+      const summary = this.writer.removeCalendarEvents(sourceId, calendarId);
+      const cursor = eventCursorSchema.safeParse(this.syncState.getSyncTarget(sourceId).cursor);
+      if (cursor.success && calendar.externalId in cursor.data.calendars) {
+        this.syncState.saveCursor(sourceId, withoutCalendar(cursor.data, calendar.externalId));
+      }
+      return summary;
+    });
   }
 
   // 3. the page loop; returns early, with everything so far committed, when the signal aborts

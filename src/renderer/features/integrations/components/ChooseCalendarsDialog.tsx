@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ExternalSourceId } from '@common/ids';
 import type { Calendar, Integration } from '@common/types';
@@ -37,9 +37,11 @@ export interface ChooseCalendarsDialogProps extends ModalProps {
 }
 
 /**
- * Choose calendars (Figma `7175:34407`): which of the account's calendars sync. Each tick is saved
- * at once (`calendars.setSelected`), and core syncs the source to bring the calendar's events in
- * or take them out.
+ * Choose calendars (Figma `7175:34407`): which of the account's calendars sync. Opening it lists
+ * the account's calendars again (`calendars.refresh`), so new and renamed ones show without a
+ * sync; until that answers, and if it fails (offline), the stored list shows. Each tick is saved
+ * at once (`calendars.setSelected`): a calendar ticked off loses its events at once, and one
+ * ticked on syncs its source to bring them in.
  */
 export function ChooseCalendarsDialog({
   integration,
@@ -47,6 +49,13 @@ export function ChooseCalendarsDialog({
   ...modal
 }: ChooseCalendarsDialogProps) {
   const calendars = calendarsOf(useQuery(trpc.calendars.list.queryOptions()).data ?? [], sourceId);
+  // the list refetches from the mutation's `changed`; a failure leaves the stored one
+  const { mutate: refresh, isPending: refreshing } = useMutation(
+    trpc.calendars.refresh.mutationOptions(),
+  );
+  useEffect(() => {
+    refresh({ sourceId });
+  }, [refresh, sourceId]);
   const showError = useMutationErrorToast('Couldn’t change the calendar');
   const select = useMutation(
     trpc.calendars.setSelected.mutationOptions({ onError: (error) => showError(error) }),
@@ -83,7 +92,11 @@ export function ChooseCalendarsDialog({
           Events from the calendars you pick sync into DevBrain. The others stay in Google.
         </p>
         {calendars.length === 0 ? (
-          <p className={styles.dialogText}>No calendars yet. They appear after the first sync.</p>
+          <p className={styles.dialogText}>
+            {refreshing
+              ? 'Loading calendars…'
+              : 'No calendars yet. They appear after the first sync.'}
+          </p>
         ) : (
           <div className={styles.calendarList} role="group" aria-label="Calendars">
             {calendars.map((calendar) => (

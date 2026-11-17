@@ -19,6 +19,7 @@ import {
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
+import { SyncReader } from '../../sync/reader';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -181,7 +182,7 @@ beforeEach(async () => {
   const syncState = new SyncStateManager(db);
   engine = new SyncEngine(db, { integrations: service, syncState, writer, logger });
   reconciler = new TaskReconciler({
-    db,
+    reader: new SyncReader(db),
     integrations: service,
     writer,
     logger,

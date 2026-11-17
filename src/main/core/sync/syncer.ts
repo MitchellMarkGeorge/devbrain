@@ -70,7 +70,8 @@ export interface ActiveSync<Page extends SyncPage = SyncPage> {
   pull(cursor: SyncCursor | null): Promise<Page>;
   // Writes the page, and anything else the run writes (an events source's calendar rows, on its
   // first page). Called inside the engine's transaction, which then saves page.nextCursor, so the
-  // page and its cursor commit together. Null writes nothing and ends the run.
+  // page and its cursor commit together; it may narrow page.nextCursor first (EventSyncer drops
+  // the calendars deselected during the run). Null writes nothing and ends the run.
   apply(page: Page): SyncSummary | null;
 }
 

@@ -11,6 +11,7 @@ import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FakeProvider, fakeRegistry, FAKE_API_KEY } from './fake-provider';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
+import { SyncReader } from '../../sync/reader';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -202,7 +203,7 @@ async function workspace() {
   const writer = new SyncWriter(db, search);
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const reconciler = new TaskReconciler({
-    db,
+    reader: new SyncReader(db),
     integrations,
     writer,
     logger,

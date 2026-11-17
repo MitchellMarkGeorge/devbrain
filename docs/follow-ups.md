@@ -19,35 +19,6 @@ Proposal:
 1. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues through `IntegrationService.withSource` and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a route in the `sync` router. A product decision.
 2. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change. A refactor with no change in behaviour, worth doing with item 1 rather than before it.
 
-### Calendar changes wait for a sync run
-
-_Found in feature 16b. Not a priority._
-
-Feature 16b moved the calendar work out of `IntegrationService` so that services only read and write the database and `SyncWriter` stays inside `src/main/core/sync/`. Every calendar operation that needs the provider or the writer now happens at the start of a run, in `EventSyncer`. That changed some behaviour:
-
-- **Deselecting a calendar removes its events when the run it starts reaches its first page, not at once.** `Workspace` starts a run of the source on `selection_changed`; until it writes, the events stay in the database. The calendar view no longer shows them meanwhile: `EventService.listForCalendar` reads only selected synced calendars (and every local one).
-- **Refreshing the picker means running a sync.** New or renamed calendars appear when the run's listing stores them; the run's result has `'calendar'` in `changed`.
-- **A run that does not reach its first page does not clean up.** The clean-up is written with the run's first page, so with the integration disabled or needing reauth (the run is skipped), or offline (it fails before a page), a deselected calendar's events stay stored, out of the calendar view, until a run gets that far.
-
-If any of these matters in the calendar UI, `EventSyncer` can expose two operations beside `start`, keeping both rules:
-
-- **`refreshCalendars(sourceId, auth)`**: list the account's calendars and store them with `SyncWriter.applyCalendarList`, without pulling events. One request, for the picker.
-- **`deselectCalendar(sourceId, calendarId)`**: unselect the calendar, remove its events with `SyncWriter.removeCalendarEvents` and drop its entry from the source's cursor, in one transaction. `EventSyncer` owns the cursor's shape (`src/main/core/sync/event-cursor.ts`), so it can drop the entry itself. Database only, so it works offline and while the integration needs reauth.
-
-The picker's IPC handlers would call them through whatever owns the syncers (the engine, or the scheduler). Selecting a calendar would stay `CalendarService.setSelected` followed by a run.
-
-### Take the calendar reads out of `EventSyncer`
-
-_Found in the source/syncer split. Subject to change: the current placement is a stopgap._
-
-Syncers should not hold a database handle, but `EventSyncer` (`src/main/core/sync/event-syncer.ts`) takes one for two reads of the calendars table: which listed calendars a run syncs (`calendarsToSync`), and a calendar's row id for `SyncWriter.applyEventPage` (`rowIdOf`). They briefly lived in their own `CalendarSelection` class, which was too thin to justify on its own.
-
-Options:
-
-1. **A `SyncReader`**, the read side of `SyncWriter`: every read sync makes, namely the calendar rows and `rowIdOf` (and `TaskReconciler`'s `planReconcile`, which takes a database handle for the same reason). Syncers get a writer and a reader, never a handle, and the selection rule becomes a pure function `calendarsToSync(listed, rows)` testable without a database. Recommended.
-2. **The reads on `SyncWriter`**, with `applyEventPage` taking the calendar's external id and resolving the row itself, which removes `rowIdOf`. Fewest moving parts, but stretches the writer into all of sync's database access, and about 50 test call sites pass a `CalendarId` today.
-3. **Through `CalendarService`.** Not recommended: services are the public interface for IPC, and the rule works on provider shapes (`ExternalCalendar`).
-
 ### A path for provider features that are not sync
 
 _Found in feature 16b. Narrowed when `IntegrationService` became the one way to reach a provider._
@@ -99,7 +70,7 @@ _Found in PR #35._
 
 A full pass lists the events that end after its `timeMin`, so it cannot tell an event deleted while the token was stale from one moved to before the window: both are left unlisted, and `PageWrite.sweepCalendar` removes both. A meeting moved more than a month back is lost from history instead of moved; it comes back if edited again. An event changed while the pass pages may also be left off every page, if Google's paging does not guarantee otherwise, and comes back with the next incremental sync.
 
-Looking up each event the sweep would remove before removing it (`events.get`, one request each) would settle both: one that is deleted or cancelled goes, one that still exists is updated instead. The candidates are normally few. It needs a lookup on `CalendarSource`, the requests made before the last page is applied (pulls fetch, applies only write), and a read of the candidates in `EventSyncer`, which `Take the calendar reads out of EventSyncer` above wants to move. `TaskReconciler.resolveTasks` is the same pattern for tasks.
+Looking up each event the sweep would remove before removing it (`events.get`, one request each) would settle both: one that is deleted or cancelled goes, one that still exists is updated instead. The candidates are normally few. It needs a lookup on `CalendarSource`, the requests made before the last page is applied (pulls fetch, applies only write), and a read of the candidates through `SyncReader`. `TaskReconciler.resolveTasks` is the same pattern for tasks.
 
 Whether any of this is needed rests on Google no longer reporting older deletions in a full listing with `showDeleted=true`, which its documentation implies but does not state. A live check (delete an event, then run a full listing some days later and see whether it still comes back as cancelled) would show how often a deleted event goes unreported at all.
 
