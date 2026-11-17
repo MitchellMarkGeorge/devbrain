@@ -120,8 +120,6 @@ describe('the header', () => {
     expect(headerLayout(800)).toBe('short');
     expect(headerLayout(640)).toBe('compact');
     expect(headerLayout(460)).toBe('tiny');
-    // beside a docked sheet in a 1080px window
-    expect(headerLayout(426)).toBe('minimal');
   });
 });
 

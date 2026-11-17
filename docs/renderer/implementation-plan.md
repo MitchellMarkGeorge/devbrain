@@ -1473,8 +1473,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      Event its actions, as Figma draws one row; there is no `PageToolbar`. It steps down as the
      header narrows (beside the sidebar, the window bar and the sheet; `headerLayout`): the short
      month and Filter without its value, then Filter and New Event as icons, then the view switch
-     as a menu and Today as an icon, then (beside a docked sheet at 1080px) no New Event, which
-     the title bar's New menu offers, so the two sides never meet and the month is never cut.
+     as a menu and Today as an icon, so the two sides never meet and the month is never cut.
      Moving through the calendar replaces the history entry; the sheet pushes one (Back closes
      it).
    - Each visible calendar's source reads `events.listForCalendar` for its own calendar through

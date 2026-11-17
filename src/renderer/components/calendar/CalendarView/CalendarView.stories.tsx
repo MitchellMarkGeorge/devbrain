@@ -85,20 +85,6 @@ export const MonthShort: Story = {
   ],
 };
 
-/**
- * The week in a narrow view (beside a docked sheet in a 1080px window): its columns under 64px,
- * each header shows the weekday's letter ("W 11") in place of its short name.
- */
-export const WeekNarrow: Story = {
-  decorators: [
-    (Story) => (
-      <div style={{ width: 460 }}>
-        <Story />
-      </div>
-    ),
-  ],
-};
-
 /** Focus time (dashed, neutral), a tentative "Maybe" and a day out of office */
 export const FocusTentativeOutOfOffice: Story = {
   name: 'Focus time, tentative, out of office',

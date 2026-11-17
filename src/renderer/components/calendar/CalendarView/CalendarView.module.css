@@ -48,7 +48,6 @@
 .dayHeader {
   justify-content: flex-start;
   border: 0;
-  container: day-header / inline-size;
 }
 .dayHeaderInner {
   display: flex;
@@ -239,27 +238,6 @@
   color: var(--foreground-strong);
   font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   font-variant-numeric: tabular-nums;
-}
-/* a narrow column (a week beside a docked sheet): under 72px the header's padding drops to 4px;
-   under 64px, too narrow for "Wed 28" on today's disc, the weekday shows as its letter ("W 28") */
-.narrow {
-  display: none;
-}
-@container day-header (max-width: 71.99px) {
-  .dayHeaderInner {
-    padding: 0 var(--space-1);
-  }
-}
-@container day-header (max-width: 63.99px) {
-  .dayHead {
-    gap: var(--space-1);
-  }
-  .wide {
-    display: none;
-  }
-  .narrow {
-    display: inline;
-  }
 }
 /* today: DevBrain's red disc with a white number */
 .today {
