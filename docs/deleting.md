@@ -117,5 +117,12 @@ columns.
   (each service's `getById` takes `includeArchived`), and so does `notes.readContent`, for the
   note's body. Each page hides its star and "…" menu and makes its content inert. The project
   page's tabs still switch.
+- **Several at once.** Rows select as the other lists' do (a checkbox, X), and the selection bar
+  restores them (Restore) or deletes them for good (Delete permanently, asking once when
+  `confirmBeforeDeleting` is on). Each item is its own call, one at a time, because an earlier one
+  can do a later one's work: restoring a project restores its tasks and notes, and deleting a task
+  deletes its subtasks. The later call then fails with `not_archived` (restore) or `not_found`
+  (delete), which counts as done. Items that fail for any other reason stay selected, and a toast
+  says how many. Switching tab clears the selection.
 - A note's content save still refuses a trashed note. Other writes are refused only by the pages
   being inert.

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { Archive, ArrowUpDown, CircleX, Clock, Trash2 } from 'lucide-react';
@@ -20,6 +21,7 @@ import {
 import { trashListQuery } from '../api/queries';
 import { TRASH_TABS, trashEntityType, type TrashTab } from '../api/search';
 import { TrashList } from '../components/TrashList';
+import { TrashSelectionBar } from '../components/TrashSelectionBar';
 import { useTrashActions } from '../hooks/use-trash-actions';
 import styles from '../components/TrashPage.module.css';
 
@@ -44,8 +46,9 @@ const EMPTY: Record<TrashTab, { title: string; description: string }> = {
 
 /**
  * Trash (`/app/$workspaceId/trash`, Figma `7159:11875`): what was moved to the trash, newest
- * first, by kind in `?tab`. Each row restores, deletes for good or opens its item; Empty Trash
- * deletes them all (docs/deleting.md).
+ * first, by kind in `?tab`. Each row restores, deletes for good or opens its item; rows selected
+ * together are restored or deleted from the selection bar; Empty Trash deletes them all
+ * (docs/deleting.md).
  */
 export function TrashPage() {
   const search = trashRoute.useSearch();
@@ -55,6 +58,16 @@ export function TrashPage() {
   const { size } = useWorkspaceShell();
   const list = useInfiniteQuery(trashListQuery(trashEntityType(search.tab)));
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  // the selected rows, by id: those still listed count (a restored or deleted one leaves the list)
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const selectedItems = items.filter((item) => selected.has(item.id));
+  const listedSelection = new Set(selectedItems.map((item) => item.id));
+  const toggle = (id: string) =>
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   // Empty Trash empties every kind, so it is offered whenever anything is in the trash: rows in
   // this tab say so at once, else the whole trash's first page (which the loader primes, so the
   // button draws in its state from the first frame)
@@ -69,15 +82,17 @@ export function TrashPage() {
           <ToggleGroup
             aria-label="Show"
             value={tab}
-            onValueChange={(value) =>
+            onValueChange={(value) => {
+              // a selection belongs to the rows it was made on
+              setSelected(new Set());
               void navigate({
                 search: (previous) => ({
                   ...previous,
                   tab: value === 'all' ? undefined : (value as TrashTab),
                 }),
                 replace: true,
-              })
-            }
+              });
+            }}
             items={TRASH_TABS.map((value) => ({ value, label: TAB_LABELS[value] }))}
           />
         }
@@ -124,20 +139,29 @@ export function TrashPage() {
         ) : list.data && items.length === 0 ? (
           <EmptyState icon={Archive} {...EMPTY[tab]} />
         ) : (
-          <TrashList
-            items={items}
-            actions={actions}
-            onEndReached={() => {
-              if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();
-            }}
-            footer={
-              items.length > 0 && (
-                <p className={styles.footnote}>
-                  Items in the trash are kept until you delete them.
-                </p>
-              )
-            }
-          />
+          <div className={styles.region}>
+            <TrashList
+              items={items}
+              actions={actions}
+              selected={listedSelection}
+              onToggle={(item) => toggle(item.id)}
+              onEndReached={() => {
+                if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();
+              }}
+              footer={
+                items.length > 0 && (
+                  <p className={styles.footnote}>
+                    Items in the trash are kept until you delete them.
+                  </p>
+                )
+              }
+            />
+            <TrashSelectionBar
+              items={selectedItems}
+              actions={actions}
+              onClear={() => setSelected(new Set())}
+            />
+          </div>
         )}
       </PageContent>
     </Page>

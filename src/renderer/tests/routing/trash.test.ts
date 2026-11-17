@@ -65,14 +65,20 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
     },
     [],
   ]);
+  // as core: a row no longer in the trash (a cascade took it) is not archived, or not found
+  const inTrash = (id: unknown, code: 'not_archived' | 'not_found') => {
+    if (!trash.some((item) => item.id === id)) throw FakeMain.error(code, `${String(id)}`);
+  };
   for (const kind of ['Task', 'Project', 'Note']) {
     main.routes.set(`archive.restore${kind}`, (args) => {
+      inTrash(args.id, 'not_archived');
       drop(args.id);
       return [undefined, [kind.toLowerCase() as 'task']];
     });
   }
   for (const kind of ['tasks', 'projects', 'notes']) {
     main.routes.set(`${kind}.delete`, (args) => {
+      inTrash(args.id, 'not_found');
       drop(args.id);
       return [{}, [kind.slice(0, -1) as 'task']];
     });
@@ -91,7 +97,7 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
     return [result, ['task', 'project', 'note']];
   });
   const app = startApp(main, { url: `/app/${WORK}/trash${search}` });
-  return { main, app };
+  return { main, app, drop };
 }
 
 const SAMPLE = [
@@ -99,6 +105,14 @@ const SAMPLE = [
   archived('tsk_summary', 'Summarise sprint feedback'),
   archived('nte_retro', 'Sprint 14 retro'),
 ];
+
+// the open selection bar, or null
+const bar = () =>
+  document.querySelector<HTMLElement>('[role="toolbar"][aria-label="Selected items"]');
+
+// ticks a row's checkbox
+const select = (title: string) =>
+  click(row(title)!.querySelector<HTMLElement>(`[role="checkbox"][aria-label="Select ${title}"]`)!);
 
 const row = (title: string) =>
   [...document.querySelectorAll<HTMLElement>('[data-trash-id]')].find((el) =>
@@ -270,6 +284,90 @@ describe('the trash page', () => {
     click(byText(app.container, 'button', 'Restore'));
     await eventually(() => expect(main.callsTo('archive.restoreNote')).toHaveLength(1));
     expect(main.callsTo('notes.updateContent')).toHaveLength(0);
+  });
+
+  it('restores the selected rows together from the selection bar', async () => {
+    const { main, drop } = trashPage();
+    // restoring the project brings its task back with it, as core's cascade does
+    main.routes.set('archive.restoreProject', (args) => {
+      drop(args.id);
+      drop('tsk_summary');
+      return [undefined, ['project', 'task']];
+    });
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    select('AI Action Items');
+    select('Summarise sprint feedback');
+    await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
+    expect(row('AI Action Items')!.getAttribute('aria-selected')).toBe('true');
+    expect(row('Sprint 14 retro')!.getAttribute('aria-selected')).toBe('false');
+
+    click(byText(bar()!, 'button', 'Restore'));
+    await eventually(() => expect(document.body.textContent).toContain('Restored 2 items'));
+    expect(main.callsTo('archive.restoreProject').map((call) => call.input)).toEqual([
+      { id: 'prj_ai' },
+    ]);
+    // the cascade had restored the task already: its not_archived counts as done
+    expect(main.callsTo('archive.restoreTask')).toHaveLength(1);
+    expect(document.body.textContent).not.toContain('Couldn’t restore');
+    await eventually(() => expect(row('AI Action Items')).toBeUndefined());
+    expect(row('Sprint 14 retro')).toBeDefined();
+    await eventually(() => expect(bar()?.hasAttribute('inert') ?? true).toBe(true));
+  });
+
+  it('deletes the selected rows for good after asking once', async () => {
+    const { main } = trashPage();
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    select('AI Action Items');
+    select('Sprint 14 retro');
+    await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
+
+    click(byText(bar()!, 'button', 'Delete permanently'));
+    await eventually(() =>
+      expect(document.body.textContent).toContain('Delete 2 items permanently?'),
+    );
+    expect(main.callsTo('projects.delete')).toHaveLength(0);
+    click(byText(document.querySelector('[role="alertdialog"]')!, 'button', 'Delete 2 Items'));
+    await eventually(() => expect(document.body.textContent).toContain('Deleted 2 items'));
+    expect(main.callsTo('projects.delete').map((call) => call.input)).toEqual([{ id: 'prj_ai' }]);
+    expect(main.callsTo('notes.delete').map((call) => call.input)).toEqual([{ id: 'nte_retro' }]);
+    await eventually(() => expect(row('Sprint 14 retro')).toBeUndefined());
+    expect(row('Summarise sprint feedback')).toBeDefined();
+  });
+
+  it('keeps the rows that failed selected, and says so', async () => {
+    const { main } = trashPage('', SAMPLE, false);
+    main.routes.set('notes.delete', () => {
+      throw FakeMain.error('internal', 'disk full');
+    });
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    select('AI Action Items');
+    select('Sprint 14 retro');
+    await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
+    click(byText(bar()!, 'button', 'Delete permanently'));
+    await eventually(() =>
+      expect(document.body.textContent).toContain('Couldn’t delete 1 item of 2'),
+    );
+    await eventually(() => expect(row('AI Action Items')).toBeUndefined());
+    expect(bar()?.textContent).toContain('1 selected');
+    expect(row('Sprint 14 retro')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('clears the selection on another tab, and with the bar’s clear', async () => {
+    const { app } = trashPage();
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    select('Sprint 14 retro');
+    await eventually(() => expect(bar()?.textContent).toContain('1 selected'));
+    click(bar()!.querySelector('[aria-label="Clear selection"]')!);
+    await eventually(() =>
+      expect(row('Sprint 14 retro')!.getAttribute('aria-selected')).toBe('false'),
+    );
+
+    select('Summarise sprint feedback');
+    await eventually(() => expect(bar()?.textContent).toContain('1 selected'));
+    click(byText(app.container, 'button', 'Notes'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/trash?tab=notes`));
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    expect(row('Sprint 14 retro')!.getAttribute('aria-selected')).toBe('false');
   });
 
   it('offers Empty Trash on a tab of one kind from the first frame it draws', async () => {

@@ -28,14 +28,30 @@ export interface TrashListProps {
   onEndReached?: () => void;
   /** a footnote after the last row */
   footer?: React.ReactNode;
+  /** the selected rows' ids */
+  selected?: ReadonlySet<string>;
+  /** selects or unselects a row (its checkbox, or X on it) */
+  onToggle?: (item: ArchivedEntity) => void;
 }
 
 /**
  * Trash's rows (Figma `7159:11875`): virtualized, 48px each, in their own scroller. A row opens
  * its item; pointing at it shows Restore and Delete, and a right-click opens Open / Restore /
- * Delete permanently (`7175:29207`).
+ * Delete permanently (`7175:29207`). Rows select as the other lists' do (a checkbox, X), and
+ * selected rows next to each other join into one block; the page draws the selection bar.
  */
-export function TrashList({ items, actions, onEndReached, footer }: TrashListProps) {
+export function TrashList({
+  items,
+  actions,
+  onEndReached,
+  footer,
+  selected = new Set(),
+  onToggle,
+}: TrashListProps) {
+  const isSelectedAt = (index: number) => {
+    const item = items[index];
+    return item !== undefined && selected.has(item.id);
+  };
   const scroller = useRef<HTMLDivElement>(null);
   const [menuItem, setMenuItem] = useState<ArchivedEntity | null>(null);
   const byId = useMemo(() => new Map(items.map((item) => [item.id as string, item])), [items]);
@@ -82,6 +98,11 @@ export function TrashList({ items, actions, onEndReached, footer }: TrashListPro
                   aria-rowindex={virtual.index + 1}
                   item={data}
                   titlePills={titlePills}
+                  selected={isSelectedAt(virtual.index)}
+                  selecting={selected.size > 0}
+                  joinPrev={isSelectedAt(virtual.index) && isSelectedAt(virtual.index - 1)}
+                  joinNext={isSelectedAt(virtual.index) && isSelectedAt(virtual.index + 1)}
+                  onSelect={onToggle && (() => onToggle(item))}
                   onOpen={() => actions.open(item)}
                   onRestore={() => void actions.restore(item)}
                   onDelete={() => void actions.remove(item)}
