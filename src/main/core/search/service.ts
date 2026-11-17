@@ -63,7 +63,7 @@ export class SearchService {
    *
    * The matches are ranked and cut to `limit` first, then the entities are read: one query per
    * type for the matches of that type, with the same details the type's list adds. An entry whose
-   * row is gone or archived is left out.
+   * row is gone or trashed is left out.
    */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
@@ -108,7 +108,7 @@ export class SearchService {
     });
   }
 
-  // Each matched entity by id, per type: its unarchived row with the details its list adds.
+  // Each matched entity by id, per type: its restored row with the details its list adds.
   private entitiesOf(matches: { entityType: SearchEntityType; entityId: string }[]) {
     const idsOf = (type: SearchEntityType) =>
       matches.filter((match) => match.entityType === type).map((match) => match.entityId);
@@ -127,7 +127,7 @@ export class SearchService {
             this.db
               .select()
               .from(tasks)
-              .where(and(inArray(tasks.id, taskIds), isNull(tasks.archivedAt)))
+              .where(and(inArray(tasks.id, taskIds), isNull(tasks.trashedAt)))
               .all(),
           ),
         ),
@@ -139,7 +139,7 @@ export class SearchService {
             this.db
               .select()
               .from(notes)
-              .where(and(inArray(notes.id, noteIds), isNull(notes.archivedAt)))
+              .where(and(inArray(notes.id, noteIds), isNull(notes.trashedAt)))
               .all(),
           ),
         ),
@@ -151,7 +151,7 @@ export class SearchService {
             this.db
               .select()
               .from(projects)
-              .where(and(inArray(projects.id, projectIds), isNull(projects.archivedAt)))
+              .where(and(inArray(projects.id, projectIds), isNull(projects.trashedAt)))
               .all(),
           ),
         ),
@@ -264,13 +264,13 @@ export class SearchService {
         ...this.db
           .select()
           .from(tasks)
-          .where(isNull(tasks.archivedAt))
+          .where(isNull(tasks.trashedAt))
           .all()
           .map((task) => taskEntity(task)),
         ...this.db
           .select()
           .from(projects)
-          .where(isNull(projects.archivedAt))
+          .where(isNull(projects.trashedAt))
           .all()
           .map((project) => projectEntity(project)),
         ...this.db
@@ -380,7 +380,7 @@ export class SearchService {
     return this.db
       .select()
       .from(notes)
-      .where(and(condition, isNull(notes.archivedAt)))
+      .where(and(condition, isNull(notes.trashedAt)))
       .all();
   }
 
@@ -401,7 +401,7 @@ export class SearchService {
         const ids = this.db
           .select({ id: notes.id })
           .from(notes)
-          .where(and(condition, isNull(notes.archivedAt)))
+          .where(and(condition, isNull(notes.trashedAt)))
           .all()
           .map(({ id }) => id);
         const files = await Promise.allSettled(

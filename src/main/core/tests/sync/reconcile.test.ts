@@ -34,7 +34,7 @@ import {
 } from '@common/types';
 import { ExternalProject, ExternalTask } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { ProjectService } from '../../projects/service';
 import { ProviderUnavailableError } from '../../shared/errors';
 
@@ -214,7 +214,7 @@ afterEach(async () => {
 });
 
 describe('SyncEngine reconcile — removals', () => {
-  it('removes a reassigned issue: archived, link removed', async () => {
+  it('removes a reassigned issue: trashed, link removed', async () => {
     const kept = issue();
     const reassigned = issue();
     await seed([kept, reassigned]);
@@ -231,9 +231,9 @@ describe('SyncEngine reconcile — removals', () => {
     expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([
       [reassigned.externalId],
     ]);
-    expect(taskOf(reassigned.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(taskOf(reassigned.externalId).trashedAt).toBeInstanceOf(Date);
     expect(linkOf(reassigned.externalId)).toMatchObject({ state: LinkState.REMOVED });
-    expect(taskOf(kept.externalId).archivedAt).toBeNull();
+    expect(taskOf(kept.externalId).trashedAt).toBeNull();
     expect(sourceRow().lastReconciledAt).toEqual(NOW);
   });
 
@@ -245,7 +245,7 @@ describe('SyncEngine reconcile — removals', () => {
     const result = await reconcile();
 
     expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
-    expect(taskOf(deleted.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(taskOf(deleted.externalId).trashedAt).toBeInstanceOf(Date);
     expect(linkOf(deleted.externalId).state).toBe(LinkState.REMOVED);
   });
 
@@ -265,7 +265,7 @@ describe('SyncEngine reconcile — removals', () => {
     expect(taskOf(done.externalId)).toMatchObject({
       status: TaskStatus.COMPLETED,
       completedAt: V2,
-      archivedAt: null,
+      trashedAt: null,
     });
     expect(linkOf(done.externalId).state).toBe(LinkState.SYNCED);
   });
@@ -279,7 +279,7 @@ describe('SyncEngine reconcile — removals', () => {
     await reconcile();
 
     expect(provider.tasks.lookups).toEqual([]);
-    expect(taskOf(detached.externalId).archivedAt).toBeNull();
+    expect(taskOf(detached.externalId).trashedAt).toBeNull();
     expect(linkOf(detached.externalId).state).toBe(LinkState.DETACHED);
   });
 });
@@ -301,7 +301,7 @@ describe('SyncEngine reconcile — returning issues', () => {
     ]);
     expect(result).toMatchObject({ updated: 1, removed: 0 });
     expect(linkOf(trashed.externalId)).toMatchObject({ state: LinkState.SYNCED, removedAt: null });
-    expect(taskOf(trashed.externalId)).toMatchObject({ title: 'Back again', archivedAt: null });
+    expect(taskOf(trashed.externalId)).toMatchObject({ title: 'Back again', trashedAt: null });
   });
 
   it('never treats a detached task in the snapshot as returning', async () => {
@@ -319,7 +319,7 @@ describe('SyncEngine reconcile — returning issues', () => {
     await seed([deleted]);
     setLinkState(deleted.externalId, LinkState.DETACHED);
     const taskId = linkOf(deleted.externalId).taskId!;
-    new ArchiveService(db).archiveTask(taskId);
+    new TrashService(db).trashTask(taskId);
     new TaskService(db).deleteTask(taskId);
 
     // still assigned in Linear, with no link here: the user deleted only their copy
@@ -392,12 +392,12 @@ describe('SyncEngine reconcile — project changes', () => {
     expect(projectOf(proj.externalId)).toMatchObject({
       title: 'Platform v2',
       status: ProjectStatus.COMPLETED,
-      archivedAt: null,
+      trashedAt: null,
     });
     expect(linkOf(proj.externalId).state).toBe(LinkState.SYNCED);
   });
 
-  it('archives a project deleted in Linear while its issues stay the same', async () => {
+  it('trashes a project deleted in Linear while its issues stay the same', async () => {
     const deleted = project();
     const kept = project();
     const inDeleted = issue({ projectExternalId: deleted.externalId });
@@ -410,8 +410,8 @@ describe('SyncEngine reconcile — project changes', () => {
     expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([[]]);
     expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
     expect(linkOf(deleted.externalId).state).toBe(LinkState.REMOVED);
-    expect(projectOf(deleted.externalId).archivedAt).toBeInstanceOf(Date);
-    expect(taskOf(inDeleted.externalId)).toMatchObject({ projectId: null, archivedAt: null });
+    expect(projectOf(deleted.externalId).trashedAt).toBeInstanceOf(Date);
+    expect(taskOf(inDeleted.externalId)).toMatchObject({ projectId: null, trashedAt: null });
     expect(linkOf(kept.externalId).state).toBe(LinkState.SYNCED);
   });
 
@@ -501,7 +501,7 @@ describe('SyncEngine reconcile — settling', () => {
 });
 
 describe('SyncEngine reconcile — project lifecycle', () => {
-  it('detaches a project left with only a local task, and archives one left empty', async () => {
+  it('detaches a project left with only a local task, and trashes one left empty', async () => {
     const withLocal = project();
     const empty = project();
     const a = issue({ projectExternalId: withLocal.externalId });
@@ -519,7 +519,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(result.changed.sort()).toEqual(['project', 'task']);
 
     expect(linkOf(withLocal.externalId).state).toBe(LinkState.DETACHED);
-    expect(projectOf(withLocal.externalId).archivedAt).toBeNull();
+    expect(projectOf(withLocal.externalId).trashedAt).toBeNull();
     // a normal local project now: editable, and the local task keeps its home
     const projects = new ProjectService(db, new TaskService(db));
     projects.updateProject(withLocalId, { title: 'Mine now' });
@@ -528,7 +528,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
 
     expect(linkOf(empty.externalId)).toMatchObject({ state: LinkState.REMOVED });
     expect(linkOf(empty.externalId).removedAt).toEqual(expect.any(Date));
-    expect(projectOf(empty.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(projectOf(empty.externalId).trashedAt).toBeInstanceOf(Date);
   });
 
   it('keeps a project whose issues moved but that still has a synced task', async () => {
@@ -541,10 +541,10 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     await reconcile();
 
     expect(linkOf(proj.externalId).state).toBe(LinkState.SYNCED);
-    expect(projectOf(proj.externalId).archivedAt).toBeNull();
+    expect(projectOf(proj.externalId).trashedAt).toBeNull();
   });
 
-  it('archives a project emptied by an incremental pull, on a pass with no task lookup', async () => {
+  it('trashes a project emptied by an incremental pull, on a pass with no task lookup', async () => {
     const proj = project();
     const trashed = issue({ projectExternalId: proj.externalId });
     await seed([trashed], [proj]);
@@ -559,7 +559,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([[]]);
     expect(result).toMatchObject({ removed: 1, changed: ['project'] });
     expect(linkOf(proj.externalId).state).toBe(LinkState.REMOVED);
-    expect(projectOf(proj.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(projectOf(proj.externalId).trashedAt).toBeInstanceOf(Date);
   });
 
   it('counts a detached task as a reason to keep a project', async () => {
@@ -576,7 +576,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(taskOf(detached.externalId).projectId).toBe(linkOf(proj.externalId).projectId);
   });
 
-  it('archives a project deleted in Linear, and its synced issues lose it', async () => {
+  it('trashes a project deleted in Linear, and its synced issues lose it', async () => {
     const deleted = project();
     const other = project();
     const inDeleted = issue({ projectExternalId: deleted.externalId });
@@ -593,8 +593,8 @@ describe('SyncEngine reconcile — project lifecycle', () => {
       [deleted.externalId, other.externalId].sort(),
     );
     expect(linkOf(deleted.externalId).state).toBe(LinkState.REMOVED);
-    expect(projectOf(deleted.externalId).archivedAt).toBeInstanceOf(Date);
-    expect(taskOf(inDeleted.externalId)).toMatchObject({ projectId: null, archivedAt: null });
+    expect(projectOf(deleted.externalId).trashedAt).toBeInstanceOf(Date);
+    expect(taskOf(inDeleted.externalId)).toMatchObject({ projectId: null, trashedAt: null });
     expect(linkOf(other.externalId).state).toBe(LinkState.SYNCED);
   });
 

@@ -85,7 +85,7 @@ type EventFields = ReturnType<typeof eventFields>;
  * decides (upsert, remove, restore, settle, reattach, the project lifecycle). It writes the tables
  * directly, past the service guards that reject edits to synced rows. `linkedNoteId`,
  * `linkedEventId` and `favoritedAt` belong to DevBrain and are never touched; user actions such
- * as detach, archive and disconnect write their own part (see "Who writes mirrored rows" in
+ * as detach, trash and disconnect write their own part (see "Who writes mirrored rows" in
  * docs/integrations/tech-design.md).
  *
  * Each call is one SQLite transaction, search index writes included. better-sqlite3 nests
@@ -124,7 +124,7 @@ export class SyncWriter {
    *    a removed link); reassigned or gone is removed.
    * 2. Settle: synced task links closed before `settleBefore` stop being watched.
    * 3. Project lifecycle, on the state after 1: a synced project that is gone, or has no synced
-   *    tasks left, is detached when it still holds local or detached tasks, and archived with its
+   *    tasks left, is detached when it still holds local or detached tasks, and trashed with its
    *    link `removed` otherwise.
    */
   applyReconcile(
@@ -309,7 +309,7 @@ export class SyncWriter {
     });
   }
 
-  /** archives the synced tasks behind these ids and marks their links `removed` */
+  /** trashes the synced tasks behind these ids and marks their links `removed` */
   removeTasks(sourceId: ExternalSourceId, externalIds: string[]): SyncSummary {
     return this.db.transaction((tx) => {
       const write = new PageWrite(tx, this.search, sourceId, this.now());
@@ -405,12 +405,12 @@ class PageWrite {
       }
 
       // 2c. remote changed, or a removed or detached project came back: write the provider-owned
-      // fields and unarchive (a synced row is never archived), then mark the link synced again.
+      // fields and restore (a synced row is never trashed), then mark the link synced again.
       // A detached project's local and detached tasks stay in it; its link is reused, so there is
       // no duplicate
       const project = this.tx
         .update(projects)
-        .set({ ...projectFields(item), archivedAt: null })
+        .set({ ...projectFields(item), trashedAt: null })
         .where(eq(projects.id, projectId))
         .returning()
         .get();
@@ -525,13 +525,13 @@ class PageWrite {
     for (const chunk of chunks(newLinks)) this.tx.insert(externalLinks).values(chunk).run();
     this.inserted += newTasks.length;
 
-    // 4. provider-owned fields are written and the row unarchived (a synced row is never
-    // archived); the link is marked synced again
+    // 4. provider-owned fields are written and the row restored (a synced row is never
+    // trashed); the link is marked synced again
     const updated: Task[] = [];
     for (const { taskId, linkId, fields, link } of changes) {
       const task = this.tx
         .update(tasks)
-        .set({ ...fields, archivedAt: null })
+        .set({ ...fields, trashedAt: null })
         .where(eq(tasks.id, taskId))
         .returning()
         .get();
@@ -553,7 +553,7 @@ class PageWrite {
    *
    * 1. Find their synced task links; other ids (detached, already removed, never mirrored) are
    *    ignored.
-   * 2. Archive the tasks and mark their links `removed`.
+   * 2. Trash the tasks and mark their links `removed`.
    * 3. Drop the tasks from search.
    */
   removeTasks(externalIds: string[]): void {
@@ -574,10 +574,10 @@ class PageWrite {
       .all();
     if (links.length === 0) return;
 
-    // 2. archived, not deleted, so an issue that comes back keeps its notes and links. Linked notes
+    // 2. trashed, not deleted, so an issue that comes back keeps its notes and links. Linked notes
     // are left as they are: they are the user's, and the task may well return
     const taskIds = links.map((link) => link.taskId!);
-    this.tx.update(tasks).set({ archivedAt: this.now }).where(inArray(tasks.id, taskIds)).run();
+    this.tx.update(tasks).set({ trashedAt: this.now }).where(inArray(tasks.id, taskIds)).run();
     this.tx
       .update(externalLinks)
       .set({ state: LinkState.REMOVED, removedAt: this.now })
@@ -642,17 +642,17 @@ class PageWrite {
    * 2. A gone project's synced tasks follow the provider, which no longer has the project, so
    *    they lose it. (Tasks that moved elsewhere were already moved by the upsert.)
    * 3. One still holding local or detached tasks is detached: a normal local project, where the
-   *    user's own tasks keep their home. Any other one is archived, not deleted, so notes filed
+   *    user's own tasks keep their home. Any other one is trashed, not deleted, so notes filed
    *    under it keep their link, and its link is marked `removed`.
    */
   retireProjects(goneExternalIds: string[]): void {
     const gone = new Set(goneExternalIds);
-    // live synced tasks in the project the outer row links to; a synced task is never archived,
+    // live synced tasks in the project the outer row links to; a synced task is never trashed,
     // and saying so lets idx_tasks_project_id serve this
     const syncedTasksIn = (projectId: SQLWrapper) =>
       and(
         eq(tasks.projectId, projectId),
-        isNull(tasks.archivedAt),
+        isNull(tasks.trashedAt),
         hasLinkInState('task', tasks.id, LinkState.SYNCED),
       );
 
@@ -677,12 +677,12 @@ class PageWrite {
       )
       .all();
     if (leaving.length === 0) return;
-    const archived: ProjectId[] = [];
+    const trashed: ProjectId[] = [];
 
     for (const link of leaving) {
       const projectId = link.projectId!;
 
-      // 2. a synced task cannot live in a local or archived project; an empty project has none
+      // 2. a synced task cannot live in a local or trashed project; an empty project has none
       if (gone.has(link.externalId)) {
         const moved = this.tx
           .update(tasks)
@@ -692,14 +692,14 @@ class PageWrite {
         if (moved > 0) this.changed.add('task');
       }
 
-      // 3. live tasks that are not synced are local or detached; a removed task is archived
+      // 3. live tasks that are not synced are local or detached; a removed task is trashed
       const keeps = this.tx
         .select({ id: tasks.id })
         .from(tasks)
         .where(
           and(
             eq(tasks.projectId, projectId),
-            isNull(tasks.archivedAt),
+            isNull(tasks.trashedAt),
             sql`NOT ${hasLinkInState('task', tasks.id, LinkState.SYNCED)}`,
           ),
         )
@@ -714,7 +714,7 @@ class PageWrite {
       } else {
         this.tx
           .update(projects)
-          .set({ archivedAt: this.now })
+          .set({ trashedAt: this.now })
           .where(eq(projects.id, projectId))
           .run();
         this.tx
@@ -722,14 +722,14 @@ class PageWrite {
           .set({ state: LinkState.REMOVED, removedAt: this.now })
           .where(eq(externalLinks.id, link.id))
           .run();
-        archived.push(projectId);
+        trashed.push(projectId);
         this.removed += 1;
       }
       this.changed.add('project');
     }
 
-    // archived projects are no longer searchable; a restore re-indexes them
-    this.search.removeFromIndex(archived);
+    // trashed projects are no longer searchable; a restore re-indexes them
+    this.search.removeFromIndex(trashed);
   }
 
   /**
@@ -1235,7 +1235,7 @@ class PageWrite {
   }
 
   /**
-   * The removal rule for events, which have no archivedAt: deleting a row would leave a note or
+   * The removal rule for events, which have no trashedAt: deleting a row would leave a note or
    * task that points at it pointing nowhere.
    *
    * 1. Find which of the events a note or task links to.
@@ -1248,7 +1248,7 @@ class PageWrite {
     if (links.length === 0) return;
     const eventIds = links.map((link) => link.eventId!);
 
-    // 1. a link from a note or a task, archived ones included: they are the user's and may return
+    // 1. a link from a note or a task, trashed ones included: they are the user's and may return
     const linked = new Set<EventId>([
       ...this.tx
         .select({ id: notes.linkedEventId })
@@ -1423,7 +1423,7 @@ class PageWrite {
             eq(child.sourceId, this.sourceId),
             // children of the parents that arrived in this call, and of no others
             inArray(parentOf, batch),
-            // a detached child is the user's own, and a removed one is archived: neither moves
+            // a detached child is the user's own, and a removed one is trashed: neither moves
             eq(child.state, LinkState.SYNCED),
             // ties the updated row to its own link. Without it every tasks row pairs with every
             // matching child, and all top-level tasks, local ones included, get the parent

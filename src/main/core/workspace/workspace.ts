@@ -1,6 +1,6 @@
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import { ArchiveChange, ArchiveService } from '../archive/service';
+import { TrashChange, TrashService } from '../trash/service';
 import { EventService } from '../events/service';
 import { EventFetcher } from '../events/fetcher';
 import { FavoritesService } from '../favorites/service';
@@ -58,7 +58,7 @@ export class Workspace {
   readonly projects: ProjectService;
   readonly events: EventService;
   readonly calendars: CalendarService;
-  readonly archive: ArchiveService;
+  readonly trash: TrashService;
   readonly favorites: FavoritesService;
   readonly recents: RecentsService;
   readonly search: SearchService;
@@ -95,7 +95,7 @@ export class Workspace {
     );
     this.calendars = new CalendarService(db);
     // emptying the trash removes the deleted notes' files through the note service
-    this.archive = new ArchiveService(db, this.notes);
+    this.trash = new TrashService(db, this.notes);
     this.favorites = new FavoritesService(db);
     this.recents = new RecentsService(db);
     this.search = new SearchService(db, info.path);
@@ -106,7 +106,7 @@ export class Workspace {
       projects: this.projects,
       taskDefaults: options.taskDefaults ?? (() => FALLBACK_TASK_DEFAULTS),
     });
-    // the user's own writes; SyncWriter indexes what sync writes. An archived row stays out of
+    // the user's own writes; SyncWriter indexes what sync writes. A trashed row stays out of
     // search when it is written; restoring it brings it back. A delete drops every row it removed,
     // in its transaction.
     this.tasks.onChange((change) => {
@@ -119,11 +119,11 @@ export class Workspace {
       }
       // a new row has no entry to replace: inserting alone keeps an import linear
       else if (change.type === 'created') this.search.indexCreatedTask(change.task);
-      else if (change.task.archivedAt === null) this.search.indexTask(change.task);
+      else if (change.task.trashedAt === null) this.search.indexTask(change.task);
     });
     this.projects.onChange((change) => {
       if (change.type === 'deleted') this.search.removeFromIndex([change.projectId]);
-      else if (change.project.archivedAt === null) this.search.indexProject(change.project);
+      else if (change.project.trashedAt === null) this.search.indexProject(change.project);
     });
     this.notes.onChange((change) => {
       if (change.type === 'deleted') this.search.removeFromIndex([change.noteId]);
@@ -138,8 +138,8 @@ export class Workspace {
       if (change.type === 'deleted') this.search.removeFromIndex(change.eventIds);
       else this.search.indexEvent(change.event);
     });
-    // archived rows leave search and restored ones come back, in the archive's transaction
-    this.archive.onChange((change) => this.onArchiveChange(change));
+    // trashed rows leave search and restored ones come back, in the trash's transaction
+    this.trash.onChange((change) => this.onTrashChange(change));
     const { credentials, integrations, providers } = createIntegrationServices(
       db,
       options,
@@ -195,9 +195,9 @@ export class Workspace {
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }
 
-  private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {
-    // archived rows are out of search already; dropping them again is a no-op kept for safety
-    if (type === 'archived' || type === 'emptied') {
+  private onTrashChange({ type, taskIds, projectIds, noteIds }: TrashChange): void {
+    // trashed rows are out of search already; dropping them again is a no-op kept for safety
+    if (type === 'trashed' || type === 'emptied') {
       this.search.removeFromIndex([...taskIds, ...projectIds, ...noteIds]);
       return;
     }

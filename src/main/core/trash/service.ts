@@ -4,9 +4,9 @@ import { and, eq, inArray, isNotNull, isNull, not, or, SQL, sql } from 'drizzle-
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { unionAll } from 'drizzle-orm/sqlite-core';
 import {
-  type ArchivableEntityType,
-  type ArchivableId,
-  type ArchivedEntity,
+  type TrashableEntityType,
+  type TrashableId,
+  type TrashedEntity,
   type EmptyTrashResult,
   type RestoreResult,
   type TrashSelection,
@@ -18,7 +18,7 @@ import {
 } from '@common/types';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
-import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
+import { AlreadyInTrashError, NotInTrashError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
 import {
   assertEditable,
@@ -30,16 +30,16 @@ import {
 import { subtreeOf, subtreeOfAll } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import type { NoteService } from '../notes/service';
-import type { ArchiveFilterOptions } from './types';
+import type { TrashFilterOptions } from './types';
 
-// The rows an archive or restore stamped: the entity itself and everything it cascaded to.
-export interface ArchiveChangedIds {
+// The rows a trash or restore stamped: the entity itself and everything it cascaded to.
+export interface TrashChangedIds {
   taskIds: TaskId[];
   projectIds: ProjectId[];
   noteIds: NoteId[];
 }
 
-// What an archive or restore changed, for in-process subscribers: the workspace keeps search in
+// What a trash or restore changed, for in-process subscribers: the workspace keeps search in
 // step, and the IPC layer will forward them to the renderer. Sent as the last step of the write,
 // inside its transaction, like IntegrationService's `disconnected`: a listener's synchronous
 // database writes (search dropping or re-indexing the rows) commit with it, and anything
@@ -48,10 +48,10 @@ export interface ArchiveChangedIds {
 // `emptied` names every row deleted for good from the trash (all of it by emptyTrash, or a
 // selection by deleteMany), and the rows left that lost a link to one of them: tasks and notes whose project went, notes whose task went, tasks whose note went (made
 // from it, or the task it was the task note of).
-export type ArchiveChange =
-  | ({ type: 'archived' } & ArchiveChangedIds)
-  | ({ type: 'restored' } & ArchiveChangedIds)
-  | ({ type: 'emptied'; unlinkedTaskIds: TaskId[]; unlinkedNoteIds: NoteId[] } & ArchiveChangedIds);
+export type TrashChange =
+  | ({ type: 'trashed' } & TrashChangedIds)
+  | ({ type: 'restored' } & TrashChangedIds)
+  | ({ type: 'emptied'; unlinkedTaskIds: TaskId[]; unlinkedNoteIds: NoteId[] } & TrashChangedIds);
 
 // the transaction emptyTrash runs its steps in
 type Transaction = Parameters<Parameters<BetterSQLite3Database['transaction']>[0]>[0];
@@ -60,8 +60,8 @@ type Transaction = Parameters<Parameters<BetterSQLite3Database['transaction']>[0
 // notes folder and each note's queue of content saves
 export type NoteFiles = Pick<NoteService, 'removeDeletedFiles'>;
 
-export class ArchiveService {
-  private readonly changes = new ChangeListeners<ArchiveChange>('Archive');
+export class TrashService {
+  private readonly changes = new ChangeListeners<TrashChange>('Trash');
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -70,64 +70,64 @@ export class ArchiveService {
   ) {}
 
   // returns a function that unsubscribes the listener
-  onChange(listener: ChangeListener<ArchiveChange>): () => void {
+  onChange(listener: ChangeListener<TrashChange>): () => void {
     return this.changes.add(listener);
   }
 
-  archiveTask(id: TaskId): Task {
+  trashTask(id: TaskId): Task {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
-      // a synced task is detached before it can be archived; restore is left open for SyncWriter
+      if (existing.trashedAt !== null) throw new AlreadyInTrashError(id);
+      // a synced task is detached before it can be trashed; restore is left open for SyncWriter
       assertEditable(tx, id);
 
       const now = new Date();
-      // archives the task and its whole subtree: a local task's subtasks, or the deeper subtree a
+      // trashes the task and its whole subtree: a local task's subtasks, or the deeper subtree a
       // detached task carried over from Linear
       const updatedTasks = tx
         .update(tasks)
-        .set({ archivedAt: now })
-        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
+        .set({ trashedAt: now })
+        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.trashedAt)))
         .returning()
         .all();
 
       const updatedTaskIds = updatedTasks.map((t) => t.id);
 
-      // archive notes linked to the task and/or any of its subtasks
+      // trash notes linked to the task and/or any of its subtasks
       const noteIds =
         updatedTaskIds.length > 0
           ? tx
               .update(notes)
-              .set({ archivedAt: now })
+              .set({ trashedAt: now })
               .where(inArray(notes.linkedTaskId, updatedTaskIds))
               .returning({ id: notes.id })
               .all()
               .map(({ id }) => id)
           : [];
 
-      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
+      this.changes.emit({ type: 'trashed', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const [task] = updatedTasks.filter((t) => t.id === id);
       return withExternalRef(tx, task);
     });
   }
 
   /**
-   * Archives every task in `ids`, each with its subtree and linked notes as archiveTask does, in one
-   * transaction: all are archived, or none is. Every id is checked first, and one refusal fails the
-   * batch: NotFoundError for an unknown id, AlreadyArchivedError for one already in the trash, and
+   * Trashes every task in `ids`, each with its subtree and linked notes as trashTask does, in one
+   * transaction: all are trashed, or none is. Every id is checked first, and one refusal fails the
+   * batch: NotFoundError for an unknown id, AlreadyInTrashError for one already in the trash, and
    * ExternalReadOnlyError for a synced task, which leaves only through sync (detach it first).
-   * A task whose ancestor is also in `ids` goes with that ancestor's subtree. One `archived` change
+   * A task whose ancestor is also in `ids` goes with that ancestor's subtree. One `trashed` change
    * is sent, with every row stamped, as the transaction's last step. Returns the tasks of `ids`
-   * as archived, in that order; a repeated id counts once.
+   * as trashed, in that order; a repeated id counts once.
    */
-  archiveTasks(ids: TaskId[]): Task[] {
+  trashTasks(ids: TaskId[]): Task[] {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length === 0) return [];
     return this.db.transaction((tx) => {
       const existing = new Map(
         tx
-          .select({ id: tasks.id, archivedAt: tasks.archivedAt })
+          .select({ id: tasks.id, trashedAt: tasks.trashedAt })
           .from(tasks)
           .where(inArray(tasks.id, uniqueIds))
           .all()
@@ -136,28 +136,28 @@ export class ArchiveService {
       for (const id of uniqueIds) {
         const row = existing.get(id);
         if (!row) throw new NotFoundError(id);
-        if (row.archivedAt !== null) throw new AlreadyArchivedError(id);
+        if (row.trashedAt !== null) throw new AlreadyInTrashError(id);
         assertEditable(tx, id);
       }
 
       const now = new Date();
       const updatedTasks = tx
         .update(tasks)
-        .set({ archivedAt: now })
-        .where(and(inArray(tasks.id, subtreeOfAll(uniqueIds)), isNull(tasks.archivedAt)))
+        .set({ trashedAt: now })
+        .where(and(inArray(tasks.id, subtreeOfAll(uniqueIds)), isNull(tasks.trashedAt)))
         .returning()
         .all();
       const updatedTaskIds = updatedTasks.map((t) => t.id);
 
       const noteIds = tx
         .update(notes)
-        .set({ archivedAt: now })
+        .set({ trashedAt: now })
         .where(inArray(notes.linkedTaskId, updatedTaskIds))
         .returning({ id: notes.id })
         .all()
         .map(({ id }) => id);
 
-      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
+      this.changes.emit({ type: 'trashed', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const byId = new Map(updatedTasks.map((task) => [task.id, task]));
       return withExternalRefs(
         tx,
@@ -167,15 +167,15 @@ export class ArchiveService {
   }
 
   restoreTask(id: TaskId): Task {
-    // restores the task and its whole subtree, as archiveTask archived it
+    // restores the task and its whole subtree, as trashTask trashed it
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt === null) throw new NotArchivedError(id);
+      if (existing.trashedAt === null) throw new NotInTrashError(id);
 
       const updatedTasks = tx
         .update(tasks)
-        .set({ archivedAt: null })
+        .set({ trashedAt: null })
         .where(inArray(tasks.id, subtreeOf(id)))
         .returning()
         .all();
@@ -187,7 +187,7 @@ export class ArchiveService {
         updatedTaskIds.length > 0
           ? tx
               .update(notes)
-              .set({ archivedAt: null })
+              .set({ trashedAt: null })
               .where(inArray(notes.linkedTaskId, updatedTaskIds))
               .returning({ id: notes.id })
               .all()
@@ -200,29 +200,29 @@ export class ArchiveService {
     });
   }
 
-  archiveProject(id: ProjectId): Project {
+  trashProject(id: ProjectId): Project {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+      if (existing.trashedAt !== null) throw new AlreadyInTrashError(id);
       // a synced project leaves only through sync
       assertEditable(tx, id);
 
       const now = new Date();
-      // archive the project
+      // trash the project
       const project = tx
         .update(projects)
         .set({
-          archivedAt: now,
+          trashedAt: now,
         })
         .where(eq(projects.id, id))
         .returning()
         .get();
 
-      // archive all tasks (and subtasks) attached to the project
+      // trash all tasks (and subtasks) attached to the project
       const updatedTaskIds = tx
         .update(tasks)
-        .set({ archivedAt: now })
+        .set({ trashedAt: now })
         .where(eq(tasks.projectId, id))
         .returning({ id: tasks.id })
         .all()
@@ -231,13 +231,13 @@ export class ArchiveService {
       // archaive all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
       const noteIds = tx
         .update(notes)
-        .set({ archivedAt: now })
+        .set({ trashedAt: now })
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
         .returning({ id: notes.id })
         .all()
         .map(({ id }) => id);
 
-      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [id], noteIds });
+      this.changes.emit({ type: 'trashed', taskIds: updatedTaskIds, projectIds: [id], noteIds });
       return withExternalRef(tx, project);
     });
   }
@@ -246,22 +246,22 @@ export class ArchiveService {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt === null) throw new NotArchivedError(id);
+      if (existing.trashedAt === null) throw new NotInTrashError(id);
 
       // restore the project
       const project = tx
         .update(projects)
         .set({
-          archivedAt: null,
+          trashedAt: null,
         })
         .where(eq(projects.id, id))
         .returning()
         .get();
 
-      // restore all archived tasks (and subtasks) attached to the project
+      // restore all trashed tasks (and subtasks) attached to the project
       const updatedTaskIds = tx
         .update(tasks)
-        .set({ archivedAt: null })
+        .set({ trashedAt: null })
         .where(eq(tasks.projectId, id))
         .returning({ id: tasks.id })
         .all()
@@ -270,7 +270,7 @@ export class ArchiveService {
       // restore all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
       const noteIds = tx
         .update(notes)
-        .set({ archivedAt: null })
+        .set({ trashedAt: null })
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
         .returning({ id: notes.id })
         .all()
@@ -281,19 +281,19 @@ export class ArchiveService {
     });
   }
 
-  archiveNote(id: NoteId): Note {
+  trashNote(id: NoteId): Note {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+      if (existing.trashedAt !== null) throw new AlreadyInTrashError(id);
 
       const note = tx
         .update(notes)
-        .set({ archivedAt: new Date() })
+        .set({ trashedAt: new Date() })
         .where(eq(notes.id, id))
         .returning()
         .get();
-      this.changes.emit({ type: 'archived', taskIds: [], projectIds: [], noteIds: [id] });
+      this.changes.emit({ type: 'trashed', taskIds: [], projectIds: [], noteIds: [id] });
       return note;
     });
   }
@@ -302,11 +302,11 @@ export class ArchiveService {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt === null) throw new NotArchivedError(id);
+      if (existing.trashedAt === null) throw new NotInTrashError(id);
 
       const note = tx
         .update(notes)
-        .set({ archivedAt: null })
+        .set({ trashedAt: null })
         .where(eq(notes.id, id))
         .returning()
         .get();
@@ -318,7 +318,7 @@ export class ArchiveService {
   /**
    * Restores the rows chosen in Trash, each as its own restore does, in one transaction: all are
    * restored, or none is. Every id is checked first, and one refusal fails the batch:
-   * NotFoundError for an unknown id, NotArchivedError for one not in the trash.
+   * NotFoundError for an unknown id, NotInTrashError for one not in the trash.
    *
    * Projects go first, each bringing back its tasks and their notes (restoreProject); then the
    * tasks chosen, each with its subtree and their notes (restoreTask); then the notes chosen. A
@@ -339,15 +339,15 @@ export class ArchiveService {
       assertInTrash(tx, notes, noteIds);
 
       if (projectIds.length > 0) {
-        tx.update(projects).set({ archivedAt: null }).where(inArray(projects.id, projectIds)).run();
+        tx.update(projects).set({ trashedAt: null }).where(inArray(projects.id, projectIds)).run();
       }
       const projectTaskIds =
         projectIds.length === 0
           ? []
           : tx
               .update(tasks)
-              .set({ archivedAt: null })
-              .where(and(inArray(tasks.projectId, projectIds), isNotNull(tasks.archivedAt)))
+              .set({ trashedAt: null })
+              .where(and(inArray(tasks.projectId, projectIds), isNotNull(tasks.trashedAt)))
               .returning({ id: tasks.id })
               .all()
               .map(({ id }) => id);
@@ -356,8 +356,8 @@ export class ArchiveService {
           ? []
           : tx
               .update(tasks)
-              .set({ archivedAt: null })
-              .where(and(inArray(tasks.id, subtreeOfAll(taskIds)), isNotNull(tasks.archivedAt)))
+              .set({ trashedAt: null })
+              .where(and(inArray(tasks.id, subtreeOfAll(taskIds)), isNotNull(tasks.trashedAt)))
               .returning({ id: tasks.id })
               .all()
               .map(({ id }) => id);
@@ -374,8 +374,8 @@ export class ArchiveService {
           ? []
           : tx
               .update(notes)
-              .set({ archivedAt: null })
-              .where(and(or(...noteConditions), isNotNull(notes.archivedAt)))
+              .set({ trashedAt: null })
+              .where(and(or(...noteConditions), isNotNull(notes.trashedAt)))
               .returning({ id: notes.id })
               .all()
               .map(({ id }) => id);
@@ -387,15 +387,15 @@ export class ArchiveService {
   }
 
   /**
-   * Empties the trash: deletes every archived task, project and note for good, in one
+   * Empties the trash: deletes every trashed task, project and note for good, in one
    * transaction, and sends one `emptied` change as its last step, inside it, so search drops the
    * rows in the same commit. Then it removes the deleted notes' files.
    *
    * What goes and what stays follows the one-item deletes (docs/deleting.md): foreign keys take a
    * task's subtasks and links along, and clear the project or link of the tasks and notes left.
-   * An archived task with an active or synced task anywhere below it is kept (`keptTaskIds`), as
-   * TaskService.deleteTask refuses it: sync can archive a removed Linear task and leave its
-   * synced subtasks live. A synced project is never archived; one would be kept too.
+   * A trashed task with an active or synced task anywhere below it is kept (`keptTaskIds`), as
+   * TaskService.deleteTask refuses it: sync can trash a removed Linear task and leave its
+   * synced subtasks live. A synced project is never trashed; one would be kept too.
    *
    * The files go after the commit, each behind its note's queued content saves. One that can't
    * be removed is logged and listed in `filesNotRemoved`; the rest still go, and nothing is
@@ -409,7 +409,7 @@ export class ArchiveService {
    * Deletes the rows chosen in Trash for good, as emptyTrash deletes the whole trash, in one
    * transaction: the same rules, steps, `emptied` change and response, limited to `selection`.
    * Every id is checked first, and one refusal fails the batch and deletes nothing: NotFoundError
-   * for an unknown id, NotArchivedError for one not in the trash. A task takes its subtree along
+   * for an unknown id, NotInTrashError for one not in the trash. A task takes its subtree along
    * (a subtask also chosen goes with it), and one with an active or synced task below it stays
    * (`keptTaskIds`). A repeated id counts once.
    */
@@ -433,9 +433,9 @@ export class ArchiveService {
         assertInTrash(tx, notes, only.noteIds);
       }
       // tasks first, so the later steps' unlinked rows are only tasks that are left
-      const removedTasks = this.deleteArchivedTasks(tx, only?.taskIds);
-      const removedProjects = this.deleteArchivedProjects(tx, only?.projectIds);
-      const removedNotes = this.deleteArchivedNotes(tx, only?.noteIds);
+      const removedTasks = this.deleteTrashedTasks(tx, only?.taskIds);
+      const removedProjects = this.deleteTrashedProjects(tx, only?.projectIds);
+      const removedNotes = this.deleteTrashedNotes(tx, only?.noteIds);
       const change = {
         taskIds: removedTasks.ids,
         projectIds: removedProjects.ids,
@@ -457,10 +457,10 @@ export class ArchiveService {
     return { ...deleted, keptTaskIds, filesNotRemoved };
   }
 
-  // The trash's tasks (or those of `only`): each archived task with nothing below it that must
-  // stay, and its subtree with it. Returns every task removed, the archived tasks kept, and the
-  // active notes that lose their task (archived ones go with the notes).
-  private deleteArchivedTasks(
+  // The trash's tasks (or those of `only`): each trashed task with nothing below it that must
+  // stay, and its subtree with it. Returns every task removed, the trashed tasks kept, and the
+  // active notes that lose their task (trashed ones go with the notes).
+  private deleteTrashedTasks(
     tx: Transaction,
     only?: TaskId[],
   ): {
@@ -472,16 +472,16 @@ export class ArchiveService {
     // Every task that must stay (active or synced), and every ancestor of one, since deleting a
     // task takes its subtree along
     const synced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
-    const mustStay = sql`(with recursive kept(id) as (select ${tasks.id} from ${tasks} where ${tasks.archivedAt} is null or ${synced} union select ${tasks.parentTaskId} from ${tasks} join kept on ${tasks.id} = kept.id where ${tasks.parentTaskId} is not null) select id from kept)`;
-    const archived = tx
+    const mustStay = sql`(with recursive kept(id) as (select ${tasks.id} from ${tasks} where ${tasks.trashedAt} is null or ${synced} union select ${tasks.parentTaskId} from ${tasks} join kept on ${tasks.id} = kept.id where ${tasks.parentTaskId} is not null) select id from kept)`;
+    const trashed = tx
       .select({ id: tasks.id, kept: sql<number>`${tasks.id} in ${mustStay}` })
       .from(tasks)
-      .where(and(isNotNull(tasks.archivedAt), only && inArray(tasks.id, only)))
+      .where(and(isNotNull(tasks.trashedAt), only && inArray(tasks.id, only)))
       .all();
-    const chosen = archived.filter((row) => !row.kept).map((row) => row.id);
-    const keptIds = archived.filter((row) => row.kept).map((row) => row.id);
+    const chosen = trashed.filter((row) => !row.kept).map((row) => row.id);
+    const keptIds = trashed.filter((row) => row.kept).map((row) => row.id);
     if (chosen.length === 0) return { ids: [], keptIds, unlinkedNoteIds: [] };
-    // with each its subtree, which is all archived and none synced, or the task would be kept (on
+    // with each its subtree, which is all trashed and none synced, or the task would be kept (on
     // emptying the whole trash, that is every task already chosen)
     const ids = tx
       .select({ id: tasks.id })
@@ -494,17 +494,17 @@ export class ArchiveService {
     const unlinkedNoteIds = tx
       .select({ id: notes.id })
       .from(notes)
-      .where(and(inArray(notes.linkedTaskId, ids), isNull(notes.archivedAt)))
+      .where(and(inArray(notes.linkedTaskId, ids), isNull(notes.trashedAt)))
       .all()
       .map((row) => row.id);
     tx.delete(tasks).where(inArray(tasks.id, ids)).run();
     return { ids, keptIds, unlinkedNoteIds };
   }
 
-  // The trash's projects (or those of `only`): every archived one (a synced project is never
-  // archived; one would be kept). Returns them, and the tasks left and active notes that lose their
+  // The trash's projects (or those of `only`): every trashed one (a synced project is never
+  // trashed; one would be kept). Returns them, and the tasks left and active notes that lose their
   // project.
-  private deleteArchivedProjects(
+  private deleteTrashedProjects(
     tx: Transaction,
     only?: ProjectId[],
   ): {
@@ -518,7 +518,7 @@ export class ArchiveService {
       .from(projects)
       .where(
         and(
-          isNotNull(projects.archivedAt),
+          isNotNull(projects.trashedAt),
           not(hasLinkInState('project', projects.id, LinkState.SYNCED)),
           only && inArray(projects.id, only),
         ),
@@ -537,27 +537,27 @@ export class ArchiveService {
     const unlinkedNoteIds = tx
       .select({ id: notes.id })
       .from(notes)
-      .where(and(inArray(notes.projectId, ids), isNull(notes.archivedAt)))
+      .where(and(inArray(notes.projectId, ids), isNull(notes.trashedAt)))
       .all()
       .map((row) => row.id);
     tx.delete(projects).where(inArray(projects.id, ids)).run();
     return { ids, unlinkedTaskIds, unlinkedNoteIds };
   }
 
-  // The trash's notes (or those of `only`): every archived one; the files are removed after the
+  // The trash's notes (or those of `only`): every trashed one; the files are removed after the
   // commit. Returns them, and the tasks left that lose a note: made from one, or the task one was
   // the task note of.
-  private deleteArchivedNotes(
+  private deleteTrashedNotes(
     tx: Transaction,
     only?: NoteId[],
   ): { ids: NoteId[]; unlinkedTaskIds: TaskId[] } {
     if (only?.length === 0) return { ids: [], unlinkedTaskIds: [] };
-    const archived = tx
+    const trashed = tx
       .select({ id: notes.id, linkedTaskId: notes.linkedTaskId })
       .from(notes)
-      .where(and(isNotNull(notes.archivedAt), only && inArray(notes.id, only)))
+      .where(and(isNotNull(notes.trashedAt), only && inArray(notes.id, only)))
       .all();
-    const ids = archived.map((row) => row.id);
+    const ids = trashed.map((row) => row.id);
     if (ids.length === 0) return { ids, unlinkedTaskIds: [] };
 
     // read before the delete clears their link
@@ -568,59 +568,59 @@ export class ArchiveService {
       .all()
       .map((row) => row.id);
     // a deleted task's notes lost their link with it, so these are tasks that are left
-    const theirTasks = archived.flatMap((row) => row.linkedTaskId ?? []);
+    const theirTasks = trashed.flatMap((row) => row.linkedTaskId ?? []);
     tx.delete(notes).where(inArray(notes.id, ids)).run();
     return { ids, unlinkedTaskIds: [...new Set([...madeFromThem, ...theirTasks])] };
   }
 
   /**
-   * Every archived task, project and note as one list, most recently archived
-   * first — the query behind the archive view. Paginated with an opaque cursor
+   * Every trashed task, project and note as one list, most recently trashed
+   * first — the query behind the trash view. Paginated with an opaque cursor
    * like the other list methods, and optionally narrowed to one entity type.
    *
-   * Cascades are *not* collapsed: archiving a project also stamps its tasks and
+   * Cascades are *not* collapsed: trashing a project also stamps its tasks and
    * their notes, and each of those rows shows up here in its own right. The
    * caller decides whether to group them back under the entity that triggered
-   * the archive.
+   * the trash.
    */
-  listArchived(filter: ArchiveFilterOptions = {}, page: PageOptions = {}): Page<ArchivedEntity> {
+  listTrashed(filter: TrashFilterOptions = {}, page: PageOptions = {}): Page<TrashedEntity> {
     // one pager per table: the cursor condition is pushed into each branch of
-    // the union (so each can seek its own (archived_at, id) index) rather than
+    // the union (so each can seek its own (trashed_at, id) index) rather than
     // applied to the union as a whole. ids carry a per-entity prefix, so they
     // are unique across the three tables and still a valid tiebreaker.
     //
     // past the first page, sqlite plans the keyset OR as a multi-index OR, so
-    // each branch sorts every archived row past the cursor rather than seeking
-    // in index order. Measured at ~0.4ms per 1k archived rows per page, which
-    // is accepted at archive sizes; revisit if archives grow into the 10ks+.
+    // each branch sorts every trashed row past the cursor rather than seeking
+    // in index order. Measured at ~0.4ms per 1k trashed rows per page, which
+    // is accepted at trash sizes; revisit if trashes grow into the 10ks+.
     const entityType = filter.entityType ?? 'all';
 
     if (entityType !== 'all') {
       // a single table needs no union, so it can order by its own columns
-      const table = ARCHIVABLE_TABLES[entityType];
-      const pager = this.archivedPager(table, page);
-      const rows = this.archivedBranch(entityType, pager.after)
+      const table = TRASHABLE_TABLES[entityType];
+      const pager = this.trashedPager(table, page);
+      const rows = this.trashedBranch(entityType, pager.after)
         .orderBy(...pager.orderBy)
         .limit(pager.fetchLimit)
         .all();
-      return this.withDetails(pager.toPage(rows as ArchivedRow[]));
+      return this.withDetails(pager.toPage(rows as TrashedRow[]));
     }
 
-    const pager = this.archivedPager(tasks, page);
-    const branch = (type: ArchivableEntityType) =>
-      this.archivedBranch(type, this.archivedPager(ARCHIVABLE_TABLES[type], page).after);
+    const pager = this.trashedPager(tasks, page);
+    const branch = (type: TrashableEntityType) =>
+      this.trashedBranch(type, this.trashedPager(TRASHABLE_TABLES[type], page).after);
 
     // a compound select resolves ORDER BY against the *result* column names of
     // its left-most branch, so these have to be the bare column names — a
     // table-qualified reference (and so pager.orderBy) is not valid here
     const rows = unionAll(branch('tasks'), branch('projects'), branch('notes'))
-      .orderBy(sql`archived_at desc`, sql`id desc`)
+      .orderBy(sql`trashed_at desc`, sql`id desc`)
       .limit(pager.fetchLimit)
       .all();
 
-    // archivedAt is nullable on all three tables, but every branch filters on
+    // trashedAt is nullable on all three tables, but every branch filters on
     // IS NOT NULL, so no row here can carry a null
-    return this.withDetails(pager.toPage(rows as ArchivedRow[]));
+    return this.withDetails(pager.toPage(rows as TrashedRow[]));
   }
 
   /**
@@ -629,12 +629,12 @@ export class ArchiveService {
    * costs the same few queries however many rows it has. Paging stays on the union's own columns,
    * so its keyset is untouched.
    *
-   * A row's project is shown even when it is in the trash too: archiving a project takes its tasks
-   * and notes along, and the pill says where they came from. Lists elsewhere leave archived
+   * A row's project is shown even when it is in the trash too: trashing a project takes its tasks
+   * and notes along, and the pill says where they came from. Lists elsewhere leave trashed
    * projects out (shared/summaries).
    */
-  private withDetails({ items, nextCursor }: Page<ArchivedRow>): Page<ArchivedEntity> {
-    const idsOf = <Id extends ArchivableId>(type: ArchivableEntityType) =>
+  private withDetails({ items, nextCursor }: Page<TrashedRow>): Page<TrashedEntity> {
+    const idsOf = <Id extends TrashableId>(type: TrashableEntityType) =>
       items.filter((row) => row.entityType === type).map((row) => row.id as Id);
     const taskIds = idsOf<TaskId>('tasks');
     const projectIds = idsOf<ProjectId>('projects');
@@ -681,7 +681,7 @@ export class ArchiveService {
     );
 
     // every id came from the page's own query, in the same synchronous call, so each has its row
-    const entities = items.map((row): ArchivedEntity => {
+    const entities = items.map((row): TrashedEntity => {
       switch (row.entityType) {
         case 'tasks': {
           const id = row.id as TaskId;
@@ -709,47 +709,47 @@ export class ArchiveService {
     return { items: entities, nextCursor };
   }
 
-  private archivedPager(table: ArchivableTable, page: PageOptions) {
-    return keyset<ArchivedRow>(
+  private trashedPager(table: TrashableTable, page: PageOptions) {
+    return keyset<TrashedRow>(
       {
-        sortKey: 'archivedAt',
-        sortColumn: table.archivedAt,
+        sortKey: 'trashedAt',
+        sortColumn: table.trashedAt,
         idColumn: table.id,
         direction: 'desc',
-        sortValue: (row) => row.archivedAt,
+        sortValue: (row) => row.trashedAt,
         id: (row) => row.id,
       },
       page,
     );
   }
 
-  /** the archived rows of one table, with the columns the three share */
-  private archivedBranch(type: ArchivableEntityType, after: SQL | undefined) {
-    const table = ARCHIVABLE_TABLES[type];
+  /** the trashed rows of one table, with the columns the three share */
+  private trashedBranch(type: TrashableEntityType, after: SQL | undefined) {
+    const table = TRASHABLE_TABLES[type];
     return this.db
       .select({
-        // widened to ArchivableId because the union carries all three id types,
+        // widened to TrashableId because the union carries all three id types,
         // and drizzle infers the compound row's shape from the first select
-        id: sql<ArchivableId>`${table.id}`.as('id'),
-        entityType: sql<ArchivableEntityType>`${type}`,
+        id: sql<TrashableId>`${table.id}`.as('id'),
+        entityType: sql<TrashableEntityType>`${type}`,
         title: table.title,
-        archivedAt: table.archivedAt,
+        trashedAt: table.trashedAt,
       })
       .from(table)
-      .where(and(isNotNull(table.archivedAt), after))
+      .where(and(isNotNull(table.trashedAt), after))
       .$dynamic();
   }
 }
 
-type ArchivableTable = typeof tasks | typeof projects | typeof notes;
+type TrashableTable = typeof tasks | typeof projects | typeof notes;
 
 // a row of the trash's union: the columns the three tables share, before each kind's own
-type ArchivedRow = Pick<ArchivedEntity, 'title' | 'archivedAt'> & {
-  id: ArchivableId;
-  entityType: ArchivableEntityType;
+type TrashedRow = Pick<TrashedEntity, 'title' | 'trashedAt'> & {
+  id: TrashableId;
+  entityType: TrashableEntityType;
 };
 
-const ARCHIVABLE_TABLES: Record<ArchivableEntityType, ArchivableTable> = {
+const TRASHABLE_TABLES: Record<TrashableEntityType, TrashableTable> = {
   tasks,
   projects,
   notes,
@@ -757,20 +757,20 @@ const ARCHIVABLE_TABLES: Record<ArchivableEntityType, ArchivableTable> = {
 
 /**
  * Throws unless every id in `ids` is a row of `table` in the trash: NotFoundError for an unknown
- * id, NotArchivedError for one that isn't archived. One query for them all.
+ * id, NotInTrashError for one that isn't trashed. One query for them all.
  */
-function assertInTrash(tx: Transaction, table: ArchivableTable, ids: ArchivableId[]): void {
+function assertInTrash(tx: Transaction, table: TrashableTable, ids: TrashableId[]): void {
   if (ids.length === 0) return;
-  const archivedAt = new Map(
+  const trashedAt = new Map(
     tx
-      .select({ id: sql<string>`${table.id}`, archivedAt: table.archivedAt })
+      .select({ id: sql<string>`${table.id}`, trashedAt: table.trashedAt })
       .from(table)
       .where(sql`${table.id} in (select value from json_each(${JSON.stringify(ids)}))`)
       .all()
-      .map((row) => [row.id, row.archivedAt]),
+      .map((row) => [row.id, row.trashedAt]),
   );
   for (const id of ids) {
-    if (!archivedAt.has(id)) throw new NotFoundError(id);
-    if (archivedAt.get(id) === null) throw new NotArchivedError(id);
+    if (!trashedAt.has(id)) throw new NotFoundError(id);
+    if (trashedAt.get(id) === null) throw new NotInTrashError(id);
   }
 }

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { notes as notesTable } from '@main/db/schema/notes';
 import { createDb } from '../utils';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { NoteChange, NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
@@ -210,11 +210,11 @@ describe('exporting notes', () => {
     expect(await other.notes.readContent(imported!.id)).toBe('# Agenda\n\n- one\n');
   });
 
-  it('leaves out a note whose file is gone, and archived notes', async () => {
+  it('leaves out a note whose file is gone, and trashed notes', async () => {
     const gone = await notes.createNote({ title: 'Gone' });
-    const archived = await notes.createNote({ title: 'Archived' });
+    const trashed = await notes.createNote({ title: 'Trashed' });
     await fs.rm(path.join(dir, 'workspace', 'notes', `${gone.id}.md`));
-    new ArchiveService(db).archiveNote(archived.id);
+    new TrashService(db).trashNote(trashed.id);
 
     const result = await transfer.exportNotesToFolder(files);
     expect(result.count).toBe(0);

@@ -10,8 +10,8 @@ import type { EventSummary, NoteSummary, ProjectSummary, TaskSummary } from '@co
 
 // The lookups behind the summaries (@common/types/shared): the few fields a list row shows of
 // another entity it points at, as a pill. Each lookup takes the ids of a
-// whole page and makes one query, never one per row. Archived rows are left out, as every list
-// leaves them out; events are never archived.
+// whole page and makes one query, never one per row. Trashed rows are left out, as every list
+// leaves them out; events are never trashed.
 
 /** the distinct non-null ids in `values` */
 export function uniqueIds<T>(values: (T | null)[]): T[] {
@@ -26,7 +26,7 @@ export function projectSummaries(
   const rows = db
     .select({ id: projects.id, title: projects.title, color: projects.color })
     .from(projects)
-    .where(and(inArray(projects.id, ids), isNull(projects.archivedAt)))
+    .where(and(inArray(projects.id, ids), isNull(projects.trashedAt)))
     .all();
   return new Map(rows.map((row) => [row.id, row]));
 }
@@ -55,7 +55,7 @@ export function noteSummaries(db: BetterSQLite3Database, ids: NoteId[]): Map<Not
   const rows = db
     .select({ id: notes.id, title: notes.title })
     .from(notes)
-    .where(and(inArray(notes.id, ids), isNull(notes.archivedAt)))
+    .where(and(inArray(notes.id, ids), isNull(notes.trashedAt)))
     .all();
   return new Map(rows.map((row) => [row.id, row]));
 }
@@ -65,7 +65,7 @@ export function taskSummaries(db: BetterSQLite3Database, ids: TaskId[]): Map<Tas
   const rows = db
     .select({ id: tasks.id, title: tasks.title, status: tasks.status })
     .from(tasks)
-    .where(and(inArray(tasks.id, ids), isNull(tasks.archivedAt)))
+    .where(and(inArray(tasks.id, ids), isNull(tasks.trashedAt)))
     .all();
   return new Map(rows.map((row) => [row.id, row]));
 }

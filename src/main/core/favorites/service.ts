@@ -30,7 +30,7 @@ export type FavoriteChange =
   | { type: 'unfavorited'; entityType: FavoritableEntityType; id: FavoritableId };
 
 /**
- * Favoriting stamps an entity's `favoritedAt`; unfavoriting clears it. Unlike an archive nothing
+ * Favoriting stamps an entity's `favoritedAt`; unfavoriting clears it. Unlike moving to the trash, nothing
  * cascades: only the entity named is changed.
  *
  * `favoritedAt` belongs to DevBrain, never to a provider (SyncWriter leaves it alone), so a synced
@@ -40,7 +40,7 @@ export type FavoriteChange =
  * Both are idempotent: favoriting a favorite or unfavoriting what is not one changes nothing, and
  * sends no change.
  *
- * An archived entity keeps its favorite, but is left out of listFavorites until it is restored.
+ * A trashed entity keeps its favorite, but is left out of listFavorites until it is restored.
  */
 export class FavoritesService {
   private readonly changes = new ChangeListeners<FavoriteChange>('Favorites');
@@ -209,7 +209,7 @@ export class FavoritesService {
    * query behind the favorites view. Paginated with an opaque cursor like the other list methods,
    * and optionally narrowed to one entity type.
    *
-   * Left out: archived tasks, projects and notes, and events whose provider item was cancelled or
+   * Left out: trashed tasks, projects and notes, and events whose provider item was cancelled or
    * deleted (link state `removed`), which are kept only for the notes linked to them.
    */
   listFavorites(

@@ -7,24 +7,24 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { NoteId, ProjectId, TaskId } from '@common/ids';
 import type { TrashSelection } from '@common/types';
 import { createDb } from '../utils';
-import { ArchiveService, type ArchiveChange } from '../../archive/service';
+import { TrashService, type TrashChange } from '../../trash/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
-import { NotArchivedError, NotFoundError } from '../../shared/errors';
+import { NotInTrashError, NotFoundError } from '../../shared/errors';
 
-// Restoring and deleting rows chosen in Trash together (archive.restoreMany, archive.deleteMany):
+// Restoring and deleting rows chosen in Trash together (trash.restoreMany, trash.deleteMany):
 // all or nothing, one change, and a row another one's cascade already handled counted once.
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 let db: BetterSQLite3Database;
-let archive: ArchiveService;
+let trash: TrashService;
 let tasks: TaskService;
 let projects: ProjectService;
 let notes: NoteService;
 let workspacePath: string;
-let changes: (ArchiveChange & { inTransaction: boolean })[];
+let changes: (TrashChange & { inTransaction: boolean })[];
 
 beforeEach(async () => {
   db = createDb();
@@ -33,10 +33,10 @@ beforeEach(async () => {
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   notes = new NoteService(db, workspacePath);
-  archive = new ArchiveService(db, notes);
+  trash = new TrashService(db, notes);
   changes = [];
   const client = (db as typeof db & { $client: Database.Database }).$client;
-  archive.onChange((change) => changes.push({ ...change, inTransaction: client.inTransaction }));
+  trash.onChange((change) => changes.push({ ...change, inTransaction: client.inTransaction }));
 });
 
 afterEach(async () => {
@@ -50,7 +50,7 @@ const select = (selection: Partial<TrashSelection>): TrashSelection => ({
   ...selection,
 });
 
-const trashedIds = () => archive.listArchived({}, { limit: 100 }).items.map((item) => item.id);
+const trashedIds = () => trash.listTrashed({}, { limit: 100 }).items.map((item) => item.id);
 const sorted = <T extends string>(ids: T[]) => [...ids].sort();
 
 // a trashed project with a task (and its note) in it, a trashed task with a subtask and a note,
@@ -70,18 +70,18 @@ async function trashSome() {
   const child = tasks.createSubtask(parent.id, { title: 'Child', dueDate: TOMORROW });
   const childNote = await notes.createNote({ title: 'On child', linkedTaskId: child.id });
   const loose = await notes.createNote({ title: 'Loose' });
-  archive.archiveProject(project.id);
-  archive.archiveTask(parent.id);
-  archive.archiveNote(loose.id);
+  trash.trashProject(project.id);
+  trash.trashTask(parent.id);
+  trash.trashNote(loose.id);
   changes.length = 0;
   return { project, projectTask, projectTaskNote, parent, child, childNote, loose };
 }
 
-describe('ArchiveService.restoreMany', () => {
+describe('TrashService.restoreMany', () => {
   it('restores each row with what its own restore brings back, in one change', async () => {
     const t = await trashSome();
 
-    const result = archive.restoreMany(
+    const result = trash.restoreMany(
       select({ projectIds: [t.project.id], taskIds: [t.parent.id], noteIds: [t.loose.id] }),
     );
 
@@ -97,12 +97,12 @@ describe('ArchiveService.restoreMany', () => {
   it('restores a task its chosen project brings back once, rather than refusing it', async () => {
     const t = await trashSome();
 
-    const result = archive.restoreMany(
+    const result = trash.restoreMany(
       select({ projectIds: [t.project.id], taskIds: [t.projectTask.id, t.projectTask.id] }),
     );
 
     expect(result.taskIds).toEqual([t.projectTask.id]);
-    expect(tasks.getById(t.projectTask.id).archivedAt).toBeNull();
+    expect(tasks.getById(t.projectTask.id).trashedAt).toBeNull();
     // the rest stays in the trash
     expect(sorted(trashedIds())).toEqual(
       sorted([t.parent.id, t.child.id, t.childNote.id, t.loose.id]),
@@ -115,10 +115,10 @@ describe('ArchiveService.restoreMany', () => {
     const before = sorted(trashedIds());
 
     expect(() =>
-      archive.restoreMany(select({ projectIds: [t.project.id], taskIds: [live.id] })),
-    ).toThrow(NotArchivedError);
+      trash.restoreMany(select({ projectIds: [t.project.id], taskIds: [live.id] })),
+    ).toThrow(NotInTrashError);
     expect(() =>
-      archive.restoreMany(select({ noteIds: [t.loose.id, 'nte_missing' as NoteId] })),
+      trash.restoreMany(select({ noteIds: [t.loose.id, 'nte_missing' as NoteId] })),
     ).toThrow(NotFoundError);
 
     expect(sorted(trashedIds())).toEqual(before);
@@ -126,16 +126,16 @@ describe('ArchiveService.restoreMany', () => {
   });
 
   it('does nothing for an empty selection', () => {
-    expect(archive.restoreMany(select({}))).toEqual({ taskIds: [], projectIds: [], noteIds: [] });
+    expect(trash.restoreMany(select({}))).toEqual({ taskIds: [], projectIds: [], noteIds: [] });
     expect(changes).toEqual([]);
   });
 });
 
-describe('ArchiveService.deleteMany', () => {
+describe('TrashService.deleteMany', () => {
   it('deletes the rows chosen for good, a task with its subtree, leaving the rest in the trash', async () => {
     const t = await trashSome();
 
-    const result = await archive.deleteMany(
+    const result = await trash.deleteMany(
       select({ taskIds: [t.parent.id, t.child.id], noteIds: [t.loose.id] }),
     );
 
@@ -147,7 +147,7 @@ describe('ArchiveService.deleteMany', () => {
       filesNotRemoved: [],
     });
     expect(result.taskIds).toHaveLength(2);
-    expect(() => tasks.getById(t.child.id, { includeArchived: true })).toThrow(NotFoundError);
+    expect(() => tasks.getById(t.child.id, { includeTrashed: true })).toThrow(NotFoundError);
     await expect(
       fs.access(path.join(workspacePath, 'notes', `${t.loose.id}.md`)),
     ).rejects.toThrow();
@@ -155,7 +155,7 @@ describe('ArchiveService.deleteMany', () => {
     expect(sorted(trashedIds())).toEqual(
       sorted([t.project.id, t.projectTask.id, t.projectTaskNote.id, t.childNote.id]),
     );
-    expect(notes.getById(t.childNote.id, { includeArchived: true }).linkedTaskId).toBeNull();
+    expect(notes.getById(t.childNote.id, { includeTrashed: true }).linkedTaskId).toBeNull();
     expect(changes).toEqual([
       expect.objectContaining({ type: 'emptied', noteIds: [t.loose.id], inTransaction: true }),
     ]);
@@ -164,10 +164,10 @@ describe('ArchiveService.deleteMany', () => {
   it('deletes a project and leaves its tasks and notes, naming them as unlinked', async () => {
     const t = await trashSome();
 
-    const result = await archive.deleteMany(select({ projectIds: [t.project.id] }));
+    const result = await trash.deleteMany(select({ projectIds: [t.project.id] }));
 
     expect(result.projectIds).toEqual([t.project.id]);
-    expect(tasks.getById(t.projectTask.id, { includeArchived: true }).projectId).toBeNull();
+    expect(tasks.getById(t.projectTask.id, { includeTrashed: true }).projectId).toBeNull();
     expect(changes).toEqual([
       expect.objectContaining({
         type: 'emptied',
@@ -180,14 +180,14 @@ describe('ArchiveService.deleteMany', () => {
   it('keeps a task with a live subtask, as emptyTrash does', async () => {
     const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const child = tasks.createSubtask(parent.id, { title: 'Child', dueDate: TOMORROW });
-    archive.archiveTask(parent.id);
+    trash.trashTask(parent.id);
     changes.length = 0;
-    // as sync can leave it: the parent archived, its subtask live
+    // as sync can leave it: the parent trashed, its subtask live
     (db as typeof db & { $client: Database.Database }).$client
-      .prepare('update tasks set archived_at = null where id = ?')
+      .prepare('update tasks set trashed_at = null where id = ?')
       .run(child.id);
 
-    const result = await archive.deleteMany(select({ taskIds: [parent.id] }));
+    const result = await trash.deleteMany(select({ taskIds: [parent.id] }));
 
     expect(result).toMatchObject({ taskIds: [], keptTaskIds: [parent.id] });
     expect(changes).toEqual([]);
@@ -199,10 +199,10 @@ describe('ArchiveService.deleteMany', () => {
     const before = sorted(trashedIds());
 
     await expect(
-      archive.deleteMany(select({ taskIds: [t.parent.id], noteIds: [live.id] })),
-    ).rejects.toThrow(NotArchivedError);
+      trash.deleteMany(select({ taskIds: [t.parent.id], noteIds: [live.id] })),
+    ).rejects.toThrow(NotInTrashError);
     await expect(
-      archive.deleteMany(select({ projectIds: ['prj_missing' as ProjectId] })),
+      trash.deleteMany(select({ projectIds: ['prj_missing' as ProjectId] })),
     ).rejects.toThrow(NotFoundError);
 
     expect(sorted(trashedIds())).toEqual(before);
@@ -211,7 +211,7 @@ describe('ArchiveService.deleteMany', () => {
 
   it('still empties the whole trash', async () => {
     const t = await trashSome();
-    const result = await archive.emptyTrash();
+    const result = await trash.emptyTrash();
     expect(trashedIds()).toEqual([]);
     expect(result.projectIds).toEqual([t.project.id]);
     expect(sorted(result.taskIds)).toEqual(

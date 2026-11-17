@@ -93,7 +93,7 @@ const makeTask = (parentTaskId: TaskId | null): Task => ({
   linkedNoteId: null,
   pullRequestUrl: null,
   completedAt: null,
-  archivedAt: null,
+  trashedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   favoritedAt: null,

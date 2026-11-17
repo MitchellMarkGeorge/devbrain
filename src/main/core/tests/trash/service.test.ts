@@ -5,18 +5,18 @@ import path from 'node:path';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { createDb } from '../utils';
-import { ArchiveChange, ArchiveService } from '../../archive/service';
+import { TrashChange, TrashService } from '../../trash/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
 import { InvalidCursorError } from '../../shared/pagination';
 import type { TaskId } from '@common/ids';
-import { AlreadyArchivedError, NotFoundError } from '../../shared/errors';
+import { AlreadyInTrashError, NotFoundError } from '../../shared/errors';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 let db: BetterSQLite3Database;
-let archive: ArchiveService;
+let trash: TrashService;
 let tasks: TaskService;
 let projects: ProjectService;
 let notesService: NoteService;
@@ -24,10 +24,10 @@ let workspacePath: string;
 
 beforeEach(async () => {
   db = createDb();
-  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-archive-'));
+  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-trash-'));
   await fs.mkdir(path.join(workspacePath, 'notes'), { recursive: true });
 
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   notesService = new NoteService(db, workspacePath);
@@ -42,11 +42,11 @@ function inTransaction(): boolean {
   return (db as typeof db & { $client: Database.Database }).$client.inTransaction;
 }
 
-describe('ArchiveService — onChange', () => {
-  // every change sent, with whether it was sent inside the archive's transaction
+describe('TrashService — onChange', () => {
+  // every change sent, with whether it was sent inside the trash's transaction
   function record() {
-    const changes: (ArchiveChange & { inTransaction: boolean })[] = [];
-    archive.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+    const changes: (TrashChange & { inTransaction: boolean })[] = [];
+    trash.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
     return changes;
   }
 
@@ -64,12 +64,12 @@ describe('ArchiveService — onChange', () => {
     return { task, subtask, taskNote, subtaskNote };
   }
 
-  it('archiving and restoring a task sends its whole subtree and their notes', async () => {
+  it('trashing and restoring a task sends its whole subtree and their notes', async () => {
     const { task, subtask, taskNote, subtaskNote } = await taskTree();
     const changes = record();
 
-    archive.archiveTask(task.id);
-    archive.restoreTask(task.id);
+    trash.trashTask(task.id);
+    trash.restoreTask(task.id);
 
     const touched = {
       taskIds: expect.arrayContaining([task.id, subtask.id]),
@@ -78,7 +78,7 @@ describe('ArchiveService — onChange', () => {
       inTransaction: true,
     };
     expect(changes).toEqual([
-      { type: 'archived', ...touched },
+      { type: 'trashed', ...touched },
       { type: 'restored', ...touched },
     ]);
     expect(changes.map((c) => [c.taskIds.length, c.noteIds.length])).toEqual([
@@ -87,7 +87,7 @@ describe('ArchiveService — onChange', () => {
     ]);
   });
 
-  it('archiving and restoring a project sends its tasks and notes', async () => {
+  it('trashing and restoring a project sends its tasks and notes', async () => {
     const project = projects.createProject({ title: 'Apollo', dueDate: TOMORROW });
     const task = tasks.createTask({
       title: 'In project',
@@ -100,8 +100,8 @@ describe('ArchiveService — onChange', () => {
     tasks.createTask({ title: 'Elsewhere', dueDate: TOMORROW });
     const changes = record();
 
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    trash.trashProject(project.id);
+    trash.restoreProject(project.id);
 
     const touched = {
       taskIds: expect.arrayContaining([task.id, subtask.id]),
@@ -110,7 +110,7 @@ describe('ArchiveService — onChange', () => {
       inTransaction: true,
     };
     expect(changes).toEqual([
-      { type: 'archived', ...touched },
+      { type: 'trashed', ...touched },
       { type: 'restored', ...touched },
     ]);
     expect(changes.map((c) => [c.taskIds.length, c.noteIds.length])).toEqual([
@@ -119,83 +119,83 @@ describe('ArchiveService — onChange', () => {
     ]);
   });
 
-  it('archiving and restoring a note sends only the note', async () => {
+  it('trashing and restoring a note sends only the note', async () => {
     const note = await notesService.createNote({ title: 'Minutes' });
     const changes = record();
 
-    archive.archiveNote(note.id);
-    archive.restoreNote(note.id);
+    trash.trashNote(note.id);
+    trash.restoreNote(note.id);
 
     const touched = { taskIds: [], projectIds: [], noteIds: [note.id], inTransaction: true };
     expect(changes).toEqual([
-      { type: 'archived', ...touched },
+      { type: 'trashed', ...touched },
       { type: 'restored', ...touched },
     ]);
   });
 
-  it('sends nothing when the archive or restore is refused', async () => {
+  it('sends nothing when the trash or restore is refused', async () => {
     const task = tasks.createTask({ title: 'Active', dueDate: TOMORROW });
     const changes = record();
 
-    expect(() => archive.restoreTask(task.id)).toThrow();
-    archive.archiveTask(task.id);
-    expect(() => archive.archiveTask(task.id)).toThrow();
+    expect(() => trash.restoreTask(task.id)).toThrow();
+    trash.trashTask(task.id);
+    expect(() => trash.trashTask(task.id)).toThrow();
 
-    expect(changes.map((c) => c.type)).toEqual(['archived']);
+    expect(changes.map((c) => c.type)).toEqual(['trashed']);
   });
 
-  it('a listener that throws fails neither the archive nor the other listeners', async () => {
+  it('a listener that throws fails neither the trash nor the other listeners', async () => {
     const task = tasks.createTask({ title: 'Active', dueDate: TOMORROW });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    archive.onChange(() => {
+    trash.onChange(() => {
       throw new Error('listener failed');
     });
     const changes = record();
 
     try {
-      expect(archive.archiveTask(task.id).archivedAt).not.toBeNull();
+      expect(trash.trashTask(task.id).trashedAt).not.toBeNull();
     } finally {
       error.mockRestore();
     }
     expect(changes).toHaveLength(1);
-    expect(archive.listArchived().items.map((e) => e.id)).toEqual([task.id]);
+    expect(trash.listTrashed().items.map((e) => e.id)).toEqual([task.id]);
   });
 
   it('stops sending to a listener once it unsubscribes', async () => {
     const note = await notesService.createNote({ title: 'Minutes' });
     const listener = vi.fn();
-    const unsubscribe = archive.onChange(listener);
+    const unsubscribe = trash.onChange(listener);
 
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     unsubscribe();
-    archive.restoreNote(note.id);
+    trash.restoreNote(note.id);
 
     expect(listener).toHaveBeenCalledOnce();
   });
 });
 
-describe('ArchiveService — listArchived', () => {
-  it('returns an empty list when nothing is archived', async () => {
+describe('TrashService — listTrashed', () => {
+  it('returns an empty list when nothing is trashed', async () => {
     tasks.createTask({ title: 'Active', dueDate: TOMORROW });
     projects.createProject({ title: 'Active', dueDate: TOMORROW });
     await notesService.createNote({ title: 'Active' });
 
-    expect(archive.listArchived().items).toEqual([]);
+    expect(trash.listTrashed().items).toEqual([]);
   });
 
-  it('returns archived tasks, projects and notes in one list', async () => {
-    const task = tasks.createTask({ title: 'Archived task', dueDate: TOMORROW });
+  it('returns trashed tasks, projects and notes in one list', async () => {
+    const task = tasks.createTask({ title: 'Trashed task', dueDate: TOMORROW });
     const project = projects.createProject({
-      title: 'Archived project',
+      title: 'Trashed project',
       dueDate: TOMORROW,
     });
-    const note = await notesService.createNote({ title: 'Archived note' });
+    const note = await notesService.createNote({ title: 'Trashed note' });
 
-    archive.archiveTask(task.id);
-    archive.archiveProject(project.id);
-    archive.archiveNote(note.id);
+    trash.trashTask(task.id);
+    trash.trashProject(project.id);
+    trash.trashNote(note.id);
 
-    const result = archive.listArchived().items;
+    const result = trash.listTrashed().items;
     expect(result).toHaveLength(3);
     expect(result.map((entity) => entity.id).sort()).toEqual([task.id, project.id, note.id].sort());
   });
@@ -205,62 +205,62 @@ describe('ArchiveService — listArchived', () => {
     const project = projects.createProject({ title: 'P', dueDate: TOMORROW });
     const note = await notesService.createNote({ title: 'N' });
 
-    archive.archiveTask(task.id);
-    archive.archiveProject(project.id);
-    archive.archiveNote(note.id);
+    trash.trashTask(task.id);
+    trash.trashProject(project.id);
+    trash.trashNote(note.id);
 
-    const byId = new Map(archive.listArchived().items.map((entity) => [entity.id, entity]));
+    const byId = new Map(trash.listTrashed().items.map((entity) => [entity.id, entity]));
     expect(byId.get(task.id)?.entityType).toBe('tasks');
     expect(byId.get(project.id)?.entityType).toBe('projects');
     expect(byId.get(note.id)?.entityType).toBe('notes');
   });
 
-  it('carries the title of each archived entity', async () => {
+  it('carries the title of each trashed entity', async () => {
     const task = tasks.createTask({ title: 'My task title', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
+    trash.trashTask(task.id);
 
-    const [entity] = archive.listArchived().items;
+    const [entity] = trash.listTrashed().items;
     expect(entity.title).toBe('My task title');
   });
 
-  it('decodes archivedAt as a Date', async () => {
+  it('decodes trashedAt as a Date', async () => {
     const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
-    const archived = archive.archiveTask(task.id);
+    const trashed = trash.trashTask(task.id);
 
-    const [entity] = archive.listArchived().items;
-    expect(entity.archivedAt).toBeInstanceOf(Date);
-    expect(entity.archivedAt.getTime()).toBe(archived.archivedAt!.getTime());
+    const [entity] = trash.listTrashed().items;
+    expect(entity.trashedAt).toBeInstanceOf(Date);
+    expect(entity.trashedAt.getTime()).toBe(trashed.trashedAt!.getTime());
   });
 
-  it('sorts most recently archived first, across entity types', async () => {
+  it('sorts most recently trashed first, across entity types', async () => {
     const project = projects.createProject({ title: 'First', dueDate: TOMORROW });
     const task = tasks.createTask({ title: 'Second', dueDate: TOMORROW });
     const note = await notesService.createNote({ title: 'Third' });
 
-    // archivedAt is stamped with Date.now() at archive time, so the writes have
+    // trashedAt is stamped with Date.now() at trash time, so the writes have
     // to be spread out to produce a deterministic order
-    archive.archiveProject(project.id);
+    trash.trashProject(project.id);
     await new Promise((resolve) => setTimeout(resolve, 5));
-    archive.archiveTask(task.id);
+    trash.trashTask(task.id);
     await new Promise((resolve) => setTimeout(resolve, 5));
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
 
-    const result = archive.listArchived().items;
+    const result = trash.listTrashed().items;
     expect(result.map((entity) => entity.id)).toEqual([note.id, task.id, project.id]);
   });
 
   it('excludes entities that have been restored', async () => {
     const task = tasks.createTask({ title: 'Restored', dueDate: TOMORROW });
-    const stillArchived = tasks.createTask({ title: 'Still archived', dueDate: TOMORROW });
+    const stillTrashed = tasks.createTask({ title: 'Still trashed', dueDate: TOMORROW });
 
-    archive.archiveTask(task.id);
-    archive.archiveTask(stillArchived.id);
-    archive.restoreTask(task.id);
+    trash.trashTask(task.id);
+    trash.trashTask(stillTrashed.id);
+    trash.restoreTask(task.id);
 
-    expect(archive.listArchived().items.map((entity) => entity.id)).toEqual([stillArchived.id]);
+    expect(trash.listTrashed().items.map((entity) => entity.id)).toEqual([stillTrashed.id]);
   });
 
-  it('lists cascade-archived children alongside the entity that triggered them', async () => {
+  it('lists cascade-trashed children alongside the entity that triggered them', async () => {
     const project = projects.createProject({ title: 'Parent project', dueDate: TOMORROW });
     const task = tasks.createTask({
       title: 'Task in project',
@@ -269,9 +269,9 @@ describe('ArchiveService — listArchived', () => {
     });
     const note = await notesService.createNote({ title: 'Task note', linkedTaskId: task.id });
 
-    archive.archiveProject(project.id);
+    trash.trashProject(project.id);
 
-    const ids = archive.listArchived().items.map((entity) => entity.id);
+    const ids = trash.listTrashed().items.map((entity) => entity.id);
     expect(ids).toHaveLength(3);
     expect(ids).toContain(project.id);
     expect(ids).toContain(task.id);
@@ -279,12 +279,12 @@ describe('ArchiveService — listArchived', () => {
   });
 });
 
-describe('ArchiveService — listArchived cursor pagination', () => {
+describe('TrashService — listTrashed cursor pagination', () => {
   function collect(limit: number) {
     const ids: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = archive.listArchived({}, { limit, cursor });
+      const page = trash.listTrashed({}, { limit, cursor });
       expect(page.items.length).toBeLessThanOrEqual(limit);
       ids.push(...page.items.map((entity) => entity.id));
       cursor = page.nextCursor ?? undefined;
@@ -294,16 +294,16 @@ describe('ArchiveService — listArchived cursor pagination', () => {
 
   it('returns a null nextCursor when everything fits', async () => {
     const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
+    trash.trashTask(task.id);
 
-    const page = archive.listArchived();
+    const page = trash.listTrashed();
     expect(page.items).toHaveLength(1);
     expect(page.nextCursor).toBeNull();
   });
 
-  it('paginated order matches unpaginated order, across entity types and tied archivedAt', async () => {
+  it('paginated order matches unpaginated order, across entity types and tied trashedAt', async () => {
     // each project cascade stamps the project, its task and the task's note with
-    // the same archivedAt, so pages have to break ties on id across all three tables
+    // the same trashedAt, so pages have to break ties on id across all three tables
     for (let i = 0; i < 3; i++) {
       const project = projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
       const task = tasks.createTask({
@@ -312,13 +312,13 @@ describe('ArchiveService — listArchived cursor pagination', () => {
         projectId: project.id,
       });
       await notesService.createNote({ title: `N${i}`, linkedTaskId: task.id });
-      archive.archiveProject(project.id);
+      trash.trashProject(project.id);
       await new Promise((resolve) => setTimeout(resolve, 2));
     }
     const looseNote = await notesService.createNote({ title: 'Loose' });
-    archive.archiveNote(looseNote.id);
+    trash.trashNote(looseNote.id);
 
-    const full = archive.listArchived({}, { limit: 200 }).items.map((entity) => entity.id);
+    const full = trash.listTrashed({}, { limit: 200 }).items.map((entity) => entity.id);
     expect(full).toHaveLength(10);
     expect(new Set(full).size).toBe(10);
     for (const limit of [1, 2, 3, 4]) {
@@ -329,55 +329,55 @@ describe('ArchiveService — listArchived cursor pagination', () => {
   it('rejects an invalid limit, a garbage cursor and a cursor from another list', async () => {
     const a = await notesService.createNote({ title: 'a' });
     const b = await notesService.createNote({ title: 'b' });
-    archive.archiveNote(a.id);
-    archive.archiveNote(b.id);
+    trash.trashNote(a.id);
+    trash.trashNote(b.id);
 
-    expect(() => archive.listArchived({}, { limit: 0 })).toThrow(RangeError);
-    expect(() => archive.listArchived({}, { cursor: '!!' })).toThrow(InvalidCursorError);
+    expect(() => trash.listTrashed({}, { limit: 0 })).toThrow(RangeError);
+    expect(() => trash.listTrashed({}, { cursor: '!!' })).toThrow(InvalidCursorError);
 
     // a cursor from a different list (here the active-notes list) is rejected
     await notesService.createNote({ title: 'c' });
     await notesService.createNote({ title: 'd' });
     const otherCursor = notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 }).nextCursor!;
-    expect(() => archive.listArchived({}, { cursor: otherCursor })).toThrow(InvalidCursorError);
+    expect(() => trash.listTrashed({}, { cursor: otherCursor })).toThrow(InvalidCursorError);
   });
 });
 
-describe('ArchiveService — listArchived entity type filter', () => {
-  // two of each entity type, archived in a known order (oldest first)
+describe('TrashService — listTrashed entity type filter', () => {
+  // two of each entity type, trashed in a known order (oldest first)
   async function seed() {
     const created: { id: string; entityType: 'tasks' | 'projects' | 'notes' }[] = [];
     for (let i = 0; i < 2; i++) {
       const task = tasks.createTask({ title: `T${i}`, dueDate: TOMORROW });
       const project = projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
       const note = await notesService.createNote({ title: `N${i}` });
-      for (const [id, entityType, archiveIt] of [
-        [task.id, 'tasks', () => archive.archiveTask(task.id)],
-        [project.id, 'projects', () => archive.archiveProject(project.id)],
-        [note.id, 'notes', () => archive.archiveNote(note.id)],
+      for (const [id, entityType, trashIt] of [
+        [task.id, 'tasks', () => trash.trashTask(task.id)],
+        [project.id, 'projects', () => trash.trashProject(project.id)],
+        [note.id, 'notes', () => trash.trashNote(note.id)],
       ] as const) {
-        archiveIt();
+        trashIt();
         created.push({ id, entityType });
-        // archivedAt is stamped with Date.now(), so spread the writes out
+        // trashedAt is stamped with Date.now(), so spread the writes out
         await new Promise((resolve) => setTimeout(resolve, 2));
       }
     }
-    // most recently archived first, as listArchived returns them
+    // most recently trashed first, as listTrashed returns them
     return created.reverse();
   }
 
   it("defaults to 'all', and 'all' returns every entity type", async () => {
     const created = await seed();
-    const all = archive.listArchived({ entityType: 'all' }).items.map((entity) => entity.id);
+    const all = trash.listTrashed({ entityType: 'all' }).items.map((entity) => entity.id);
     expect(all).toEqual(created.map((entity) => entity.id));
-    expect(archive.listArchived().items.map((entity) => entity.id)).toEqual(all);
+    expect(trash.listTrashed().items.map((entity) => entity.id)).toEqual(all);
   });
 
   it.each(['tasks', 'projects', 'notes'] as const)(
-    'returns only archived %s, most recently archived first',
+    'returns only trashed %s, most recently trashed first',
     async (entityType) => {
       const created = await seed();
-      const result = archive.listArchived({ entityType }).items;
+      const result = trash.listTrashed({ entityType }).items;
       expect(result.every((entity) => entity.entityType === entityType)).toBe(true);
       expect(result.map((entity) => entity.id)).toEqual(
         created.filter((entity) => entity.entityType === entityType).map((entity) => entity.id),
@@ -385,33 +385,33 @@ describe('ArchiveService — listArchived entity type filter', () => {
     },
   );
 
-  it('carries the title and archivedAt for a single entity type', async () => {
+  it('carries the title and trashedAt for a single entity type', async () => {
     const note = await notesService.createNote({ title: 'Only note' });
-    const archived = archive.archiveNote(note.id);
+    const trashed = trash.trashNote(note.id);
 
-    const [entity] = archive.listArchived({ entityType: 'notes' }).items;
+    const [entity] = trash.listTrashed({ entityType: 'notes' }).items;
     expect(entity).toEqual({
       id: note.id,
       entityType: 'notes',
       title: 'Only note',
-      archivedAt: archived.archivedAt,
+      trashedAt: trashed.trashedAt,
       // a note's own fields (list-details.test.ts covers them)
       preview: null,
       project: null,
     });
   });
 
-  it('includes cascade-archived children under their own type', async () => {
+  it('includes cascade-trashed children under their own type', async () => {
     const project = projects.createProject({ title: 'Parent', dueDate: TOMORROW });
     const task = tasks.createTask({
       title: 'Child',
       dueDate: TOMORROW,
       projectId: project.id,
     });
-    archive.archiveProject(project.id);
+    trash.trashProject(project.id);
 
-    expect(archive.listArchived({ entityType: 'tasks' }).items.map((e) => e.id)).toEqual([task.id]);
-    expect(archive.listArchived({ entityType: 'projects' }).items.map((e) => e.id)).toEqual([
+    expect(trash.listTrashed({ entityType: 'tasks' }).items.map((e) => e.id)).toEqual([task.id]);
+    expect(trash.listTrashed({ entityType: 'projects' }).items.map((e) => e.id)).toEqual([
       project.id,
     ]);
   });
@@ -420,14 +420,14 @@ describe('ArchiveService — listArchived entity type filter', () => {
     "paginates within the '%s' filter",
     async (entityType) => {
       await seed();
-      const full = archive
-        .listArchived({ entityType }, { limit: 200 })
+      const full = trash
+        .listTrashed({ entityType }, { limit: 200 })
         .items.map((entity) => entity.id);
 
       const ids: string[] = [];
       let cursor: string | undefined;
       do {
-        const page = archive.listArchived({ entityType }, { limit: 1, cursor });
+        const page = trash.listTrashed({ entityType }, { limit: 1, cursor });
         expect(page.items.length).toBeLessThanOrEqual(1);
         ids.push(...page.items.map((entity) => entity.id));
         cursor = page.nextCursor ?? undefined;
@@ -437,24 +437,24 @@ describe('ArchiveService — listArchived entity type filter', () => {
   );
 });
 
-describe('ArchiveService — archiveTasks', () => {
-  it('archives every task with its subtree and linked notes, in one archived change', async () => {
+describe('TrashService — trashTasks', () => {
+  it('trashes every task with its subtree and linked notes, in one trashed change', async () => {
     const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
     const sub = tasks.createSubtask(a.id, { title: 'A sub' });
     const b = tasks.createTask({ title: 'B' });
     const kept = tasks.createTask({ title: 'Kept', dueDate: TOMORROW });
     const note = await notesService.createNote({ title: 'B notes', linkedTaskId: b.id });
-    const changes: (ArchiveChange & { inTransaction: boolean })[] = [];
-    archive.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+    const changes: (TrashChange & { inTransaction: boolean })[] = [];
+    trash.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
 
-    const archived = archive.archiveTasks([b.id, a.id]);
+    const trashed = trash.trashTasks([b.id, a.id]);
 
-    expect(archived.map((t) => t.id)).toEqual([b.id, a.id]);
-    expect(archived.every((t) => t.archivedAt instanceof Date && t.external === null)).toBe(true);
+    expect(trashed.map((t) => t.id)).toEqual([b.id, a.id]);
+    expect(trashed.every((t) => t.trashedAt instanceof Date && t.external === null)).toBe(true);
     expect(tasks.getByIds([a.id, sub.id, b.id, kept.id]).map((t) => t.id)).toEqual([kept.id]);
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({
-      type: 'archived',
+      type: 'trashed',
       projectIds: [],
       noteIds: [note.id],
       inTransaction: true,
@@ -466,27 +466,27 @@ describe('ArchiveService — archiveTasks', () => {
     const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
 
-    const archived = archive.archiveTasks([sub.id, parent.id]);
+    const trashed = trash.trashTasks([sub.id, parent.id]);
 
-    expect(archived.map((t) => t.id)).toEqual([sub.id, parent.id]);
+    expect(trashed.map((t) => t.id)).toEqual([sub.id, parent.id]);
     expect(tasks.getByIds([parent.id, sub.id])).toEqual([]);
   });
 
-  it('fails as a whole for a missing or already archived task, archiving none', () => {
+  it('fails as a whole for a missing or already trashed task, trashing none', () => {
     const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
     const done = tasks.createTask({ title: 'Done', dueDate: TOMORROW });
-    archive.archiveTask(done.id);
+    trash.trashTask(done.id);
     const listener = vi.fn();
-    archive.onChange(listener);
+    trash.onChange(listener);
 
-    expect(() => archive.archiveTasks([a.id, 'tsk_missing' as TaskId])).toThrow(NotFoundError);
-    expect(() => archive.archiveTasks([a.id, done.id])).toThrow(AlreadyArchivedError);
+    expect(() => trash.trashTasks([a.id, 'tsk_missing' as TaskId])).toThrow(NotFoundError);
+    expect(() => trash.trashTasks([a.id, done.id])).toThrow(AlreadyInTrashError);
 
-    expect(tasks.getById(a.id).archivedAt).toBeNull();
+    expect(tasks.getById(a.id).trashedAt).toBeNull();
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it('archives a selection of thousands, with their subtasks', () => {
+  it('trashes a selection of thousands, with their subtasks', () => {
     // one subtree walk per id joined with OR hit SQLite's expression depth limit near 1000
     const trees = Array.from({ length: 2000 }, (_, i) => ({
       title: `T${i}`,
@@ -495,13 +495,13 @@ describe('ArchiveService — archiveTasks', () => {
     const created = tasks.createTaskTrees(trees);
     const roots = created.filter((task) => task.parentTaskId === null).map((task) => task.id);
 
-    expect(archive.archiveTasks(roots)).toHaveLength(2000);
+    expect(trash.trashTasks(roots)).toHaveLength(2000);
     expect(tasks.listTasks({}, undefined, { limit: 10 }).items).toEqual([]);
   });
 
   it('returns nothing for no ids, and counts a repeated id once', () => {
     const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    expect(archive.archiveTasks([])).toEqual([]);
-    expect(archive.archiveTasks([a.id, a.id])).toHaveLength(1);
+    expect(trash.trashTasks([])).toEqual([]);
+    expect(trash.trashTasks([a.id, a.id])).toHaveLength(1);
   });
 });

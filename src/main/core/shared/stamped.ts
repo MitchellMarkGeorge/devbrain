@@ -30,8 +30,8 @@ export type StampedRow<S extends Stamp> = {
   entityType: StampedEntityType;
 } & Record<S, Date>;
 
-type ArchivableTable = typeof tasks | typeof projects | typeof notes;
-export type StampedTable = ArchivableTable | typeof events;
+type TrashableTable = typeof tasks | typeof projects | typeof notes;
+export type StampedTable = TrashableTable | typeof events;
 
 export const STAMPED_TABLES: Record<StampedEntityType, StampedTable> = {
   tasks,
@@ -55,7 +55,7 @@ export function stampedEntityTypeOf(id: StampedId): StampedEntityType {
  * One query picks the page, then each entity type on it is read in one batched lookup (see
  * withEntities), so the number of queries does not grow with the page.
  *
- * Left out: archived tasks, projects and notes, and events whose provider item was cancelled or
+ * Left out: trashed tasks, projects and notes, and events whose provider item was cancelled or
  * deleted (link state `removed`), which are kept only for the notes linked to them. Each table has a
  * partial index on (stamp, id) matching this filter.
  */
@@ -178,7 +178,7 @@ function branch(
   const shown =
     type === 'events'
       ? not(hasLinkInState('event', events.id, LinkState.REMOVED))
-      : isNull((table as ArchivableTable).archivedAt);
+      : isNull((table as TrashableTable).trashedAt);
   return db
     .select({
       // widened to StampedId because the union carries all four id types, and drizzle infers the

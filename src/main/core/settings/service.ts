@@ -8,6 +8,12 @@ import type { DotPathValue, DotPaths } from './types';
 // now. A write to the app's state beside them sends nothing.
 export type SettingsChange = { type: 'updated'; settings: AppSettings };
 
+// Settings saved under an older name, carried over to the new one when the file opens.
+const RENAMED_SETTINGS = [
+  // renamed when archiving became moving to the trash in code
+  { group: 'settings.general', from: 'confirmBeforeArchiving', to: 'confirmBeforeTrashing' },
+];
+
 export class SettingsService {
   private store: SettingsStore;
   private readonly changes = new ChangeListeners<SettingsChange>('Settings');
@@ -18,6 +24,7 @@ export class SettingsService {
   ) {
     const defaults = getDefaults(rootPath);
     this.store = openStore(rootPath, defaults);
+    this.carryRenamed();
     this.fillMissing(defaults);
   }
 
@@ -38,6 +45,17 @@ export class SettingsService {
   reset(): void {
     this.store.set('settings', getDefaults(this.rootPath).settings);
     this.emitUpdated();
+  }
+
+  // Moves the value of a setting saved under its old name to its new one, before `fillMissing`
+  // would give the new name its default. The group is written back without the old key.
+  private carryRenamed(): void {
+    for (const { group, from, to } of RENAMED_SETTINGS) {
+      const stored = this.store.get(group);
+      if (!isRecord(stored) || !(from in stored)) continue;
+      const { [from]: value, ...rest } = stored;
+      this.store.set(group, to in rest ? rest : { ...rest, [to]: value });
+    }
   }
 
   // Writes the default of every key the file lacks, at any depth, as `withDefaults` reads them.

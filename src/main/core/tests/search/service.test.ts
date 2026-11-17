@@ -472,14 +472,14 @@ describe('SearchService — the entities found', () => {
     });
   });
 
-  it('leaves out an entry whose row is gone or archived', () => {
+  it('leaves out an entry whose row is gone or trashed', () => {
     // deleted without its entry: this service alone doesn't hear of the delete
     const gone = taskService.createTask({ title: 'Widget gone', dueDate: TOMORROW });
-    const archived = taskService.createTask({ title: 'Widget archived', dueDate: TOMORROW });
+    const trashed = taskService.createTask({ title: 'Widget trashed', dueDate: TOMORROW });
     const kept = taskService.createTask({ title: 'Widget kept', dueDate: TOMORROW });
-    searchService.indexTasks([gone, archived, kept]);
+    searchService.indexTasks([gone, trashed, kept]);
     db.delete(tasks).where(eq(tasks.id, gone.id)).run();
-    db.update(tasks).set({ archivedAt: new Date() }).where(eq(tasks.id, archived.id)).run();
+    db.update(tasks).set({ trashedAt: new Date() }).where(eq(tasks.id, trashed.id)).run();
 
     expect(
       searchService.search({ query: 'widget', entityType: [] }).map(({ entity }) => entity.id),

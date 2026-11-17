@@ -19,7 +19,7 @@ const countWhere = (predicate: SQL) =>
 /**
  * Adds everything a task row in the task list shows beside its own fields: its provider ref
  * (`external`, from withExternalRefs), its subtask progress, its parent, its project and its link. One
- * query per kind for the whole page, never one per row. Archived parents, subtasks, projects and
+ * query per kind for the whole page, never one per row. Trashed parents, subtasks, projects and
  * notes are left out, as every list leaves them out.
  */
 export function withListDetails(db: BetterSQLite3Database, rows: Task[]): TaskListItem[] {
@@ -50,7 +50,7 @@ export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]):
             tasks.parentTaskId,
             rows.map((row) => row.id),
           ),
-          isNull(tasks.archivedAt),
+          isNull(tasks.trashedAt),
           // cancelled subtasks are left out so they do not dilute progress, as in project stats.
           // A task whose subtasks are all cancelled gets no group, so its progress is null
           ne(tasks.status, TaskStatus.CANCELLED),

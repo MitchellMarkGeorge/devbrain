@@ -7,12 +7,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { generateId, ProjectId, EventId, TaskId } from '@common/ids';
 import { NoteChange, NoteService } from '../../notes/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { TaskService } from '../../tasks/service';
 import { type Note, ProjectStatus, TaskStatus } from '@common/types';
-import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
+import { AlreadyInTrashError, NotInTrashError, NotFoundError } from '../../shared/errors';
 import { fileExists } from '../../local/utils';
 import { readNoteFile } from '../../local/notes';
 import { notes as notesTable } from '@main/db/schema/notes';
@@ -35,13 +35,13 @@ function notesFilePath(workspacePath: string, id: string): string {
 let db: BetterSQLite3Database;
 let workspacePath: string;
 let notesService: NoteService;
-let archive: ArchiveService;
+let trash: TrashService;
 
 beforeEach(async () => {
   db = createDb();
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-notes-service-'));
   notesService = new NoteService(db, workspacePath);
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
 
   const projectService = new ProjectService(db, new TaskService(db));
   const eventService = new EventService(db);
@@ -154,9 +154,9 @@ describe('NoteService — getById', () => {
     expect(() => notesService.getById(generateId('note'))).toThrow(NotFoundError);
   });
 
-  it('throws NotFoundError for an archived note', async () => {
-    const note = await notesService.createNote({ title: 'Will be archived' });
-    archive.archiveNote(note.id);
+  it('throws NotFoundError for a trashed note', async () => {
+    const note = await notesService.createNote({ title: 'Will be trashed' });
+    trash.trashNote(note.id);
     expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 
@@ -170,18 +170,18 @@ describe('NoteService — getById', () => {
       project: { id: FAKE_PROJECT_ID, title: 'Fake Project' },
       link: null,
     });
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 });
 
 describe('NoteService — filePathOf', () => {
-  it("returns the path of an active note's file, and refuses an archived or unknown note", async () => {
+  it("returns the path of an active note's file, and refuses a trashed or unknown note", async () => {
     const note = await notesService.createNote({ title: 'Plan' });
     expect(notesService.filePathOf(note.id)).toBe(notesFilePath(workspacePath, note.id));
     expect(fsSync.existsSync(notesService.filePathOf(note.id))).toBe(true);
 
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     expect(() => notesService.filePathOf(note.id)).toThrow(NotFoundError);
     expect(() => notesService.filePathOf(generateId('note'))).toThrow(NotFoundError);
   });
@@ -204,26 +204,26 @@ describe('NoteService — getByIds', () => {
     expect(result).toHaveLength(0);
   });
 
-  it('excludes archived notes even when their id is requested', async () => {
-    const note = await notesService.createNote({ title: 'Archived' });
-    archive.archiveNote(note.id);
+  it('excludes trashed notes even when their id is requested', async () => {
+    const note = await notesService.createNote({ title: 'Trashed' });
+    trash.trashNote(note.id);
     const result = notesService.getByIds([note.id]);
     expect(result).toHaveLength(0);
   });
 });
 
 describe('NoteService — listNotes', () => {
-  it('returns all non-archived notes by default', async () => {
+  it('returns all non-trashed notes by default', async () => {
     const a = await notesService.createNote({ title: 'A' });
     const b = await notesService.createNote({ title: 'B' });
-    const archived = await notesService.createNote({ title: 'Archived' });
-    archive.archiveNote(archived.id);
+    const trashed = await notesService.createNote({ title: 'Trashed' });
+    trash.trashNote(trashed.id);
 
     const result = notesService.listNotes().items;
     const ids = result.map((n) => n.id);
     expect(ids).toContain(a.id);
     expect(ids).toContain(b.id);
-    expect(ids).not.toContain(archived.id);
+    expect(ids).not.toContain(trashed.id);
   });
 
   it('filter.projectId returns only notes in that project', async () => {
@@ -340,12 +340,12 @@ describe('NoteService — listNotes', () => {
     expect(result[0].title).toBe('Banana');
   });
 
-  it('excludes archived notes regardless of filter', async () => {
+  it('excludes trashed notes regardless of filter', async () => {
     const note = await notesService.createNote({
-      title: 'Will archive',
+      title: 'Will trash',
       projectId: FAKE_PROJECT_ID,
     });
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result.map((n) => n.id)).not.toContain(note.id);
   });
@@ -405,19 +405,19 @@ describe('NoteService — list row details', () => {
     expect(item.project).toBeNull();
   });
 
-  it('leaves out a linked task or project that is archived', async () => {
+  it('leaves out a linked task or project that is trashed', async () => {
     const note = await notesService.createNote({
       title: 'Linked',
       projectId: FAKE_OTHER_PROJECT_ID,
       linkedTaskId: FAKE_TASK_ID,
     });
-    // archiving either through ArchiveService archives the note too, so only the rows are set
+    // trashing either through TrashService trashes the note too, so only the rows are set
     db.update(tasksTable)
-      .set({ archivedAt: new Date() })
+      .set({ trashedAt: new Date() })
       .where(eq(tasksTable.id, FAKE_TASK_ID))
       .run();
     db.update(projectsTable)
-      .set({ archivedAt: new Date() })
+      .set({ trashedAt: new Date() })
       .where(eq(projectsTable.id, FAKE_OTHER_PROJECT_ID))
       .run();
 
@@ -626,93 +626,93 @@ describe('NoteService — updateNoteContent', () => {
   });
 });
 
-describe('ArchiveService — archiveNote', () => {
-  it('sets archivedAt to a recent timestamp', async () => {
-    const note = await notesService.createNote({ title: 'To archive' });
+describe('TrashService — trashNote', () => {
+  it('sets trashedAt to a recent timestamp', async () => {
+    const note = await notesService.createNote({ title: 'To trash' });
     const before = new Date();
-    const archived = archive.archiveNote(note.id);
+    const trashed = trash.trashNote(note.id);
     const after = new Date();
-    expect(archived.archivedAt).not.toBeNull();
-    expect(archived.archivedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(archived.archivedAt!.getTime()).toBeLessThanOrEqual(after.getTime());
+    expect(trashed.trashedAt).not.toBeNull();
+    expect(trashed.trashedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(trashed.trashedAt!.getTime()).toBeLessThanOrEqual(after.getTime());
   });
 
   it('returns the updated note row', async () => {
-    const note = await notesService.createNote({ title: 'Archivable' });
-    const result = archive.archiveNote(note.id);
+    const note = await notesService.createNote({ title: 'Trashable' });
+    const result = trash.trashNote(note.id);
     expect(result.id).toBe(note.id);
-    expect(result.title).toBe('Archivable');
+    expect(result.title).toBe('Trashable');
   });
 
-  it('archived note is no longer returned by NoteService.getById', async () => {
+  it('trashed note is no longer returned by NoteService.getById', async () => {
     const note = await notesService.createNote({ title: 'Gone' });
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 
-  it('archived note is excluded from NoteService.listNotes', async () => {
+  it('trashed note is excluded from NoteService.listNotes', async () => {
     const note = await notesService.createNote({ title: 'Gone', projectId: FAKE_PROJECT_ID });
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result.map((n) => n.id)).not.toContain(note.id);
   });
 
   it('leaves the note file on disk untouched', async () => {
     const note = await notesService.createNote({ title: 'Still on disk' });
-    archive.archiveNote(note.id);
+    trash.trashNote(note.id);
     expect(await fileExists(notesFilePath(workspacePath, note.id))).toBe(true);
   });
 
   it('throws NotFoundError for an unknown note id', async () => {
-    expect(() => archive.archiveNote(generateId('note'))).toThrow(NotFoundError);
+    expect(() => trash.trashNote(generateId('note'))).toThrow(NotFoundError);
   });
 
-  it('throws AlreadyArchivedError when the note is already archived', async () => {
-    const note = await notesService.createNote({ title: 'Archive me once' });
-    archive.archiveNote(note.id);
-    expect(() => archive.archiveNote(note.id)).toThrow(AlreadyArchivedError);
+  it('throws AlreadyInTrashError when the note is already trashed', async () => {
+    const note = await notesService.createNote({ title: 'Trash me once' });
+    trash.trashNote(note.id);
+    expect(() => trash.trashNote(note.id)).toThrow(AlreadyInTrashError);
   });
 });
 
-describe('ArchiveService — restoreNote', () => {
-  it('clears archivedAt on the note', async () => {
+describe('TrashService — restoreNote', () => {
+  it('clears trashedAt on the note', async () => {
     const note = await notesService.createNote({ title: 'Restore me' });
-    archive.archiveNote(note.id);
-    const restored = archive.restoreNote(note.id);
-    expect(restored.archivedAt).toBeNull();
+    trash.trashNote(note.id);
+    const restored = trash.restoreNote(note.id);
+    expect(restored.trashedAt).toBeNull();
   });
 
   it('returns the updated note row', async () => {
     const note = await notesService.createNote({ title: 'Restore me' });
-    archive.archiveNote(note.id);
-    const result = archive.restoreNote(note.id);
+    trash.trashNote(note.id);
+    const result = trash.restoreNote(note.id);
     expect(result.id).toBe(note.id);
     expect(result.title).toBe('Restore me');
   });
 
   it('restored note is visible via NoteService.getById', async () => {
     const note = await notesService.createNote({ title: 'Restored' });
-    archive.archiveNote(note.id);
-    archive.restoreNote(note.id);
+    trash.trashNote(note.id);
+    trash.restoreNote(note.id);
     const found = notesService.getById(note.id);
     expect(found.id).toBe(note.id);
   });
 
   it('restored note appears in NoteService.listNotes', async () => {
     const note = await notesService.createNote({ title: 'Restored', projectId: FAKE_PROJECT_ID });
-    archive.archiveNote(note.id);
-    archive.restoreNote(note.id);
+    trash.trashNote(note.id);
+    trash.restoreNote(note.id);
     const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result.map((n) => n.id)).toContain(note.id);
   });
 
   it('throws NotFoundError for an unknown note id', async () => {
-    expect(() => archive.restoreNote(generateId('note'))).toThrow(NotFoundError);
+    expect(() => trash.restoreNote(generateId('note'))).toThrow(NotFoundError);
   });
 
-  it('throws NotArchivedError when the note is not archived', async () => {
-    const note = await notesService.createNote({ title: 'Never archived' });
-    expect(() => archive.restoreNote(note.id)).toThrow(NotArchivedError);
+  it('throws NotInTrashError when the note is not trashed', async () => {
+    const note = await notesService.createNote({ title: 'Never trashed' });
+    expect(() => trash.restoreNote(note.id)).toThrow(NotInTrashError);
   });
 });
 

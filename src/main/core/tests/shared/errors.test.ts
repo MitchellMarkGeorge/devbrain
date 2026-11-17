@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IntegrationId, TaskId, WorkspaceId } from '@common/ids';
 import {
-  AlreadyArchivedError,
+  AlreadyInTrashError,
   ConnectCancelledError,
   ConnectInProgressError,
   CoreError,
@@ -19,7 +19,7 @@ import {
   IntegrationBusyError,
   IntegrationDisabledError,
   InvalidInputError,
-  NotArchivedError,
+  NotInTrashError,
   NotFoundError,
   OAuthUnavailableError,
   ProviderUnavailableError,
@@ -56,8 +56,8 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new NotFoundError(taskId), 'not_found'],
   [new InvalidInputError('An API key is required'), 'invalid_input'],
   [new TaskHierarchyError(taskId, 'cycle', 'Tasks cannot be their own parent'), 'task_hierarchy'],
-  [new AlreadyArchivedError(taskId), 'already_archived'],
-  [new NotArchivedError(taskId), 'not_archived'],
+  [new AlreadyInTrashError(taskId), 'already_in_trash'],
+  [new NotInTrashError(taskId), 'not_in_trash'],
   [new ExternalReadOnlyError(taskId), 'external_read_only'],
   [new DetachError(taskId, 'Task is local'), 'detach_failed'],
   [new IntegrationAuthError('Rejected'), 'integration_auth'],

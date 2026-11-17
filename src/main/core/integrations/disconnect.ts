@@ -41,7 +41,7 @@ function sourcesOf(tx: Tx, integrationId: IntegrationId) {
 /**
  * Sorts the integration's mirrored items, synced or removed, into deleted and kept. With
  * `keepLocalCopies` everything is kept. Otherwise an item is kept when something of the user's
- * points at it, archived things included (they are the user's and may return):
+ * points at it, trashed things included (they are the user's and may return):
  *
  * - a task with a task note, or with a note or event link of its own;
  * - an event a note or a task links to;
@@ -155,7 +155,7 @@ export function countPlan(plan: DisconnectPlan): DisconnectCounts {
  * 2. Delete the deleted items; their links go with them.
  * 3. Detach every synced link left, marking the task links KEPT_BY_DISCONNECT so a later connect
  *    of the same account can offer to reattach them (DetachService.reattachKept). Removed ones
- *    stay removed: their rows are archived or hidden, and that connect can still restore them.
+ *    stay removed: their rows are trashed or hidden, and that connect can still restore them.
  * 4. Delete the integration's calendars left with no events, which hold nothing of the user's.
  *    Kept ones become local calendars when the cascade nulls their source.
  *

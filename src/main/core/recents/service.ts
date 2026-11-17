@@ -24,7 +24,7 @@ export type RecentChange = {
  * alone), and stamping it leaves `updatedAt` as it was: a view is not an edit, and must not move
  * the entity in the lists sorted by last update.
  *
- * An archived entity keeps its `viewedAt`, but is left out of listRecents until it is restored. A
+ * A trashed entity keeps its `viewedAt`, but is left out of listRecents until it is restored. A
  * deleted one leaves the list with its row.
  */
 export class RecentsService {
@@ -65,7 +65,7 @@ export class RecentsService {
    * behind the sidebar's Recents. Paginated with an opaque cursor like the other list methods, and
    * optionally narrowed to one entity type; the sidebar asks for one short page.
    *
-   * Left out: archived tasks, projects and notes, and events whose provider item was cancelled or
+   * Left out: trashed tasks, projects and notes, and events whose provider item was cancelled or
    * deleted (link state `removed`), which are kept only for the notes linked to them.
    */
   listRecents(filter: RecentsFilterOptions = {}, page: PageOptions = {}): Page<RecentEntity> {

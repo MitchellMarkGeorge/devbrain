@@ -20,7 +20,7 @@ import { eq, inArray, SQL, and, isNull, not, ne, desc, gt, gte, lt } from 'drizz
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, PageOptions } from '../shared/pagination';
-import { NotArchivedError, NotFoundError } from '../shared/errors';
+import { NotInTrashError, NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import {
@@ -39,7 +39,7 @@ import { emptyStats, projectStatsOf, withProjectListDetails } from './details';
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` is sent as the delete's last step, inside its transaction, so search drops the row in
-// the same commit (as an archive does).
+// the same commit (as a trash does).
 export type ProjectChange =
   | { type: 'created'; project: Project }
   | { type: 'updated'; project: Project }
@@ -59,9 +59,9 @@ export class ProjectService {
     return this.changes.add(listener);
   }
 
-  // A project in the trash is found only with `includeArchived` (Trash opens it read-only)
-  getById(id: ProjectId, options: { includeArchived?: boolean } = {}): Project {
-    const row = options.includeArchived
+  // A project in the trash is found only with `includeTrashed` (Trash opens it read-only)
+  getById(id: ProjectId, options: { includeTrashed?: boolean } = {}): Project {
+    const row = options.includeTrashed
       ? this.db.select().from(projects).where(eq(projects.id, id)).limit(1).get()
       : this.activeProjects(eq(projects.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
@@ -127,7 +127,7 @@ export class ProjectService {
     sort: ProjectSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
   ): Page<ProjectListItem> {
-    const clauses = [isNull(projects.archivedAt)];
+    const clauses = [isNull(projects.trashedAt)];
 
     // apply easy filters
     if (filter.status) clauses.push(eq(projects.status, filter.status));
@@ -191,7 +191,7 @@ export class ProjectService {
   }
 
   getProjectStats(id: ProjectId): ProjectStats {
-    // throws NotFoundError for an unknown or archived project
+    // throws NotFoundError for an unknown or trashed project
     this.getById(id);
     return this.statsOf([id]).get(id) ?? emptyStats();
   }
@@ -204,44 +204,44 @@ export class ProjectService {
   /**
    * An active project as Markdown (Copy as Markdown): its title, properties and description, then
    * its active tasks as checklists grouped by status, oldest first, each subtask under its parent.
-   * Throws NotFoundError for an unknown or archived project.
+   * Throws NotFoundError for an unknown or trashed project.
    */
   toMarkdown(id: ProjectId): string {
     const project = this.getById(id);
     const rows = this.db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)))
+      .where(and(eq(tasks.projectId, id), isNull(tasks.trashedAt)))
       .orderBy(tasks.createdAt, tasks.id)
       .all();
     return projectAsMarkdown(project, toExportedTasks(withListDetails(this.db, rows)));
   }
 
   /**
-   * Deletes an archived project for good (the UI calls archived items "in the trash"; deleting is
-   * only offered there). An active one throws NotArchivedError. Its tasks and notes are the user's
+   * Deletes a project in the trash for good (deleting is only offered
+   * there). An active one throws NotInTrashError. Its tasks and notes are the user's
    * and are kept: the foreign keys' `set null` takes the project off them, and they stay as they
-   * were otherwise (archived with it, in the trash, where each can be restored on its own). Its
+   * were otherwise (trashed with it, in the trash, where each can be restored on its own). Its
    * external link cascades; favorites and recents are columns of the row and go with it.
    *
-   * A synced project belongs to its provider and is never archived, so it is refused
-   * (ExternalReadOnlyError is checked too, as archive does). A detached or removed one is the
+   * A synced project belongs to its provider and is never trashed, so it is refused
+   * (ExternalReadOnlyError is checked too, as the trash service does). A detached or removed one is the
    * user's own and can be deleted, with nothing recorded for sync: if Linear sends the project
    * again, it comes back as a new project. A project that is not synced holds no synced tasks
    * (sync moves them out before detaching it), so no provider-owned field is written.
    *
-   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
+   * Throws NotFoundError for an unknown id, and NotInTrashError for one not in the trash.
    */
   deleteProject(id: ProjectId): ProjectDeleteResult {
     return this.db.transaction((tx) => {
       const existing = tx
-        .select({ archivedAt: projects.archivedAt })
+        .select({ trashedAt: projects.trashedAt })
         .from(projects)
         .where(eq(projects.id, id))
         .get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt === null) throw new NotArchivedError(id);
-      // a synced project is never archived; checked anyway, as archive does
+      if (existing.trashedAt === null) throw new NotInTrashError(id);
+      // a synced project is never trashed; checked anyway, as the trash service does
       assertEditable(tx, id);
 
       // read before the delete clears their project; served by the full project_id indexes
@@ -276,12 +276,12 @@ export class ProjectService {
   }
 
   private activeProjects(condition: SQL<unknown>) {
-    // automatically filters out archived projects
+    // automatically filters out trashed projects
     return (
       this.db
         .select()
         .from(projects)
-        .where(and(condition, isNull(projects.archivedAt)))
+        .where(and(condition, isNull(projects.trashedAt)))
         // by default sort by created at (come back to this)
         .orderBy(desc(projects.createdAt))
     );

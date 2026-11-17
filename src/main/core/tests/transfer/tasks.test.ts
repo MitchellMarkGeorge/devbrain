@@ -152,9 +152,9 @@ describe.each(['csv', 'json'] as const)('a %s export', (format) => {
 });
 
 describe('the export', () => {
-  it('holds only tasks made in DevBrain: never archived, synced or detached ones', () => {
-    const archived = tasks.createTask({ title: 'Archived', dueDate: day(11, 1) });
-    db.update(tasksTable).set({ archivedAt: NOW }).run();
+  it('holds only tasks made in DevBrain: never trashed, synced or detached ones', () => {
+    const trashed = tasks.createTask({ title: 'Trashed', dueDate: day(11, 1) });
+    db.update(tasksTable).set({ trashedAt: NOW }).run();
     const synced = tasks.createTask({ title: 'From Linear', dueDate: day(11, 2) });
     linkToLinear(synced.id, 'ENG-124');
     const detached = tasks.createTask({ title: 'Detached from Linear', dueDate: day(11, 2) });
@@ -173,7 +173,7 @@ describe('the export', () => {
     expect(exported.tasks).toEqual([
       expect.objectContaining({ id: mine.id, title: 'Mine', project: 'Roadmap' }),
     ]);
-    for (const left of [archived, synced, detached]) {
+    for (const left of [trashed, synced, detached]) {
       expect(JSON.stringify(exported)).not.toContain(left.id);
     }
     expect(exported.tasks[0]).not.toHaveProperty('source');

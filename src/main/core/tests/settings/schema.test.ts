@@ -16,7 +16,7 @@ const validSettings: SettingsFile = {
       launchOnStartup: false,
       openToLastPage: true,
       confirmBeforeDeleting: true,
-      confirmBeforeArchiving: true,
+      confirmBeforeTrashing: true,
       timeFormat: '12',
     },
     tasks: {
@@ -172,9 +172,9 @@ describe('appSettingsSchema — general block', () => {
     ).toBe(false);
   });
 
-  it('rejects a non-boolean for confirmBeforeArchiving', () => {
+  it('rejects a non-boolean for confirmBeforeTrashing', () => {
     expect(
-      appSettingsSchema.safeParse(withGeneral({ confirmBeforeArchiving: null as never }).settings)
+      appSettingsSchema.safeParse(withGeneral({ confirmBeforeTrashing: null as never }).settings)
         .success,
     ).toBe(false);
   });

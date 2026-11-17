@@ -83,7 +83,7 @@ export class DetachService {
    * transaction. The rows are untouched, so the user keeps the provider's last values and can edit
    * them from here; sync skips detached links from then on.
    *
-   * Throws NotFoundError for an archived or unknown task, and DetachError for one with no link or
+   * Throws NotFoundError for a trashed or unknown task, and DetachError for one with no link or
    * one that is not synced.
    */
   detachTask(id: TaskId): Task {
@@ -94,7 +94,7 @@ export class DetachService {
       }
 
       // a synced task has only synced children, so the whole subtree moves; removed ones are
-      // archived and stay removed, so sync can still restore them
+      // trashed and stay removed, so sync can still restore them
       return tx
         .update(externalLinks)
         .set({ state: LinkState.DETACHED })
@@ -117,8 +117,8 @@ export class DetachService {
    * Hands a detached task back to the provider and refreshes it, with its detached subtree.
    *
    * 1. The task must be detached, active, and have no local subtasks anywhere below it: a synced
-   *    task never has local children, and sync archives a removed task on its own, which would
-   *    leave such children live under an archived row.
+   *    task never has local children, and sync trashes a removed task on its own, which would
+   *    leave such children live under a trashed row.
    * 2. Its source must still exist; a disconnect nulls it.
    * 3. TaskReconciler.reattachTasks does the rest: it checks the source and integration, resolves
    *    the task and its detached descendants, and refreshes those still assigned. Provider-owned
@@ -126,7 +126,7 @@ export class DetachService {
    *    are gone or reassigned stay detached and become top-level. When it refuses, the task stays
    *    detached.
    *
-   * Throws NotFoundError for an archived or unknown task, DetachError for every refusal, and
+   * Throws NotFoundError for a trashed or unknown task, DetachError for every refusal, and
    * IntegrationAuthError, after sending `credentials_rejected`, when the provider rejects the
    * credentials. The task stays detached on any failure.
    */
@@ -157,7 +157,7 @@ export class DetachService {
 
   /**
    * Steps 1 and 2 of reattachTask, which reads no provider: what to hand the reconciler for the
-   * task, or the refusal. Throws NotFoundError for an archived or unknown task and DetachError for
+   * task, or the refusal. Throws NotFoundError for a trashed or unknown task and DetachError for
    * every refusal, worded for the user.
    */
   private prepareReattach(id: TaskId): {
@@ -341,13 +341,13 @@ export class DetachService {
     return this.changes.add(listener);
   }
 
-  /** the link of an active task; an archived or unknown task is not found, a local one refused */
+  /** the link of an active task; a trashed or unknown task is not found, a local one refused */
   private activeTaskLink(id: TaskId): Link {
     const row = this.db
       .select({ link: externalLinks })
       .from(tasks)
       .leftJoin(externalLinks, eq(externalLinks.taskId, tasks.id))
-      .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
+      .where(and(eq(tasks.id, id), isNull(tasks.trashedAt)))
       .get();
     if (!row) throw new NotFoundError(id);
     if (!row.link) throw new DetachError(id, `Task ${id} is a local task with no integration`);
@@ -356,7 +356,7 @@ export class DetachService {
 
   /**
    * The integration's kept task links: detached by a disconnect and matched back to one of its
-   * sources. Archived tasks are left out where the query joins tasks.
+   * sources. Trashed tasks are left out where the query joins tasks.
    */
   private kept(integrationId: IntegrationId) {
     return and(
@@ -373,7 +373,7 @@ export class DetachService {
       // keepKeptLocal updates links, so the active check is a subquery rather than a join
       inArray(
         externalLinks.taskId,
-        this.db.select({ id: tasks.id }).from(tasks).where(isNull(tasks.archivedAt)),
+        this.db.select({ id: tasks.id }).from(tasks).where(isNull(tasks.trashedAt)),
       ),
     );
   }
@@ -399,8 +399,8 @@ export class DetachService {
   }
 
   /**
-   * The task and its active descendants at any depth, with their links. Archived rows are left
-   * out, as archiving takes the whole subtree below them too.
+   * The task and its active descendants at any depth, with their links. Trashed rows are left
+   * out, as trashing takes the whole subtree below them too.
    */
   private activeSubtree(id: TaskId) {
     return this.db
@@ -413,7 +413,7 @@ export class DetachService {
       })
       .from(tasks)
       .leftJoin(externalLinks, eq(externalLinks.taskId, tasks.id))
-      .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
+      .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.trashedAt)))
       .all();
   }
 

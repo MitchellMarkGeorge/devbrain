@@ -4,7 +4,7 @@ import { Note, NoteLinkSummary, NoteListItem } from '@common/types';
 
 /**
  * Adds what a note row shows beside its own fields: its project and the event or task it is linked
- * to. One query per kind for the whole page, never one per row. An archived project or task is
+ * to. One query per kind for the whole page, never one per row. A trashed project or task is
  * left out, as every list leaves them out.
  */
 export function withNoteListDetails(db: BetterSQLite3Database, rows: Note[]): NoteListItem[] {

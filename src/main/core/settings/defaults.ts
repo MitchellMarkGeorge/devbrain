@@ -15,7 +15,7 @@ export function getDefaults(rootPath?: string): SettingsFile {
         launchOnStartup: false,
         openToLastPage: true,
         timeFormat: '12',
-        confirmBeforeArchiving: true,
+        confirmBeforeTrashing: true,
         confirmBeforeDeleting: true,
       },
       tasks: {

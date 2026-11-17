@@ -562,8 +562,8 @@ describe('Workspace — permanent delete', () => {
       const note = await workspace.notes.createNote({ title: 'Notes', linkedTaskId: task.id });
       expect(searchIds(workspace, 'Doomed')).toEqual([task.id, sub.id, kept.id].sort());
       // deleting is only from the trash
-      expect(() => workspace.tasks.deleteTask(task.id)).toThrow(/not archived/);
-      workspace.archive.archiveTask(task.id);
+      expect(() => workspace.tasks.deleteTask(task.id)).toThrow(/not in the trash/);
+      workspace.trash.trashTask(task.id);
 
       workspace.tasks.deleteTask(task.id);
       await workspace.search.rebuild();
@@ -571,7 +571,7 @@ describe('Workspace — permanent delete', () => {
       expect(searchIds(workspace, 'Doomed')).toEqual([kept.id]);
       // the workspace's connection enforces foreign keys: the note's link was set null; it went to
       // the trash with the task and comes back on its own
-      workspace.archive.restoreNote(note.id);
+      workspace.trash.restoreNote(note.id);
       expect(workspace.notes.getById(note.id).linkedTaskId).toBeNull();
     } finally {
       await workspace.close();
@@ -589,10 +589,10 @@ describe('Workspace — permanent delete', () => {
         projectId: project.id,
       });
 
-      workspace.archive.archiveProject(project.id);
+      workspace.trash.trashProject(project.id);
 
       workspace.projects.deleteProject(project.id);
-      workspace.archive.restoreTask(task.id);
+      workspace.trash.restoreTask(task.id);
 
       expect(searchIds(workspace, 'Doomed')).toEqual([task.id]);
       expect(workspace.tasks.getById(task.id).projectId).toBeNull();
@@ -607,7 +607,7 @@ describe('Workspace — permanent delete', () => {
       const note = await workspace.notes.createNote({ title: 'Doomed note' });
       await workspace.notes.updateNoteContent(note.id, 'secret body');
       expect(searchIds(workspace, 'secret')).toEqual([note.id]);
-      workspace.archive.archiveNote(note.id);
+      workspace.trash.trashNote(note.id);
 
       await workspace.notes.deleteNote(note.id);
 
@@ -636,19 +636,19 @@ describe('Workspace — permanent delete', () => {
         projectId: project.id,
       });
       const keptNote = await workspace.notes.createNote({ title: 'Kept', linkedTaskId: task.id });
-      workspace.archive.archiveProject(project.id);
-      workspace.archive.archiveTask(task.id);
-      workspace.archive.archiveNote(note.id);
+      workspace.trash.trashProject(project.id);
+      workspace.trash.trashTask(task.id);
+      workspace.trash.trashNote(note.id);
       // they went to the trash with the project and the task; restored, they stay
-      workspace.archive.restoreTask(kept.id);
-      workspace.archive.restoreNote(keptNote.id);
+      workspace.trash.restoreTask(kept.id);
+      workspace.trash.restoreNote(keptNote.id);
       const changes: string[] = [];
       workspace.tasks.onChange((change) => changes.push(`task ${change.type}`));
       workspace.projects.onChange((change) => changes.push(`project ${change.type}`));
       workspace.notes.onChange((change) => changes.push(`note ${change.type}`));
-      workspace.archive.onChange((change) => changes.push(`archive ${change.type}`));
+      workspace.trash.onChange((change) => changes.push(`trash ${change.type}`));
 
-      const result = await workspace.archive.emptyTrash();
+      const result = await workspace.trash.emptyTrash();
 
       expect({ ...result, taskIds: result.taskIds.sort() }).toEqual({
         taskIds: [task.id, sub.id].sort(),
@@ -657,16 +657,16 @@ describe('Workspace — permanent delete', () => {
         keptTaskIds: [],
         filesNotRemoved: [],
       });
-      // one change, from the archive
-      expect(changes).toEqual(['archive emptied']);
-      expect(workspace.archive.listArchived().items).toEqual([]);
+      // one change, from the trash
+      expect(changes).toEqual(['trash emptied']);
+      expect(workspace.trash.listTrashed().items).toEqual([]);
       expect(searchIds(workspace, 'Doomed')).toEqual([kept.id]);
       expect(workspace.tasks.getById(kept.id).projectId).toBeNull();
       expect(workspace.notes.getById(keptNote.id).linkedTaskId).toBeNull();
       expect(await fs.readdir(path.join(tmpDir, 'notes'))).toEqual([`${keptNote.id}.md`]);
 
       // an empty trash deletes nothing and says nothing
-      expect(await workspace.archive.emptyTrash()).toEqual({
+      expect(await workspace.trash.emptyTrash()).toEqual({
         taskIds: [],
         projectIds: [],
         noteIds: [],
@@ -686,9 +686,9 @@ describe('Workspace — permanent delete', () => {
       const task = workspace.tasks.createTask({ title: 'Doomed task', dueDate });
       const stuck = await workspace.notes.createNote({ title: 'Stuck' });
       const gone = await workspace.notes.createNote({ title: 'Gone' });
-      workspace.archive.archiveTask(task.id);
-      workspace.archive.archiveNote(stuck.id);
-      workspace.archive.archiveNote(gone.id);
+      workspace.trash.trashTask(task.id);
+      workspace.trash.trashNote(stuck.id);
+      workspace.trash.trashNote(gone.id);
 
       // a non-empty folder where the file was: removing it fails
       const stuckFile = path.join(tmpDir, 'notes', `${stuck.id}.md`);
@@ -696,11 +696,11 @@ describe('Workspace — permanent delete', () => {
       await fs.mkdir(stuckFile);
       await fs.writeFile(path.join(stuckFile, 'x'), '');
 
-      expect(await workspace.archive.emptyTrash()).toMatchObject({
+      expect(await workspace.trash.emptyTrash()).toMatchObject({
         taskIds: [task.id],
         filesNotRemoved: [stuck.id],
       });
-      expect(workspace.archive.listArchived().items).toEqual([]);
+      expect(workspace.trash.listTrashed().items).toEqual([]);
       expect(fsSync.existsSync(path.join(tmpDir, 'notes', `${gone.id}.md`))).toBe(false);
     } finally {
       await workspace.close();
@@ -727,9 +727,9 @@ describe('Workspace — permanent delete', () => {
       const [{ id }] = workspace.tasks.listTasks().items;
 
       // a synced task can't be put in the trash; detached, it can
-      expect(() => workspace.archive.archiveTask(id)).toThrow(/read-only/);
+      expect(() => workspace.trash.trashTask(id)).toThrow(/read-only/);
       workspace.detach.detachTask(id);
-      workspace.archive.archiveTask(id);
+      workspace.trash.trashTask(id);
       workspace.tasks.deleteTask(id);
 
       // still assigned, and edited in Linear since
@@ -750,8 +750,8 @@ describe('Workspace — permanent delete', () => {
   });
 });
 
-describe('Workspace — search of archived and restored rows', () => {
-  it('archiving drops a project, its tasks and their notes; restoring brings them back', async () => {
+describe('Workspace — search of trashed and restored rows', () => {
+  it('trashing drops a project, its tasks and their notes; restoring brings them back', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const project = workspace.projects.createProject({
@@ -780,11 +780,11 @@ describe('Workspace — search of archived and restored rows', () => {
       const all = [project.id, task.id, subtask.id, projectNote.id, taskNote.id, other.id].sort();
       expect(searchIds(workspace, 'Apollo')).toEqual(all);
 
-      workspace.archive.archiveProject(project.id);
+      workspace.trash.trashProject(project.id);
       expect(searchIds(workspace, 'Apollo')).toEqual([other.id]);
       expect(searchIds(workspace, 'telemetry')).toEqual([]);
 
-      workspace.archive.restoreProject(project.id);
+      workspace.trash.restoreProject(project.id);
       // tasks and projects are back at once; notes once their files are read
       expect(searchIds(workspace, 'Apollo')).toEqual(
         [project.id, task.id, subtask.id, other.id].sort(),
@@ -796,7 +796,7 @@ describe('Workspace — search of archived and restored rows', () => {
     }
   });
 
-  it('archiving drops a task, its subtree and their notes; restoring brings them back', async () => {
+  it('trashing drops a task, its subtree and their notes; restoring brings them back', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
@@ -809,10 +809,10 @@ describe('Workspace — search of archived and restored rows', () => {
       const all = [task.id, subtask.id, note.id, other.id].sort();
       expect(searchIds(workspace, 'Draft')).toEqual(all);
 
-      workspace.archive.archiveTask(task.id);
+      workspace.trash.trashTask(task.id);
       expect(searchIds(workspace, 'Draft')).toEqual([other.id]);
 
-      workspace.archive.restoreTask(task.id);
+      workspace.trash.restoreTask(task.id);
       expect(searchIds(workspace, 'Draft')).toEqual([task.id, subtask.id, other.id].sort());
       await vi.waitFor(() => expect(searchIds(workspace, 'Draft')).toEqual(all));
     } finally {
@@ -820,7 +820,7 @@ describe('Workspace — search of archived and restored rows', () => {
     }
   });
 
-  it('archiving and restoring a note re-indexes its content from its file', async () => {
+  it('trashing and restoring a note re-indexes its content from its file', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
@@ -829,11 +829,11 @@ describe('Workspace — search of archived and restored rows', () => {
       workspace.notes.updateNote(note.id, { title: 'Agenda' });
       expect(searchIds(workspace, 'quarterly')).toEqual([note.id]);
 
-      workspace.archive.archiveNote(note.id);
+      workspace.trash.trashNote(note.id);
       expect(searchIds(workspace, 'quarterly')).toEqual([]);
       expect(searchIds(workspace, 'Agenda')).toEqual([]);
 
-      workspace.archive.restoreNote(note.id);
+      workspace.trash.restoreNote(note.id);
       await vi.waitFor(() => expect(searchIds(workspace, 'quarterly')).toEqual([note.id]));
       expect(searchIds(workspace, 'Agenda')).toEqual([note.id]);
       expect(searchIds(workspace, 'Minutes')).toEqual([]);
@@ -842,7 +842,7 @@ describe('Workspace — search of archived and restored rows', () => {
     }
   });
 
-  it('a write to an archived task or project leaves it out of search', async () => {
+  it('a write to a trashed task or project leaves it out of search', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const project = workspace.projects.createProject({
@@ -850,29 +850,29 @@ describe('Workspace — search of archived and restored rows', () => {
         dueDate: new Date(),
       });
       const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
-      workspace.archive.archiveProject(project.id);
-      workspace.archive.archiveTask(task.id);
+      workspace.trash.trashProject(project.id);
+      workspace.trash.trashTask(task.id);
 
       workspace.projects.updateProject(project.id, { description: 'lunar' });
       workspace.tasks.updateTask(task.id, { description: 'lunar' });
 
       expect(searchIds(workspace, 'lunar')).toEqual([]);
-      workspace.archive.restoreProject(project.id);
-      workspace.archive.restoreTask(task.id);
+      workspace.trash.restoreProject(project.id);
+      workspace.trash.restoreTask(task.id);
       expect(searchIds(workspace, 'lunar')).toEqual([project.id, task.id].sort());
     } finally {
       await workspace.close();
     }
   });
 
-  it('a note archived again while its restore is read stays out of search', async () => {
+  it('a note trashed again while its restore is read stays out of search', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
-      workspace.archive.archiveNote(note.id);
+      workspace.trash.trashNote(note.id);
 
-      workspace.archive.restoreNote(note.id);
-      workspace.archive.archiveNote(note.id);
+      workspace.trash.restoreNote(note.id);
+      workspace.trash.trashNote(note.id);
       await workspace.close();
 
       const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
@@ -907,8 +907,8 @@ describe('Workspace — search of archived and restored rows', () => {
   it('closing waits for restored notes to be indexed', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     const note = await workspace.notes.createNote({ title: 'Minutes' });
-    workspace.archive.archiveNote(note.id);
-    workspace.archive.restoreNote(note.id);
+    workspace.trash.trashNote(note.id);
+    workspace.trash.restoreNote(note.id);
     await workspace.close();
 
     const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
@@ -919,9 +919,9 @@ describe('Workspace — search of archived and restored rows', () => {
     }
   });
 
-  it("writes search in the archive's transaction", async () => {
+  it("writes search in the trash's transaction", async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
-    // private, but it is the connection the archive's transaction runs on
+    // private, but it is the connection the trash's transaction runs on
     const sqlite = workspace['sqliteClient'];
     // recorded rather than asserted in the spies: a listener's error is logged, not thrown
     const calls: [string, boolean][] = [];
@@ -935,8 +935,8 @@ describe('Workspace — search of archived and restored rows', () => {
       const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
       calls.length = 0;
 
-      workspace.archive.archiveTask(task.id);
-      workspace.archive.restoreTask(task.id);
+      workspace.trash.trashTask(task.id);
+      workspace.trash.restoreTask(task.id);
 
       expect(calls).toEqual([
         ['remove', true],
@@ -972,17 +972,17 @@ describe('Workspace — search rebuild', () => {
         startAt: new Date('2026-06-10T10:00:00.000Z'),
         endAt: new Date('2026-06-10T11:00:00.000Z'),
       });
-      const archivedTask = workspace.tasks.createTask({
+      const trashedTask = workspace.tasks.createTask({
         title: 'Apollo scrapped',
         dueDate: new Date(),
       });
-      const archivedNote = await workspace.notes.createNote({ title: 'Apollo old' });
-      workspace.archive.archiveTask(archivedTask.id);
-      workspace.archive.archiveNote(archivedNote.id);
+      const trashedNote = await workspace.notes.createNote({ title: 'Apollo old' });
+      workspace.trash.trashTask(trashedTask.id);
+      workspace.trash.trashNote(trashedNote.id);
       const expected = [project.id, task.id, note.id, event.id].sort();
       expect(searchIds(workspace, 'Apollo')).toEqual(expected);
 
-      // drift: entries lost, a stale one left behind, an archived row back in
+      // drift: entries lost, a stale one left behind, a trashed row back in
       const sqlite = workspace['sqliteClient'];
       sqlite.prepare('DELETE FROM search_index WHERE entity_id IN (?, ?)').run(note.id, task.id);
       sqlite
@@ -992,7 +992,7 @@ describe('Workspace — search rebuild', () => {
         .prepare(
           "INSERT INTO search_index (title, body, entity_id, entity_type) VALUES (?, '', ?, 'task')",
         )
-        .run('Apollo scrapped', archivedTask.id);
+        .run('Apollo scrapped', trashedTask.id);
       sqlite
         .prepare(
           "INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ('Apollo ghost', '', 'task_gone', 'task')",
@@ -1081,13 +1081,13 @@ describe('Workspace — search rebuild', () => {
     }
   });
 
-  it('leaves out a note archived while the files are read', async () => {
+  it('leaves out a note trashed while the files are read', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
 
       const rebuilding = workspace.search.rebuild();
-      workspace.archive.archiveNote(note.id);
+      workspace.trash.trashNote(note.id);
       await rebuilding;
 
       expect(searchIds(workspace, 'Minutes')).toEqual([]);

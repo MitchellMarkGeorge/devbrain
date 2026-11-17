@@ -7,7 +7,7 @@ import { sql, SQL } from 'drizzle-orm';
  * `inArray`. Local tasks nest one level, but synced and detached ones carry Linear's depth, so the
  * walk is a recursive CTE. `union` drops rows already seen, so a parent cycle cannot loop.
  *
- * Archived rows are included; callers filter on `archivedAt` where it matters.
+ * Trashed rows are included; callers filter on `trashedAt` where it matters.
  */
 export function subtreeOf(id: TaskId): SQL {
   return sql`(with recursive subtree(id) as (select ${id} union select ${tasks.id} from ${tasks} join subtree on ${tasks.parentTaskId} = subtree.id) select id from subtree)`;

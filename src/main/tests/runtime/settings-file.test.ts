@@ -82,6 +82,27 @@ describe('an old settings file', () => {
     });
   });
 
+  it('carries confirmBeforeArchiving over to confirmBeforeTrashing, dropping the old key', async () => {
+    // written before the rename, with the user's choice not to confirm
+    await folderWithOldFile(({ settings }) => ({
+      settings: {
+        ...settings,
+        general: {
+          ...without(settings.general, 'confirmBeforeTrashing'),
+          confirmBeforeArchiving: false,
+        },
+      },
+    }));
+
+    devBrain = await open(false);
+
+    expect(devBrain.settings.get('settings.general.confirmBeforeTrashing')).toBe(false);
+    const written = await readFile();
+    expect(written.settings.general.confirmBeforeTrashing).toBe(false);
+    expect(written.settings.general).not.toHaveProperty('confirmBeforeArchiving');
+    expect(settingsFileSchema.safeParse(written).success).toBe(true);
+  });
+
   it('keeps a value the user set for a newer setting', async () => {
     const first = await open(true);
     first.settings.set('settings.calendar.hideWeekends', true);

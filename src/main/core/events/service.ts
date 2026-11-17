@@ -142,7 +142,7 @@ export class EventService {
   }
 
   deleteEvent(id: EventId): void {
-    // events have no archivedAt column (unlike notes/tasks/projects) — this
+    // events have no trashedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
     assertEditable(this.db, id);
     const { eventIds, keptIds } = this.db.transaction((tx) => {

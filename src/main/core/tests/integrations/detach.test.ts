@@ -35,7 +35,7 @@ import {
 import { ExternalProject, ExternalTask } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
 import { NoteService } from '../../notes/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { projects as projectsTable } from '@main/db/schema/projects';
 import {
   DetachError,
@@ -58,7 +58,7 @@ let reconciler: TaskReconciler;
 let detach: DetachService;
 let tasks: TaskService;
 let notes: NoteService;
-let archive: ArchiveService;
+let trash: TrashService;
 let integrationId: IntegrationId;
 let sourceId: ExternalSourceId;
 let changes: TaskLinkChange[];
@@ -198,7 +198,7 @@ beforeEach(async () => {
   detach = new DetachService(db, reconciler);
   tasks = new TaskService(db);
   notes = new NoteService(db, workspacePath);
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
 
   const integration = await service.connectWithApiKey(ProviderId.LINEAR, FAKE_API_KEY);
   integrationId = integration.id;
@@ -268,7 +268,7 @@ describe('DetachService — detach', () => {
     ]);
   });
 
-  it('refuses a local task, a detached one and an archived one', async () => {
+  it('refuses a local task, a detached one and a trashed one', async () => {
     const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     expect(() => detach.detachTask(local.id)).toThrow(DetachError);
 
@@ -277,7 +277,7 @@ describe('DetachService — detach', () => {
     detach.detachTask(idOf(item));
     expect(() => detach.detachTask(idOf(item))).toThrow(/already detached/);
 
-    archive.archiveTask(idOf(item));
+    trash.trashTask(idOf(item));
     expect(() => detach.detachTask(idOf(item))).toThrow(NotFoundError);
     expect(changes).toHaveLength(1);
   });
@@ -370,7 +370,7 @@ describe('DetachService — reattach', () => {
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/no longer assigned/);
 
     expect(stateOf(item)).toBe(LinkState.DETACHED);
-    expect(taskOf(item.externalId).archivedAt).toBeNull();
+    expect(taskOf(item.externalId).trashedAt).toBeNull();
   });
 
   it('reattaches the detached subtree of a parent in the same call', async () => {
@@ -430,7 +430,7 @@ describe('DetachService — reattach', () => {
       LinkState.DETACHED,
       LinkState.SYNCED,
     ]);
-    expect(taskOf(child.externalId)).toMatchObject({ parentTaskId: null, archivedAt: null });
+    expect(taskOf(child.externalId)).toMatchObject({ parentTaskId: null, trashedAt: null });
     expect(taskOf(grandchild.externalId).parentTaskId).toBe(idOf(root));
   });
 
@@ -647,27 +647,27 @@ describe('TaskReconciler — reattachGroups', () => {
   });
 });
 
-describe('DetachService — archive', () => {
-  it('archives and restores every level of a detached three-level subtree', async () => {
+describe('DetachService — trash', () => {
+  it('trashes and restores every level of a detached three-level subtree', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
     detach.detachTask(idOf(root));
     const note = await notes.createNote({ title: 'Leaf note', linkedTaskId: idOf(grandchild) });
 
-    archive.archiveTask(idOf(root));
+    trash.trashTask(idOf(root));
 
     for (const item of [root, child, grandchild]) {
-      expect(taskOf(item.externalId).archivedAt).not.toBeNull();
+      expect(taskOf(item.externalId).trashedAt).not.toBeNull();
     }
-    expect(archive.listArchived({ entityType: 'notes' }).items.map((row) => row.id)).toEqual([
+    expect(trash.listTrashed({ entityType: 'notes' }).items.map((row) => row.id)).toEqual([
       note.id,
     ]);
 
-    archive.restoreTask(idOf(root));
+    trash.restoreTask(idOf(root));
 
     for (const item of [root, child, grandchild]) {
-      expect(taskOf(item.externalId).archivedAt).toBeNull();
+      expect(taskOf(item.externalId).trashedAt).toBeNull();
     }
-    expect(archive.listArchived().items).toEqual([]);
+    expect(trash.listTrashed().items).toEqual([]);
   });
 });

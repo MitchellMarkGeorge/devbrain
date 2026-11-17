@@ -8,7 +8,7 @@ import { createDb } from '../utils';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import {
   AuthType,
   LinkState,
@@ -458,18 +458,18 @@ describe('refs — mutation results', () => {
     expect(events.updateEvent(event.id, { title: 'Renamed' })).toHaveProperty('external', null);
   });
 
-  it('archiving and restoring return external', async () => {
-    const archive = new ArchiveService(db);
+  it('trashing and restoring return external', async () => {
+    const trash = new TrashService(db);
     const task = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     link({ taskId: detached.id }, { state: LinkState.DETACHED });
     const project = projects.createProject({ title: 'Local', dueDate: TOMORROW });
 
-    expect(archive.archiveTask(task.id)).toHaveProperty('external', null);
-    expect(archive.restoreTask(task.id)).toHaveProperty('external', null);
-    expect(archive.archiveTask(detached.id).external?.state).toBe(LinkState.DETACHED);
-    expect(archive.restoreTask(detached.id).external?.state).toBe(LinkState.DETACHED);
-    expect(archive.archiveProject(project.id)).toHaveProperty('external', null);
-    expect(archive.restoreProject(project.id)).toHaveProperty('external', null);
+    expect(trash.trashTask(task.id)).toHaveProperty('external', null);
+    expect(trash.restoreTask(task.id)).toHaveProperty('external', null);
+    expect(trash.trashTask(detached.id).external?.state).toBe(LinkState.DETACHED);
+    expect(trash.restoreTask(detached.id).external?.state).toBe(LinkState.DETACHED);
+    expect(trash.trashProject(project.id)).toHaveProperty('external', null);
+    expect(trash.restoreProject(project.id)).toHaveProperty('external', null);
   });
 });

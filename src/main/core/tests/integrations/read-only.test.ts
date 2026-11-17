@@ -11,7 +11,7 @@ import { createDb } from '../utils';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { NoteService } from '../../notes/service';
 import {
   AuthType,
@@ -38,7 +38,7 @@ let db: BetterSQLite3Database;
 let tasks: TaskService;
 let projects: ProjectService;
 let events: EventService;
-let archive: ArchiveService;
+let trash: TrashService;
 let notes: NoteService;
 let workspacePath: string;
 let sourceId: ExternalSourceId;
@@ -98,7 +98,7 @@ beforeEach(async () => {
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   events = new EventService(db);
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-read-only-'));
   notes = new NoteService(db, workspacePath);
   const integrationId = db
@@ -197,14 +197,14 @@ describe('read-only guards — guarded methods', () => {
       run: (f) => tasks.updateTasks([f.other.id, f.task.id], { dueDate: null }),
     },
     {
-      method: 'ArchiveService.archiveTask',
+      method: 'TrashService.trashTask',
       target: (f) => f.task.id,
-      run: (f) => archive.archiveTask(f.task.id),
+      run: (f) => trash.trashTask(f.task.id),
     },
     {
-      method: 'ArchiveService.archiveTasks',
+      method: 'TrashService.trashTasks',
       target: (f) => f.task.id,
-      run: (f) => archive.archiveTasks([f.other.id, f.task.id]),
+      run: (f) => trash.trashTasks([f.other.id, f.task.id]),
     },
     {
       method: 'ProjectService.updateProject',
@@ -222,9 +222,9 @@ describe('read-only guards — guarded methods', () => {
       run: (f) => projects.updateStatus(f.project.id, ProjectStatus.ACTIVE),
     },
     {
-      method: 'ArchiveService.archiveProject',
+      method: 'TrashService.trashProject',
       target: (f) => f.project.id,
-      run: (f) => archive.archiveProject(f.project.id),
+      run: (f) => trash.trashProject(f.project.id),
     },
     {
       method: 'EventService.updateEvent',
@@ -245,7 +245,7 @@ describe('read-only guards — guarded methods', () => {
 
   it.each(cases)('$method throws on a synced row', async ({ target, run }) => {
     link(target(f));
-    // `run` may be sync (ArchiveService) or async; the async wrapper turns both into a promise
+    // `run` may be sync (TrashService) or async; the async wrapper turns both into a promise
     await expect((async () => run(f))()).rejects.toThrow(ExternalReadOnlyError);
   });
 
@@ -263,11 +263,11 @@ describe('read-only guards — guarded methods', () => {
   it('leaves a synced row untouched when a write is rejected', async () => {
     link(f.task.id);
     expect(() => tasks.updateTask(f.task.id, { title: 'Edited' })).toThrow(ExternalReadOnlyError);
-    expect(() => archive.archiveTask(f.task.id)).toThrow(ExternalReadOnlyError);
+    expect(() => trash.trashTask(f.task.id)).toThrow(ExternalReadOnlyError);
 
     const task = tasks.getById(f.task.id);
     expect(task.title).toBe('Task');
-    expect(task.archivedAt).toBeNull();
+    expect(task.trashedAt).toBeNull();
   });
 
   it('refuses a whole batch that holds a synced task, changing none of it', async () => {
@@ -275,18 +275,18 @@ describe('read-only guards — guarded methods', () => {
     expect(() => tasks.updateTasks([f.other.id, f.task.id], { dueDate: null })).toThrow(
       ExternalReadOnlyError,
     );
-    expect(() => archive.archiveTasks([f.other.id, f.task.id])).toThrow(ExternalReadOnlyError);
+    expect(() => trash.trashTasks([f.other.id, f.task.id])).toThrow(ExternalReadOnlyError);
 
-    expect(tasks.getByIds([f.other.id, f.task.id]).map((t) => [t.dueDate, t.archivedAt])).toEqual([
+    expect(tasks.getByIds([f.other.id, f.task.id]).map((t) => [t.dueDate, t.trashedAt])).toEqual([
       [TOMORROW, null],
       [TOMORROW, null],
     ]);
   });
 
   it('restores a synced task, which SyncWriter relies on', async () => {
-    archive.archiveTask(f.task.id);
+    trash.trashTask(f.task.id);
     link(f.task.id);
-    expect(archive.restoreTask(f.task.id).archivedAt).toBeNull();
+    expect(trash.restoreTask(f.task.id).trashedAt).toBeNull();
   });
 });
 

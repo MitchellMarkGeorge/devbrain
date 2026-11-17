@@ -117,7 +117,7 @@ function projectIdOf(externalId: string): ProjectId {
   return linkOf(externalId)!.projectId!;
 }
 
-// the raw row, archived or not (the service reads only live rows in some paths)
+// the raw row, trashed or not (the service reads only live rows in some paths)
 function taskRow(externalId: string) {
   return db
     .select()
@@ -214,7 +214,7 @@ describe('SyncWriter — no link: insert', () => {
       projectId: null,
       completedAt: null,
       createdAt: CREATED,
-      archivedAt: null,
+      trashedAt: null,
     });
     expect(task.external).toMatchObject({
       provider: Provider.LINEAR,
@@ -527,13 +527,13 @@ describe('SyncWriter — detached', () => {
     const summary = writer.removeTasks(sourceId, [item.externalId]);
 
     expect(summary.removed).toBe(0);
-    expect(taskRow(item.externalId).archivedAt).toBeNull();
+    expect(taskRow(item.externalId).trashedAt).toBeNull();
     expect(linkOf(item.externalId)!.state).toBe(LinkState.DETACHED);
   });
 });
 
 describe('SyncWriter — removed', () => {
-  it('removeTasks archives the task, marks the link removed and drops it from search', () => {
+  it('removeTasks trashes the task, marks the link removed and drops it from search', () => {
     const item = issue({ title: 'Migrate cron jobs' });
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     expect(searchIds('cron')).toEqual([taskIdOf(item.externalId)]);
@@ -541,7 +541,7 @@ describe('SyncWriter — removed', () => {
     const summary = writer.removeTasks(sourceId, [item.externalId, 'never-mirrored']);
 
     expect(summary).toEqual({ inserted: 0, updated: 0, removed: 1, changed: ['task'] });
-    expect(taskRow(item.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(taskRow(item.externalId).trashedAt).toBeInstanceOf(Date);
     expect(linkOf(item.externalId)).toMatchObject({ state: LinkState.REMOVED });
     expect(linkOf(item.externalId)!.removedAt).toBeInstanceOf(Date);
     expect(searchIds('cron')).toEqual([]);
@@ -567,7 +567,7 @@ describe('SyncWriter — removed', () => {
     expect(linkOf(kept.externalId)!.state).toBe(LinkState.SYNCED);
   });
 
-  it('a removed task that reappears is restored: synced, unarchived, updated, re-indexed', () => {
+  it('a removed task that reappears is restored: synced, restored, updated, re-indexed', () => {
     const item = issue({ title: 'Flaky upload test' });
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     writer.removeTasks(sourceId, [item.externalId]);
@@ -582,25 +582,25 @@ describe('SyncWriter — removed', () => {
     expect(count(tasksTable)).toBe(1);
     expect(taskRow(item.externalId)).toMatchObject({
       title: 'Flaky upload test, again',
-      archivedAt: null,
+      trashedAt: null,
     });
     expect(linkOf(item.externalId)).toMatchObject({ state: LinkState.SYNCED, removedAt: null });
     expect(searchIds('Flaky')).toEqual([taskIdOf(item.externalId)]);
   });
 
-  it('a removed project that reappears is restored and unarchived', () => {
+  it('a removed project that reappears is restored and restored', () => {
     const proj = project();
     writer.applyTaskPage(sourceId, page({ projects: [proj] }));
     const projectId = projectIdOf(proj.externalId);
     // what the project lifecycle (feature 11) will do
-    db.update(projectsTable).set({ archivedAt: V1 }).where(eq(projectsTable.id, projectId)).run();
+    db.update(projectsTable).set({ trashedAt: V1 }).where(eq(projectsTable.id, projectId)).run();
     setLinkState(proj.externalId, LinkState.REMOVED);
 
     const item = issue({ projectExternalId: proj.externalId });
     writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [item] }));
 
     expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
-    expect(projectRow(projectId).archivedAt).toBeNull();
+    expect(projectRow(projectId).trashedAt).toBeNull();
     expect(taskRow(item.externalId).projectId).toBe(projectId);
   });
 });

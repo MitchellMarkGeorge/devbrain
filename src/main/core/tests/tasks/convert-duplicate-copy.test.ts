@@ -21,7 +21,7 @@ import { createDb } from '../utils';
 import { TaskChange, TaskService } from '../../tasks/service';
 import { ProjectChange, ProjectService } from '../../projects/service';
 import { NoteChange, NoteService } from '../../notes/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { FavoritesService } from '../../favorites/service';
 import { EventService } from '../../events/service';
 import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
@@ -37,7 +37,7 @@ let db: BetterSQLite3Database;
 let tasks: TaskService;
 let projects: ProjectService;
 let notes: NoteService;
-let archive: ArchiveService;
+let trash: TrashService;
 let favorites: FavoritesService;
 let workspacePath: string;
 let sourceId: ExternalSourceId;
@@ -68,7 +68,7 @@ beforeEach(async () => {
   db = createDb();
   tasks = new TaskService(db);
   projects = new ProjectService(db, tasks);
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
   favorites = new FavoritesService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-convert-'));
   notes = new NoteService(db, workspacePath);
@@ -95,7 +95,7 @@ afterEach(async () => {
 });
 
 describe('TaskService.convertToProject', () => {
-  it('makes a project from the task, moves its subtasks and note, and archives it', async () => {
+  it('makes a project from the task, moves its subtasks and note, and trashes it', async () => {
     const home = projects.createProject({ title: 'Home', color: '#ff0000' });
     const event = new EventService(db).createEvent({
       title: 'Kickoff',
@@ -116,7 +116,7 @@ describe('TaskService.convertToProject', () => {
     const nested = tasks.createSubtask(first.id, { title: 'Verifier' });
     const second = tasks.createSubtask(task.id, { title: 'Fallback' });
     const trashed = tasks.createSubtask(task.id, { title: 'Dropped' });
-    archive.archiveTask(trashed.id);
+    trash.trashTask(trashed.id);
     const note = await notes.createNote({ title: 'Plan', linkedTaskId: task.id });
     const other = await notes.createNote({ title: 'Unrelated' });
 
@@ -131,7 +131,7 @@ describe('TaskService.convertToProject', () => {
       dueDate: DUE,
       color: '#ff0000',
       status: ProjectStatus.ACTIVE,
-      archivedAt: null,
+      trashedAt: null,
       external: null,
     });
     // the favorite moved to the project
@@ -145,11 +145,11 @@ describe('TaskService.convertToProject', () => {
         parentTaskId: null,
         projectId: project.id,
         linkedEventId: event.id,
-        archivedAt: null,
+        trashedAt: null,
       });
     }
     expect(row(nested.id)).toMatchObject({ parentTaskId: first.id, projectId: project.id });
-    // an archived subtask stays with the task, in the trash
+    // a trashed subtask stays with the task, in the trash
     expect(row(trashed.id)).toMatchObject({ parentTaskId: task.id, projectId: home.id });
 
     // the task note is the project's, and no task's
@@ -162,7 +162,7 @@ describe('TaskService.convertToProject', () => {
       projectId: home.id,
       favoritedAt: null,
     });
-    expect(row(task.id).archivedAt).not.toBeNull();
+    expect(row(task.id).trashedAt).not.toBeNull();
     expect(() => tasks.getById(task.id)).toThrow(NotFoundError);
 
     expect(changes).toHaveLength(1);
@@ -171,7 +171,7 @@ describe('TaskService.convertToProject', () => {
     if (change.type !== 'converted') return;
     expect(change.project.id).toBe(project.id);
     expect(change.task.id).toBe(task.id);
-    expect(change.task.archivedAt).not.toBeNull();
+    expect(change.task.trashedAt).not.toBeNull();
     expect(change.movedTasks.map((moved) => moved.id).sort()).toEqual([first.id, second.id].sort());
     expect(change.note?.id).toBe(note.id);
   });
@@ -182,23 +182,23 @@ describe('TaskService.convertToProject', () => {
     const note = await notes.createNote({ title: 'Note', linkedTaskId: task.id });
     const project = tasks.convertToProject(task.id);
 
-    archive.restoreTask(task.id);
-    expect(tasks.getById(task.id).archivedAt).toBeNull();
+    trash.restoreTask(task.id);
+    expect(tasks.getById(task.id).trashedAt).toBeNull();
     expect(row(subtask.id)).toMatchObject({ parentTaskId: null, projectId: project.id });
     expect(notes.getById(note.id)).toMatchObject({ linkedTaskId: null, projectId: project.id });
   });
 
-  it('archiving the new project takes the moved tasks and the note with it', async () => {
+  it('trashing the new project takes the moved tasks and the note with it', async () => {
     const task = tasks.createTask({ title: 'Task' });
     const subtask = tasks.createSubtask(task.id, { title: 'Sub' });
     const note = await notes.createNote({ title: 'Note', linkedTaskId: task.id });
     const project = tasks.convertToProject(task.id);
 
-    const changed = archive.archiveProject(project.id);
-    expect(changed.archivedAt).not.toBeNull();
-    expect(row(subtask.id).archivedAt).not.toBeNull();
+    const changed = trash.trashProject(project.id);
+    expect(changed.trashedAt).not.toBeNull();
+    expect(row(subtask.id).trashedAt).not.toBeNull();
     const noteRow = db.select().from(notesTable).where(eq(notesTable.id, note.id)).get()!;
-    expect(noteRow.archivedAt).not.toBeNull();
+    expect(noteRow.trashedAt).not.toBeNull();
   });
 
   it('maps the status, and a task with no project or note makes a plain project', () => {
@@ -228,7 +228,7 @@ describe('TaskService.convertToProject', () => {
     const synced = tasks.createTask({ title: 'Synced' });
     linkTask(synced.id);
     expect(() => tasks.convertToProject(synced.id)).toThrow(ExternalReadOnlyError);
-    expect(row(synced.id).archivedAt).toBeNull();
+    expect(row(synced.id).trashedAt).toBeNull();
     expect(projects.listProjects().items).toEqual([]);
 
     const detached = tasks.createTask({ title: 'Detached' });
@@ -236,9 +236,9 @@ describe('TaskService.convertToProject', () => {
     expect(tasks.convertToProject(detached.id).title).toBe('Detached');
   });
 
-  it('throws NotFoundError for an unknown or archived task', () => {
+  it('throws NotFoundError for an unknown or trashed task', () => {
     const task = tasks.createTask({ title: 'Task' });
-    archive.archiveTask(task.id);
+    trash.trashTask(task.id);
     expect(() => tasks.convertToProject(task.id)).toThrow(NotFoundError);
     expect(() => tasks.convertToProject('tsk_missing' as TaskId)).toThrow(NotFoundError);
   });
@@ -261,7 +261,7 @@ describe('TaskService.duplicateTask', () => {
     const sub = tasks.createSubtask(task.id, { title: 'Outline' });
     tasks.createSubtask(sub.id, { title: 'Headings' });
     const trashed = tasks.createSubtask(task.id, { title: 'Trashed' });
-    archive.archiveTask(trashed.id);
+    trash.trashTask(trashed.id);
 
     const changes: TaskChange[] = [];
     tasks.onChange((change) => changes.push(change));
@@ -337,9 +337,9 @@ describe('TaskService.duplicateTask', () => {
     expect(tasks.updateTask(parentCopy.id, { title: 'Mine' }).title).toBe('Mine');
   });
 
-  it('throws NotFoundError for an unknown or archived task', () => {
+  it('throws NotFoundError for an unknown or trashed task', () => {
     const task = tasks.createTask({ title: 'Task' });
-    archive.archiveTask(task.id);
+    trash.trashTask(task.id);
     expect(() => tasks.duplicateTask(task.id)).toThrow(NotFoundError);
     expect(() => tasks.duplicateTask('tsk_missing' as TaskId)).toThrow(NotFoundError);
   });
@@ -424,7 +424,7 @@ describe('toMarkdown', () => {
     tasks.createSubtask(first.id, { title: 'Length check' });
     tasks.createSubtask(task.id, { title: 'Old flow', status: TaskStatus.CANCELLED });
     const trashed = tasks.createSubtask(task.id, { title: 'Trashed' });
-    archive.archiveTask(trashed.id);
+    trash.trashTask(trashed.id);
 
     expect(tasks.toMarkdown(task.id)).toBe(
       [
@@ -473,7 +473,7 @@ describe('toMarkdown', () => {
     tasks.createTask({ title: 'Pricing', projectId: project.id });
     tasks.createTask({ title: 'Domain', projectId: project.id, status: TaskStatus.COMPLETED });
     const trashed = tasks.createTask({ title: 'Trashed', projectId: project.id });
-    archive.archiveTask(trashed.id);
+    trash.trashTask(trashed.id);
     tasks.createTask({ title: 'Elsewhere' });
 
     expect(projects.toMarkdown(project.id)).toBe(
@@ -512,7 +512,7 @@ describe('toMarkdown', () => {
     expect(await notes.toMarkdown(empty.id)).toBe('# Untitled\n');
   });
 
-  it('throws NotFoundError for an archived or unknown entity, and changes nothing', async () => {
+  it('throws NotFoundError for a trashed or unknown entity, and changes nothing', async () => {
     const task = tasks.createTask({ title: 'Task' });
     const project = projects.createProject({ title: 'Project' });
     const note = await notes.createNote({ title: 'Note' });
@@ -525,8 +525,8 @@ describe('toMarkdown', () => {
     await notes.toMarkdown(note.id);
     expect(changes).toEqual([]);
 
-    archive.archiveTask(task.id);
-    archive.archiveProject(project.id);
+    trash.trashTask(task.id);
+    trash.trashProject(project.id);
     expect(() => tasks.toMarkdown(task.id)).toThrow(NotFoundError);
     expect(() => projects.toMarkdown(project.id)).toThrow(NotFoundError);
     await expect(notes.toMarkdown('nte_missing' as never)).rejects.toThrow(NotFoundError);

@@ -9,7 +9,7 @@ import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../
 import { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
 import { CreateNoteOptions, NoteFilterOptions, NoteSortOptions, UpdateNoteOptions } from './types';
 import { stripMarkdown } from '../shared/markdown';
-import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
+import { InvalidInputError, NotInTrashError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
@@ -55,10 +55,10 @@ export class NoteService {
   /**
    * The note as the notes list shows it: its row with its project and link (withNoteListDetails),
    * so its page and sheet draw its project as its row does, whatever the project's status. Throws
-   * NotFoundError for an unknown note, or one in the trash without `includeArchived` (Trash opens
+   * NotFoundError for an unknown note, or one in the trash without `includeTrashed` (Trash opens
    * it read-only).
    */
-  getById(id: NoteId, options: { includeArchived?: boolean } = {}): NoteListItem {
+  getById(id: NoteId, options: { includeTrashed?: boolean } = {}): NoteListItem {
     return withNoteListDetails(this.db, [this.findNote(id, options)])[0];
   }
 
@@ -68,9 +68,9 @@ export class NoteService {
 
   // the note's row, for the checks before a write: what they read, without the list's details.
   // Throws NotFoundError as getById does.
-  // an active note, or with `includeArchived` one in the trash too
-  private findNote(id: NoteId, options: { includeArchived?: boolean } = {}): Note {
-    const note = options.includeArchived
+  // an active note, or with `includeTrashed` one in the trash too
+  private findNote(id: NoteId, options: { includeTrashed?: boolean } = {}): Note {
+    const note = options.includeTrashed
       ? this.db.select().from(notes).where(eq(notes.id, id)).get()
       : this.activeNotes(eq(notes.id, id)).get();
     if (!note) throw new NotFoundError(id);
@@ -143,7 +143,7 @@ export class NoteService {
    * keeps the project. It links to no event or task: each has at most one note (its event note or
    * task note), which stays the original. It reads the content after the saves already queued for
    * the note, so the copy has the latest.
-   * Throws NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
+   * Throws NotFoundError for an unknown or trashed note, MalformedNoteFileError for a damaged file.
    */
   async duplicateNote(id: NoteId): Promise<Note> {
     const [note, content] = await this.latestContent(id);
@@ -164,16 +164,16 @@ export class NoteService {
   }
 
   // The path of an active note's markdown file, for showing it in the file manager. The file may
-  // be missing. Throws NotFoundError for an unknown or archived note.
+  // be missing. Throws NotFoundError for an unknown or trashed note.
   filePathOf(id: NoteId): string {
     this.findNote(id);
     return this.noteFilePath(id);
   }
 
   // The markdown of a note, read from its file, without the file's front matter. A note in the trash
-  // is read with `includeArchived` (Trash opens it read-only). Throws NotFoundError for an unknown
-  // note, or an archived one without the option, MalformedNoteFileError for a damaged file.
-  async readContent(id: NoteId, options: { includeArchived?: boolean } = {}): Promise<string> {
+  // is read with `includeTrashed` (Trash opens it read-only). Throws NotFoundError for an unknown
+  // note, or a trashed one without the option, MalformedNoteFileError for a damaged file.
+  async readContent(id: NoteId, options: { includeTrashed?: boolean } = {}): Promise<string> {
     this.findNote(id, options);
     const { content } = await readNoteFile(this.noteFilePath(id));
     return content;
@@ -184,7 +184,7 @@ export class NoteService {
     sort: NoteSortOptions = { sortBy: 'updatedAt' },
     page: PageOptions = {},
   ): Page<NoteListItem> {
-    const clauses = [isNull(notes.archivedAt)];
+    const clauses = [isNull(notes.trashedAt)];
 
     if (filter.projectId !== undefined) {
       clauses.push(
@@ -275,7 +275,7 @@ export class NoteService {
   // content is what ends up in the file, the preview and the search index. Each save's file write,
   // preview and change come from its own content, and every call resolves with the row it wrote
   // (or rejects with its own error, which does not stop the saves queued after it).
-  // Throws NotFoundError for an unknown or archived note, or one deleted while saving.
+  // Throws NotFoundError for an unknown or trashed note, or one deleted while saving.
   async updateNoteContent(id: NoteId, content: string): Promise<Note> {
     const previous = this.contentSaves.get(id);
     const save = previous
@@ -290,8 +290,8 @@ export class NoteService {
   }
 
   /**
-   * Deletes an archived note for good (the UI calls archived items "in the trash"; deleting is
-   * only offered there): its row, then its markdown file. An active one throws NotArchivedError.
+   * Deletes a note in the trash for good (deleting is only offered
+   * there): its row, then its markdown file. An active one throws NotInTrashError.
    * Tasks that link to it are kept and lose the link, by the foreign key's `set null`. Favorites
    * and recents are columns of the row and go with it.
    *
@@ -304,7 +304,7 @@ export class NoteService {
    * `fileRemoved: false`, and the failure is logged. The file stays in the notes folder, which
    * nothing reads without a row. A file already missing counts as removed.
    *
-   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
+   * Throws NotFoundError for an unknown id, and NotInTrashError for one not in the trash.
    */
   async deleteNote(id: NoteId): Promise<NoteDeleteResult> {
     const previous = this.contentSaves.get(id);
@@ -322,12 +322,12 @@ export class NoteService {
   private async removeNote(id: NoteId): Promise<NoteDeleteResult> {
     const { linkedTaskId, unlinkedTaskIds } = this.db.transaction((tx) => {
       const existing = tx
-        .select({ archivedAt: notes.archivedAt, linkedTaskId: notes.linkedTaskId })
+        .select({ trashedAt: notes.trashedAt, linkedTaskId: notes.linkedTaskId })
         .from(notes)
         .where(eq(notes.id, id))
         .get();
       if (!existing) throw new NotFoundError(id);
-      if (existing.archivedAt === null) throw new NotArchivedError(id);
+      if (existing.trashedAt === null) throw new NotInTrashError(id);
 
       // read before the delete clears their link: tasks made from the note, subtasks included
       const linked = tx
@@ -356,7 +356,7 @@ export class NoteService {
   }
 
   /**
-   * Removes the markdown files of notes whose rows were deleted (ArchiveService.emptyTrash), each after
+   * Removes the markdown files of notes whose rows were deleted (TrashService.emptyTrash), each after
    * the content saves already queued for it, as deleteNote does. Resolves with the ids whose file
    * could not be removed, each failure logged by its error class; the file stays in the notes
    * folder, which nothing reads without a row. A note that still has a row is left alone, and a
@@ -424,12 +424,12 @@ export class NoteService {
   }
 
   private activeNotes(condition: SQL<unknown>) {
-    // automatically filters out archived notes
+    // automatically filters out trashed notes
     return (
       this.db
         .select()
         .from(notes)
-        .where(and(condition, isNull(notes.archivedAt)))
+        .where(and(condition, isNull(notes.trashedAt)))
         // by default sort by created at (come back to this)
         .orderBy(desc(notes.createdAt))
     );

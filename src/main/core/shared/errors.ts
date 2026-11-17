@@ -50,19 +50,19 @@ export class TaskHierarchyError extends CoreError {
   }
 }
 
-export class AlreadyArchivedError<T extends EntityType> extends CoreError {
-  readonly code = 'already_archived';
+export class AlreadyInTrashError<T extends EntityType> extends CoreError {
+  readonly code = 'already_in_trash';
   constructor(id: Id<T>) {
-    super(`Entity is already archived: ${id}`);
-    this.name = 'AlreadyArchivedError';
+    super(`Entity is already in the trash: ${id}`);
+    this.name = 'AlreadyInTrashError';
   }
 }
 
-export class NotArchivedError<T extends EntityType> extends CoreError {
-  readonly code = 'not_archived';
+export class NotInTrashError<T extends EntityType> extends CoreError {
+  readonly code = 'not_in_trash';
   constructor(id: Id<T>) {
-    super(`Entity is not archived: ${id}`);
-    this.name = 'NotArchivedError';
+    super(`Entity is not in the trash: ${id}`);
+    this.name = 'NotInTrashError';
   }
 }
 

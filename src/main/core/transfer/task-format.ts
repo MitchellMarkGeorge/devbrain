@@ -74,7 +74,7 @@ export interface ExportedTask {
 
 /**
  * Tasks as the trees an export writes, in the order given, each subtask under its parent. A task
- * whose parent is not among them (archived) is written as a top-level one.
+ * whose parent is not among them (trashed) is written as a top-level one.
  */
 export function toExportedTasks(tasks: TaskListItem[]): ExportedTask[] {
   const exported = new Map<TaskId, ExportedTask>();

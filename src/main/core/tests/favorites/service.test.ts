@@ -7,7 +7,7 @@ import { EventId, ExternalSourceId, TaskId } from '@common/ids';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { createDb } from '../utils';
 import { FavoriteChange, FavoritesService } from '../../favorites/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
@@ -26,7 +26,7 @@ const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 let db: BetterSQLite3Database;
 let favorites: FavoritesService;
-let archive: ArchiveService;
+let trash: TrashService;
 let tasks: TaskService;
 let projects: ProjectService;
 let notesService: NoteService;
@@ -39,7 +39,7 @@ beforeEach(async () => {
   await fs.mkdir(path.join(workspacePath, 'notes'), { recursive: true });
 
   favorites = new FavoritesService(db);
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   notesService = new NoteService(db, workspacePath);
@@ -256,16 +256,16 @@ describe('FavoritesService — listFavorites', () => {
     expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([project.id]);
   });
 
-  it('leaves out archived entities until they are restored', async () => {
+  it('leaves out trashed entities until they are restored', async () => {
     const project = projects.createProject({ title: 'P', dueDate: TOMORROW });
     const task = tasks.createTask({ title: 'T', dueDate: TOMORROW, projectId: project.id });
     favorites.favoriteTask(task.id);
 
-    archive.archiveProject(project.id);
+    trash.trashProject(project.id);
     expect(favorites.listFavorites().items).toEqual([]);
     expect(favorites.listFavorites({ entityType: 'tasks' }).items).toEqual([]);
 
-    archive.restoreProject(project.id);
+    trash.restoreProject(project.id);
     expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 
@@ -355,15 +355,13 @@ describe('FavoritesService — listFavorites cursor pagination', () => {
     const b = tasks.createTask({ title: 'b', dueDate: TOMORROW });
     favorites.favoriteTask(a.id);
     favorites.favoriteTask(b.id);
-    archive.archiveTask(a.id);
-    archive.archiveTask(b.id);
+    trash.trashTask(a.id);
+    trash.trashTask(b.id);
 
     expect(() => favorites.listFavorites({}, { limit: 0 })).toThrow(RangeError);
     expect(() => favorites.listFavorites({}, { cursor: '!!' })).toThrow(InvalidCursorError);
-    const archiveCursor = archive.listArchived({}, { limit: 1 }).nextCursor!;
-    expect(() => favorites.listFavorites({}, { cursor: archiveCursor })).toThrow(
-      InvalidCursorError,
-    );
+    const trashCursor = trash.listTrashed({}, { limit: 1 }).nextCursor!;
+    expect(() => favorites.listFavorites({}, { cursor: trashCursor })).toThrow(InvalidCursorError);
   });
 });
 

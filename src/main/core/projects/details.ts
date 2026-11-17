@@ -67,7 +67,7 @@ export function projectStatsOf(
       totalTasks: count(sql`${tasks.status} != ${TaskStatus.CANCELLED}`),
     })
     .from(tasks)
-    .where(and(inArray(tasks.projectId, ids), isNull(tasks.archivedAt)))
+    .where(and(inArray(tasks.projectId, ids), isNull(tasks.trashedAt)))
     .groupBy(tasks.projectId)
     .all();
 

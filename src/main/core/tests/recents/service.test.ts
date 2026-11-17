@@ -9,7 +9,7 @@ import { EventId, TaskId } from '@common/ids';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { createDb, MIGRATIONS_PATH } from '../utils';
 import { RecentChange, RecentsService } from '../../recents/service';
-import { ArchiveService } from '../../archive/service';
+import { TrashService } from '../../trash/service';
 import { EventService } from '../../events/service';
 import { FavoritesService } from '../../favorites/service';
 import { NoteService } from '../../notes/service';
@@ -31,7 +31,7 @@ const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 let db: BetterSQLite3Database;
 let recents: RecentsService;
 let favorites: FavoritesService;
-let archive: ArchiveService;
+let trash: TrashService;
 let tasks: TaskService;
 let projects: ProjectService;
 let notesService: NoteService;
@@ -45,7 +45,7 @@ beforeEach(async () => {
 
   recents = new RecentsService(db);
   favorites = new FavoritesService(db);
-  archive = new ArchiveService(db);
+  trash = new TrashService(db);
   tasks = new TaskService(db);
   projects = new ProjectService(db, new TaskService(db));
   notesService = new NoteService(db, workspacePath);
@@ -208,16 +208,16 @@ describe('RecentsService — listRecents', () => {
     ]);
   });
 
-  it('leaves out archived entities until they are restored', async () => {
+  it('leaves out trashed entities until they are restored', async () => {
     const project = projects.createProject({ title: 'P', dueDate: TOMORROW });
     const task = tasks.createTask({ title: 'T', dueDate: TOMORROW, projectId: project.id });
     recents.recordView(task.id);
 
-    archive.archiveProject(project.id);
+    trash.trashProject(project.id);
     expect(recents.listRecents().items).toEqual([]);
     expect(recents.listRecents({ entityType: 'tasks' }).items).toEqual([]);
 
-    archive.restoreProject(project.id);
+    trash.restoreProject(project.id);
     expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 

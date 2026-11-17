@@ -22,7 +22,7 @@ const VALID_SETTINGS = {
       launchOnStartup: false,
       openToLastPage: true,
       confirmBeforeDeleting: true,
-      confirmBeforeArchiving: true,
+      confirmBeforeTrashing: true,
       timeFormat: '12',
     },
     tasks: {

@@ -32,7 +32,7 @@ import {
 import {
   ExternalReadOnlyError,
   InvalidInputError,
-  NotArchivedError,
+  NotInTrashError,
   NotFoundError,
   TaskHierarchyError,
 } from '../shared/errors';
@@ -75,7 +75,7 @@ const PROJECT_STATUS_OF_TASK: Record<TaskStatus, ProjectStatus> = {
 
 // What convertToProject made and changed, for its `converted` change.
 export interface TaskConversion {
-  // the task as archived
+  // the task as trashed
   task: Task;
   project: Project;
   // the task's subtasks, now top-level tasks of the project
@@ -131,7 +131,7 @@ function newSubtaskValues(parent: SubtaskParent, options: CreateSubTaskOptions):
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` is sent as the delete's last step, inside its transaction, so search drops the rows in
-// the same commit (as an archive does). `converted` names the project a task became and every row
+// the same commit (as a trash does). `converted` names the project a task became and every row
 // that conversion changed, after its commit.
 export type TaskChange =
   | { type: 'created'; task: Task }
@@ -149,14 +149,14 @@ export class TaskService {
     return this.changes.add(listener);
   }
 
-  // A task in the trash is found only with `includeArchived` (Trash opens it read-only)
+  // A task in the trash is found only with `includeTrashed` (Trash opens it read-only)
   /**
    * The task as the task list shows it: its row with its provider ref, subtask progress, parent,
    * project and link (withListDetails), so its page and sheet draw them as its row does, whatever
-   * the project's status. Throws NotFoundError for an unknown task, or an archived one unless
-   * `includeArchived`.
+   * the project's status. Throws NotFoundError for an unknown task, or a trashed one unless
+   * `includeTrashed`.
    */
-  getById(id: TaskId, options: { includeArchived?: boolean } = {}): TaskListItem {
+  getById(id: TaskId, options: { includeTrashed?: boolean } = {}): TaskListItem {
     return withListDetails(this.db, [this.findTask(id, options)])[0];
   }
 
@@ -166,8 +166,8 @@ export class TaskService {
 
   // the task's row with its provider ref, for the checks before a write: what they read, without
   // the list's details. Throws NotFoundError as getById does.
-  private findTask(id: TaskId, options: { includeArchived?: boolean } = {}): Task {
-    const row = options.includeArchived
+  private findTask(id: TaskId, options: { includeTrashed?: boolean } = {}): Task {
+    const row = options.includeTrashed
       ? this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1).get()
       : this.activeTasks(eq(tasks.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
@@ -259,7 +259,7 @@ export class TaskService {
     sort: TaskSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
   ): Page<TaskListItem> {
-    const clauses = [isNull(tasks.archivedAt)];
+    const clauses = [isNull(tasks.trashedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
     if (filter.excludeClosed) {
       clauses.push(notInArray(tasks.status, [TaskStatus.COMPLETED, TaskStatus.CANCELLED]));
@@ -368,7 +368,7 @@ export class TaskService {
     const rows = this.db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.parentTaskId, parentTaskId), isNull(tasks.archivedAt), pager.after))
+      .where(and(eq(tasks.parentTaskId, parentTaskId), isNull(tasks.trashedAt), pager.after))
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit)
       .all();
@@ -458,7 +458,7 @@ export class TaskService {
         tx
           .select()
           .from(tasks)
-          .where(and(inArray(tasks.id, uniqueIds), isNull(tasks.archivedAt)))
+          .where(and(inArray(tasks.id, uniqueIds), isNull(tasks.trashedAt)))
           .all(),
       );
       const byId = new Map(existing.map((task) => [task.id, task]));
@@ -471,7 +471,7 @@ export class TaskService {
         const project = tx
           .select({ id: projects.id })
           .from(projects)
-          .where(and(eq(projects.id, projectId), isNull(projects.archivedAt)))
+          .where(and(eq(projects.id, projectId), isNull(projects.trashedAt)))
           .get();
         if (!project) throw new NotFoundError(projectId);
       }
@@ -601,12 +601,12 @@ export class TaskService {
    *   under them, and their whole subtrees join the project. They keep the event or note link they
    *   took from the task, as a promoted subtask does.
    * - The task's task note (the note whose `linkedTaskId` is the task) moves to the project and
-   *   links to no task, so archiving the task leaves it out.
-   * - The task is archived (it can be restored from the trash). It keeps its own link: a project
+   *   links to no task, so trashing the task leaves it out.
+   * - The task is trashed (it can be restored from the trash). It keeps its own link: a project
    *   has none. Its favorite moves to the project: the project is what the user starred now.
    *
    * One `converted` change is sent after the commit. Returns the new project. Throws NotFoundError
-   * for an unknown or archived task, and ExternalReadOnlyError for a synced one: its provider owns
+   * for an unknown or trashed task, and ExternalReadOnlyError for a synced one: its provider owns
    * it, so it is detached first.
    */
   convertToProject(id: TaskId): Project {
@@ -614,7 +614,7 @@ export class TaskService {
       const row = tx
         .select()
         .from(tasks)
-        .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
+        .where(and(eq(tasks.id, id), isNull(tasks.trashedAt)))
         .get();
       if (!row) throw new NotFoundError(id);
       assertRowEditable(withExternalRef(tx, row));
@@ -646,12 +646,12 @@ export class TaskService {
       const childIds = tx
         .select({ id: tasks.id })
         .from(tasks)
-        .where(and(eq(tasks.parentTaskId, id), isNull(tasks.archivedAt)))
+        .where(and(eq(tasks.parentTaskId, id), isNull(tasks.trashedAt)))
         .all()
         .map((child) => child.id);
       let movedRows: Task[] = [];
       if (childIds.length > 0) {
-        // archived rows in their subtrees too, so a restore puts them back in the project
+        // trashed rows in their subtrees too, so a restore puts them back in the project
         tx.update(tasks)
           .set({ projectId: projectRow.id })
           .where(inArray(tasks.id, subtreeOfAll(childIds)))
@@ -668,20 +668,20 @@ export class TaskService {
         tx
           .update(notes)
           .set({ projectId: projectRow.id, linkedTaskId: null })
-          .where(and(eq(notes.linkedTaskId, id), isNull(notes.archivedAt)))
+          .where(and(eq(notes.linkedTaskId, id), isNull(notes.trashedAt)))
           .returning()
           .get() ?? null;
 
-      // what is left below the task is archived already, so only its own row changes
-      const archived = tx
+      // what is left below the task is trashed already, so only its own row changes
+      const trashed = tx
         .update(tasks)
-        .set({ archivedAt: now, favoritedAt: null })
+        .set({ trashedAt: now, favoritedAt: null })
         .where(eq(tasks.id, id))
         .returning()
         .get();
 
       return {
-        task: withExternalRef(tx, archived),
+        task: withExternalRef(tx, trashed),
         project: { ...projectRow, external: null },
         movedTasks: withExternalRefs(tx, movedRows),
         note,
@@ -702,14 +702,14 @@ export class TaskService {
    * (a synced task only has synced tasks below it): then it is a top-level task.
    *
    * A `created` is sent for each new task after the commit, the copy first. Returns the copy.
-   * Throws NotFoundError for an unknown or archived task.
+   * Throws NotFoundError for an unknown or trashed task.
    */
   duplicateTask(id: TaskId): Task {
     const created = this.db.transaction((tx) => {
       const subtree = tx
         .select()
         .from(tasks)
-        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
+        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.trashedAt)))
         .orderBy(tasks.createdAt, tasks.id)
         .all();
       const root = subtree.find((row) => row.id === id);
@@ -720,7 +720,7 @@ export class TaskService {
         const parent = tx
           .select()
           .from(tasks)
-          .where(and(eq(tasks.id, root.parentTaskId), isNull(tasks.archivedAt)))
+          .where(and(eq(tasks.id, root.parentTaskId), isNull(tasks.trashedAt)))
           .get();
         if (parent && !isSynced(withExternalRef(tx, parent))) parentTaskId = parent.id;
       }
@@ -731,7 +731,7 @@ export class TaskService {
         childrenOf.set(row.parentTaskId, [...(childrenOf.get(row.parentTaskId) ?? []), row]);
       }
       // parents before their subtasks, so each parent row exists when its subtasks go in; a row
-      // under an archived task is not reached, as it is not shown under the task
+      // under a trashed task is not reached, as it is not shown under the task
       const rows: (NewTaskValues & { id: TaskId })[] = [];
       const copy = (row: Task, newParentId: TaskId | null, title: string) => {
         const newId = generateId('task');
@@ -762,26 +762,26 @@ export class TaskService {
   /**
    * An active task as Markdown (Copy as Markdown): its title, properties and description, then its
    * active subtasks at any depth as a checklist, oldest first. Throws NotFoundError for an unknown
-   * or archived task.
+   * or trashed task.
    */
   toMarkdown(id: TaskId): string {
     const rows = this.db
       .select()
       .from(tasks)
-      .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
+      .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.trashedAt)))
       .orderBy(tasks.createdAt, tasks.id)
       .all();
-    // a subtask under an archived one would come out as a tree of its own; only the task's is kept
+    // a subtask under a trashed one would come out as a tree of its own; only the task's is kept
     const task = toExportedTasks(withListDetails(this.db, rows)).find((root) => root.id === id);
     if (!task) throw new NotFoundError(id);
     return taskAsMarkdown(task);
   }
 
   /**
-   * Deletes an archived task for good (the UI calls archived items "in the trash"; deleting is
-   * only offered there), with every task below it at any depth: the `parentTaskId` foreign key
-   * cascades. The task and everything below it must be archived, or it throws NotArchivedError:
-   * archiving takes the whole subtree along, but sync archives a removed task on its own and can
+   * Deletes a task in the trash for good (deleting is only offered
+   * there), with every task below it at any depth: the `parentTaskId` foreign key
+   * cascades. The task and everything below it must be trashed, or it throws NotInTrashError:
+   * trashing takes the whole subtree along, but sync trashes a removed task on its own and can
    * leave synced subtasks live under it, which a delete must not take with it.
    *
    * What only pointed at them is kept, by the foreign keys' `set null`: their task notes lose
@@ -789,14 +789,14 @@ export class TaskService {
    * a task. Their external links cascade; favorites and recents are columns of the rows and go
    * with them.
    *
-   * Synced tasks: a synced task belongs to its provider, is never archived, and leaves only
-   * through sync; it is refused (ExternalReadOnlyError is checked too, as archive does). A detached
+   * Synced tasks: a synced task belongs to its provider, is never trashed, and leaves only
+   * through sync; it is refused (ExternalReadOnlyError is checked too, as the trash service does). A detached
    * task is the user's own copy, and deleting it deletes only that copy: nothing is recorded for
    * sync. If the provider later sends the same item again (it is still assigned and changes, or is
    * assigned again), sync treats it as never mirrored and adds it as a new synced task. The same
-   * holds for a removed task (archived by sync).
+   * holds for a removed task (trashed by sync).
    *
-   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
+   * Throws NotFoundError for an unknown id, and NotInTrashError for one not in the trash.
    */
   deleteTask(id: TaskId): TaskDeleteResult {
     return this.db.transaction((tx) => {
@@ -804,7 +804,7 @@ export class TaskService {
       const subtree = tx
         .select({
           taskId: tasks.id,
-          archivedAt: tasks.archivedAt,
+          trashedAt: tasks.trashedAt,
           state: externalLinks.state,
         })
         .from(tasks)
@@ -812,8 +812,8 @@ export class TaskService {
         .where(inArray(tasks.id, subtreeOf(id)))
         .all();
       if (!subtree.some((row) => row.taskId === id)) throw new NotFoundError(id);
-      if (subtree.some((row) => row.archivedAt === null)) throw new NotArchivedError(id);
-      // a synced task is never archived; checked anyway, as archive does
+      if (subtree.some((row) => row.trashedAt === null)) throw new NotInTrashError(id);
+      // a synced task is never trashed; checked anyway, as the trash service does
       if (subtree.some((row) => row.state === LinkState.SYNCED)) {
         throw new ExternalReadOnlyError(id);
       }
@@ -861,12 +861,12 @@ export class TaskService {
   }
 
   private activeTasks(condition: SQL<unknown>) {
-    // automatically filters out archived tasks
+    // automatically filters out trashed tasks
     return (
       this.db
         .select()
         .from(tasks)
-        .where(and(condition, isNull(tasks.archivedAt)))
+        .where(and(condition, isNull(tasks.trashedAt)))
         // by default sort by created at (come back to this)
         .orderBy(desc(tasks.createdAt))
     );

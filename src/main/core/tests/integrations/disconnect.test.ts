@@ -528,7 +528,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     expect(calendarRows.find((row) => row.id === calendarId)!.sourceId).toBeNull();
   });
 
-  it('deletes a removed task with nothing linked; one with a note stays archived and removed', async () => {
+  it('deletes a removed task with nothing linked; one with a note stays trashed and removed', async () => {
     const { id, sourceId } = await connectLinear();
     const gone = issue();
     const noted = issue();
@@ -544,7 +544,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     expect(result.deleted.tasks).toBe(1);
     expect(result.kept.tasks).toBe(1);
     expect(taskRow(goneId)).toBeUndefined();
-    expect(taskRow(notedId)!.archivedAt).not.toBeNull();
+    expect(taskRow(notedId)!.trashedAt).not.toBeNull();
     expect(linkOf(noted)).toMatchObject({ state: LinkState.REMOVED, sourceId: null });
   });
 
@@ -876,7 +876,7 @@ describe('IntegrationService — connecting the same account again', () => {
     await syncTasks(second.sourceId, [{ ...noted, updatedAt: V2 }]);
 
     expect(linkOf(noted)).toMatchObject({ sourceId: second.sourceId, state: LinkState.SYNCED });
-    expect(taskRow(taskIdOf(noted))!.archivedAt).toBeNull();
+    expect(taskRow(taskIdOf(noted))!.trashedAt).toBeNull();
     expect(db.select().from(tasksTable).all()).toHaveLength(1);
   });
 

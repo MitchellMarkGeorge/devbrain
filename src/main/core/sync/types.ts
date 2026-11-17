@@ -99,7 +99,7 @@ export interface SyncSummary {
   inserted: number;
   // entities whose provider-owned fields were written, restored ones included
   updated: number;
-  // entities archived because they left scope; for events, deleted or hidden
+  // entities trashed because they left scope; for events, deleted or hidden
   removed: number;
   changed: SyncEntityType[];
 }
