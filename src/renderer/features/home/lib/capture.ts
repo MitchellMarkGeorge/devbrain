@@ -1,9 +1,10 @@
+import * as chrono from 'chrono-node';
 import { DateTime } from 'luxon';
 import type { ProjectId } from '@common/ids';
-import { parseNaturalDate } from '@renderer/components';
 
-// Reads the capture box's text (README, "Home"): a date ("tomorrow", "friday", "jul 1"), a time
-// for an event ("3pm", "at 10:30") and a project ("#Auth Overhaul", matched against the
+// Reads the capture box's text (README, "Home"): a date ("tomorrow", "next friday", "in 3 days"),
+// a time for an event ("3pm", "at 10:30"), both as chrono reads them
+// (https://github.com/wanasit/chrono), and a project ("#Auth Overhaul", matched against the
 // workspace's projects). What it recognises is marked in the field and fills the pickers; the
 // rest is the title.
 
@@ -31,62 +32,18 @@ export interface ParseCaptureOptions {
   times?: boolean;
 }
 
-// whole names only: "sun" or "wed" alone are too often words of a title
-const WEEKDAY = '(?:mon|tues|wednes|thurs|fri|satur|sun)day';
-const MONTH =
-  '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
-const ORDINAL = '(?:st|nd|rd|th)?';
+/** A weekday's short name alone ("sun", "wed"): too often a word of a title to read as a date. */
+const SHORT_WEEKDAY = /^(?:on\s+)?(?:mon|tues?|wed|thu(?:rs?)?|fri|sat|sun)\.?$/i;
 
-/** Date phrases, each with an optional "on", "by" or "due" before it, which goes with it. */
-const DATE = new RegExp(
-  `(?<![\\w#])(?:(?:on|by|due)\\s+)?(today|tomorrow|next week|(?:next\\s+)?${WEEKDAY}|${MONTH}\\.?\\s+\\d{1,2}${ORDINAL}|\\d{1,2}${ORDINAL}\\s+${MONTH})(?!\\w)`,
-  'gi',
-);
+/** A match naming one of these is a date; one naming only an hour is a time. */
+const DATE_PARTS: chrono.Component[] = ['day', 'weekday', 'month'];
 
-/** Times: "3pm", "3:30 pm", "15:00", "at 10"; "at" goes with it. */
-const TIME =
-  /(?<![\w#:])(?:at\s+)?(?:(\d{1,2})(?::(\d{2}))?\s*(am|pm)|(\d{1,2}):(\d{2}))(?![\w:])|(?<![\w#])at\s+(\d{1,2})(?![\w:])/gi;
+/** "on", "by" or "due" just before a date goes with it. */
+const LEAD = /(?:^|\s)((?:on|by|due)\s+)$/i;
 
 interface Match {
   start: number;
   end: number;
-}
-
-function lastMatch(text: string, pattern: RegExp, accept: (match: RegExpExecArray) => boolean) {
-  let found: RegExpExecArray | undefined;
-  for (const match of text.matchAll(pattern)) if (accept(match)) found = match;
-  return found;
-}
-
-/** A matched date phrase as a day, through `parseNaturalDate`. */
-function dateOf(phrase: string, today: Date): Date | undefined {
-  const cleaned = phrase
-    .toLowerCase()
-    .replace(/\./g, '')
-    .replace(/(\d)(?:st|nd|rd|th)\b/, '$1');
-  return parseNaturalDate(cleaned, today);
-}
-
-/** A matched time as minutes after midnight; "at 1"–"at 7" read as the afternoon. */
-function timeOf(match: RegExpExecArray): number | undefined {
-  const [, hour12, minute12, meridiem, hour24, minute24, bare] = match;
-  let hour: number;
-  let minute = 0;
-  if (hour12 !== undefined) {
-    hour = Number(hour12);
-    minute = Number(minute12 ?? 0);
-    if (hour < 1 || hour > 12) return undefined;
-    const pm = meridiem.toLowerCase() === 'pm';
-    hour = (hour % 12) + (pm ? 12 : 0);
-  } else if (hour24 !== undefined) {
-    hour = Number(hour24);
-    minute = Number(minute24);
-  } else {
-    hour = Number(bare);
-    if (hour >= 1 && hour <= 7) hour += 12;
-  }
-  if (hour > 23 || minute > 59) return undefined;
-  return hour * 60 + minute;
 }
 
 /** The project a "#" names: the longest title the text after it starts with, as a whole word. */
@@ -114,8 +71,6 @@ function projectAt(
 export function parseCapture(text: string, options: ParseCaptureOptions): ParsedCapture {
   const taken: Match[] = [];
   const highlights: string[] = [];
-  const free = (start: number, end: number) =>
-    taken.every((range) => end <= range.start || start >= range.end);
   const take = (start: number, end: number) => {
     taken.push({ start, end });
     highlights.push(text.slice(start, end));
@@ -134,26 +89,36 @@ export function parseCapture(text: string, options: ParseCaptureOptions): Parsed
     result.project = project.project;
   }
 
-  if (options.times) {
-    const time = lastMatch(
-      text,
-      TIME,
-      (m) => free(m.index, m.index + m[0].length) && timeOf(m) !== undefined,
-    );
-    if (time) {
-      take(time.index, time.index + time[0].length);
-      result.time = timeOf(time);
-    }
+  // chrono reads the rest, the project blanked out so its title is not read as a date
+  const blanked = project
+    ? text.slice(0, project.start) +
+      ' '.repeat(project.end - project.start) +
+      text.slice(project.end)
+    : text;
+  const found = chrono
+    .parse(blanked, DateTime.fromJSDate(options.today).startOf('day').toJSDate(), {
+      forwardDate: true,
+    })
+    .filter((match) => !SHORT_WEEKDAY.test(match.text))
+    .map((match) => {
+      const { start } = match;
+      const isDate = DATE_PARTS.some((part) => start.isCertain(part));
+      const isTime = options.times === true && start.isCertain('hour');
+      return { match, isDate, isTime };
+    })
+    .filter(({ isDate, isTime }) => isDate || isTime);
+  // the day and the time each from the last match naming one ("tomorrow, no, friday"); one
+  // match can name both ("tomorrow at 3pm")
+  const dated = [...found].reverse().find((f) => f.isDate);
+  const timed = [...found].reverse().find((f) => f.isTime);
+  for (const { match } of new Set([dated, timed].filter((f) => f !== undefined))) {
+    const lead = LEAD.exec(blanked.slice(0, match.index))?.[1] ?? '';
+    take(match.index - lead.length, match.index + match.text.length);
   }
-
-  const date = lastMatch(
-    text,
-    DATE,
-    (m) => free(m.index, m.index + m[0].length) && dateOf(m[1], options.today) !== undefined,
-  );
-  if (date) {
-    take(date.index, date.index + date[0].length);
-    result.date = DateTime.fromJSDate(dateOf(date[1], options.today)!).startOf('day').toJSDate();
+  if (dated) result.date = DateTime.fromJSDate(dated.match.start.date()).startOf('day').toJSDate();
+  if (timed) {
+    const time = DateTime.fromJSDate(timed.match.start.date());
+    result.time = time.hour * 60 + time.minute;
   }
 
   let title = '';

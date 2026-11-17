@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import * as chrono from 'chrono-node';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../Button';
@@ -25,26 +26,16 @@ export function defaultQuickPicks(today: Date): DatePickerQuickPick[] {
   ];
 }
 
-const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-
 /**
- * Reads a typed date: "today", "tomorrow", "next week", a weekday ("fri", "next friday": the
- * next one after today) or a month and day ("Jun 30", "30 June": this year, or next if passed).
+ * Reads a typed date with chrono (https://github.com/wanasit/chrono), as chrono reads it, looking
+ * forward from `today`: "tomorrow", "in 3 days", "next friday", "Jun 30" (this year, or next if
+ * passed), "2027-01-05", and so on. A time typed with it is dropped: the day only.
  */
 export function parseNaturalDate(text: string, today: Date = new Date()): Date | undefined {
-  const input = text.trim().toLowerCase();
-  if (!input) return undefined;
-  const day = (offset: number) =>
-    new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-  if (input === 'today') return day(0);
-  if (input === 'tomorrow') return day(1);
-  if (input === 'next week') return defaultQuickPicks(today)[2].date;
-  const weekday = WEEKDAYS.findIndex((name) => input.replace(/^next\s+/, '').startsWith(name));
-  if (weekday >= 0) return day((weekday - today.getDay() + 7) % 7 || 7);
-  const parsed = new Date(`${input} ${today.getFullYear()}`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  if (parsed < day(0)) parsed.setFullYear(parsed.getFullYear() + 1);
-  return parsed;
+  // from the start of today, so "tuesday" on a Tuesday reads the same all day
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const date = chrono.parseDate(text, from, { forwardDate: true });
+  return date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : undefined;
 }
 
 export interface DatePickerProps {

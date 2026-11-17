@@ -36,14 +36,16 @@ describe('parseCapture', () => {
   it.each([
     ['today', day(10, 10)],
     ['tomorrow', day(10, 11)],
-    ['next week', day(10, 16)],
+    ['next week', day(10, 17)],
     ['friday', day(10, 13)],
-    ['next friday', day(10, 13)],
-    ['tuesday', day(10, 17)],
+    ['next friday', day(10, 20)],
+    ['tuesday', day(10, 10)],
     ['Jul 1', day(6, 1, 2027)],
     ['dec 3rd', day(11, 3)],
     ['3 December', day(11, 3)],
     ['Sept. 4', day(8, 4, 2027)],
+    ['in 3 days', day(10, 13)],
+    ['next month', day(11, 10)],
   ])('reads "%s" as a day', (phrase, date) => {
     const parsed = parse(`Ship it ${phrase}`);
     expect(parsed.date).toEqual(date);
@@ -98,6 +100,22 @@ describe('parseCapture', () => {
     expect(parseCapture('Prep #Launch friday', { today: TODAY, projects }).date).toBeUndefined();
   });
 
+  it('takes the day of a date with a time for a task', () => {
+    expect(parse('Retro tomorrow at 10:30am')).toEqual({
+      title: 'Retro',
+      date: day(10, 11),
+      highlights: ['tomorrow at 10:30am'],
+    });
+  });
+
+  it('takes "due" with the date', () => {
+    expect(parse('Report due friday')).toMatchObject({
+      title: 'Report',
+      date: day(10, 13),
+      highlights: ['due friday'],
+    });
+  });
+
   it('reads a time only for events', () => {
     expect(parse('Design sync at 3pm').time).toBeUndefined();
     expect(parse('Design sync at 3pm', true)).toEqual({
@@ -115,7 +133,8 @@ describe('parseCapture', () => {
     ['15:00', 15 * 60],
     ['at 9:15', 9 * 60 + 15],
     ['at 10', 10 * 60],
-    ['at 3', 15 * 60],
+    ['at 3', 3 * 60],
+    ['at 3pm', 15 * 60],
   ])('reads "%s" as a time', (phrase, minutes) => {
     expect(parse(`Sync ${phrase}`, true)).toMatchObject({ title: 'Sync', time: minutes });
   });
@@ -126,7 +145,16 @@ describe('parseCapture', () => {
       date: day(10, 11),
       time: 10 * 60 + 30,
       project: PROJECTS[2],
-      highlights: ['tomorrow', 'at 10:30am', '#API Gateway v2'],
+      highlights: ['tomorrow at 10:30am', '#API Gateway v2'],
+    });
+  });
+
+  it('reads a day and a time apart', () => {
+    expect(parse('Standup tomorrow with design at 3pm', true)).toEqual({
+      title: 'Standup with design',
+      date: day(10, 11),
+      time: 15 * 60,
+      highlights: ['tomorrow', 'at 3pm'],
     });
   });
 
