@@ -18,6 +18,8 @@ interface VimState {
   anchor: number;
   /** where the cursor is in Visual: the selection's moving end, which `j`/`k` move from */
   cursor: number;
+  /** whether the editor has focus: the block cursor and line numbers show only then */
+  focused: boolean;
 }
 
 declare module '@tiptap/core' {
@@ -30,7 +32,14 @@ declare module '@tiptap/core' {
 
 export const vimKey = new PluginKey<VimState>('vim');
 
-const INITIAL: VimState = { mode: 'normal', count: '', pending: '', anchor: 0, cursor: 0 };
+const INITIAL: VimState = {
+  mode: 'normal',
+  count: '',
+  pending: '',
+  anchor: 0,
+  cursor: 0,
+  focused: false,
+};
 
 /**
  * Turns Vim keys on or off in `editor` (`RichTextEditor` follows its `vim`); the plugin draws, or
@@ -235,11 +244,15 @@ export const VimMode = Extension.create({
           },
           decorations: (state) => (enabled() ? decorate(state) : null),
           handleDOMEvents: {
-            // focus coming back finds Normal mode, as it left
+            focus: (view) => {
+              if (enabled()) setVim(view, { focused: true });
+              return false;
+            },
+            // focus coming back finds Normal mode, as it left; an editor without focus (a sheet's
+            // description beside the board) draws no cursor
             blur: (view) => {
-              const vim = vimKey.getState(view.state);
-              if (enabled() && vim && vim.mode !== 'normal') {
-                setVim(view, { mode: 'normal', count: '', pending: '' });
+              if (enabled()) {
+                setVim(view, { mode: 'normal', count: '', pending: '', focused: false });
               }
               return false;
             },
@@ -288,7 +301,7 @@ export const VimInsertEscape = Extension.create({
 
 function decorate(state: EditorState): DecorationSet | null {
   const vim = vimKey.getState(state);
-  if (!vim || vim.mode === 'insert') return null;
+  if (!vim || !vim.focused || vim.mode === 'insert') return null;
   const lines = linesOf(state.doc);
   if (lines.length === 0) return null;
   const head = vim.mode === 'normal' ? state.selection.head : vim.cursor;

@@ -114,6 +114,16 @@ describe('modes', () => {
     expect(blur).toHaveBeenCalled();
   });
 
+  it('draws the block cursor and line numbers only while the editor has focus', () => {
+    load('Hello');
+    editor.view.dom.dispatchEvent(new FocusEvent('focus'));
+    expect(editor.view.dom.querySelector('.vim-cursor')).not.toBeNull();
+    expect(editor.view.dom.querySelector('[data-vim-line]')).not.toBeNull();
+    editor.view.dom.dispatchEvent(new FocusEvent('blur'));
+    expect(editor.view.dom.querySelector('.vim-cursor')).toBeNull();
+    expect(editor.view.dom.querySelector('[data-vim-line]')).toBeNull();
+  });
+
   it('does nothing while Vim keys are off', () => {
     load('Hello', { vim: false });
     expect(editorVimMode(editor)).toBeNull();
