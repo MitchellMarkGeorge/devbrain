@@ -44,7 +44,10 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
   // in a shell, the page is the card under the title bar, header or not
   const inShell = titleBarContainer !== null;
   const inTitleBar = header != null && inShell;
-  useDocumentTitle(inShell && typeof title === 'string' ? title : null);
+  // the window's title (Electron's, for the Window menu and Mission Control) follows the page's
+  useEffect(() => {
+    if (inShell && typeof title === 'string') document.title = title;
+  }, [inShell, title]);
   return (
     <div
       ref={ref}
@@ -69,25 +72,6 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
     </div>
   );
 });
-
-/** the window's title before any page named it (index.html's "DevBrain"), put back when none does */
-let appTitle: string | null = null;
-
-/**
- * The window's title (`document.title`, which Electron gives the window: the Window menu, Mission
- * Control) follows the page in the shell. A page kept mounted under the next one's loading doesn't
- * take it back: a page only restores the title while it is still the one it set.
- */
-function useDocumentTitle(title: string | null) {
-  useEffect(() => {
-    if (title === null) return;
-    appTitle ??= document.title;
-    document.title = title;
-    return () => {
-      if (document.title === title) document.title = appTitle ?? '';
-    };
-  }, [title]);
-}
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
   /**
