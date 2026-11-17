@@ -36,6 +36,9 @@ import { createContext } from './ipc/context';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
 const REPO_ROOT = path.join(__dirname, '../..');
+// The app's icon (npm run icons), for development, where Electron would show its own. The packaged
+// app gets its icons from electron-builder (build/).
+const DEV_ICON = path.join(REPO_ROOT, 'build/icon.png');
 
 loadDevelopmentEnv();
 
@@ -179,6 +182,8 @@ function createWindow() {
     show: false,
     // the theme's background, so the window never shows white before the page paints
     backgroundColor: windowBackground(nativeTheme),
+    // the title bar and taskbar on Windows and Linux; macOS takes the Dock's (see whenReady)
+    ...(app.isPackaged ? {} : { icon: DEV_ICON }),
     // the page draws the title bar on macOS and Windows; Linux keeps the system's
     // (src/main/runtime/window-chrome.ts)
     ...windowChrome(process.platform, nativeTheme),
@@ -303,6 +308,7 @@ app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
   configureLogging();
+  if (!app.isPackaged) app.dock?.setIcon(DEV_ICON);
 
   const devBrain = await loadCore();
   devBrainLoaded = devBrain;
