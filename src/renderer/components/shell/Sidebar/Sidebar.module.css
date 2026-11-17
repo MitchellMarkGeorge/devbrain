@@ -26,10 +26,11 @@
   background: inherit;
 }
 /*
- * Below the pinned row (the workspace switcher with search and new), the
- * pages, Recents, Favorites and the footer scroll together when the window is too short for
- * them. The ScrollArea's thin scrollbar sits over the right edge, taking no width from the items.
- * Both take the sidebar's background, which the pinned rows inherit.
+ * The pages, Recents, Favorites and the footer scroll together when the window is too short for
+ * them, under the pinned header if there is one. The ScrollArea's thin scrollbar sits over the
+ * right edge, taking no width from the items. The scroller has no padding of its own: the header
+ * and the body each carry theirs, so the header's background runs edge to edge and to the top
+ * with nothing to reach over.
  */
 .area {
   flex: 1;
@@ -38,33 +39,41 @@
 .scroller {
   display: flex;
   flex-direction: column;
-  gap: var(--sidebar-gap);
-  /* 8px under the title bar (or the sidebar's top) before the first item; a pinned header takes
-     it back and keeps it as its own padding, so it stays when items scroll under it */
-  padding: var(--space-2) var(--sidebar-inset) var(--space-3);
   background: inherit;
   overscroll-behavior: contain;
 }
 /*
- * The header, pinned while the rest scrolls under it. The block
- * takes the sidebar's background and reaches over the gap below it (a padding the margin takes
- * back), so items slide out of sight under its edge rather than showing through the gap. While
- * anything is scrolled under it, it casts a shadow from edge to edge: it reaches over the
- * sidebar's side padding (its content stays where it was).
+ * The header (the settings' Back to app), pinned while the rest scrolls under it: 8px under the
+ * title bar (or the sidebar's top), opaque down to the gap below it, so items
+ * slide out of sight under its edge. While anything is scrolled under it, it casts a shadow.
  */
 .top {
   position: sticky;
   z-index: 1;
-  /* sticks to the scroller's edge, not inside its top padding */
-  top: calc(-1 * var(--space-2));
+  top: 0;
   display: flex;
   flex: none;
   flex-direction: column;
   gap: var(--sidebar-gap);
-  margin: calc(-1 * var(--space-2)) calc(-1 * var(--sidebar-inset)) calc(-1 * var(--sidebar-gap));
   padding: var(--space-2) var(--sidebar-inset) var(--sidebar-gap);
-  background: inherit;
+  /* a colour of its own, not inherited: inside the shell the sidebar is transparent (the window
+     draws its colour), and the header has to hide what scrolls under it */
+  background: var(--sidebar);
   transition: box-shadow var(--duration-normal) var(--ease-out);
+}
+.sidebar[data-drawer] .top {
+  background: var(--popover);
+}
+/* the rest: 8px under the title bar, or straight under the header (whose padding is the gap) */
+.body {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: var(--sidebar-gap);
+  padding: var(--space-2) var(--sidebar-inset) var(--space-3);
+}
+.top + .body {
+  padding-top: 0;
 }
 .area[data-overflow-y-start] .top {
   box-shadow: var(--shadow-pinned);
