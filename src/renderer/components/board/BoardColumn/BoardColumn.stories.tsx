@@ -132,9 +132,8 @@ export const FullBoard: Story = {
 
 /**
  * A board narrower than its columns (a docked sheet beside it in a medium window): the columns
- * keep `board-column-min-width` (240px) and the board scrolls sideways, under a scrollbar along
- * its bottom edge. A vertical wheel over a column still scrolls that column; Shift+wheel moves the
- * board.
+ * keep `board-column-min-width` (280px) and the board scrolls sideways, under a scrollbar along
+ * its bottom edge.
  */
 export const NarrowBoard: Story = {
   parameters: { layout: 'fullscreen' },

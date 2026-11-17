@@ -19,28 +19,23 @@ import type { TaskStatus } from '@common/types';
 import { TASK_STATUS_LABELS } from '../../types';
 import { SIZE } from '@renderer/styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
-import { useWheelToColumns } from './use-wheel-to-columns';
 import styles from './BoardColumn.module.css';
 
 export type BoardProps = ComponentPropsWithoutRef<'div'>;
 
 /**
  * The board: its columns side by side in equal widths, 24px apart, each at least
- * `board-column-min-width`; a board narrower than that (a docked sheet beside it) scrolls
- * sideways, while a vertical wheel still scrolls the column under the pointer.
+ * `board-column-min-width`; a board narrower than that scrolls sideways.
  */
 export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
   { className, ...props },
   ref,
 ) {
-  const viewport = useRef<HTMLDivElement>(null);
-  useWheelToColumns(viewport);
   return (
     <ScrollArea
       orientation="horizontal"
       className={styles.scroller}
       viewportClassName={styles.viewport}
-      viewportRef={viewport}
     >
       <div ref={ref} className={cn(styles.board, className)} {...props} />
     </ScrollArea>
