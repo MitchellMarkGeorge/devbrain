@@ -119,10 +119,29 @@ columns.
   page's tabs still switch.
 - **Several at once.** Rows select as the other lists' do (a checkbox, X), and the selection bar
   restores them (Restore) or deletes them for good (Delete permanently, asking once when
-  `confirmBeforeDeleting` is on). Each item is its own call, one at a time, because an earlier one
-  can do a later one's work: restoring a project restores its tasks and notes, and deleting a task
-  deletes its subtasks. The later call then fails with `not_archived` (restore) or `not_found`
-  (delete), which counts as done. Items that fail for any other reason stay selected, and a toast
-  says how many. Switching tab clears the selection.
+  `confirmBeforeDeleting` is on). Switching tab clears the selection. Each is one call, below.
 - A note's content save still refuses a trashed note. Other writes are refused only by the pages
   being inert.
+
+## Restore or delete several
+
+`ArchiveService.restoreMany` and `ArchiveService.deleteMany`, exposed as `archive.restoreMany` and
+`archive.deleteMany`, take the rows chosen in Trash by kind (`TrashSelection`: `taskIds`,
+`projectIds`, `noteIds`). They live with the trash, like `emptyTrash`, because a selection mixes
+the three kinds.
+
+- **All or nothing.** Each runs in one transaction. Every id is checked first: an unknown one
+  fails the call with `not_found`, one not in the trash with `not_archived`, and nothing changes.
+  An empty selection is refused as invalid input.
+- **Overlaps are resolved in core.** Restoring goes projects first (each with its tasks and their
+  notes, as `restoreProject`), then tasks (each with its subtree and notes, as `restoreTask`), then
+  notes. A row an earlier step already brought back, such as a task of a chosen project, is
+  restored once, not refused. Deleting takes a task's subtree with it, so a chosen subtask goes with
+  its chosen parent.
+- **Deleting is `emptyTrash` limited to the selection.** It uses the same per-kind steps, so the
+  same rules hold: a task with an active or synced task below it stays (`keptTaskIds`), a project
+  leaves its tasks and notes, and the notes' files go after the commit (`filesNotRemoved`). It
+  returns the same `EmptyTrashResult`.
+- **One change each.** `restoreMany` sends one `restored`, and `deleteMany` one `emptied` (the
+  change for rows deleted from the trash, all or some), as the transaction's last step. Search and
+  the `ChangeTracker` handle them as they do for one restore and for Empty Trash.

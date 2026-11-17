@@ -13,8 +13,9 @@ export interface TrashSelectionBarProps {
 /**
  * The selection bar over Trash's rows, as the other lists' (Figma `7424:38163`): the count, then
  * Restore and Delete permanently for every selected item, and clear. Both are shown, so it has no
- * "more" menu. Deleting asks once for them all (when `confirmBeforeDeleting` is on). The selection
- * clears once every item is restored or deleted, and stays on what failed otherwise.
+ * "more" menu. Deleting asks once for them all (when `confirmBeforeDeleting` is on). Each is one
+ * call, all or nothing (`archive.restoreMany`, `archive.deleteMany`): the selection clears once it
+ * has gone through, and stays as it was when it fails.
  */
 export function TrashSelectionBar({ items, actions, onClear }: TrashSelectionBarProps) {
   const done = (went: boolean) => {

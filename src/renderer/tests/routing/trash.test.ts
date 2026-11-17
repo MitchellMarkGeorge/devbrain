@@ -83,6 +83,24 @@ function trashPage(search = '', items = SAMPLE, confirm = true) {
       return [{}, [kind.slice(0, -1) as 'task']];
     });
   }
+  // the selection bar's: every row named leaves the trash in one call
+  const selected = (args: Record<string, unknown>) =>
+    ['taskIds', 'projectIds', 'noteIds'].flatMap((key) => args[key] as string[]);
+  main.routes.set('archive.restoreMany', (args) => {
+    for (const id of selected(args)) drop(id);
+    return [args, ['task', 'project', 'note']];
+  });
+  main.routes.set('archive.deleteMany', (args) => {
+    for (const id of selected(args)) drop(id);
+    const result: EmptyTrashResult = {
+      taskIds: args.taskIds as never,
+      projectIds: args.projectIds as never,
+      noteIds: args.noteIds as never,
+      keptTaskIds: [],
+      filesNotRemoved: [],
+    };
+    return [result, ['task', 'project', 'note']];
+  });
   main.routes.set('archive.emptyTrash', () => {
     const result: EmptyTrashResult = {
       taskIds: trash
@@ -286,14 +304,8 @@ describe('the trash page', () => {
     expect(main.callsTo('notes.updateContent')).toHaveLength(0);
   });
 
-  it('restores the selected rows together from the selection bar', async () => {
-    const { main, drop } = trashPage();
-    // restoring the project brings its task back with it, as core's cascade does
-    main.routes.set('archive.restoreProject', (args) => {
-      drop(args.id);
-      drop('tsk_summary');
-      return [undefined, ['project', 'task']];
-    });
+  it('restores the selected rows together in one call', async () => {
+    const { main } = trashPage();
     await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
     select('AI Action Items');
     select('Summarise sprint feedback');
@@ -303,18 +315,17 @@ describe('the trash page', () => {
 
     click(byText(bar()!, 'button', 'Restore'));
     await eventually(() => expect(document.body.textContent).toContain('Restored 2 items'));
-    expect(main.callsTo('archive.restoreProject').map((call) => call.input)).toEqual([
-      { id: 'prj_ai' },
+    expect(main.callsTo('archive.restoreMany').map((call) => call.input)).toEqual([
+      { taskIds: ['tsk_summary'], projectIds: ['prj_ai'], noteIds: [] },
     ]);
-    // the cascade had restored the task already: its not_archived counts as done
-    expect(main.callsTo('archive.restoreTask')).toHaveLength(1);
-    expect(document.body.textContent).not.toContain('Couldn’t restore');
+    expect(main.callsTo('archive.restoreProject')).toHaveLength(0);
+    expect(main.callsTo('archive.restoreTask')).toHaveLength(0);
     await eventually(() => expect(row('AI Action Items')).toBeUndefined());
     expect(row('Sprint 14 retro')).toBeDefined();
     await eventually(() => expect(bar()?.hasAttribute('inert') ?? true).toBe(true));
   });
 
-  it('deletes the selected rows for good after asking once', async () => {
+  it('deletes the selected rows for good in one call, after asking once', async () => {
     const { main } = trashPage();
     await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
     select('AI Action Items');
@@ -325,19 +336,21 @@ describe('the trash page', () => {
     await eventually(() =>
       expect(document.body.textContent).toContain('Delete 2 items permanently?'),
     );
-    expect(main.callsTo('projects.delete')).toHaveLength(0);
+    expect(main.callsTo('archive.deleteMany')).toHaveLength(0);
     click(byText(document.querySelector('[role="alertdialog"]')!, 'button', 'Delete 2 Items'));
     await eventually(() => expect(document.body.textContent).toContain('Deleted 2 items'));
-    expect(main.callsTo('projects.delete').map((call) => call.input)).toEqual([{ id: 'prj_ai' }]);
-    expect(main.callsTo('notes.delete').map((call) => call.input)).toEqual([{ id: 'nte_retro' }]);
+    expect(main.callsTo('archive.deleteMany').map((call) => call.input)).toEqual([
+      { taskIds: [], projectIds: ['prj_ai'], noteIds: ['nte_retro'] },
+    ]);
+    expect(main.callsTo('projects.delete')).toHaveLength(0);
     await eventually(() => expect(row('Sprint 14 retro')).toBeUndefined());
     expect(row('Summarise sprint feedback')).toBeDefined();
   });
 
-  it('keeps the rows that failed selected, and says so', async () => {
+  it('keeps the whole selection when the call fails, and says so', async () => {
     const { main } = trashPage('', SAMPLE, false);
-    main.routes.set('notes.delete', () => {
-      throw FakeMain.error('internal', 'disk full');
+    main.routes.set('archive.deleteMany', () => {
+      throw FakeMain.error('not_archived', 'nte_retro');
     });
     await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
     select('AI Action Items');
@@ -345,11 +358,10 @@ describe('the trash page', () => {
     await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
     click(byText(bar()!, 'button', 'Delete permanently'));
     await eventually(() =>
-      expect(document.body.textContent).toContain('Couldn’t delete 1 item of 2'),
+      expect(document.body.textContent).toContain('Couldn’t delete the 2 items'),
     );
-    await eventually(() => expect(row('AI Action Items')).toBeUndefined());
-    expect(bar()?.textContent).toContain('1 selected');
-    expect(row('Sprint 14 retro')!.getAttribute('aria-selected')).toBe('true');
+    expect(row('AI Action Items')).toBeDefined();
+    expect(bar()?.textContent).toContain('2 selected');
   });
 
   it('clears the selection on another tab, and with the bar’s clear', async () => {

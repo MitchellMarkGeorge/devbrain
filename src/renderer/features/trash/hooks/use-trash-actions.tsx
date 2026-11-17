@@ -1,15 +1,15 @@
 import { useCallback, useMemo } from 'react';
-import type { ArchivedEntity, EmptyTrashResult } from '@common/types';
+import type { ArchivedEntity, EmptyTrashResult, TrashSelection } from '@common/types';
 import { isId } from '@common/ids';
 import { toast } from '@renderer/components';
 import { ipc } from '@renderer/ipc';
 import { useConfirm } from '@renderer/shared/hooks/use-confirm';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 
 // What Trash does to its rows (docs/deleting.md): restore one, delete one for good, or empty the
-// whole trash; or restore or delete the selected rows together. Each write goes straight to core; what it changed comes back in its `changed`, so
+// whole trash; or restore or delete the selected rows together, in one call that core runs as one
+// transaction (archive.restoreMany, archive.deleteMany). Each write goes straight to core; what it changed comes back in its `changed`, so
 // the list refetches without help. Deleting asks first when `confirmBeforeDeleting` is on.
 
 export type TrashEntry = Pick<ArchivedEntity, 'id' | 'entityType' | 'title'>;
@@ -46,26 +46,15 @@ async function remove(item: TrashEntry): Promise<void> {
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
-/**
- * Runs `write` on each item in turn, and returns those that failed. One at a time, as an earlier
- * write can do a later one's work: restoring a project restores its tasks and notes, and deleting
- * a task deletes its subtasks. Such an item then fails with `done` (`not_archived` for a restore,
- * `not_found` for a delete), which counts as done.
- */
-async function eachOf(
-  items: readonly TrashEntry[],
-  write: (item: TrashEntry) => Promise<void>,
-  done: string,
-): Promise<{ item: TrashEntry; error: unknown }[]> {
-  const failed: { item: TrashEntry; error: unknown }[] = [];
-  for (const item of items) {
-    try {
-      await write(item);
-    } catch (error) {
-      if (ipcErrorCode(error) !== done) failed.push({ item, error });
-    }
+/** The rows' ids by kind, as archive.restoreMany and archive.deleteMany take them. */
+export function selectionOf(items: readonly TrashEntry[]): TrashSelection {
+  const selection: TrashSelection = { taskIds: [], projectIds: [], noteIds: [] };
+  for (const { id } of items) {
+    if (isId('task', id)) selection.taskIds.push(id);
+    else if (isId('project', id)) selection.projectIds.push(id);
+    else if (isId('note', id)) selection.noteIds.push(id);
   }
-  return failed;
+  return selection;
 }
 
 /** What deleting several items does to what links to them, as the confirmation says it. */
@@ -100,13 +89,13 @@ export function emptyTrashSummary(result: EmptyTrashResult): {
 }
 
 export interface TrashActions {
-  /** restores it, then offers to open it */
-  restore(item: TrashEntry): Promise<void>;
+  /** restores it, then offers to open it; resolves to whether it is back */
+  restore(item: TrashEntry): Promise<boolean>;
   /** deletes it for good, after asking; resolves to whether it went */
   remove(item: TrashEntry): Promise<boolean>;
-  /** restores the selected rows; resolves to whether every one is back */
+  /** restores the selected rows, all or none; resolves to whether they are back */
   restoreAll(items: readonly TrashEntry[]): Promise<boolean>;
-  /** deletes the selected rows for good, after asking once; resolves to whether every one went */
+  /** deletes the selected rows for good, after asking once; resolves to whether the call went */
   removeAll(items: readonly TrashEntry[]): Promise<boolean>;
   /** deletes everything in the trash for good, after asking */
   empty(): Promise<void>;
@@ -129,7 +118,7 @@ export function useTrashActions(): TrashActions {
           await restore(item);
         } catch (error) {
           showError(error, `Couldn’t restore “${item.title}”`);
-          return;
+          return false;
         }
         toast({
           tone: 'success',
@@ -137,6 +126,7 @@ export function useTrashActions(): TrashActions {
           description: `It’s back in ${PLACE[item.entityType]}.`,
           action: { label: 'Open', onClick: () => open(item) },
         });
+        return true;
       },
       async remove(item) {
         const noun = NOUN[item.entityType];
@@ -158,16 +148,11 @@ export function useTrashActions(): TrashActions {
         return true;
       },
       async restoreAll(items) {
-        if (items.length === 1) {
-          await actions.restore(items[0]);
-          return true;
-        }
-        const failed = await eachOf(items, restore, 'not_archived');
-        if (failed.length > 0) {
-          showError(
-            failed[0].error,
-            `Couldn’t restore ${plural(failed.length, 'item')} of ${items.length}`,
-          );
+        if (items.length === 1) return actions.restore(items[0]);
+        try {
+          await ipc.archive.restoreMany.mutate(selectionOf(items));
+        } catch (error) {
+          showError(error, `Couldn’t restore the ${plural(items.length, 'item')}`);
           return false;
         }
         toast({
@@ -187,15 +172,19 @@ export function useTrashActions(): TrashActions {
           actionLabel: `Delete ${plural(items.length, 'Item')}`,
         });
         if (!ok) return false;
-        const failed = await eachOf(items, remove, 'not_found');
-        if (failed.length > 0) {
-          showError(
-            failed[0].error,
-            `Couldn’t delete ${plural(failed.length, 'item')} of ${items.length}`,
-          );
+        let result: EmptyTrashResult;
+        try {
+          result = await ipc.archive.deleteMany.mutate(selectionOf(items));
+        } catch (error) {
+          showError(error, `Couldn’t delete the ${plural(items.length, 'item')}`);
           return false;
         }
-        toast({ title: `Deleted ${plural(items.length, 'item')}` });
+        // what went, and what stayed and why (a task with live subtasks, a file left behind)
+        toast({
+          tone:
+            result.keptTaskIds.length + result.filesNotRemoved.length > 0 ? 'warning' : undefined,
+          ...emptyTrashSummary(result),
+        });
         return true;
       },
       async empty() {

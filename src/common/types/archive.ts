@@ -44,7 +44,20 @@ export interface ArchivedNote extends ArchivedBase<NoteId, 'notes'> {
 
 export type ArchivedEntity = ArchivedTask | ArchivedProject | ArchivedNote;
 
-/** What emptying the trash deleted for good. */
+/** Rows chosen in Trash, by kind: what `archive.restoreMany` and `archive.deleteMany` act on. */
+export interface TrashSelection {
+  taskIds: TaskId[];
+  projectIds: ProjectId[];
+  noteIds: NoteId[];
+}
+
+/**
+ * What `archive.restoreMany` brought back: the rows chosen and every row their cascades restored
+ * (a project's tasks and notes, a task's subtree and notes).
+ */
+export type RestoreResult = TrashSelection;
+
+/** What deleting from the trash removed for good: all of it (emptyTrash), or a selection (deleteMany). */
 export interface EmptyTrashResult {
   taskIds: TaskId[];
   projectIds: ProjectId[];

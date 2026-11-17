@@ -184,4 +184,79 @@ describe('archive', () => {
     );
     expect(code(await call('projects.get', { id: 'prj_missing' }))).toBe('not_found');
   });
+
+  it('restores several rows at once, a task its chosen project brings back counted once', async () => {
+    const project = workspace().projects.createProject({ title: 'Gateway' });
+    const task = workspace().tasks.createTask({
+      title: 'In it',
+      dueDate: DUE,
+      projectId: project.id,
+    });
+    const note = await workspace().notes.createNote({ title: 'Loose' });
+    await mutate('archive.archiveProject', { id: project.id });
+    await mutate('archive.archiveNote', { id: note.id });
+
+    const result = await mutate('archive.restoreMany', {
+      projectIds: [project.id],
+      taskIds: [task.id],
+      noteIds: [note.id],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      data: { projectIds: [project.id], taskIds: [task.id], noteIds: [note.id] },
+    });
+    expect([...result.changed].sort()).toEqual(['note', 'project', 'task']);
+    expect(await archived()).toEqual([]);
+  });
+
+  it('deletes several rows at once for good, with what lost a link to them', async () => {
+    const project = workspace().projects.createProject({ title: 'Gateway' });
+    // stays in the trash, without its project
+    workspace().tasks.createTask({
+      title: 'Kept',
+      dueDate: DUE,
+      projectId: project.id,
+    });
+    const note = await workspace().notes.createNote({ title: 'Loose' });
+    await mutate('archive.archiveProject', { id: project.id });
+    await mutate('archive.archiveNote', { id: note.id });
+
+    const result = await mutate('archive.deleteMany', {
+      projectIds: [project.id],
+      taskIds: [],
+      noteIds: [note.id],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        projectIds: [project.id],
+        noteIds: [note.id],
+        taskIds: [],
+        keptTaskIds: [],
+        filesNotRemoved: [],
+      },
+    });
+    // the task left the project, and stays in the trash
+    expect([...result.changed].sort()).toEqual(['note', 'project', 'task']);
+    expect(await archived()).toEqual([['tasks', 'Kept']]);
+  });
+
+  it('refuses a selection with a row not in the trash, and an empty one, changing nothing', async () => {
+    const live = workspace().tasks.createTask({ title: 'Live', dueDate: DUE });
+    const note = await workspace().notes.createNote({ title: 'Trashed' });
+    await mutate('archive.archiveNote', { id: note.id });
+    const both = { taskIds: [live.id], projectIds: [], noteIds: [note.id] };
+
+    for (const path of ['archive.restoreMany', 'archive.deleteMany']) {
+      expect(await mutate(path, both)).toMatchObject({
+        ok: false,
+        error: { data: { code: 'not_archived' } },
+        changed: [],
+      });
+      expect(code(await mutate(path, { taskIds: [], projectIds: [], noteIds: [] }))).toBe(
+        'invalid_input',
+      );
+    }
+    expect(await archived()).toEqual([['notes', 'Trashed']]);
+  });
 });
