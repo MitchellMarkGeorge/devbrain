@@ -65,6 +65,7 @@ function scrollTimeBefore(hour: number): string {
 }
 
 const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+const WEEKDAY_NARROW = new Intl.DateTimeFormat('en-US', { weekday: 'narrow' });
 
 /**
  * The display hints CalendarView reads from an event's `extendedProps` (the adapter's
@@ -413,11 +414,14 @@ function EventContent({ arg, timeFormat }: { arg: EventDisplayInfo; timeFormat: 
 }
 
 function DayHeader({ arg }: { arg: DayHeaderInfo }) {
-  const weekday = <span className={styles.weekday}>{WEEKDAY.format(arg.date)}</span>;
-  if (arg.view.type === 'dayGridMonth') return weekday;
+  if (arg.view.type === 'dayGridMonth') {
+    return <span className={styles.weekday}>{WEEKDAY.format(arg.date)}</span>;
+  }
+  // a column too narrow for "Wed 28" (a week beside a docked sheet) shows "W 28"
   return (
     <span className={styles.dayHead}>
-      {weekday}
+      <span className={cn(styles.weekday, styles.wide)}>{WEEKDAY.format(arg.date)}</span>
+      <span className={cn(styles.weekday, styles.narrow)}>{WEEKDAY_NARROW.format(arg.date)}</span>
       <span className={cn(styles.date, arg.isToday && styles.today)}>{arg.date.getDate()}</span>
     </span>
   );

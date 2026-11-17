@@ -48,18 +48,22 @@ const STEP_LABELS: Record<CalendarViewParam, [string, string]> = {
  * - `full`: "November 2026", Filter with its value, the view switch, ‹ Today ›, "+ New Event";
  * - `short`: "Nov 2026", and Filter without its value;
  * - `compact`: Filter as its icon alone (Figma `7410:34948`, with a sheet open), New Event as "+";
- * - `tiny`: the view switch as a menu ("Day ⌄"), and Today as an icon.
+ * - `tiny`: the view switch as a menu ("Day ⌄"), and Today as an icon;
+ * - `minimal`: no New Event, which the title bar's New menu still offers (a week beside a docked
+ *   sheet in a 1080px window, the narrowest the header gets).
  *
  * Each step frees room before the header's two sides would meet; the title is never cut.
  */
-export type CalendarHeaderLayout = 'full' | 'short' | 'compact' | 'tiny';
+export type CalendarHeaderLayout = 'full' | 'short' | 'compact' | 'tiny' | 'minimal';
 
 /** The layout for a toolbar `width` pixels wide (its 24px sides included). */
 export function headerLayout(width: number): CalendarHeaderLayout {
   if (width >= 900) return 'full';
   if (width >= 740) return 'short';
   if (width >= 600) return 'compact';
-  return 'tiny';
+  // the tiny header needs 459px with the widest month ("May 2026")
+  if (width >= 460) return 'tiny';
+  return 'minimal';
 }
 
 /** The toolbar's start: the month shown, and the calendar filter. */
@@ -95,8 +99,8 @@ export function CalendarHeaderEnd({
   onNewEvent: () => void;
 }) {
   const [previous, next] = STEP_LABELS[view];
-  const tiny = layout === 'tiny';
-  const iconNewEvent = layout === 'compact' || tiny;
+  const tiny = layout === 'tiny' || layout === 'minimal';
+  const iconNewEvent = layout === 'compact' || layout === 'tiny';
   return (
     <div className={styles.end}>
       {tiny ? (
@@ -158,7 +162,7 @@ export function CalendarHeaderEnd({
           onClick={() => onStep(1)}
         />
       </div>
-      {iconNewEvent ? (
+      {layout === 'minimal' ? null : iconNewEvent ? (
         <Button
           variant="outline"
           size="icon"

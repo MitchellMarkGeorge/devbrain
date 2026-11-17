@@ -13,6 +13,9 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
 
 - **Day headers** (40px): the weekday (12px `muted-foreground`) and the date (14px medium
   `foreground-strong`); today's date sits on a 24px `now-indicator` disc with a white number.
+  A narrow column (a week beside a docked sheet) keeps its header on one line, by container
+  queries on the header: under 72px the padding drops to 4px, and under 64px, too narrow for
+  "Wed 28" on today's disc, the weekday shows as its letter ("W 28").
   No lines between the headers; one `border` line under them.
 - **All-day row**: "All day" in the gutter (`subtle-foreground`), `AllDayEvent` chips spanning the
   days they cover, 4px in from the column lines, stacked in 22px rows 4px apart (32px for one row).
