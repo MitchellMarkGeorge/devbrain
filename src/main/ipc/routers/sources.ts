@@ -8,7 +8,8 @@ import { zId } from '../zod';
 
 export const sourcesRouter = t.router({
   // A source of a disabled integration can't be switched on (core's integration_disabled):
-  // enable the integration instead. Switching one on starts its sync, which reaches the renderer
+  // enable the integration instead. None can be switched while its integration is being
+  // reconnected (integration_busy). Switching one on starts its sync, which reaches the renderer
   // as `db.changes`.
   setEnabled: wsProcedure
     .input(z.object({ id: zId('externalSource'), enabled: z.boolean() }))
