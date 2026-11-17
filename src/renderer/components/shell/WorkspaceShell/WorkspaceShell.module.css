@@ -115,18 +115,29 @@
   gap: var(--space-2);
   min-width: 160px;
   height: var(--control-sm);
-  padding: 0 var(--space-1-5) 0 var(--space-3);
+  padding: 0 var(--space-1-5) 0 var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--background);
-  color: var(--foreground);
-  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  /* the page's title, dimmed and at the regular weight: it says where you are, behind a search
+     icon, and does not read as a box holding the title to edit (the page's heading is that) */
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   text-align: left;
   cursor: pointer;
-  transition: border-color var(--duration-fast);
+  transition:
+    border-color var(--duration-fast),
+    color var(--duration-fast);
 }
 .search:hover {
   border-color: var(--border-strong);
+  color: var(--foreground);
+}
+.searchIcon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: var(--muted-foreground);
 }
 .search:focus-visible {
   outline: none;
@@ -151,7 +162,6 @@
 }
 .placeholder {
   color: var(--muted-foreground);
-  font-weight: var(--font-weight-normal);
 }
 .searchKey {
   flex: none;

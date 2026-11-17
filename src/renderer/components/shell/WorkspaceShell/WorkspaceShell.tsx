@@ -12,6 +12,7 @@ import {
   type Ref,
 } from 'react';
 import { Drawer } from '@base-ui/react/drawer';
+import { Search } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
 import { TooltipProvider } from '../../ui/Tooltip';
@@ -275,6 +276,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
                   aria-keyshortcuts="Meta+K"
                   onClick={onSearch}
                 >
+                  <Search className={styles.searchIcon} aria-hidden />
                   <span ref={setLocationContainer} className={styles.location} />
                   <span className={styles.placeholder}>Search or jump to…</span>
                   <Kbd className={styles.searchKey}>{formatKeys('⌘K')}</Kbd>
