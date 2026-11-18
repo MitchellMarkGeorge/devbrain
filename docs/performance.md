@@ -15,7 +15,6 @@ parts were elsewhere:
 | Opening a 200 KB note                    | 4.1 s, one 4 s long task; 574 IPC calls | 2.3 s; 11 calls   | #194, #195                    |
 | Typing in it, per key (p50 / p95)        | 33 / 63 ms                              | 25 / 45 ms        | #194                          |
 | Its autosave, and what that refetches    | 555 calls, 1.1 s in main                | 8 calls, 64 ms    | #195, pills in one call       |
-| Back on a list you scrolled through      | (n/a: the list stopped at 10 pages)     | 1 call            | #193, trimmed pages           |
 
 ## The large workspace
 
@@ -70,31 +69,31 @@ against `main` on the same machine.
 App, large workspace. "Before" is `main`; "after" is `main` with #192–#195. Times are to the first
 frame showing the step's content; long tasks are the renderer's.
 
-| Step                                         | Before                                 | After                                |
-| -------------------------------------------- | -------------------------------------- | ------------------------------------ |
-| Startup, launch to Home                      | 1.55–1.59 s                            | 1.56–1.62 s                          |
-| Switch to another workspace                  | 644 ms                                 | 659 ms                               |
-| Switch back, to Tasks                        | 714 ms (302 ms in main)                | 735 ms                               |
-| Home                                         | 67 ms, 9 calls                         | 68 ms                                |
-| Tasks list, first paint                      | 77 ms, 2 calls, 172 KB                 | 69 ms                                |
-| Tasks list, scrolled to the end              | stops at 1,000 rows                    | 8,859 rows, 88 calls, 402 ms in main |
-| Tasks grouped by project                     | 146 ms, 49 calls, 1.6 MB               | 128 ms                               |
-| Board                                        | 55 ms, 5 calls                         | 60 ms                                |
-| Open a task (subtasks, a note)               | 96 ms, 13 calls, 541 KB                | 94 ms                                |
-| Notes cards                                  | 35 ms, 3 calls                         | 38 ms                                |
-| Open the 200 KB note                         | 4.1 s; 574 calls, 596 ms in main       | 2.3 s; 11 calls, 34 ms in main       |
-| Type in it, per key p50 / p95                | 33 / 63 ms                             | 25 / 45 ms                           |
-| Its autosave and the refetch                 | 555 calls, 1.1 s in main               | 8 calls, 64 ms                       |
-| Projects list, leaving the note              | 487 ms (a 457 ms long task)            | 358 ms (326 ms)                      |
-| Calendar month                               | 158–262 ms, 1 MB of events             | 134 ms                               |
-| Calendar week                                | 143 ms (a 109 ms long task)            | 156 ms                               |
-| Trash                                        | 43 ms                                  | 46 ms                                |
-| Tasks list, again                            | 78 ms, 11 calls                        | 86 ms, 2 calls                       |
-| ⌘K, "design system", last key to last answer | 264 ms (120 ms of it the debounce)     | 266 ms                               |
-| Status of 200 tasks                          | write 881 ms; 14 calls, 938 ms in main | write 43 ms; 7 calls, 66 ms in main  |
-| A sync page with the tasks list open         | 14 calls, 67 ms in main                | 7 calls, 22 ms                       |
-| A sync page with the month open              | 6 calls, 14 ms in main                 | 6 calls, 15 ms                       |
-| A sync page with Home open                   | 12 calls, 29 ms in main                | 12 calls, 29 ms                      |
+| Step                                              | Before                                 | After                                |
+| ------------------------------------------------- | -------------------------------------- | ------------------------------------ |
+| Startup, launch to Home                           | 1.55–1.59 s                            | 1.56–1.62 s                          |
+| Switch to another workspace                       | 644 ms                                 | 659 ms                               |
+| Switch back, to Tasks                             | 714 ms (302 ms in main)                | 735 ms                               |
+| Home                                              | 67 ms, 9 calls                         | 68 ms                                |
+| Tasks list, first paint                           | 77 ms, 2 calls, 172 KB                 | 69 ms                                |
+| Tasks list, scrolled to the end                   | stops at 1,000 rows                    | 8,859 rows, 88 calls, 402 ms in main |
+| Tasks grouped by project                          | 146 ms, 49 calls, 1.6 MB               | 128 ms                               |
+| Board                                             | 55 ms, 5 calls                         | 60 ms                                |
+| Open a task (subtasks, a note)                    | 96 ms, 13 calls, 541 KB                | 94 ms                                |
+| Notes cards                                       | 35 ms, 3 calls                         | 38 ms                                |
+| Open the 200 KB note                              | 4.1 s; 574 calls, 596 ms in main       | 2.3 s; 11 calls, 34 ms in main       |
+| Type in it, per key p50 / p95                     | 33 / 63 ms                             | 25 / 45 ms                           |
+| Its autosave and the refetch                      | 555 calls, 1.1 s in main               | 8 calls, 64 ms                       |
+| Projects list, leaving the note                   | 487 ms (a 457 ms long task)            | 358 ms (326 ms)                      |
+| Calendar month                                    | 158–262 ms, 1 MB of events             | 134 ms                               |
+| Calendar week                                     | 143 ms (a 109 ms long task)            | 156 ms                               |
+| Trash                                             | 43 ms                                  | 46 ms                                |
+| Tasks list, again (after scrolling it to the end) | 78 ms, 11 calls                        | 66 ms, 90 calls, 342 ms in main      |
+| ⌘K, "design system", last key to last answer      | 264 ms (120 ms of it the debounce)     | 266 ms                               |
+| Status of 200 tasks                               | write 881 ms; 14 calls, 938 ms in main | write 43 ms; 7 calls, 66 ms in main  |
+| A sync page with the tasks list open              | 14 calls, 67 ms in main                | 7 calls, 22 ms                       |
+| A sync page with the month open                   | 6 calls, 14 ms in main                 | 6 calls, 15 ms                       |
+| A sync page with Home open                        | 12 calls, 29 ms in main                | 12 calls, 29 ms                      |
 
 Core (`perf:core`), p50 / p95 over 30 runs:
 
@@ -138,8 +137,7 @@ by rowid. #192 adds the map from id to rowid. (The seed also found that a batch 
   every edit got cheaper, and a bulk edit stopped blocking main for most of a second.
 - **#193, the paged lists keep every page.** `maxPages: 10` dropped the first pages with no way to
   load them back, and the list stopped loading: the tasks list ended at row 1,000. Every page now
-  stays while a list is shown, and is cut back to the first once nothing shows it
-  (`src/renderer/ipc/trim-pages.ts`), so returning to a list refetches one page.
+  stays.
 - **#194, long notes.** To-dos are a plain node view with only the `Checkbox` in React: each
   `NodeViewContent` read the page's selection as it mounted, which with nothing selected lays the
   whole page out (1.8 s of the 4 s). Top-level paragraphs, headings, lists, code and rules get
@@ -169,6 +167,10 @@ by rowid. #192 adds the map from id to rowid. (The seed also found that a batch 
 - **The task page** loads five weeks of events (319 KB) for its event picker before the picker
   opens, and the month view three months of events (1 MB) to page quickly: both paint in under
   200 ms.
+- **Coming back to a list scrolled far** refetches every page it loaded (the query is stale on
+  mount): 90 calls and 342 ms in main after scrolling all 8,859 tasks, about 10 calls at 1,000 rows.
+  Cutting an unseen list back to its first page would make it one call; it was left out of #193 as
+  it only helps someone scrolling past 1,000 rows and back.
 - **P2** (project health) is a feature, not a cost; nothing here calls for it.
 
 ## Budgets
