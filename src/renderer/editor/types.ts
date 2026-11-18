@@ -54,4 +54,8 @@ export interface EditorHost {
   // a click on a link or image that safeExternalUrl accepted; the app passes it to
   // Workspace.openUrl, which checks again (docs/security/untrusted-content.md)
   onOpenUrl?: (url: string) => void;
+  // Turn into task, from the format toolbar: makes a task with this title and gives it back to be
+  // linked in place of the selected text; null when it couldn't (the host says why). Without it
+  // the toolbar has no Turn into task.
+  createTask?: (title: string) => Promise<EditorEntity | null>;
 }

@@ -47,6 +47,8 @@ function NoteEditorLoaded({
   editable: boolean;
 }) {
   const showError = useMutationErrorToast();
+  // a task made from the note's text is linked to the note, in its project (the page has read it)
+  const projectId = useQuery(trpc.notes.get.queryOptions({ id: noteId })).data?.projectId;
   const body = useEditorAutosave(content, (markdown) => {
     ipc.notes.updateContent
       .mutate({ id: noteId, content: markdown })
@@ -59,6 +61,7 @@ function NoteEditorLoaded({
       onChange={body.onChange}
       onReady={onReady}
       editable={editable}
+      newTask={{ projectId, linkedNoteId: noteId }}
     />
   );
 }

@@ -31,6 +31,7 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
       editable={!synced}
       placeholder="Add a description…"
       onChange={description.onChange}
+      newTask={{ projectId: task.projectId }}
     />
   );
 }

@@ -7,7 +7,7 @@ import type { EditorEntity, EntityLinkPillProps } from './types';
 
 /**
  * The working editor: type, press "/" for blocks and "@" to link, select text for the format
- * toolbar (⌘K for a link). Beside it, the markdown it would save and what it asked the app to open.
+ * toolbar (⌘K for a link, Turn into task for a task). Beside it, the markdown it would save and what it asked the app to open.
  * The workspace is a stand-in: these entities, searched by title.
  */
 
@@ -84,13 +84,24 @@ function StoryEntityPill(props: EntityLinkPillProps) {
   return <EditorEntityPill {...props} entity={entity ?? null} />;
 }
 
-const host: Pick<RichTextEditorProps, 'searchEntities' | 'entityPill'> = {
+const host: Pick<RichTextEditorProps, 'searchEntities' | 'createTask' | 'entityPill'> = {
   async searchEntities(query, types) {
     const q = query.toLowerCase();
     return ENTITIES.filter(
       (entity) =>
         (types as string[]).includes(entity.type) && entity.title.toLowerCase().includes(q),
     );
+  },
+  // Turn into task: a task held only by the story, so its pill finds it
+  async createTask(title) {
+    const task: EditorEntity = {
+      type: 'task',
+      id: `tsk_story${ENTITIES.length}`,
+      title,
+      status: TaskStatus.NOT_STARTED,
+    };
+    ENTITIES.push(task);
+    return task;
   },
   entityPill: StoryEntityPill,
 };

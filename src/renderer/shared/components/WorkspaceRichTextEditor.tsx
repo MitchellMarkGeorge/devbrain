@@ -2,23 +2,27 @@ import { useCallback } from 'react';
 import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
 import type { EditorHost } from '@renderer/editor/types';
 import { useOpenEntity } from '../hooks/use-open-entity';
-import { useWorkspaceEditorHost } from '../hooks/use-workspace-editor-host';
+import { useWorkspaceEditorHost, type EditorNewTask } from '../hooks/use-workspace-editor-host';
 import { WorkspaceEntityPill } from './WorkspaceEntityPill';
 
-export type WorkspaceRichTextEditorProps = Omit<
+export interface WorkspaceRichTextEditorProps extends Omit<
   RichTextEditorProps,
   keyof EditorHost | 'entityPill'
->;
+> {
+  // where a task made from the selected text (Turn into task) goes: the page's project, its note
+  newTask?: EditorNewTask;
+}
 
 /**
  * A page's RichTextEditor, acting in the open workspace: its pills show their entities as the
  * workspace holds them now (WorkspaceEntityPill), "@" searches it and links open through
  * `workspace.openUrl` (useWorkspaceEditorHost), and a pill opens its entity where it lives
- * (useOpenEntity; an event on its day, once its pill has loaded it). Every page's editor is one;
+ * (useOpenEntity; an event on its day, once its pill has loaded it). Selected text turns into a
+ * task, made in `newTask`'s project and note and linked in its place. Every page's editor is one;
  * Storybook and the editor's tests render RichTextEditor with their own host.
  */
-export function WorkspaceRichTextEditor(props: WorkspaceRichTextEditorProps) {
-  const workspace = useWorkspaceEditorHost();
+export function WorkspaceRichTextEditor({ newTask, ...props }: WorkspaceRichTextEditorProps) {
+  const workspace = useWorkspaceEditorHost(newTask);
   const openEntity = useOpenEntity();
   const onOpenEntity = useCallback<NonNullable<EditorHost['onOpenEntity']>>(
     (_type, id, entity) => openEntity({ id, startAt: entity?.startAt }),

@@ -6,7 +6,6 @@ import {
   type SettablePriority,
   TaskPriority,
   TaskStatus,
-  type AppSettings,
   type ProjectSummary,
   type TaskSummary,
 } from '@common/types';
@@ -19,7 +18,6 @@ import {
   CreateDialogFooter,
   CreateDialogProperties,
   CreateDialogTitleInput,
-  defaultQuickPicks,
   Dialog,
   DialogClose,
   DraftTaskList,
@@ -37,6 +35,7 @@ import { ipc, trpc } from '@renderer/ipc';
 import { KeyScope } from '@renderer/keyboard';
 import type { ModalProps } from '@renderer/app/modals';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
+import { defaultDueDate } from '@renderer/shared/lib/task-defaults';
 import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
 
 /** Where the dialog was opened from, filling in its properties. */
@@ -58,16 +57,6 @@ export interface CreateTaskDialogProps extends ModalProps {
   defaults?: CreateTaskDefaults;
   /** the task was created: "Open" in its toast */
   onOpenTask?: (id: TaskId) => void;
-}
-
-/** The setting's default due date ("today", "tomorrow", "next week"), as a day from `today`. */
-export function defaultDueDate(
-  setting: AppSettings['tasks']['defaultDueDate'] | undefined,
-  today: Date,
-): Date | null {
-  if (!setting) return null;
-  const [day, tomorrow, nextWeek] = defaultQuickPicks(today).map((pick) => pick.date);
-  return setting === 'today' ? day : setting === 'tomorrow' ? tomorrow : nextWeek;
 }
 
 /**

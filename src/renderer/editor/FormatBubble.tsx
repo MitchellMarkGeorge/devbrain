@@ -2,7 +2,7 @@ import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import { useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { safeExternalUrl } from '@common/safe-url';
 import {
   BLOCK_TYPES,
@@ -17,13 +17,17 @@ import {
   repositionFormatToolbar,
   setLinkEditing,
 } from './extensions/editor-host';
+import { selectionTaskTitle, turnSelectionIntoTask } from './turn-into-task';
 
 /**
  * The design system's FormatToolbar over a text selection, 8px above it: the block type (opening
- * the TurnIntoMenu), then Bold, Italic, Underline, Strikethrough, Code and Link. Link, or ⌘K,
- * swaps it for the LinkToolbar, 4px under the selection. The colour button and Turn into task
- * are left out: notes have no text colours (they are not in the note format, docs/editor.md), and
- * the editor can't make tasks yet.
+ * the TurnIntoMenu), then Bold, Italic, Underline, Strikethrough, Code and Link, then Turn into
+ * task. Link, or ⌘K, swaps it for the LinkToolbar, 4px under the selection. The colour button is
+ * left out: notes have no text colours (they are not in the note format, docs/editor.md).
+ *
+ * Turn into task shows when the host can make tasks (`canCreateTask`) and the selection is within
+ * one block: it makes a task titled with the text and puts a link to it in the text's place
+ * (turn-into-task.ts).
  *
  * It shows only while the editor (or the toolbar) has focus, for a text selection outside code;
  * a read-only editor has none. The link editor closes on Enter, on Escape (in it or in the text)
@@ -51,9 +55,11 @@ export function linkHref(typed: string): string | null {
 export function FormatBubble({
   editor,
   onOpenUrl,
+  canCreateTask = false,
 }: {
   editor: Editor;
   onOpenUrl?: (url: string) => void;
+  canCreateTask?: boolean;
 }) {
   const state = useEditorState({
     editor,
@@ -62,8 +68,11 @@ export function FormatBubble({
       blockType: currentBlockType(editor),
       href: (editor.getAttributes('link').href as string | undefined) ?? '',
       linkEditing: editor.storage.editorHost.linkEditing,
+      taskable: selectionTaskTitle(editor) !== null,
     }),
   });
+  // a task being made from the selection: a second click doesn't make another
+  const creatingTask = useRef(false);
   // the address being typed; set from the link each time the link editor opens
   const [draft, setDraft] = useState<string | null>(null);
   const linkValue = draft ?? state.href;
@@ -162,7 +171,14 @@ export function FormatBubble({
             setLinkEditing(editor, true);
           }}
           showColour={false}
-          showTurnIntoTask={false}
+          showTurnIntoTask={canCreateTask && state.taskable}
+          onTurnIntoTask={() => {
+            if (creatingTask.current) return;
+            creatingTask.current = true;
+            void turnSelectionIntoTask(editor).finally(() => {
+              creatingTask.current = false;
+            });
+          }}
         />
       )}
     </BubbleMenu>
