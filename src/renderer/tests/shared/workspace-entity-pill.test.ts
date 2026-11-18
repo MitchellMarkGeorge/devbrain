@@ -25,14 +25,14 @@ function setTask(task: { title: string; status?: TaskStatus; archivedAt?: Date }
   });
 }
 
-async function render(onOpenEntity = vi.fn()) {
+async function render(onOpenEntity = vi.fn(), value = 'See [Old title](devbrain://task/tsk_1)') {
   act(() => {
     root.render(
       createElement(
         QueryClientProvider,
         { client: queryClient },
         createElement(RichTextEditor, {
-          value: 'See [Old title](devbrain://task/tsk_1)',
+          value,
           label: 'Note',
           entityPill: WorkspaceEntityPill,
           onOpenEntity,
@@ -89,5 +89,13 @@ describe('WorkspaceEntityPill', () => {
       'tsk_1',
       expect.objectContaining({ title: 'Current title', status: TaskStatus.COMPLETED }),
     );
+  });
+
+  it('draws a link whose id is no id of its type as missing, without a query', async () => {
+    // a project's id in a task link
+    await render(vi.fn(), 'See [Old title](devbrain://task/prj_1)');
+    expect(pill().textContent).toBe('Old title');
+    expect(pill().hasAttribute('data-missing')).toBe(true);
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 });
