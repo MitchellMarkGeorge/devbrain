@@ -9,17 +9,17 @@ import {
   type SlashItem,
 } from '@renderer/components';
 import { applyBlockType } from '../block-types';
-import { blockTaskTitle, inTextBlock, linkNewTasks, turnBlockIntoTask } from '../turn-into-task';
+import { inTextBlock, openNewTaskFromLine } from '../turn-into-task';
 import { openMention } from './entity-menu';
 import { createSuggestionMenu } from './suggestion';
 
 /**
  * The slash menu: "/" at the start of a word opens the design system's SlashMenu, and picking an
  * item turns the block into it or inserts it. "Link to note", "Link to task" and "Mention event"
- * open the "@" menu for that kind. "Task" turns the line it is typed on into a task: the rest of
- * the block's text is its title, replaced by a link to it (turn-into-task.ts). On a line with no
- * other text it opens the host's New task dialog instead, and links each task made there. It is
- * offered when the host can do the one the line needs.
+ * open the "@" menu for that kind. "Task" opens the host's New task dialog, connected to what the
+ * editor is for (a note, a project), with the rest of the line's text as its title; the "/task" is
+ * removed and the text left as it is (turn-into-task.ts). It is offered when the host can open the
+ * dialog.
  */
 
 const WITHOUT_TASK = SLASH_GROUPS.map((group) => ({
@@ -27,21 +27,10 @@ const WITHOUT_TASK = SLASH_GROUPS.map((group) => ({
   items: group.items.filter((item) => item.value !== 'task'),
 }));
 
-// the "/" and what is typed after it, which ends at the caret
-function slashRange(editor: Editor, query: string): Range {
-  const to = editor.state.selection.from;
-  return { from: to - query.length - 1, to };
-}
-
-// the menu's groups: Task only where it can make one
-function groupsFor(editor: Editor, query: string) {
-  const { host } = editor.storage.editorHost;
-  if (!inTextBlock(editor)) return WITHOUT_TASK;
-  const canMake =
-    blockTaskTitle(editor, slashRange(editor, query)) === null
-      ? host.openNewTask !== undefined
-      : host.createTask !== undefined;
-  return canMake ? SLASH_GROUPS : WITHOUT_TASK;
+// the menu's groups: Task only where the host can open New task
+function groupsFor(editor: Editor) {
+  const canOpen = editor.storage.editorHost.host.openNewTask !== undefined && inTextBlock(editor);
+  return canOpen ? SLASH_GROUPS : WITHOUT_TASK;
 }
 
 type Chain = ReturnType<Editor['chain']>;
@@ -65,8 +54,7 @@ const isBlockType = (command: SlashCommand): command is BlockType =>
 
 export function runSlashCommand(editor: Editor, range: Range, command: SlashCommand): void {
   if (command === 'task') {
-    if (blockTaskTitle(editor, range) === null) linkNewTasks(editor, range);
-    else void turnBlockIntoTask(editor, range);
+    openNewTaskFromLine(editor, range);
     return;
   }
   const chain = editor.chain().focus().deleteRange(range);
@@ -78,13 +66,13 @@ export const SlashMenu = createSuggestionMenu<SlashItem>({
   name: 'slashMenu',
   char: '/',
   items: (query, editor) =>
-    filterSlashGroups(groupsFor(editor, query), query).flatMap((group) => group.items),
+    filterSlashGroups(groupsFor(editor), query).flatMap((group) => group.items),
   select: (editor, range, item) => runSlashCommand(editor, range, item.value),
   render: ({ editor, query, onSelect, handleRef, id, onActiveDescendantChange }) => (
     <SlashMenuView
       id={id}
       query={query}
-      groups={groupsFor(editor, query)}
+      groups={groupsFor(editor)}
       onSelect={onSelect}
       handleRef={handleRef}
       onActiveDescendantChange={onActiveDescendantChange}

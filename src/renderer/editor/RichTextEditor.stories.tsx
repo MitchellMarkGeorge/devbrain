@@ -157,6 +157,7 @@ function Playground({ initial, editable = true, label = 'Note' }: PlaygroundProp
         }}
         onOpenEntity={(type, id) => log(`${type} ${id}`)}
         onOpenUrl={(url) => log(url)}
+        openNewTask={(title) => log(`New task${title ? `: ${title}` : ''}`)}
       />
       <aside style={{ display: 'grid', gap: 'var(--space-4)' }}>
         <section>

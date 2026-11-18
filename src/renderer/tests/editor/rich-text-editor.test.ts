@@ -165,39 +165,13 @@ describe('RichTextEditor', () => {
     expect(labels).not.toContain('Task');
   });
 
-  it('offers Task in the slash menu for a line with text, and turns the line into a task', async () => {
-    const createTask = vi.fn(async (title: string) => ({
-      type: 'task' as const,
-      id: 'tsk_new',
-      title,
-    }));
+  it('offers Task in the slash menu where the host opens New task, with the line as its title', async () => {
     const options = () =>
       [...document.querySelectorAll('[aria-label="Insert block"] [role="option"]')].map(
         (item) => item.textContent,
       );
-    render({ value: '', createTask });
-
-    // an empty line has nothing to make a task of, without a New task dialog to open
-    await act(async () => {
-      editor.chain().focus().insertContent('/ta').run();
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    });
-    expect(options()).not.toContain('Task');
-    // with one, it opens it
     const openNewTask = vi.fn();
-    render({ value: '', createTask, openNewTask });
-    await act(async () => {
-      editor.commands.setContent('', { emitUpdate: false });
-      editor.chain().focus().insertContent('/ta').run();
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    });
-    expect(options()).toContain('Task');
-    await act(async () => {
-      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    });
-    expect(openNewTask).toHaveBeenCalledTimes(1);
-    expect(createTask).not.toHaveBeenCalled();
-
+    render({ value: '', openNewTask });
     await act(async () => {
       editor.commands.setContent('- [ ] Call Ana about the launch', {
         contentType: 'markdown',
@@ -209,10 +183,10 @@ describe('RichTextEditor', () => {
     expect(options()).toEqual(['Task', 'Link to task']);
     await act(async () => {
       editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(createTask).toHaveBeenCalledWith('Call Ana about the launch');
-    expect(editor.getMarkdown()).toBe('- [ ] [Call Ana about the launch](devbrain://task/tsk_new)');
+    expect(openNewTask).toHaveBeenCalledWith('Call Ana about the launch');
+    // nothing is linked in the text: only the "/task" goes
+    expect(editor.getMarkdown()).toBe('- [ ] Call Ana about the launch');
   });
 
   it('searches tasks, notes and events on "@" and inserts the pick as an entity link', async () => {

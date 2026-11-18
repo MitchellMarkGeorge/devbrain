@@ -58,11 +58,8 @@ export interface EditorHost {
   // linked in place of the selected text; null when it couldn't (the host says why). Without it
   // the toolbar has no Turn into task.
   createTask?: (title: string) => Promise<EditorEntity | null>;
-  // the slash menu's Task on an empty line: opens the app's New task dialog; each task it makes is
-  // given to `onCreated`, to be linked where "/task" was, and `onClosed` hears the dialog close.
-  // Without it, Task needs text on the line.
-  openNewTask?: (handlers: {
-    onCreated: (task: EditorEntity) => void;
-    onClosed: () => void;
-  }) => void;
+  // the slash menu's Task: opens the app's New task dialog, its title filled in with the line's
+  // text when there is some. The task is only made, not linked in the text. Without it the slash
+  // menu has no Task.
+  openNewTask?: (title?: string) => void;
 }

@@ -55,7 +55,7 @@ export function AppLayout() {
   // Before paint, so the two never show together
   const createTask = useCreateTask();
   const openNewTaskDialog = useCallback<OpenNewTaskDialog>(
-    ({ defaults, onCreated, onClosed }) => createTask({ defaults, onCreated, onClosed }),
+    (defaults) => createTask({ defaults }),
     [createTask],
   );
   const modalShown = useModalShown();

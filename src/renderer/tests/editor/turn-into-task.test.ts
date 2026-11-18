@@ -1,13 +1,12 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { EditorHostExtension, setEditorHost } from '@renderer/editor/extensions/editor-host';
 import { createDocumentExtensions } from '@renderer/editor/markdown';
 import {
   blockTaskTitle,
-  linkNewTasks,
+  openNewTaskFromLine,
   selectionTaskTitle,
-  turnBlockIntoTask,
   turnSelectionIntoTask,
 } from '@renderer/editor/turn-into-task';
 import type { EditorEntity } from '@renderer/editor/types';
@@ -126,7 +125,7 @@ describe('turning a selection into a task', () => {
   });
 });
 
-describe('turning a line into a task (the slash menu)', () => {
+describe('New task from the slash menu', () => {
   // the "/task" typed at the end of the first block
   const slash = () => {
     const to = editor.state.doc.firstChild!.nodeSize - 1;
@@ -134,51 +133,31 @@ describe('turning a line into a task (the slash menu)', () => {
     return { from: to - '/task'.length, to };
   };
 
-  it('titles it with the rest of the line, and offers nothing for a line of only "/task"', () => {
+  it('titles it with the rest of the line, and has no title for a line of only "/task"', () => {
     load('Call  Ana /task');
     expect(blockTaskTitle(editor, slash())).toBe('Call Ana');
     load('/task');
     expect(blockTaskTitle(editor, slash())).toBeNull();
   });
 
-  it('removes the "/task" and links the task in place of the line\'s text', async () => {
+  it('opens New task with the line as its title, and leaves the text but for the "/task"', () => {
     load('Call Ana /task\n\nNext');
-    const host = taskHost();
-    expect(await turnBlockIntoTask(editor, slash())).toBe(true);
-    expect(host.titles).toEqual(['Call Ana']);
-    expect(editor.getMarkdown()).toBe('[Call Ana](devbrain://task/tsk_new)\n\nNext');
-  });
-});
+    const openNewTask = vi.fn();
+    setEditorHost(editor, { openNewTask });
+    expect(openNewTaskFromLine(editor, slash())).toBe(true);
+    expect(openNewTask).toHaveBeenCalledWith('Call Ana');
+    expect(editor.getMarkdown()).toBe('Call Ana\n\nNext');
 
-describe('linking the tasks the New task dialog makes (the slash menu on an empty line)', () => {
-  it('links each where "/task" was, one after another, and stops once the dialog closes', () => {
-    load('Before\n\n/task\n\nAfter');
-    let dialog: { onCreated: (task: EditorEntity) => void; onClosed: () => void } | undefined;
-    setEditorHost(editor, {
-      openNewTask: (handlers) => {
-        dialog = handlers;
-      },
-    });
-    select('/task');
-    const slash = editor.state.selection;
-    expect(linkNewTasks(editor, { from: slash.from, to: slash.to })).toBe(true);
-    expect(editor.getMarkdown()).not.toContain('/task');
-
-    // typing above while the dialog is open moves the place
-    editor.commands.insertContentAt(1, 'Just ');
-    dialog!.onCreated({ type: 'task', id: 'tsk_a', title: 'One' });
-    dialog!.onCreated({ type: 'task', id: 'tsk_b', title: 'Two' });
-    dialog!.onClosed();
-    expect(editor.getMarkdown()).toBe(
-      'Just Before\n\n[One](devbrain://task/tsk_a) [Two](devbrain://task/tsk_b) \n\nAfter',
-    );
+    load('/task');
+    setEditorHost(editor, { openNewTask });
+    expect(openNewTaskFromLine(editor, slash())).toBe(true);
+    expect(openNewTask).toHaveBeenLastCalledWith(undefined);
+    expect(editor.getMarkdown()).toBe('');
   });
 
   it('does nothing without a host that opens the dialog', () => {
-    load('/task');
-    select('/task');
-    const { from, to } = editor.state.selection;
-    expect(linkNewTasks(editor, { from, to })).toBe(false);
-    expect(editor.getMarkdown()).toBe('/task');
+    load('Call Ana /task');
+    expect(openNewTaskFromLine(editor, slash())).toBe(false);
+    expect(editor.getMarkdown()).toBe('Call Ana /task');
   });
 });

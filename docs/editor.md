@@ -68,13 +68,12 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   (a toast says so) the text stays. The colour button is left out: text colours are not in the
   note format.
 - `/` opens the `SlashMenu`; "Link to note", "Link to task" and "Mention event" open the `@` menu
-  for that kind. "Task" turns the line it is typed on into a task, as Turn into task does a
-  selection: `Call Ana about the launch /task` makes "Call Ana about the launch" and leaves its
-  pill in the line (a to-do item stays one, with the pill as its text). On an empty line it opens
-  the New task dialog instead (`EditorHost.openNewTask`, filled in with the editor's project and
-  note), and each task made there, with "Create more" too, is linked where `/task` was. The
-  workspace layout gives page editors the dialog (`NewTaskDialogContext`, as `shared` can't
-  import the tasks feature). Task is offered only when the host can do what the line needs. `@` searches
+  for that kind. "Task" opens the New task dialog
+  (`EditorHost.openNewTask`), connected to what the editor is for: a note's task is linked to the
+  note in its project, a project's or task's description puts it in that project. The rest of the
+  line's text, if any, is its title; the `/task` is removed and the text left as it is: nothing is
+  linked in the note. The workspace layout gives page editors the dialog (`NewTaskDialogContext`,
+  as `shared` can't import the tasks feature); without it the menu has no Task. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
 

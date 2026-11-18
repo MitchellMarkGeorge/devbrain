@@ -7,7 +7,6 @@ import {
   TaskPriority,
   TaskStatus,
   type ProjectSummary,
-  type Task,
   type TaskSummary,
 } from '@common/types';
 import {
@@ -58,8 +57,6 @@ export interface CreateTaskDialogProps extends ModalProps {
   defaults?: CreateTaskDefaults;
   /** the task was created: "Open" in its toast */
   onOpenTask?: (id: TaskId) => void;
-  /** each task created, once its subtasks are (several with "Create more") */
-  onCreated?: (task: Task) => void;
 }
 
 /**
@@ -74,7 +71,6 @@ export function CreateTaskDialog({
   parent,
   defaults = {},
   onOpenTask,
-  onCreated,
   ...modal
 }: CreateTaskDialogProps) {
   const settings = useQuery(trpc.settings.get.queryOptions()).data;
@@ -135,7 +131,6 @@ export function CreateTaskDialog({
       for (const subtask of subtasks) {
         await ipc.tasks.createSubtask.mutate({ parentTaskId: task.id, title: subtask });
       }
-      onCreated?.(task);
       toast({
         tone: 'success',
         title: parent ? 'Subtask created' : 'Task created',

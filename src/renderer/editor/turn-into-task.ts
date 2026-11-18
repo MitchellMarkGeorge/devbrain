@@ -33,8 +33,8 @@ export function inTextBlock(editor: Editor): boolean {
 }
 
 /**
- * The text of the block the caret is in, less `skip` (the "/task" typed in it), as a new task's
- * title: the slash menu's Task. null outside a text block, in code, or when the rest is blank.
+ * The text of the block the caret is in, less `skip` (the "/task" typed in it), as the slash
+ * menu's New task title. null outside a text block, in code, or when the rest is blank.
  */
 export function blockTaskTitle(editor: Editor, skip: Range): string | null {
   if (!inTextBlock(editor)) return null;
@@ -93,50 +93,22 @@ export function turnSelectionIntoTask(editor: Editor): Promise<boolean> {
 }
 
 /**
- * The slash menu's Task: removes the "/task" typed (`slash`), then the rest of the block's text
- * becomes a task, linked in its place.
+ * The slash menu's Task: removes the "/task" typed (`slash`) and opens the host's New task dialog,
+ * its title the rest of the line's text when there is some. The text stays as it is: the task is
+ * made in the dialog, connected to what the editor is for (a note, a project), not linked in it.
+ * Returns whether the dialog was opened.
  */
-export function turnBlockIntoTask(editor: Editor, slash: Range): Promise<boolean> {
-  if (blockTaskTitle(editor, slash) === null) return Promise.resolve(false);
-  editor.chain().focus().deleteRange(slash).run();
-  const { $from } = editor.state.selection;
-  return turnRangeIntoTask(editor, $from.start(), $from.end());
-}
-
-/**
- * The slash menu's Task on an empty line: removes the "/task" typed (`slash`) and opens the host's
- * New task dialog. Each task it makes is linked where "/task" was, one after another ("Create
- * more"), the place moving with edits made meanwhile. Returns whether the dialog was opened.
- */
-export function linkNewTasks(editor: Editor, slash: Range): boolean {
+export function openNewTaskFromLine(editor: Editor, slash: Range): boolean {
   const { openNewTask } = editor.storage.editorHost.host;
-  if (!openNewTask) return false;
-  editor.chain().focus().deleteRange(slash).run();
-
-  // where the next task goes: after the last one, as a link put there maps it past itself
-  let at = slash.from;
-  const follow = ({ transaction }: { transaction: Transaction }) => {
-    at = transaction.mapping.map(at, 1);
-  };
-  const stop = () => {
-    editor.off('transaction', follow);
-    editor.off('destroy', stop);
-  };
-  editor.on('transaction', follow);
-  editor.on('destroy', stop);
-  openNewTask({
-    onCreated(task) {
-      if (editor.isDestroyed) return;
-      // the dialog keeps focus (it may make more), so the editor's isn't taken back here
-      editor
-        .chain()
-        .insertContentAt(at, [
-          { type: 'entityLink', attrs: { type: 'task', id: task.id, label: task.title } },
-          { type: 'text', text: ' ' },
-        ])
-        .run();
-    },
-    onClosed: stop,
-  });
+  if (!openNewTask || !inTextBlock(editor)) return false;
+  const title = blockTaskTitle(editor, slash) ?? undefined;
+  // "Call Ana /task" leaves "Call Ana", without the space before the "/task" when it ended the line
+  const { doc, selection } = editor.state;
+  let from = slash.from;
+  if (slash.to === selection.$from.end()) {
+    while (from > selection.$from.start() && doc.textBetween(from - 1, from) === ' ') from -= 1;
+  }
+  editor.chain().focus().deleteRange({ from, to: slash.to }).run();
+  openNewTask(title);
   return true;
 }

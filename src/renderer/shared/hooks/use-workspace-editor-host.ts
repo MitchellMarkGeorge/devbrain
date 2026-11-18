@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { NoteId, ProjectId } from '@common/ids';
-import type { SearchResult, Task } from '@common/types';
+import type { SearchResult } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import type { EditorEntity, EditorHost, MentionType } from '@renderer/editor/types';
 import { useMutationErrorToast } from '../lib/mutation-errors';
@@ -18,18 +18,14 @@ export interface NewTaskOptions {
 }
 
 /**
- * Opens the New task dialog for an editor (its "/task" on an empty line), filled in with the
- * editor's project and note; `onCreated` hears each task made, `onClosed` the dialog closing.
+ * Opens the New task dialog for an editor's "/task", filled in with the editor's project and note
+ * and, when the line had text, that text as the title.
  */
-export type OpenNewTaskDialog = (request: {
-  defaults: NewTaskOptions;
-  onCreated: (task: Task) => void;
-  onClosed: () => void;
-}) => void;
+export type OpenNewTaskDialog = (defaults: NewTaskOptions & { title?: string }) => void;
 
 /**
  * The New task dialog's opener, given by the workspace layout (AppLayout), which can reach the
- * tasks feature that `shared` doesn't import. Without it, an editor's "/task" needs text to use.
+ * tasks feature that `shared` doesn't import. Without it, an editor has no "/task".
  */
 export const NewTaskDialogContext = createContext<OpenNewTaskDialog | null>(null);
 
@@ -81,13 +77,7 @@ export function useWorkspaceEditorHost(
         }
       },
       openNewTask: openNewTaskDialog
-        ? ({ onCreated, onClosed }) =>
-            openNewTaskDialog({
-              defaults: { projectId, linkedNoteId },
-              onCreated: (task) =>
-                onCreated({ type: 'task', id: task.id, title: task.title, status: task.status }),
-              onClosed,
-            })
+        ? (title?: string) => openNewTaskDialog({ title, projectId, linkedNoteId })
         : undefined,
     }),
     [queryClient, openUrl, showError, projectId, linkedNoteId, openNewTaskDialog],
