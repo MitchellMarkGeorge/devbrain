@@ -52,12 +52,17 @@ Options:
 
 _Found in feature 16b. Narrowed when `IntegrationService` became the one way to reach a provider._
 
-Every provider feature so far is sync. The sources themselves know nothing of sync: `TaskSource` and `CalendarSource` take queries and return normalised items, with cursors, modes and windows in the syncers under `src/main/core/sync/`. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, now has a path: `IntegrationService.withConnection(integrationId, pick, call)` picks a part of the integration's provider, runs `call({ provider, source, auth })` with fresh auth, refuses an integration that needs reauth or is disabled, and moves it to `needs_reauth` on a rejected call. `withSource` does the same for one source, with its own gate. A new feature needs only `IntegrationService`.
+Every provider feature so far is sync. The sources themselves know nothing of sync: `TaskSource` and `CalendarSource` take queries and return normalised items, with cursors, modes and windows in the syncers under `src/main/core/sync/`. A feature that is not sync now has a path, through `IntegrationService` alone:
+
+- **A feature of a source type** (every events source, whatever its provider) uses `withSource(sourceId, type, call)` for one source or `forEachSource(type, call)` for all of them, and gets the type's part of each provider (`SourceParts` in `src/main/core/integrations/providers/provider.ts`). `EventFetcher` fetches calendar history this way.
+- **A feature specific to one provider** (a GitHub pull request's checks) uses `withProvider(sourceId, Provider.X, call)`, and gets that provider's own implementation (`ProviderTypes` in `registry.ts`, each factory's return type).
+
+Each checks the source first, gets fresh auth, and moves the integration to `needs_reauth` when the provider rejects the credentials.
 
 Left to do, with the first such feature rather than guessing the shapes now:
 
-1. **Optional capabilities on `Provider`** beside the sync sources (`src/main/core/integrations/providers/provider.ts`), each a small typed interface under the same stateless rule, e.g. `pullRequests?: PullRequests` or `issueDetails?: IssueDetails`, picked by `withConnection`.
-2. **A link lookup** from a local entity to its integration, provider and external id. `src/main/core/integrations/refs.ts` already reads links; it would also return the integration id, for `withConnection`.
+1. **The capability itself:** an optional method on a source type's part (e.g. `CalendarSource.freeBusy?`), which every provider serving the type may implement, or a method on one provider's type for a provider-specific feature.
+2. **A link lookup** from a local entity to its source, provider and external id. `src/main/core/integrations/refs.ts` already reads links; a feature on a task or event would start from it.
 
 ### Read `eventLabelId` for event colours
 

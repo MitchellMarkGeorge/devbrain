@@ -2,12 +2,19 @@ import { TokenRefresher } from '../credentials';
 import { OAuthClient } from '../oauth/types';
 import { AuthType, Provider as ProviderId } from '@common/types';
 import { FetchFn, Provider } from './provider';
-import { createGoogleCalendarProvider } from './google-calendar';
-import { createLinearProvider } from './linear';
+import { createGoogleCalendarProvider, GoogleCalendarProvider } from './google-calendar';
+import { createLinearProvider, LinearProvider } from './linear';
 
 // Provider id to implementation. IntegrationService and the sync engine look providers up here
 // instead of importing them, so tests can register a fake.
 export type ProviderRegistry = ReadonlyMap<ProviderId, Provider>;
+
+// Each provider id's own implementation, for a feature specific to one provider
+// (IntegrationService.withProvider). A registry maps each id to that provider's implementation.
+export interface ProviderTypes {
+  [ProviderId.LINEAR]: LinearProvider;
+  [ProviderId.GOOGLE_CALENDAR]: GoogleCalendarProvider;
+}
 
 export interface ProviderRegistryOptions {
   fetch: FetchFn;

@@ -37,8 +37,14 @@ import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
 import { applyDisconnect, countPlan, DisconnectedItems, planDisconnect } from './disconnect';
 import { OAuthClient } from './oauth/types';
-import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
-import { ProviderRegistry, getProvider } from './providers/registry';
+import {
+  ExternalAccount,
+  PartSourceType,
+  Provider as ProviderImpl,
+  SourceParts,
+  sourcePartOf,
+} from './providers/provider';
+import { ProviderRegistry, ProviderTypes, getProvider } from './providers/registry';
 
 // What changed, for in-process subscribers: the scheduler starts and stops syncs from these, the
 // workspace keeps search in step, and the IPC layer will forward them to the renderer. Ids and
@@ -119,17 +125,35 @@ export interface SourceProvider {
   provider: ProviderImpl;
 }
 
-// What a call to a provider is given: the provider, the part of it the call picked (its
-// TaskSource, CalendarSource or a feature's own capability), and fresh auth
-export interface ProviderCall<S> {
+// what a call through withSource or forEachSource is given: the source, the part of its provider
+// its type works through (a TaskSource for tasks, a CalendarSource for events), and fresh auth
+export interface SourceCall<S> {
+  sourceId: ExternalSourceId;
   integrationId: IntegrationId;
-  provider: ProviderImpl;
+  target: SyncTarget;
   source: S;
   auth: Auth;
 }
 
-// a call's result, or why the provider may not be asked now
+// what a call through withProvider is given: the source and its provider's own implementation
+export interface ProviderSourceCall<P> {
+  sourceId: ExternalSourceId;
+  integrationId: IntegrationId;
+  target: SyncTarget;
+  provider: P;
+  auth: Auth;
+}
+
+// a call's result, or why the provider may not be asked for the source now
 export type ProviderCallResult<T> = { ok: true; value: T } | { ok: false; reason: SyncSkipReason };
+
+// one source's outcome in forEachSource: its result, why it was not asked, or what it threw
+export type SourceOutcome<T> = ProviderCallResult<T> | { ok: false; error: unknown };
+
+export interface ProviderCallOptions {
+  // cancels the requests in flight, and stops a caller waiting for a token refresh
+  signal?: AbortSignal;
+}
 
 type IntegrationRow = typeof integrations.$inferSelect;
 type SourceRow = typeof externalSources.$inferSelect;
@@ -209,8 +233,16 @@ export class IntegrationService implements BaseIntegrationService {
   /*
    * Reaching a provider. The service owns the provider registry and the credential store, so
    * everything that talks to a provider goes through it: sync runs, reattaches, history fetches,
-   * the calendar picker's refresh, and any provider feature added later. A new feature needs a
-   * capability on the provider and a call through withConnection or withSource, nothing else.
+   * the calendar picker's refresh, and any provider feature added later.
+   *
+   * - A feature of a source type (a calendar feature works with every events source, whatever its
+   *   provider) uses withSource for one source or forEachSource for all of them, and gets the
+   *   type's part of the provider (SourceParts).
+   * - A feature specific to one provider uses withProvider, and gets that provider's own
+   *   implementation (ProviderTypes).
+   *
+   * Each checks the source first (getSourceProvider), gets fresh auth, and moves the integration to
+   * needs_reauth when the provider rejects the credentials.
    */
 
   /**
@@ -226,18 +258,19 @@ export class IntegrationService implements BaseIntegrationService {
    * stops this caller waiting for a refresh without cancelling it: see CredentialStore.getAuth.
    * Throws IntegrationAuthError for credentials that can't be read or a refresh the provider
    * rejected (which also moves the integration to needs_reauth; see createIntegrationServices).
-   * withConnection and withSource call this; a sync run calls it itself, after getSourceProvider.
+   * The with* methods call this; a sync run calls it itself, after getSourceProvider.
    */
   getAuth(id: IntegrationId, options: { signal?: AbortSignal } = {}): Promise<Auth> {
     return this.credentials.getAuth(id, options);
   }
 
   /**
-   * The gate for a source, without asking the provider: the source and its provider, or why the
-   * provider may not be asked for it now. The source or its integration is off, the integration
-   * needs re-authentication, the provider's retry time has not passed (syncSkipReason), or no
-   * provider is registered for it (unsupported). Reads only. Throws NotFoundError for an unknown
-   * source.
+   * Whether a source's provider may be asked now, without asking it: the source and its provider,
+   * or why not. The source or its integration is off, the integration needs re-authentication,
+   * the provider's retry time from a rate-limited run has not passed (syncSkipReason), or no
+   * provider is registered for it (unsupported). Reads only. The sync engine uses it before a run,
+   * which handles its own failures; anything else uses the with* methods. Throws NotFoundError for
+   * an unknown source.
    */
   getSourceProvider(sourceId: ExternalSourceId): SourceProvider | SyncSkipReason {
     const target = readSyncTarget(this.db, sourceId);
@@ -249,62 +282,85 @@ export class IntegrationService implements BaseIntegrationService {
   }
 
   /**
-   * Runs `call` against a source's provider, for a call outside a sync run (a reattach, a history
-   * fetch, the calendar picker's refresh): when getSourceProvider lets it, and the provider has the part
-   * `pick` asks for (else unsupported), with fresh auth. Rejected credentials (IntegrationAuthError
-   * from auth or the call) move the integration to needs_reauth, then are rethrown; any other
-   * failure is rethrown as it is.
+   * Runs `call` for one source of `sourceType` with its provider's part for that type (its
+   * TaskSource, its CalendarSource) and fresh auth, when getSourceProvider lets it. A source of
+   * another type, or whose provider lacks the part, is unsupported. Rejected credentials
+   * (IntegrationAuthError from auth or the call) move the integration to needs_reauth, then are
+   * rethrown; any other failure is rethrown as it is. Throws NotFoundError for an unknown source.
    */
-  async withSource<S, T>(
+  async withSource<T extends PartSourceType, R>(
     sourceId: ExternalSourceId,
-    pick: (provider: ProviderImpl, target: SyncTarget) => S | undefined,
-    call: (context: ProviderCall<S> & { target: SyncTarget }) => Promise<T>,
-    options: { signal?: AbortSignal } = {},
-  ): Promise<ProviderCallResult<T>> {
+    sourceType: T,
+    call: (context: SourceCall<SourceParts[T]>) => Promise<R>,
+    options: ProviderCallOptions = {},
+  ): Promise<ProviderCallResult<R>> {
     const found = this.getSourceProvider(sourceId);
     if (typeof found === 'string') return { ok: false, reason: found };
-    const source = pick(found.provider, found.target);
+    const { target, provider } = found;
+    const source =
+      target.sourceType === sourceType ? sourcePartOf(provider, sourceType) : undefined;
     if (source === undefined) return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
-    const { integrationId } = found.target;
-    return this.callProvider(integrationId, options.signal, async (auth) =>
-      call({ integrationId, provider: found.provider, source, auth, target: found.target }),
+    const { integrationId } = target;
+    return this.callProvider(integrationId, options.signal, (auth) =>
+      call({ sourceId, integrationId, target, source, auth }),
     );
   }
 
   /**
-   * Runs `call` against an integration's provider, for a feature that belongs to the account
-   * rather than one of its sources (a pull request's checks, an issue's comments): when the
-   * integration is connected (else needs_reauth or integration_disabled) and its provider has the
-   * part `pick` asks for (else unsupported), with fresh auth. Rejected credentials move the
-   * integration to needs_reauth, then are rethrown, as with withSource. A source's rate limit is
-   * not checked: it was recorded by a sync run of that source. Throws NotFoundError for an unknown
-   * integration.
+   * Runs `call` for every source of `sourceType`, whatever its provider, as withSource does for
+   * one: all of the workspace's sources of that type, or those of `sourceIds`. They run at once,
+   * and apart: one that may not be asked now, or fails, does not stop the others. Resolves each
+   * source's outcome by its id: its result, why it was not asked, or what it threw. Never rejects.
    */
-  async withConnection<S, T>(
-    integrationId: IntegrationId,
-    pick: (provider: ProviderImpl) => S | undefined,
-    call: (context: ProviderCall<S>) => Promise<T>,
-    options: { signal?: AbortSignal } = {},
-  ): Promise<ProviderCallResult<T>> {
-    const row = this.db
-      .select({ status: integrations.status, provider: integrations.provider })
-      .from(integrations)
-      .where(eq(integrations.id, integrationId))
-      .get();
-    if (!row) throw new NotFoundError(integrationId);
-    if (row.status === IntegrationStatus.NEEDS_REAUTH) {
-      return { ok: false, reason: SyncSkipReason.NEEDS_REAUTH };
-    }
-    if (row.status === IntegrationStatus.DISABLED) {
-      return { ok: false, reason: SyncSkipReason.INTEGRATION_DISABLED };
-    }
-    const provider = this.getProvider(row.provider);
-    const source = provider ? pick(provider) : undefined;
-    if (!provider || source === undefined) {
-      return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
-    }
+  async forEachSource<T extends PartSourceType, R>(
+    sourceType: T,
+    call: (context: SourceCall<SourceParts[T]>) => Promise<R>,
+    options: ProviderCallOptions & { sourceIds?: ExternalSourceId[] } = {},
+  ): Promise<Map<ExternalSourceId, SourceOutcome<R>>> {
+    const sourceIds =
+      options.sourceIds ??
+      this.db
+        .select({ id: externalSources.id })
+        .from(externalSources)
+        .where(eq(externalSources.sourceType, sourceType))
+        .all()
+        .map((row) => row.id);
+    const outcomes = await Promise.all(
+      [...new Set(sourceIds)].map(
+        async (sourceId): Promise<[ExternalSourceId, SourceOutcome<R>]> => {
+          try {
+            return [sourceId, await this.withSource(sourceId, sourceType, call, options)];
+          } catch (error) {
+            return [sourceId, { ok: false, error }];
+          }
+        },
+      ),
+    );
+    return new Map(outcomes);
+  }
+
+  /**
+   * Runs `call` for one source with its provider's own implementation, for a feature specific to
+   * that provider (a GitHub pull request's checks): `providerId`'s type in ProviderTypes, so the
+   * call reaches what only that provider has. A source of another provider is unsupported.
+   * Otherwise as withSource: the same check first, fresh auth, needs_reauth on rejected
+   * credentials. Throws NotFoundError for an unknown source.
+   */
+  async withProvider<P extends Provider, R>(
+    sourceId: ExternalSourceId,
+    providerId: P,
+    call: (context: ProviderSourceCall<ProviderTypes[P]>) => Promise<R>,
+    options: ProviderCallOptions = {},
+  ): Promise<ProviderCallResult<R>> {
+    const found = this.getSourceProvider(sourceId);
+    if (typeof found === 'string') return { ok: false, reason: found };
+    const { target } = found;
+    if (target.provider !== providerId) return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
+    // the registry maps each id to that provider's own implementation
+    const provider = found.provider as ProviderTypes[P];
+    const { integrationId } = target;
     return this.callProvider(integrationId, options.signal, (auth) =>
-      call({ integrationId, provider, source, auth }),
+      call({ sourceId, integrationId, target, provider, auth }),
     );
   }
 

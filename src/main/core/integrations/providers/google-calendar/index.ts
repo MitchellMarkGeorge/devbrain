@@ -2,7 +2,7 @@ import { AuthType, Provider as ProviderId, SourceType } from '@common/types';
 import { Auth } from '../../auth';
 import { OAuthConfig } from '../../oauth/types';
 import { OAuthClientCredentials, oauthClientFor } from '../oauth-clients';
-import { ExternalAccount, FetchFn, Provider, RequestOptions } from '../provider';
+import { CalendarSource, ExternalAccount, FetchFn, Provider, RequestOptions } from '../provider';
 import { GoogleCalendarClient } from './client';
 import { GoogleCalendarSource } from './calendars';
 
@@ -50,7 +50,13 @@ export function googleOAuthConfig(client: OAuthClientCredentials): OAuthConfig {
   };
 }
 
-export function createGoogleCalendarProvider(options: GoogleCalendarProviderOptions): Provider {
+// Google Calendar as a provider. A Google-only feature adds its methods here, and reaches them
+// through IntegrationService.withProvider(sourceId, Provider.GOOGLE_CALENDAR, …)
+export type GoogleCalendarProvider = Provider & { calendars: CalendarSource };
+
+export function createGoogleCalendarProvider(
+  options: GoogleCalendarProviderOptions,
+): GoogleCalendarProvider {
   const client = new GoogleCalendarClient(options);
   const credentials =
     options.client === undefined ? oauthClientFor(ProviderId.GOOGLE_CALENDAR) : options.client;

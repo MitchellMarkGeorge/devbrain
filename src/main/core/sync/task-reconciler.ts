@@ -235,7 +235,7 @@ export class TaskReconciler {
     const ids = groups.flatMap((group) => [group.rootExternalId, ...group.descendantExternalIds]);
     const lookup = await this.integrations.withSource(
       sourceId,
-      (provider, target) => (target.sourceType === SourceType.TASKS ? provider.tasks : undefined),
+      SourceType.TASKS,
       ({ source, auth }) => source.resolveTasks(auth, ids),
     );
     if (!lookup.ok) return refuseAll(lookup.reason);

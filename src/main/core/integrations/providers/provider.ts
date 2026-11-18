@@ -165,5 +165,35 @@ export interface Provider {
   calendars?: CalendarSource;
 }
 
+/**
+ * The part of a provider each source type works through: what a feature of that type gets from
+ * any provider that serves it, whatever the provider (IntegrationService.withSource and
+ * forEachSource). A new source type, or a new capability on one (an optional method on its part),
+ * is added here and on the provider; the features of that type then work with every provider that
+ * implements it.
+ */
+export interface SourceParts {
+  [SourceType.TASKS]: TaskSource;
+  [SourceType.EVENTS]: CalendarSource;
+}
+
+// a source type with a part: the ones a feature can work through
+export type PartSourceType = keyof SourceParts;
+
+// how each source type's part is read off a provider
+const SOURCE_PARTS: { [T in PartSourceType]: (provider: Provider) => SourceParts[T] | undefined } =
+  {
+    [SourceType.TASKS]: (provider) => provider.tasks,
+    [SourceType.EVENTS]: (provider) => provider.calendars,
+  };
+
+/** the provider's part for a source type; undefined when it does not serve that type */
+export function sourcePartOf<T extends PartSourceType>(
+  provider: Provider,
+  sourceType: T,
+): SourceParts[T] | undefined {
+  return SOURCE_PARTS[sourceType](provider);
+}
+
 // shared with the OAuth client, which may not import from providers/
 export type { FetchFn } from '../fetch';
