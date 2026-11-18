@@ -1,0 +1,174 @@
+/* A proposal, not the design system: the extras the redesigned sidebar would need from SidebarItem
+   and SidebarFooter (a trailing count, a hover action, a pinned row's grip, an icon-button footer). */
+
+.row {
+  position: relative;
+}
+/* room for the count / action at the end of the item */
+[data-trailing].row > :first-child {
+  padding-right: calc(var(--space-2) + 28px);
+}
+.trailing {
+  position: absolute;
+  top: 0;
+  right: var(--space-2);
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  pointer-events: none;
+}
+.count {
+  min-width: 16px;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.count[data-urgent] {
+  color: var(--destructive);
+  font-weight: var(--font-weight-medium);
+}
+/* the hover action replaces the count while the row is pointed at */
+.hoverAction {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  pointer-events: auto;
+}
+.hoverAction:hover {
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+}
+.row:hover .hoverAction,
+.row[data-hover] .hoverAction {
+  display: inline-flex;
+}
+.row:hover .count,
+.row[data-hover] .count {
+  display: none;
+}
+.row[data-hover] > :first-child {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
+/* a pinned row's drag grip, in the gutter left of the icon */
+.grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -10px;
+  display: none;
+  align-items: center;
+  color: var(--subtle-foreground);
+}
+.row:hover .grip,
+.row[data-hover] .grip {
+  display: flex;
+}
+/* the row being dragged: lifted, with the gap it leaves drawn as a line */
+.row[data-dragging] > :first-child {
+  background: var(--popover);
+  color: var(--foreground);
+  box-shadow: var(--shadow-md, 0 4px 12px rgb(0 0 0 / 0.25));
+}
+.dropLine {
+  height: 2px;
+  margin: 1px var(--space-2);
+  border-radius: 1px;
+  background: var(--ring);
+}
+
+/* a group label with an action at its end ("+" on Projects) */
+.labelRow {
+  display: flex;
+  align-items: center;
+  height: var(--control-md);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.labelRow > span {
+  flex: 1;
+}
+.labelAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.labelAction:hover {
+  background: var(--sidebar-accent);
+  color: var(--foreground);
+}
+
+/* the "all items" row: Tasks, Notes, Calendar side by side */
+.library {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+}
+.libraryItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+}
+.libraryItem:hover,
+.libraryItem[data-active] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
+/* the footer as one row: sync dot and text, then the icon buttons */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-md);
+  padding-left: var(--space-2);
+  border-top: 1px solid var(--sidebar-border);
+  padding-top: var(--space-2);
+  box-sizing: content-box;
+}
+.sync {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success, oklch(0.72 0.17 150));
+}
+.dot[data-state='error'] {
+  background: var(--destructive);
+}
+.dot[data-state='syncing'] {
+  background: var(--ring);
+}
