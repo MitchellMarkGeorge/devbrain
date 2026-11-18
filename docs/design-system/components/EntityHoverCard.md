@@ -10,7 +10,7 @@ The preview that opens on pointing at an entity pill (shadcn's HoverCard): 280px
   - **Project:** a status pill and the due date ("Due Jul 1"), then, with `stats`, a progress bar over "25%" on the left and "3 of 12 tasks done" on the right.
   - **Event:** its day and time ("Today, 10:00 – 10:30 AM"), how it repeats and the location as quiet lines with their icons, then Join (passed in `actions`) when it has a meeting link.
   - **Note:** "Edited 2h ago · project", then a two-line `subtle-foreground` preview.
-  - **Task** (a subtask's parent): priority and due date pills with the key, then "3 of 4 subtasks done" progress.
+  - **Task** (a subtask's parent): priority and due date pills, its subtasks done as the ring pill a task row shows (`ProgressRing` and "3/4", titled "3 of 4 subtasks done"), then the key. No progress bar: that is a project's.
   - **Source** (a synced task's key): the item's state at the provider ("In Review in Linear") and "Synced 5m ago", then "Open in Linear" and "Copy URL" (passed in `actions`).
 
 ## In rows and cards

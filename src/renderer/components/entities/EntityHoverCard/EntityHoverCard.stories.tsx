@@ -117,7 +117,7 @@ export const Note: Story = {
   args: { defaultOpen: true, entity: NOTE, children: <EntityPill entity={NOTE} /> },
 };
 
-/** A subtask's parent task: priority, due date and key, then its subtasks done. */
+/** A subtask's parent task: priority, due date, its subtasks done as a ring pill, and its key. */
 export const Task: Story = {
   args: {
     defaultOpen: true,

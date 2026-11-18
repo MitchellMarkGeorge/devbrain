@@ -22,6 +22,7 @@ import { dueText, useFormat } from '../../lib/format';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Progress } from '../../ui/Progress';
+import { ProgressRing } from '../../ui/ProgressRing';
 import { EntityPill } from '../EntityPill';
 import { PriorityIcon } from '../PriorityIcon';
 import { ProjectStatusIcon } from '../ProjectStatusIcon';
@@ -52,7 +53,7 @@ export type HoverCardEntity =
   | ({ type: 'project' } & Pick<Project, 'title' | 'color' | 'status' | 'dueDate'> & {
         stats?: Pick<ProjectStats, 'numOfCompleted' | 'totalTasks'>;
       })
-  /** its priority, due date and key as pills, and its subtasks done */
+  /** its priority, due date, subtasks done (a ring pill) and key as pills */
   | ({ type: 'task' } & Pick<Task, 'title' | 'status' | 'priority' | 'dueDate'> & {
         subtaskProgress?: SubtaskProgress | null;
         external?: Pick<ExternalRef, 'provider' | 'key'> | null;
@@ -154,17 +155,19 @@ function usePartsOf(entity: HoverCardEntity): Parts {
             {entity.dueDate && (
               <EntityPill glyph={Clock}>{dueText(entity.dueDate, format)}</EntityPill>
             )}
+            {progress && (
+              <EntityPill
+                glyph={<ProgressRing value={progress.completed} total={progress.total} size={12} />}
+                title={`${progress.completed} of ${progress.total} subtasks done`}
+              >
+                {progress.completed}/{progress.total}
+              </EntityPill>
+            )}
             {entity.external?.key && (
               <SourcePill provider={providerOf(entity.external)}>{entity.external.key}</SourcePill>
             )}
           </>
         ),
-        progress: progress
-          ? {
-              value: percentOf(progress.completed, progress.total),
-              label: `${progress.completed} of ${progress.total} subtasks done`,
-            }
-          : undefined,
       };
     }
     case 'note': {
