@@ -1,15 +1,9 @@
-import {
-  QueryObserver,
-  useQueryClient,
-  type QueryClient,
-  type QueryObserverOptions,
-} from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { skipToken, useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { isId } from '@common/ids';
 import { resolveColor } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import type { EditorEntity, EditorEntityType, EditorHost } from './types';
+import type { EditorEntity, EditorEntityType } from './types';
 
 // The entities behind an editor's pills, from React Query's cache: one query per pill, through the
 // routes that read one entity (`tasks.get`, `projects.get`, `notes.get`, `events.get`). The query
@@ -36,16 +30,24 @@ interface EntityRow {
   color?: string | null;
 }
 
-function resolve(
-  queryClient: QueryClient,
+/**
+ * The host's `useEntity`, from React Query: a pill shows its entity's current title, status and
+ * colour, loads it the first time it is drawn, and draws again when it changes. A deleted entity
+ * (or one in the trash) is null, so its pill is drawn as missing. Every page's editor takes it
+ * through the app's `useEditorHost`.
+ */
+export function useEditorEntity(
   type: EditorEntityType,
   id: string,
 ): EditorEntity | null | undefined {
   const options = entityQuery(type, id);
+  const { data: row, error } = useQuery<EntityRow>(
+    options
+      ? { ...(options as unknown as UseQueryOptions<EntityRow>), retry: false }
+      : { queryKey: ['editor', 'no-entity'], queryFn: skipToken },
+  );
   // an id of no entity of its type is no entity
   if (!options) return null;
-  const state = queryClient.getQueryState(options.queryKey);
-  const row = state?.data as EntityRow | undefined;
   if (row) {
     if (row.archivedAt) return null;
     return {
@@ -56,32 +58,6 @@ function resolve(
       color: type === 'project' || type === 'event' ? resolveColor(row.color) : undefined,
     };
   }
-  if (state?.status === 'error' && ipcErrorCode(state.error) === 'not_found') return null;
+  if (error && ipcErrorCode(error) === 'not_found') return null;
   return undefined;
-}
-
-/**
- * The editor host's `resolveEntity` and `watchEntity`, from React Query: a pill shows its entity's
- * current title, status and colour, loads it the first time it is drawn, and draws again when it
- * changes. A deleted entity's pill is drawn as missing. Pass it to every `RichTextEditor`, with
- * `useWorkspaceEditorHost` (or take the three together from the app's `useEditorHost`).
- */
-export function useEntityResolver(): Pick<EditorHost, 'resolveEntity' | 'watchEntity'> {
-  const queryClient = useQueryClient();
-  return useMemo(
-    () => ({
-      resolveEntity: (type, id) => resolve(queryClient, type, id),
-      watchEntity(type, id, onChange) {
-        const options = entityQuery(type, id);
-        if (!options) return () => {};
-        // an observer loads the entity (once, while it's fresh) and hears every change to it
-        const observer = new QueryObserver(queryClient, {
-          ...(options as QueryObserverOptions<EntityRow>),
-          retry: false,
-        });
-        return observer.subscribe(() => onChange());
-      },
-    }),
-    [queryClient],
-  );
 }

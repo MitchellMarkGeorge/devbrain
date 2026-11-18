@@ -32,13 +32,12 @@ export interface EditorEntity {
 export interface EditorHost {
   // the tasks, notes and events matching what was typed after "@", best first
   searchEntities?: (query: string, types: MentionType[]) => Promise<EditorEntity[]>;
-  // the entity as it is now, to show its current title; undefined while unknown, and null when it
-  // is known to be gone (deleted, or in the trash). The pill then shows the label stored in the
-  // markdown, drawn as missing when it is gone.
-  resolveEntity?: (type: EditorEntityType, id: string) => EditorEntity | null | undefined;
-  // subscribes to changes of what resolveEntity returns for one entity, loading it when needed;
-  // returns the unsubscribe. A pill subscribes while it is drawn, and draws again when it changes.
-  watchEntity?: (type: EditorEntityType, id: string, onChange: () => void) => () => void;
+  // A hook each entity pill calls while it is drawn: the entity as it is now, to show its current
+  // title. undefined while unknown (not loaded yet), and null when it is known to be gone (deleted,
+  // or in the trash); the pill then shows the label stored in the markdown, drawn as missing when
+  // it is gone. It follows the rules of hooks, so keep the same one for the editor's life (with or
+  // without React Query inside; a plain lookup is a hook too).
+  useEntity?: (type: EditorEntityType, id: string) => EditorEntity | null | undefined;
   // a click on an entity pill
   onOpenEntity?: (type: EditorEntityType, id: string) => void;
   // a click on a link or image that safeExternalUrl accepted; the app passes it to

@@ -1,11 +1,14 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Editor } from '@tiptap/core';
+import { QueryClient, QueryClientProvider, notifyManager } from '@tanstack/react-query';
 import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
+import { useEditorEntity } from '@renderer/editor/use-entity-resolver';
+import { trpc } from '@renderer/ipc';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -88,7 +91,7 @@ describe('RichTextEditor', () => {
     const onOpenEntity = vi.fn();
     render({
       value: 'See [Old title](devbrain://task/tsk_1)',
-      resolveEntity: (type, id) => ({
+      useEntity: (type, id) => ({
         type,
         id,
         title: 'Current title',
@@ -105,6 +108,48 @@ describe('RichTextEditor', () => {
     expect(onOpenEntity).toHaveBeenCalledWith('task', 'tsk_1');
     // the stored label is untouched
     expect(editor.getMarkdown()).toBe('See [Old title](devbrain://task/tsk_1)');
+  });
+
+  it("draws a pill again when its entity's query changes, and as missing once it is trashed", async () => {
+    // React Query tells its observers at once, not on a later tick, so each act sees the change
+    notifyManager.setScheduler((callback) => callback());
+    onTestFinished(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
+    // nothing is stale, so the pill's query reads the cache and never fetches
+    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+    const key = trpc.tasks.get.queryKey({ id: 'tsk_1' as never });
+    const setTask = (task: { title: string; archivedAt?: Date }) =>
+      act(() => {
+        queryClient.setQueryData(key, {
+          status: TaskStatus.NOT_STARTED,
+          ...task,
+        } as never);
+      });
+    setTask({ title: 'First title' });
+    act(() => {
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(RichTextEditor, {
+            value: 'See [Old title](devbrain://task/tsk_1)',
+            label: 'Note',
+            useEntity: useEditorEntity,
+          }),
+        ),
+      );
+    });
+    await act(async () => {});
+    const pill = () => container.querySelector<HTMLElement>('[data-entity-type="task"]')!;
+    expect(pill().textContent).toBe('First title');
+
+    setTask({ title: 'Renamed' });
+    expect(pill().textContent).toBe('Renamed');
+    expect(pill().hasAttribute('data-missing')).toBe(false);
+
+    setTask({ title: 'Renamed', archivedAt: new Date() });
+    // gone: the stored label, drawn as missing
+    expect(pill().textContent).toBe('Old title');
+    expect(pill().hasAttribute('data-missing')).toBe(true);
   });
 
   // a real click on the element, as the browser sends it: the browser follows a link on `click`,
