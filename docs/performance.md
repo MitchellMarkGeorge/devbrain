@@ -14,21 +14,21 @@ parts were elsewhere:
 | Tasks list scrolled to the end           | stopped at row 1,000 of 8,859           | reaches row 8,859 | #193, keep every page         |
 | Opening a 200 KB note                    | 4.1 s, one 4 s long task; 574 IPC calls | 2.3 s; 11 calls   | #194, #195                    |
 | Typing in it, per key (p50 / p95)        | 33 / 63 ms                              | 25 / 45 ms        | #194                          |
-| Its autosave, and what that refetches    | 555 calls, 1.1 s in main                | 8 calls, 64 ms    | #195, pills in one call       |
+| Its autosave, and what that refetches    | 555 calls, 1.1 s in main                | 8 calls, 64 ms    | #195, `notes.mentions`        |
 
 ## The large workspace
 
 `npm run seed:large` (`setup_dev_workspace.mts --size=large`) makes it through the services the app
 uses, so every rule, index and search entry is as the app would make them:
 
-| Rows               | Count                                                                                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Projects           | 200 (the 15 base projects, then each per team), mixed statuses                                                                                        |
-| Tasks              | 9,822: 6,174 top-level and 3,648 subtasks; 15% of the regular ones undated                                                                            |
-| Notes              | 3,023: p50 0.5 KB, p90 10 KB, p99 51 KB, and one of 200 KB with 364 to-dos, 70 code blocks and ~550 entity pills ("Engineering handbook (long note)") |
-| Events             | 5,000: 30 recurring series (6 kinds for 5 teams, from six months back) and 4,970 one-offs over ±180 days                                              |
-| Favorites, recents | 67 favorites; 231 entities viewed                                                                                                                     |
-| Trash              | about 1,180 rows (10 projects with their tasks and notes, 300 tasks, 100 notes)                                                                       |
+| Rows               | Count                                                                                                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Projects           | 200 (the 15 base projects, then each per team), mixed statuses                                                                                                                     |
+| Tasks              | 9,822: 6,174 top-level and 3,648 subtasks; 15% of the regular ones undated                                                                                                         |
+| Notes              | 3,023: p50 0.5 KB, p90 10 KB, p99 51 KB, and one of 200 KB with 364 to-dos, 70 code blocks and ~550 mentions ("Engineering handbook (long note)"; far more than a real note holds) |
+| Events             | 5,000: 30 recurring series (6 kinds for 5 teams, from six months back) and 4,970 one-offs over ±180 days                                                                           |
+| Favorites, recents | 67 favorites; 231 entities viewed                                                                                                                                                  |
+| Trash              | about 1,180 rows (10 projects with their tasks and notes, 300 tasks, 100 notes)                                                                                                    |
 
 The database is about 40 MB and the search index holds 16,861 entries. The seed is deterministic
 (`--seed`, 42 by default); dates are relative to the day it runs. It takes about 45 s.
@@ -142,9 +142,12 @@ by rowid. #192 adds the map from id to rowid. (The seed also found that a batch 
   `NodeViewContent` read the page's selection as it mounted, which with nothing selected lays the
   whole page out (1.8 s of the 4 s). Top-level paragraphs, headings, lists, code and rules get
   `content-visibility: auto`, so blocks away from the view skip layout, on opening and on each key.
-- **#195, entity pills in one call (R2).** `entities.summaries({ ids })`; the pills' queries are
-  gathered into one call per turn, so a note with 550 pills loads them, and refetches them after a
-  save, in two calls rather than 555.
+- **#195, a note's mentions through one route (R2).** `NoteService.mentions` behind
+  `notes.mentions({ ids })` gives what each mention's pill draws with at most one query per entity
+  type; the pills' queries are gathered into one call per turn. Each mention used to make its own
+  `get`, and again after every save, about 1 ms each: tens of milliseconds for a note with a few
+  dozen mentions, which nobody notices. Only the seed's 550-mention note made it show (574 and 555
+  calls). It is kept for the design: one place that loads and judges mention data.
 
 ## Measured, and left as it is
 
