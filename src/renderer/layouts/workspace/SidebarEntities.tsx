@@ -14,7 +14,7 @@ import {
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { summarizeSync } from '@renderer/shared/lib/sync-state';
+import { hasConnectedIntegration, summarizeSync } from '@renderer/shared/lib/sync-state';
 
 // The sidebar's Recents, Favorites and sync line (docs/renderer/implementation-plan.md, "App
 // layout"), from core's lists; each item opens with useOpenEntity.
@@ -110,9 +110,11 @@ function subscribeOnline(listener: () => void) {
 }
 
 /**
- * The sync line at the start of the footer's row, for every source that syncs; "Set up sync" while
- * none does (nothing connected), and nothing until `sync.status` first answers. Kept fresh by the invalidator (`sources.changed`, `sync.progress`). Its line opens
- * Integrations; Retry runs `sync.now`.
+ * The sync line at the start of the footer's row, for every source that syncs. While none does it
+ * says "Sync off" if an integration is connected (its sources turned off) and invites to "Set up
+ * sync" if none is; it shows nothing until `sync.status` first answers. Kept fresh by the
+ * invalidator (`sources.changed`, `sync.progress`). Its line opens Integrations; Retry runs
+ * `sync.now`.
  */
 export function SidebarSync() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
@@ -126,7 +128,10 @@ export function SidebarSync() {
   // nothing until the first answer, so a workspace that syncs never flashes "Set up sync"
   if (!status.data) return null;
   const summary = summarizeSync(status.data, online, format.now);
-  if (!summary) return <SyncStatus state="none" onOpen={openIntegrations} />;
+  if (!summary) {
+    const state = hasConnectedIntegration(status.data) ? 'off' : 'none';
+    return <SyncStatus state={state} onOpen={openIntegrations} />;
+  }
   return (
     <SyncStatus
       state={summary.state}

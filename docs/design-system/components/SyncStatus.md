@@ -7,7 +7,10 @@ The sync line at the start of the sidebar's footer row, before Trash, Settings a
 - **error:** `circle-alert` and "Sync failed" in `destructive`, then Retry (`sync.now`) as an xs muted icon button (`rotate-cw`, drawn at 16px to match the line's icon) right after the text, named "Retry sync" in its tooltip.
 - **rate-limited:** `clock` in `date-today`, "Paused · 9:15 AM"; its tooltip says "Syncing resumes at 9:15 AM".
 - **offline:** `wifi-off`, "Offline"; its tooltip says "Syncing resumes when you reconnect".
-- **none:** no source syncs (nothing connected, or every source turned off): `plug` and "Set up sync", both in `subtle-foreground`: an invitation, quieter than the states that report on syncing. Its tooltip says what syncing brings ("Sync tasks and events from your tools"), and clicking it opens Integrations as the other states do. It says "Set up sync" rather than "Connect an account" because it also shows when accounts are connected but every source is off. The sidebar shows nothing until `sync.status` first answers, so a workspace that syncs never flashes it.
+- **off:** integrations are connected but every source is turned off: `cloud-off` and "Sync off", in `subtle-foreground`; its tooltip says "Every source is turned off. Turn one on in Integrations".
+- **none:** no integration is connected (none set up, or every one turned off): `plug` and "Set up sync", in `subtle-foreground`, an invitation. Its tooltip says what syncing brings ("Sync tasks and events from your tools").
+
+Off and none are quieter than the states that report on syncing, as nothing is going wrong. Clicking either opens Integrations, as the other states do. The sidebar shows nothing until `sync.status` first answers, so a workspace that syncs never flashes either.
 
 Tooltips open above, as the line sits at the window's bottom.
 

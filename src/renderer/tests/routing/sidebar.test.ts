@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
+import { IntegrationStatus, Provider, SourceType } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
@@ -10,8 +11,9 @@ const WORK = 'wsp_work' as WorkspaceId;
 
 afterEach(() => stopApps());
 
-async function onWorkHome() {
+async function onWorkHome(setup: (main: FakeMain) => void = () => {}) {
   const main = new FakeMain([workspace(WORK, 'Work')], WORK);
+  setup(main);
   const app = startApp(main, { url: `/app/${WORK}/home` });
   await eventually(() => expect(app.text()).toContain('Work recents.list'));
   return app;
@@ -52,5 +54,29 @@ describe('the sidebar', () => {
     await eventually(() => expect(line()).toBeTruthy());
     click(line()!);
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/integrations`));
+  });
+
+  it('says "Sync off" while an integration is connected with every source turned off', async () => {
+    await onWorkHome((main) =>
+      main.routes.set('sync.status', () => [
+        [
+          {
+            sourceId: 'src_tasks',
+            integrationId: 'int_linear',
+            provider: Provider.LINEAR,
+            sourceType: SourceType.TASKS,
+            status: IntegrationStatus.CONNECTED,
+            enabled: false,
+            running: false,
+            lastSyncedAt: null,
+            lastError: null,
+            retryAt: null,
+          },
+        ],
+        [],
+      ]),
+    );
+    await eventually(() => expect(byText(sidebar(), 'button', 'Sync off')).toBeTruthy());
+    expect(sidebar().textContent).not.toContain('Set up sync');
   });
 });

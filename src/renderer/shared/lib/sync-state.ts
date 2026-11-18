@@ -11,8 +11,22 @@ export interface SyncSummary {
 }
 
 /**
+ * Whether an integration is connected: an account the user set up and hasn't turned off, including
+ * one that needs reconnecting. With none, the sidebar invites to "Set up sync"; with one whose
+ * sources are all off, it says "Sync off".
+ */
+export function hasConnectedIntegration(sources: readonly SourceSyncStatus[]): boolean {
+  return sources.some(
+    (source) =>
+      source.status === IntegrationStatus.CONNECTED ||
+      source.status === IntegrationStatus.NEEDS_REAUTH,
+  );
+}
+
+/**
  * The sidebar's one sync line for every source that syncs (enabled, on a connected account or one
- * that needs reconnecting), or null when none does (nothing connected: no line). Worst first: offline, a run in flight, a failure, a
+ * that needs reconnecting), or null when none does (the sidebar then says "Sync off" or "Set up
+ * sync", from `hasConnectedIntegration`). Worst first: offline, a run in flight, a failure, a
  * provider's back-off, then synced.
  */
 export function summarizeSync(
