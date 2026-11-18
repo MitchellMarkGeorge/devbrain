@@ -304,7 +304,9 @@ describe('RichTextEditor', () => {
     render({ value: 'Some text to link' });
     await act(async () => {
       editor.chain().focus().setTextSelection({ from: 6, to: 10 }).run();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // TipTap focuses on the next animation frame: wait for it, or that focus arriving after the
+      // link editor opens is taken for a click back in the text, and closes it
+      await vi.waitFor(() => expect(editor.isFocused).toBe(true));
       // ⌘K, or the toolbar's Link, with the text focused
       setLinkEditing(editor, true);
       await new Promise((resolve) => setTimeout(resolve, 0));
