@@ -25,6 +25,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarHeader,
   SidebarItem,
 } from '../../shell/Sidebar';
 import { StatusIcon } from '../../entities/StatusIcon';
@@ -71,12 +72,22 @@ export interface DemoSidebarProps {
   empty?: boolean;
   /** the sync line at the top of the footer */
   sync?: SyncState;
+  /** open the workspace menu (the switcher screen) */
+  workspaceMenuOpen?: boolean;
 }
 
 /** The sidebar as every Figma screen draws it: the six pages, Recents, Favorites. */
-export function DemoSidebar({ active, empty, sync }: DemoSidebarProps) {
+export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSidebarProps) {
   return (
-    <Sidebar>
+    <Sidebar
+      header={
+        <SidebarHeader>
+          <WorkspaceButton name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
+            <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
+          </WorkspaceButton>
+        </SidebarHeader>
+      }
+    >
       <SidebarContent>
         <SidebarGroup>
           {NAV.map((page) => (
@@ -147,13 +158,8 @@ export function DemoCreateMenu() {
  * The title bar's workspace and New as the app fills them, for a `WorkspaceShell` in a story: the
  * sample workspace (its menu open with `workspaceMenuOpen`), and `DemoCreateMenu`.
  */
-export function demoTitleBar(workspaceMenuOpen?: boolean) {
+export function demoTitleBar() {
   return {
-    workspace: (
-      <WorkspaceButton name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
-        <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
-      </WorkspaceButton>
-    ),
     create: <DemoCreateMenu />,
     onSearch: () => {},
   };
@@ -197,9 +203,14 @@ export function ScreenFrame({
   return (
     <div style={{ width, height, overflow: 'hidden', position: 'relative' }}>
       <WorkspaceShell
-        sidebar={sidebar ?? <DemoSidebar active={page} empty={emptySidebar} sync={sync} />}
+        sidebar={sidebar ?? <DemoSidebar
+            active={page}
+            empty={emptySidebar}
+            sync={sync}
+            workspaceMenuOpen={workspaceMenuOpen}
+          />}
         style={style}
-        {...demoTitleBar(workspaceMenuOpen)}
+        {...demoTitleBar()}
         {...props}
       >
         <Page title={title} actions={actions}>

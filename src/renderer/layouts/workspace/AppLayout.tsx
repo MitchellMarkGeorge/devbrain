@@ -4,7 +4,6 @@ import { WorkspaceShell, type WorkspaceShellControls } from '@renderer/component
 import { useOpenSearch } from '@renderer/features/search/hooks/use-open-search';
 import { AppSidebar } from './AppSidebar';
 import { CreateMenu } from './CreateMenu';
-import { WorkspaceMenu } from './WorkspaceMenu';
 import { SettingsSidebar } from './SettingsSidebar';
 import { useTransferCommands } from '@renderer/features/settings/hooks/use-transfers';
 import { useAppCommands } from './hooks/use-app-commands';
@@ -57,7 +56,6 @@ export function AppLayout() {
       onForward={() => router.history.forward()}
       canGoBack={position.canGoBack}
       canGoForward={position.canGoForward}
-      workspace={<WorkspaceMenu />}
       onSearch={openSearch}
       create={<CreateMenu />}
     >

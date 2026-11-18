@@ -218,7 +218,7 @@ export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function Win
   return (
     <div ref={ref} className={cn(styles.bar, className)} {...props}>
       <WindowStart />
-      <div className={styles.workspace}>{workspace}</div>
+      {workspace && <div className={styles.workspace}>{workspace}</div>}
       <WindowControls />
     </div>
   );

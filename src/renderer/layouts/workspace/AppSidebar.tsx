@@ -15,10 +15,12 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarHeader,
   SidebarItem,
 } from '@renderer/components';
 import { useRunCommand } from '@renderer/keyboard';
 import type { FileRouteTypes } from '@renderer/routeTree.gen';
+import { WorkspaceMenu } from './WorkspaceMenu';
 import { SidebarFavorites, SidebarRecents, SidebarSync } from './SidebarEntities';
 
 type PagePath = Extract<FileRouteTypes['to'], `/app/$workspaceId/${string}`>;
@@ -63,7 +65,13 @@ export function AppSidebar() {
     </SidebarItem>
   );
   return (
-    <Sidebar>
+    <Sidebar
+      header={
+        <SidebarHeader>
+          <WorkspaceMenu />
+        </SidebarHeader>
+      }
+    >
       <SidebarContent>
         <SidebarGroup>{NAV.map(item)}</SidebarGroup>
         <SidebarRecents />

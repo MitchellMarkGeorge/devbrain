@@ -60,6 +60,10 @@
   background: var(--sidebar);
   transition: box-shadow var(--duration-normal) var(--ease-out);
 }
+/* the workspace switcher's row: straight under the title bar, without the 8px */
+.top:has(> .header) {
+  padding-top: 0;
+}
 .sidebar[data-drawer] .top {
   background: var(--popover);
 }
