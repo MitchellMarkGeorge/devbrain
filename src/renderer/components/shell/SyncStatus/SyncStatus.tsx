@@ -3,6 +3,7 @@ import {
   CircleAlert,
   CircleCheck,
   Clock,
+  CloudOff,
   LoaderCircle,
   Plug,
   RotateCw,
@@ -17,9 +18,17 @@ import styles from './SyncStatus.module.css';
 
 /**
  * What `sync.status` reports: the last run, one in flight, a failure, a provider's back-off, or no
- * network; or `none` while no source syncs (nothing connected).
+ * network; `off` while integrations are connected but every source is turned off; or `none` while
+ * no integration is connected.
  */
-export type SyncState = 'synced' | 'syncing' | 'error' | 'rate-limited' | 'offline' | 'none';
+export type SyncState =
+  | 'synced'
+  | 'syncing'
+  | 'error'
+  | 'rate-limited'
+  | 'offline'
+  | 'off'
+  | 'none';
 
 const ICONS: Record<SyncState, LucideIcon> = {
   synced: CircleCheck,
@@ -27,6 +36,7 @@ const ICONS: Record<SyncState, LucideIcon> = {
   error: CircleAlert,
   'rate-limited': Clock,
   offline: WifiOff,
+  off: CloudOff,
   none: Plug,
 };
 
@@ -35,7 +45,7 @@ export interface SyncStatusProps extends Omit<ComponentPropsWithoutRef<'div'>, '
   /**
    * The line's text; each state has its own default, short enough for the footer's row: "Synced 2
    * min ago" (pass `lastSynced`), "Syncing…", "Sync failed", "Paused · 9:15 AM" (pass `retryAt`),
-   * "Offline", "Set up sync". Paused, offline and set up sync say the rest in a tooltip.
+   * "Offline", "Sync off", "Set up sync". All but the first three say the rest in a tooltip.
    */
   children?: ReactNode;
   /** when the last run finished: "2 min ago" */
@@ -60,6 +70,8 @@ function defaultText(state: SyncState, lastSynced?: string, retryAt?: string): s
       return retryAt ? `Paused · ${retryAt}` : 'Paused';
     case 'offline':
       return 'Offline';
+    case 'off':
+      return 'Sync off';
     case 'none':
       return 'Set up sync';
   }
@@ -72,6 +84,8 @@ function detail(state: SyncState, retryAt?: string): string | undefined {
       return retryAt ? `Syncing resumes at ${retryAt}` : 'Syncing resumes shortly';
     case 'offline':
       return 'Syncing resumes when you reconnect';
+    case 'off':
+      return 'Every source is turned off. Turn one on in Integrations';
     case 'none':
       return 'Sync tasks and events from your tools';
     default:

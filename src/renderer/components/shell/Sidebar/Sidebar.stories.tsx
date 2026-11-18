@@ -50,7 +50,7 @@ export const WithSyncStatus: StoryObj<{ sync: SyncState }> = {
   argTypes: {
     sync: {
       control: 'inline-radio',
-      options: ['synced', 'syncing', 'error', 'rate-limited', 'offline', 'none'],
+      options: ['synced', 'syncing', 'error', 'rate-limited', 'offline', 'off', 'none'],
     },
   },
   render: ({ sync }) => <DemoSidebar active="Tasks" sync={sync} />,
@@ -94,7 +94,15 @@ export const EmptyGroupHint: Story = {
  */
 export const FooterStates: Story = {
   render: () => {
-    const states: SyncState[] = ['synced', 'syncing', 'error', 'rate-limited', 'offline', 'none'];
+    const states: SyncState[] = [
+      'synced',
+      'syncing',
+      'error',
+      'rate-limited',
+      'offline',
+      'off',
+      'none',
+    ];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 256, padding: 12 }}>
         {states.map((state) => (

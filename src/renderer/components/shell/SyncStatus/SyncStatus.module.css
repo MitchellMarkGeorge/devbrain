@@ -59,7 +59,9 @@
 .status[data-state='error'] .main {
   color: var(--destructive);
 }
-/* nothing syncs yet: an invitation, quieter than the states that report on syncing */
+/* nothing syncs: sources turned off, or an invitation to set up; quieter than the states that
+   report on syncing */
+.status[data-state='off'],
 .status[data-state='none'] {
   color: var(--subtle-foreground);
 }
