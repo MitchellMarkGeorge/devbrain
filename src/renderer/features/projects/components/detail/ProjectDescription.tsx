@@ -4,6 +4,7 @@ import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRi
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
+import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import styles from './ProjectPage.module.css';
 
 /**
@@ -14,6 +15,7 @@ import styles from './ProjectPage.module.css';
  */
 export function ProjectDescription({ project }: { project: Project }) {
   const showError = useMutationErrorToast();
+  const createTask = useCreateTask();
   const synced = isSynced(project);
   const description = useEditorAutosave(project.description ?? '', (markdown) => {
     const blank = markdown.trim() === '';
@@ -33,6 +35,7 @@ export function ProjectDescription({ project }: { project: Project }) {
       placeholder="Add a description…"
       onChange={description.onChange}
       newTaskOptions={{ projectId: project.id }}
+      openNewTaskDialog={createTask}
     />
   );
 }

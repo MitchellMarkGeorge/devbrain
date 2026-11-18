@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { WorkspaceShell, type WorkspaceShellControls } from '@renderer/components';
 import { useOpenSearch } from '@renderer/features/search/hooks/use-open-search';
-import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { AppSidebar } from './AppSidebar';
 import { CreateMenu } from './CreateMenu';
 import { WorkspaceMenu } from './WorkspaceMenu';
@@ -13,18 +12,13 @@ import { useMenuCommands } from './hooks/use-menu-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
 import { PillCardsProvider } from '@renderer/shared/components/PillCards';
-import {
-  NewTaskDialogContext,
-  type OpenNewTaskDialog,
-} from '@renderer/shared/hooks/use-workspace-editor-host';
 
 /**
  * Every page in a workspace: the shell with the sidebar; in its title bar the workspace menu, back
  * and forward on the router's history, search (the field opens it, as ⌘K does) and New; the app-wide commands (from the keys and the app menu), import and export
  * (for the app menu), and the page. Each page declares its own title and actions (its `Page`'s), so
  * the layout holds nothing of the page's; it gives the pills in the page's rows their hover cards
- * (`PillCardsProvider`), and the page's editors the New task dialog for "/task"
- * (`NewTaskDialogContext`). While the settings are open the sidebar is
+ * (`PillCardsProvider`). While the settings are open the sidebar is
  * theirs (`SettingsSidebar`), whose Back to app returns to the last page outside them.
  */
 export function AppLayout() {
@@ -53,11 +47,6 @@ export function AppLayout() {
   // a dialog (search, a create dialog, a confirmation) closes the sidebar's drawer, peeking or
   // pinned: the dialog is what the user turned to, and it shouldn't open over a sheet left open.
   // Before paint, so the two never show together
-  const createTask = useCreateTask();
-  const openNewTaskDialog = useCallback<OpenNewTaskDialog>(
-    (defaults) => createTask({ defaults }),
-    [createTask],
-  );
   const modalShown = useModalShown();
   useLayoutEffect(() => {
     if (modalShown) shell.current?.closeDrawer();
@@ -75,9 +64,7 @@ export function AppLayout() {
       create={<CreateMenu />}
     >
       <PillCardsProvider>
-        <NewTaskDialogContext.Provider value={openNewTaskDialog}>
-          <Outlet />
-        </NewTaskDialogContext.Provider>
+        <Outlet />
       </PillCardsProvider>
     </WorkspaceShell>
   );

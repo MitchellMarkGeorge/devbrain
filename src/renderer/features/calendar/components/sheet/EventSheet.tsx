@@ -50,6 +50,7 @@ import { EventLinkedTasks } from './EventLinkedTasks';
 import { EventNoteSection, eventNoteQuery } from './EventNoteSection';
 import { EventNoteFooter, EventNoteView } from './EventNoteView';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
+import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { moveEnd, moveStart, moveToDay, shownTiming, zoneAbbreviation } from '../../lib/timing';
 import styles from './EventSheet.module.css';
 
@@ -540,6 +541,7 @@ function EventDescription({
   onSave: (description: string) => void;
 }) {
   const pending = useRef<string | null>(null);
+  const createTask = useCreateTask();
   const toDescription = (markdown: string) => (markdown.trim() === '' ? '' : markdown);
   const description = useEditorAutosave(event.description ?? '', (markdown) => {
     if (series) return;
@@ -564,6 +566,7 @@ function EventDescription({
         value={series ? (event.description ?? '') : description.value}
         editable={editable}
         placeholder="Add a description…"
+        openNewTaskDialog={createTask}
         onChange={(markdown) => {
           if (series) pending.current = markdown;
           else description.onChange(markdown);

@@ -13,7 +13,7 @@ export interface CreateTaskOptions {
 /**
  * Opens the Create task dialog (or Create subtask, with `parent`): C anywhere, the sidebar's New
  * task, the tasks page's New Task, a board column's "Add task", a task page's Subtasks "+ Add",
- * an editor's "/task" (through the workspace layout's NewTaskDialogContext).
+ * an editor's "/task" (passed to WorkspaceRichTextEditor as `openNewTaskDialog`).
  */
 export function useCreateTask(): (options?: CreateTaskOptions) => void {
   const modals = useModals();

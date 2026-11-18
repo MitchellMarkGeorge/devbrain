@@ -72,8 +72,9 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   (`EditorHost.openNewTask`), connected to what the editor is for: a note's task is linked to the
   note in its project, a project's or task's description puts it in that project. The rest of the
   line's text, if any, is its title; the `/task` is removed and the text left as it is: nothing is
-  linked in the note. The workspace layout gives page editors the dialog (`NewTaskDialogContext`,
-  as `shared` can't import the tasks feature); without it the menu has no Task. `@` searches
+  linked in the note. A page passes the dialog to its editor
+  (`WorkspaceRichTextEditor`'s `openNewTaskDialog`, the tasks feature's `useCreateTask()`, which
+  `shared` doesn't import); without it the menu has no Task. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
 

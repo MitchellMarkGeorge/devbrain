@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { NoteId, ProjectId } from '@common/ids';
 import type { SearchResult } from '@common/types';
@@ -19,27 +19,24 @@ export interface NewTaskOptions {
 
 /**
  * Opens the New task dialog for an editor's "/task", filled in with the editor's project and note
- * and, when the line had text, that text as the title.
+ * and, when the line had text, that text as the title. A page passes the tasks feature's
+ * `useCreateTask()`, which `shared` doesn't import.
  */
-export type OpenNewTaskDialog = (defaults: NewTaskOptions & { title?: string }) => void;
-
-/**
- * The New task dialog's opener, given by the workspace layout (AppLayout), which can reach the
- * tasks feature that `shared` doesn't import. Without it, an editor has no "/task".
- */
-export const NewTaskDialogContext = createContext<OpenNewTaskDialog | null>(null);
+export type OpenNewTaskDialog = (options: {
+  defaults: NewTaskOptions & { title?: string };
+}) => void;
 
 /**
  * The editor host's "@" search over the open workspace, opening links and Turn into task, for
  * WorkspaceRichTextEditor (../components), which adds onOpenEntity from the router. A task made
  * from text takes the settings' default priority and due date, as the New task dialog does, and
- * `newTaskOptions`'s project and note. "/task" on an empty line opens the New task dialog with the same
- * project and note (NewTaskDialogContext).
+ * `newTaskOptions`'s project and note. "/task" opens the New task dialog through
+ * `openNewTaskDialog`, with the same project and note; without one there is no "/task".
  */
 export function useWorkspaceEditorHost(
   newTaskOptions: NewTaskOptions = {},
+  openNewTaskDialog?: OpenNewTaskDialog,
 ): Pick<EditorHost, 'searchEntities' | 'onOpenUrl' | 'createTask' | 'openNewTask'> {
-  const openNewTaskDialog = useContext(NewTaskDialogContext);
   const queryClient = useQueryClient();
   const { mutate: openUrl } = useMutation(trpc.workspace.openUrl.mutationOptions());
   const showError = useMutationErrorToast('Couldn’t create the task');
@@ -77,7 +74,7 @@ export function useWorkspaceEditorHost(
         }
       },
       openNewTask: openNewTaskDialog
-        ? (title?: string) => openNewTaskDialog({ title, projectId, linkedNoteId })
+        ? (title?: string) => openNewTaskDialog({ defaults: { title, projectId, linkedNoteId } })
         : undefined,
     }),
     [queryClient, openUrl, showError, projectId, linkedNoteId, openNewTaskDialog],
