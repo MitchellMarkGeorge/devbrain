@@ -986,7 +986,7 @@ describe('DetachService — kept copies after connecting the same account again'
     expect(detach.keptCopies(second.id)).toEqual({ tasks: 0 });
   });
 
-  it('leaves a task the provider refuses local and still offered, and reports why', async () => {
+  it('leaves a task whose issue is gone local, reports why, and offers it no more', async () => {
     const first = await connectLinear();
     const kept = issue();
     const gone = issue();
@@ -995,6 +995,8 @@ describe('DetachService — kept copies after connecting the same account again'
     const second = await connectLinear();
     await syncTasks(second.sourceId, [kept, gone]);
     provide(kept);
+    const changes: TaskLinkChange[] = [];
+    detach.onChange((change) => changes.push(change));
 
     const result = await detach.reattachKept(second.id);
 
@@ -1008,6 +1010,27 @@ describe('DetachService — kept copies after connecting the same account again'
       ],
     });
     expect(linkOf(gone)!.state).toBe(LinkState.DETACHED);
+    // refused for good: no longer offered, as if kept local
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 0 });
+    expect(changes).toContainEqual({
+      type: 'kept_local',
+      integrationId: second.id,
+      taskIds: [taskIdOf(gone)],
+    });
+  });
+
+  it('still offers what is refused only while its source is switched off', async () => {
+    const first = await connectLinear();
+    const kept = issue();
+    await syncTasks(first.sourceId, [kept]);
+    await service.disconnect(first.id, { keepLocalCopies: true });
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, [kept]);
+    service.setSourceEnabled(second.sourceId, false);
+
+    const result = await detach.reattachKept(second.id);
+
+    expect(result.failed).toHaveLength(1);
     expect(detach.keptCopies(second.id)).toEqual({ tasks: 1 });
   });
 
