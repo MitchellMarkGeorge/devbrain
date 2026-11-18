@@ -46,10 +46,10 @@ describe('createSummaryLoader', () => {
 });
 
 it('refetches pills when a task, project, note, event or calendar changes', () => {
-  expect(entitiesReadBy(['entities', 'summaries'])).toEqual([
+  expect(entitiesReadBy(['notes', 'mentions'])).toEqual([
+    'note',
     'task',
     'project',
-    'note',
     'event',
     'calendar',
   ]);

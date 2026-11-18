@@ -56,7 +56,7 @@ export interface TaskSummary {
 
 /**
  * An entity's summary as an entity pill draws it (a note's links to tasks, projects, notes and
- * events): `entities.summaries` loads a whole note's pills in one call.
+ * events): `notes.mentions` loads a whole note's pills in one call.
  */
 export type EntitySummary =
   | ({ type: 'task' } & TaskSummary)

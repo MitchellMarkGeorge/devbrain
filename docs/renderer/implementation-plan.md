@@ -1245,9 +1245,10 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   title's matches in bold; each picker leaves out what it can't offer from `entity` (closed tasks,
   subtasks, synced parents). Project pickers load every open project (`projects.list`'s
   `excludeCompleted`, page after page) and keep the menu's own filter.
-- **R2 (done): `entities.summaries(ids)`**, a batch route for the pills. A 200 KB note with about
-  550 task pills made 550 `tasks.get` calls on opening and again after every save; its pills now
-  load in two calls (docs/performance.md).
+- **R2 (done): `notes.mentions(ids)`**, one route for what a note's mentions show, with at most
+  one query per entity type. Each pill read its entity with its own `get` before, and all of them
+  again after every save; at a few dozen mentions that cost tens of milliseconds, so this is for one
+  place to load and judge mention data more than for speed (docs/performance.md).
 
 ### Calendar
 
@@ -1319,7 +1320,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | R1                                 | Status/colour in search                                  | ⌘K, "@" menu                                 | Done                       |
 | R4                                 | Match counts per type                                    | ⌘K's type filter                             | Done                       |
 | K0                                 | `readRange` skips unselected synced calendars            | Calendar (unticked calendars vanish at once) | No, but cheap              |
-| R2                                 | `entities.summaries` for entity pills                    | Notes with many pills                        | Done                       |
+| R2                                 | `notes.mentions` for entity pills                        | Notes with many pills                        | Done                       |
 | T1, T3, T4, P2, A1, A3, A4, K1, E2 | See above                                                |                                              | No                         |
 | S5                                 | `keyboardMode` setting                                   | Vim mode                                     | Later                      |
 | S3                                 | `calendar.hideWeekends`                                  | Settings, Calendar                           | No                         |

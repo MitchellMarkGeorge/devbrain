@@ -12,13 +12,13 @@ import { ipc } from '@renderer/ipc';
 import type { EditorEntity, EditorEntityType, EditorHost } from './types';
 
 // The entities behind an editor's pills, from React Query's cache: one query per pill, keyed as
-// `entities.summaries` for that one id, so the query invalidator refetches it when core reports a
+// `notes.mentions` for that one id, so the query invalidator refetches it when core reports a
 // change and a renamed or completed task updates its pills. The queries a turn starts (a note's
 // pills mounting, or all of them refetching after a change) are sent as one call: a note with 550
 // task pills made 550 calls of `tasks.get` on opening and again after each save
 // (docs/performance.md).
 
-/** the most ids one `entities.summaries` call takes (its route's MAX_SUMMARY_IDS) */
+/** the most ids one `notes.mentions` call takes (its route's MAX_MENTION_IDS) */
 const BATCH_SIZE = 500;
 
 interface Waiter {
@@ -60,15 +60,15 @@ export function createSummaryLoader(
     });
 }
 
-const loadSummary = createSummaryLoader((ids) => ipc.entities.summaries.query({ ids }));
+const loadSummary = createSummaryLoader((ids) => ipc.notes.mentions.query({ ids }));
 
 function entityQuery(type: EditorEntityType, id: string) {
   // an id of no entity of its type is no entity
   if (!isId(type, id)) return null;
   return queryOptions({
-    // tRPC's key for `entities.summaries` of this one id, which the query invalidator reads the
+    // tRPC's key for `notes.mentions` of this one id, which the query invalidator reads the
     // route from; its data is that id's summary
-    queryKey: [['entities', 'summaries'], { input: { ids: [id] }, type: 'query' }] as const,
+    queryKey: [['notes', 'mentions'], { input: { ids: [id] }, type: 'query' }] as const,
     queryFn: () => loadSummary(id as StampedId),
   });
 }

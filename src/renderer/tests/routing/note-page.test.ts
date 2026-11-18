@@ -175,7 +175,7 @@ describe('the note page', () => {
     );
     await eventually(() => expect(app.text()).toContain('Audit token storage'));
     expect(app.text()).toContain('Implement PKCE flow');
-    const calls = main.callsTo('entities.summaries');
+    const calls = main.callsTo('notes.mentions');
     expect(calls).toHaveLength(1);
     expect([...(calls[0].input as { ids: string[] }).ids].sort()).toEqual(
       [OTHER.id, 'tsk_gone', 'tsk_pkce'].sort(),

@@ -142,7 +142,7 @@ There is no sender check: the window is sandboxed, denies new windows and cancel
 [`router.ts`](../../src/main/ipc/router.ts) merges one router per feature, in
 [`src/main/ipc/routers`](../../src/main/ipc/routers): `app`, `workspaces`, `workspace`, `settings`,
 `tasks`, `archive`, `calendars`, `integrations`, `sources`, `sync`, `notes`, `projects`, `events`,
-`entities`, `favorites`, `recents`, `search` and `transfer`. Each file's comments say what its procedures do. A few points that are
+`favorites`, `recents`, `search` and `transfer`. Each file's comments say what its procedures do. A few points that are
 not obvious from one file:
 
 - **`setFavorite`** (tasks, projects, notes, events) takes the state wanted, not a toggle, so a
@@ -152,10 +152,11 @@ not obvious from one file:
   its own router's `get` would, narrowed by `entityType`: what a row draws (a task's status, a
   project's colour, an event's colour and calendar) is all there. Core picks the page in one query
   and reads each entity type on it in one batched lookup, so a longer page costs no more queries.
-- **`entities.summaries`** takes up to 500 task, project, note and event ids and returns each
-  entity's summary as an entity pill draws it, one query per type, leaving out what is gone or
-  archived. The editor's pills ask for theirs through it, gathering a turn's ids into one call
-  (`use-entity-resolver.ts`), so a note with hundreds of pills loads them in one or two calls.
+- **`notes.mentions`** takes up to 500 task, project, note and event ids, the entities a note's
+  mentions name, and returns each one's summary as its pill draws it (title, a task's status, a
+  project's or event's colour), with at most one query per type, leaving out what is gone or in the
+  trash. The editor's pills ask for theirs through it, gathering a turn's ids into one call
+  (`use-entity-resolver.ts`), rather than each reading its entity with its own `get`.
 - **`recents.recordView`** takes any task, project, note or event id and stamps it as viewed now;
   the renderer calls it when a page for one opens. It reports `changed: ['recent']`, never the
   entity's own kind, so a view refetches the recents list and not every list of that entity.

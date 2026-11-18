@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
+import type { EntitySummary, Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -8,6 +8,9 @@ import { zId, zPageFields } from '../zod';
 // the rows returned carry its preview only.
 
 const byId = z.object({ id: zId('note') });
+
+/** the most ids one `mentions` call takes; the renderer asks in batches of at most this many */
+export const MAX_MENTION_IDS = 500;
 
 // null clears a link, or lists the notes without one
 const links = {
@@ -71,6 +74,18 @@ export const notesRouter = t.router({
       ({ ctx, input }): Promise<string> =>
         ctx.workspace.notes.readContent(input.id, { includeArchived: true }),
     ),
+
+  // what a note's mentions show of the tasks, projects, notes and events they name; one gone or
+  // archived is left out. The editor's pills ask for theirs through it, a turn's ids in one call
+  mentions: wsProcedure
+    .input(
+      z.object({
+        ids: z
+          .array(z.union([zId('task'), zId('project'), zId('note'), zId('event')]))
+          .max(MAX_MENTION_IDS),
+      }),
+    )
+    .query(({ ctx, input }): EntitySummary[] => ctx.workspace.notes.mentions(input.ids)),
 
   // replaces the note's markdown; core runs one note's saves one at a time, so the last call wins
   updateContent: wsProcedure

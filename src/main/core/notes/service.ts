@@ -1,4 +1,4 @@
-import { generateId, NoteId } from '@common/ids';
+import { EventId, generateId, isId, NoteId, ProjectId, TaskId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
 import { SQL, and, isNull, isNotNull, desc, eq, inArray } from 'drizzle-orm';
@@ -6,13 +6,26 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
 import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
-import { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
+import {
+  EntitySummary,
+  Note,
+  NoteDeleteResult,
+  NoteListItem,
+  Page,
+  StampedId,
+} from '@common/types';
 import { CreateNoteOptions, NoteFilterOptions, NoteSortOptions, UpdateNoteOptions } from './types';
 import { stripMarkdown } from '../shared/markdown';
 import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
+import {
+  eventSummaries,
+  noteSummaries,
+  projectSummaries,
+  taskSummaries,
+} from '../shared/summaries';
 import { noteAsMarkdown } from '../transfer/markdown-copy';
 import { copyTitle } from '../tasks/utils';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';
@@ -64,6 +77,32 @@ export class NoteService {
 
   getByIds(ids: NoteId[]): Note[] {
     return this.activeNotes(inArray(notes.id, ids)).all();
+  }
+
+  /**
+   * What a note's mentions (its entity links, drawn as pills) show of the tasks, projects, notes
+   * and events they name: each one's summary, in the order asked, each once, with at most one query
+   * per type. An id of no entity, or of an archived task, project or note, is left out, so its pill
+   * draws as missing.
+   */
+  mentions(ids: readonly StampedId[]): EntitySummary[] {
+    const unique = [...new Set(ids)];
+    const of = <T extends string>(type: 'task' | 'project' | 'note' | 'event') =>
+      unique.filter((id) => isId(type, id)) as unknown as T[];
+    const tasks = taskSummaries(this.db, of<TaskId>('task'));
+    const projects = projectSummaries(this.db, of<ProjectId>('project'));
+    const notes = noteSummaries(this.db, of<NoteId>('note'));
+    const events = eventSummaries(this.db, of<EventId>('event'));
+    return unique.flatMap((id): EntitySummary[] => {
+      const task = tasks.get(id as TaskId);
+      if (task) return [{ type: 'task', ...task }];
+      const project = projects.get(id as ProjectId);
+      if (project) return [{ type: 'project', ...project }];
+      const note = notes.get(id as NoteId);
+      if (note) return [{ type: 'note', ...note }];
+      const event = events.get(id as EventId);
+      return event ? [{ type: 'event', ...event }] : [];
+    });
   }
 
   // the note's row, for the checks before a write: what they read, without the list's details.

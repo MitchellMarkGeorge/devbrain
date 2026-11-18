@@ -34,7 +34,8 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   tasks: ['task', 'project', 'note', 'event', 'calendar'],
   // stats count tasks
   projects: ['project', 'task'],
-  // a note row shows its project, its linked task or event (in its calendar's colour)
+  // a note row shows its project, its linked task or event (in its calendar's colour); `mentions`
+  // shows a task's title and status, a project's or event's colour
   notes: ['note', 'task', 'project', 'event', 'calendar'],
   // a note's markdown, from its file: only a change to the note changes it
   'notes.readContent': ['note'],
@@ -42,9 +43,6 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   events: ['event', 'calendar'],
   // a disconnect turns its calendars into local ones
   calendars: ['calendar', 'externalSource'],
-  // an entity pill's title, a task's status, a project's or event's colour (an event's falls back
-  // to its calendar's)
-  entities: ['task', 'project', 'note', 'event', 'calendar'],
   favorites: ['task', 'project', 'note', 'event'],
   // titles come from the entities, so an edit or archive changes the list too
   recents: ['recent', 'task', 'project', 'note', 'event'],

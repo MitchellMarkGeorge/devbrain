@@ -5,7 +5,6 @@ import path from 'node:path';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { TaskStatus, type StampedId } from '@common/types';
 import { createDb } from '../utils';
-import { EntityService } from '../../entities/service';
 import { ArchiveService } from '../../archive/service';
 import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
@@ -16,7 +15,6 @@ const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 let db: BetterSQLite3Database;
 let workspacePath: string;
-let entities: EntityService;
 let tasks: TaskService;
 let projects: ProjectService;
 let notes: NoteService;
@@ -25,8 +23,7 @@ let archive: ArchiveService;
 
 beforeEach(async () => {
   db = createDb();
-  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-entities-'));
-  entities = new EntityService(db);
+  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-mentions-'));
   tasks = new TaskService(db);
   projects = new ProjectService(db, tasks);
   notes = new NoteService(db, workspacePath);
@@ -38,7 +35,7 @@ afterEach(async () => {
   await fs.rm(workspacePath, { recursive: true, force: true });
 });
 
-describe('EntityService.summaries', () => {
+describe('NoteService.mentions', () => {
   it('gives each entity as a pill draws it, of every type, in the order asked', async () => {
     const project = projects.createProject({
       title: 'Apollo',
@@ -57,7 +54,7 @@ describe('EntityService.summaries', () => {
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
 
-    const summaries = entities.summaries([event.id, note.id, task.id, project.id, task.id]);
+    const summaries = notes.mentions([event.id, note.id, task.id, project.id, task.id]);
 
     expect(summaries).toEqual([
       expect.objectContaining({ type: 'event', id: event.id, title: 'Review' }),
@@ -75,8 +72,8 @@ describe('EntityService.summaries', () => {
     archive.archiveTask(trashed.id);
 
     expect(
-      entities.summaries([kept.id, trashed.id, 'tsk_missing' as StampedId]).map(({ id }) => id),
+      notes.mentions([kept.id, trashed.id, 'tsk_missing' as StampedId]).map(({ id }) => id),
     ).toEqual([kept.id]);
-    expect(entities.summaries([])).toEqual([]);
+    expect(notes.mentions([])).toEqual([]);
   });
 });
