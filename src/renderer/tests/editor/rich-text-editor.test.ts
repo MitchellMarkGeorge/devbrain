@@ -177,12 +177,26 @@ describe('RichTextEditor', () => {
       );
     render({ value: '', createTask });
 
-    // an empty line has nothing to make a task of
+    // an empty line has nothing to make a task of, without a New task dialog to open
     await act(async () => {
       editor.chain().focus().insertContent('/ta').run();
       await new Promise((resolve) => setTimeout(resolve, 120));
     });
     expect(options()).not.toContain('Task');
+    // with one, it opens it
+    const openNewTask = vi.fn();
+    render({ value: '', createTask, openNewTask });
+    await act(async () => {
+      editor.commands.setContent('', { emitUpdate: false });
+      editor.chain().focus().insertContent('/ta').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    expect(options()).toContain('Task');
+    await act(async () => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(openNewTask).toHaveBeenCalledTimes(1);
+    expect(createTask).not.toHaveBeenCalled();
 
     await act(async () => {
       editor.commands.setContent('- [ ] Call Ana about the launch', {

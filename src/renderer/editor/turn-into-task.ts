@@ -26,13 +26,19 @@ export function selectionTaskTitle(editor: Editor): string | null {
   return rangeTitle(editor, from, to);
 }
 
+/** Whether the caret is in a block of text outside code, where "/task" can make a task. */
+export function inTextBlock(editor: Editor): boolean {
+  const { parent } = editor.state.selection.$from;
+  return parent.isTextblock && !parent.type.spec.code;
+}
+
 /**
  * The text of the block the caret is in, less `skip` (the "/task" typed in it), as a new task's
  * title: the slash menu's Task. null outside a text block, in code, or when the rest is blank.
  */
 export function blockTaskTitle(editor: Editor, skip: Range): string | null {
+  if (!inTextBlock(editor)) return null;
   const { $from } = editor.state.selection;
-  if (!$from.parent.isTextblock || $from.parent.type.spec.code) return null;
   const start = $from.start();
   const end = $from.end();
   if (skip.from < start || skip.to > end) return null;
@@ -95,4 +101,42 @@ export function turnBlockIntoTask(editor: Editor, slash: Range): Promise<boolean
   editor.chain().focus().deleteRange(slash).run();
   const { $from } = editor.state.selection;
   return turnRangeIntoTask(editor, $from.start(), $from.end());
+}
+
+/**
+ * The slash menu's Task on an empty line: removes the "/task" typed (`slash`) and opens the host's
+ * New task dialog. Each task it makes is linked where "/task" was, one after another ("Create
+ * more"), the place moving with edits made meanwhile. Returns whether the dialog was opened.
+ */
+export function linkNewTasks(editor: Editor, slash: Range): boolean {
+  const { openNewTask } = editor.storage.editorHost.host;
+  if (!openNewTask) return false;
+  editor.chain().focus().deleteRange(slash).run();
+
+  // where the next task goes: after the last one, as a link put there maps it past itself
+  let at = slash.from;
+  const follow = ({ transaction }: { transaction: Transaction }) => {
+    at = transaction.mapping.map(at, 1);
+  };
+  const stop = () => {
+    editor.off('transaction', follow);
+    editor.off('destroy', stop);
+  };
+  editor.on('transaction', follow);
+  editor.on('destroy', stop);
+  openNewTask({
+    onCreated(task) {
+      if (editor.isDestroyed) return;
+      // the dialog keeps focus (it may make more), so the editor's isn't taken back here
+      editor
+        .chain()
+        .insertContentAt(at, [
+          { type: 'entityLink', attrs: { type: 'task', id: task.id, label: task.title } },
+          { type: 'text', text: ' ' },
+        ])
+        .run();
+    },
+    onClosed: stop,
+  });
+  return true;
 }

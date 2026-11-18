@@ -9,7 +9,7 @@ import {
   type SlashItem,
 } from '@renderer/components';
 import { applyBlockType } from '../block-types';
-import { blockTaskTitle, turnBlockIntoTask } from '../turn-into-task';
+import { blockTaskTitle, inTextBlock, linkNewTasks, turnBlockIntoTask } from '../turn-into-task';
 import { openMention } from './entity-menu';
 import { createSuggestionMenu } from './suggestion';
 
@@ -17,8 +17,9 @@ import { createSuggestionMenu } from './suggestion';
  * The slash menu: "/" at the start of a word opens the design system's SlashMenu, and picking an
  * item turns the block into it or inserts it. "Link to note", "Link to task" and "Mention event"
  * open the "@" menu for that kind. "Task" turns the line it is typed on into a task: the rest of
- * the block's text is its title, replaced by a link to it (turn-into-task.ts). It is offered only
- * when the host can make tasks and the line has text besides the "/task".
+ * the block's text is its title, replaced by a link to it (turn-into-task.ts). On a line with no
+ * other text it opens the host's New task dialog instead, and links each task made there. It is
+ * offered when the host can do the one the line needs.
  */
 
 const WITHOUT_TASK = SLASH_GROUPS.map((group) => ({
@@ -34,9 +35,12 @@ function slashRange(editor: Editor, query: string): Range {
 
 // the menu's groups: Task only where it can make one
 function groupsFor(editor: Editor, query: string) {
+  const { host } = editor.storage.editorHost;
+  if (!inTextBlock(editor)) return WITHOUT_TASK;
   const canMake =
-    editor.storage.editorHost.host.createTask !== undefined &&
-    blockTaskTitle(editor, slashRange(editor, query)) !== null;
+    blockTaskTitle(editor, slashRange(editor, query)) === null
+      ? host.openNewTask !== undefined
+      : host.createTask !== undefined;
   return canMake ? SLASH_GROUPS : WITHOUT_TASK;
 }
 
@@ -61,7 +65,8 @@ const isBlockType = (command: SlashCommand): command is BlockType =>
 
 export function runSlashCommand(editor: Editor, range: Range, command: SlashCommand): void {
   if (command === 'task') {
-    void turnBlockIntoTask(editor, range);
+    if (blockTaskTitle(editor, range) === null) linkNewTasks(editor, range);
+    else void turnBlockIntoTask(editor, range);
     return;
   }
   const chain = editor.chain().focus().deleteRange(range);

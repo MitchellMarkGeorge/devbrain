@@ -61,7 +61,7 @@ function NoteEditorLoaded({
       onChange={body.onChange}
       onReady={onReady}
       editable={editable}
-      newTask={{ projectId, linkedNoteId: noteId }}
+      newTaskOptions={{ projectId, linkedNoteId: noteId }}
     />
   );
 }

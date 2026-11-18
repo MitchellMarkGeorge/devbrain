@@ -5,6 +5,7 @@ import { EditorHostExtension, setEditorHost } from '@renderer/editor/extensions/
 import { createDocumentExtensions } from '@renderer/editor/markdown';
 import {
   blockTaskTitle,
+  linkNewTasks,
   selectionTaskTitle,
   turnBlockIntoTask,
   turnSelectionIntoTask,
@@ -146,5 +147,38 @@ describe('turning a line into a task (the slash menu)', () => {
     expect(await turnBlockIntoTask(editor, slash())).toBe(true);
     expect(host.titles).toEqual(['Call Ana']);
     expect(editor.getMarkdown()).toBe('[Call Ana](devbrain://task/tsk_new)\n\nNext');
+  });
+});
+
+describe('linking the tasks the New task dialog makes (the slash menu on an empty line)', () => {
+  it('links each where "/task" was, one after another, and stops once the dialog closes', () => {
+    load('Before\n\n/task\n\nAfter');
+    let dialog: { onCreated: (task: EditorEntity) => void; onClosed: () => void } | undefined;
+    setEditorHost(editor, {
+      openNewTask: (handlers) => {
+        dialog = handlers;
+      },
+    });
+    select('/task');
+    const slash = editor.state.selection;
+    expect(linkNewTasks(editor, { from: slash.from, to: slash.to })).toBe(true);
+    expect(editor.getMarkdown()).not.toContain('/task');
+
+    // typing above while the dialog is open moves the place
+    editor.commands.insertContentAt(1, 'Just ');
+    dialog!.onCreated({ type: 'task', id: 'tsk_a', title: 'One' });
+    dialog!.onCreated({ type: 'task', id: 'tsk_b', title: 'Two' });
+    dialog!.onClosed();
+    expect(editor.getMarkdown()).toBe(
+      'Just Before\n\n[One](devbrain://task/tsk_a) [Two](devbrain://task/tsk_b) \n\nAfter',
+    );
+  });
+
+  it('does nothing without a host that opens the dialog', () => {
+    load('/task');
+    select('/task');
+    const { from, to } = editor.state.selection;
+    expect(linkNewTasks(editor, { from, to })).toBe(false);
+    expect(editor.getMarkdown()).toBe('/task');
   });
 });
