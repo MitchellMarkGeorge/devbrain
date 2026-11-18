@@ -2,7 +2,7 @@ import { ExternalSourceId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';
 import { SyncStateManager, SyncTarget } from './sync-state';
-import { OpenSource, ProviderConnections, SourceAccess } from './source-access';
+import type { IntegrationService, SourceProvider } from '../integrations/service';
 import { SourceType, SyncEntityType } from '@common/types';
 import { ChangeListeners } from '../shared/changes';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
@@ -23,10 +23,17 @@ import {
   SyncSummary,
 } from './types';
 
+// what the engine needs from IntegrationService, the one owner of the provider registry and the
+// credential store: the gate and provider for a source, auth, and needs_reauth when a provider
+// rejects the credentials
+export type EngineIntegrations = Pick<
+  IntegrationService,
+  'getSourceProvider' | 'getAuth' | 'withSource' | 'markNeedsReauth'
+>;
+
 export interface SyncEngineOptions {
-  // the provider each integration connected through, its auth, and needs_reauth when a provider
-  // rejects the credentials: IntegrationService owns the registry and the credentials
-  integrations: ProviderConnections;
+  // the provider each source's integration connected through, its auth, and needs_reauth
+  integrations: EngineIntegrations;
   // each source's cursor and run outcomes
   syncState: SyncStateManager;
   writer: SyncWriter;
@@ -64,10 +71,8 @@ export interface BaseSyncEngine {
  * run ended on its source through SyncStateManager, which tells the scheduler and the renderer.
  */
 export class SyncEngine implements BaseSyncEngine {
-  private readonly integrations: ProviderConnections;
+  private readonly integrations: EngineIntegrations;
   private readonly syncState: SyncStateManager;
-  // the gate, the provider and auth, as for every other call to a provider
-  private readonly access: SourceAccess;
   private readonly writer: SyncWriter;
   private readonly logger: Logger;
   private readonly now: () => Date;
@@ -78,7 +83,7 @@ export class SyncEngine implements BaseSyncEngine {
   private readonly running = new Set<ExternalSourceId>();
   // the syncer for each source type, built on its provider's source; null when the provider has
   // none
-  private readonly syncers: Record<SourceType, (open: OpenSource) => Syncer | null>;
+  private readonly syncers: Record<SourceType, (found: SourceProvider) => Syncer | null>;
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -97,14 +102,9 @@ export class SyncEngine implements BaseSyncEngine {
     });
     this.now = options.now ?? (() => new Date());
     this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
-    this.access = new SourceAccess({
-      integrations: this.integrations,
-      syncState: this.syncState,
-      now: this.now,
-    });
     const reconciler = new TaskReconciler({
       db: this.db,
-      access: this.access,
+      integrations: this.integrations,
       writer: this.writer,
       logger: this.logger,
       now: this.now,
@@ -158,10 +158,10 @@ export class SyncEngine implements BaseSyncEngine {
     this.running.add(sourceId);
     try {
       // 1. nothing runs for a source that is off, or for an integration that is off or rejected
-      const open = this.access.open(sourceId);
-      if (typeof open === 'string') return skip(open);
-      const { target } = open;
-      const syncer = this.getSyncer(open);
+      const found = this.integrations.getSourceProvider(sourceId);
+      if (typeof found === 'string') return skip(found);
+      const { target } = found;
+      const syncer = this.getSyncer(found);
       if (!syncer) return skip(SyncSkipReason.UNSUPPORTED);
 
       // 2.
@@ -223,10 +223,10 @@ export class SyncEngine implements BaseSyncEngine {
     this.running.add(sourceId);
     try {
       // 1.
-      const open = this.access.open(sourceId);
-      if (typeof open === 'string') return skip(open);
-      const { target } = open;
-      const syncer = this.getSyncer(open);
+      const found = this.integrations.getSourceProvider(sourceId);
+      if (typeof found === 'string') return skip(found);
+      const { target } = found;
+      const syncer = this.getSyncer(found);
       if (!syncer?.reconcile) return skip(SyncSkipReason.UNSUPPORTED);
       if (target.initialSyncCompletedAt === null) {
         return skip(SyncSkipReason.INITIAL_SYNC_PENDING);
@@ -264,7 +264,7 @@ export class SyncEngine implements BaseSyncEngine {
     run: RunTally,
     signal: AbortSignal | undefined,
   ): Promise<void> {
-    const auth = await this.access.getAuth(target, signal);
+    const auth = await this.integrations.getAuth(target.integrationId, { signal });
     if (signal?.aborted) return;
     // writes nothing: every write of the run is in sync.apply, below
     const sync = await syncer.start({ sourceId, target, auth, cursor, signal });
@@ -314,7 +314,7 @@ export class SyncEngine implements BaseSyncEngine {
     run: RunTally,
     signal: AbortSignal | undefined,
   ): Promise<void> {
-    const auth = await this.access.getAuth(target, signal);
+    const auth = await this.integrations.getAuth(target.integrationId, { signal });
     if (signal?.aborted) return;
     // 2. reads only
     const pass = await syncer.reconcile!({ sourceId, target, auth, signal });
@@ -333,8 +333,8 @@ export class SyncEngine implements BaseSyncEngine {
   }
 
   // the syncer for the source's type and provider; null when there is none, and the run is skipped
-  private getSyncer(open: OpenSource): Syncer | null {
-    return this.syncers[open.target.sourceType](open);
+  private getSyncer(found: SourceProvider): Syncer | null {
+    return this.syncers[found.target.sourceType](found);
   }
 
   // the stored cursor, validated with the syncer's schema; one that does not parse, e.g. written

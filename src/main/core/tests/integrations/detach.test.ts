@@ -19,7 +19,6 @@ import {
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
-import { SourceAccess } from '../../sync/source-access';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -183,7 +182,7 @@ beforeEach(async () => {
   engine = new SyncEngine(db, { integrations: service, syncState, writer, logger });
   reconciler = new TaskReconciler({
     db,
-    access: new SourceAccess({ integrations: service, syncState }),
+    integrations: service,
     writer,
     logger,
   });
@@ -512,7 +511,7 @@ describe('TaskReconciler — reattachTasks', () => {
 
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(IntegrationAuthError);
 
-    // as a run's rejected credentials do (SourceAccess.call)
+    // as a run's rejected credentials do (IntegrationService.withSource)
     expect(service.getById(integrationId).status).toBe(IntegrationStatus.NEEDS_REAUTH);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
     expect(changes.map((change) => change.type)).not.toContain('reattached');

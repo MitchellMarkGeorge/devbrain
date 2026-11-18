@@ -911,11 +911,11 @@ describe('Google Calendar sync — unsupported', () => {
   it('skips an events source whose provider serves no calendars', async () => {
     const bare = { ...createGoogleCalendarProvider({ fetch, client: null }), calendars: undefined };
     const other = new SyncEngine(db, {
-      integrations: {
-        getProvider: () => bare,
-        getAuth: (id) => service.getAuth(id),
-        markNeedsReauth: (id) => service.markNeedsReauth(id),
-      },
+      // the same rows, through a registry whose provider serves no calendars
+      integrations: new IntegrationService(db, {
+        credentials: new CredentialStore(db, { cipher: new FakeCipher() }),
+        providers: new Map([[bare.id, bare]]),
+      }),
       syncState: new SyncStateManager(db),
       writer,
       logger: LOGGER,

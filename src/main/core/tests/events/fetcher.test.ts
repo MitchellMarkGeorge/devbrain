@@ -8,8 +8,10 @@ import { CalendarId, ExternalSourceId, IntegrationId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { events } from '@main/db/schema/events';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
+import { FakeCipher } from '../__mocks__/fake-cipher';
+import { CredentialStore } from '../../integrations/credential-store';
+import { IntegrationService } from '../../integrations/service';
 import { EventFetcher } from '../../events/fetcher';
-import { SourceAccess } from '../../sync/source-access';
 import {
   AuthType,
   EventKind,
@@ -139,17 +141,17 @@ beforeEach(async () => {
   markNeedsReauth = vi.fn<(id: IntegrationId) => void>();
   logged = [];
   closing = new AbortController();
+  // the real gate, over the rows above; auth and needs_reauth are stubbed
+  const service = new IntegrationService(db, {
+    credentials: new CredentialStore(db, { cipher: new FakeCipher() }),
+    providers: new Map([[ProviderId.GOOGLE_CALENDAR, provider]]),
+    now: () => NOW,
+  });
+  service.getAuth = async () => ({ authorization: 'Bearer token' });
+  service.markNeedsReauth = markNeedsReauth;
   fetcher = new EventFetcher({
     db,
-    access: new SourceAccess({
-      integrations: {
-        getProvider: (id) => (id === ProviderId.GOOGLE_CALENDAR ? provider : null),
-        getAuth: async () => ({ authorization: 'Bearer token' }),
-        markNeedsReauth,
-      },
-      syncState,
-      now: () => NOW,
-    }),
+    integrations: service,
     writer: new SyncWriter(db, new SearchService(db, workspacePath)),
     signal: closing.signal,
     logger: { ...console, error: (line: string) => logged.push(line) },

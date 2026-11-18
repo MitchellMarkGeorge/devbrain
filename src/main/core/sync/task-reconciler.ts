@@ -9,7 +9,7 @@ import { TaskSource } from '../integrations/providers/provider';
 import { LinkState, SourceType, TaskStatus } from '@common/types';
 import { ExternalProject, ExternalTask } from '../integrations/types';
 import { CLOSED_ISSUE_WINDOW_MS } from './constants';
-import { SourceAccess } from './source-access';
+import type { IntegrationService } from '../integrations/service';
 import { PendingReconcile } from './syncer';
 import {
   ReattachRefusal,
@@ -30,7 +30,7 @@ export interface TaskReconcilerOptions {
   // for the reads that plan a reconcile pass; writes go through `writer`
   db: BetterSQLite3Database;
   // the gate, the provider and auth for a reattach, which is not a run
-  access: SourceAccess;
+  integrations: Pick<IntegrationService, 'withSource'>;
   writer: SyncWriter;
   logger?: Logger;
   now?: () => Date; // injected for tests
@@ -43,14 +43,14 @@ export interface TaskReconcilerOptions {
  */
 export class TaskReconciler {
   private readonly db: BetterSQLite3Database;
-  private readonly access: SourceAccess;
+  private readonly integrations: Pick<IntegrationService, 'withSource'>;
   private readonly writer: SyncWriter;
   private readonly logger: Logger;
   private readonly now: () => Date;
 
   constructor(options: TaskReconcilerOptions) {
     this.db = options.db;
-    this.access = options.access;
+    this.integrations = options.integrations;
     this.writer = options.writer;
     this.logger = options.logger ?? consoleLogger;
     this.now = options.now ?? (() => new Date());
@@ -209,7 +209,7 @@ export class TaskReconciler {
    * 1. Refuse every group, as a run would be skipped, when the source or its integration is off,
    *    the integration needs re-authentication, the provider asked to wait, or it has no tasks.
    * 2. Resolve every root and descendant in one resolveTasks call (the provider splits it into
-   *    lookups of LOOKUP_BATCH_SIZE), through SourceAccess.call. Any provider failure throws
+   *    lookups of LOOKUP_BATCH_SIZE), through IntegrationService.withSource. Any provider failure throws
    *    here, before anything is written. Rejected credentials (IntegrationAuthError) move the
    *    integration to needs_reauth first, as in a run.
    * 3. Per group, in the order given: refuse it when its root came back gone, unreadable or not
@@ -233,7 +233,7 @@ export class TaskReconciler {
 
     // 1-2.
     const ids = groups.flatMap((group) => [group.rootExternalId, ...group.descendantExternalIds]);
-    const lookup = await this.access.call(
+    const lookup = await this.integrations.withSource(
       sourceId,
       (provider, target) => (target.sourceType === SourceType.TASKS ? provider.tasks : undefined),
       ({ source, auth }) => source.resolveTasks(auth, ids),

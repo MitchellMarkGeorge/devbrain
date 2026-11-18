@@ -65,7 +65,7 @@ const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
  * provider and writing the refreshed rows is sync's job, through TaskReconciler.reattachTasks.
  *
  * A reattach whose credentials are rejected throws IntegrationAuthError, having moved the
- * integration to needs_reauth, as a sync run's rejected credentials would (SourceAccess.call).
+ * integration to needs_reauth, as a sync run's rejected credentials would (IntegrationService.withSource).
  */
 export class DetachService {
   // the change is already committed, so a failing listener must not fail the call or the others

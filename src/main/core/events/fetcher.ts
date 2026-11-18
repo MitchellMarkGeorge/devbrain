@@ -5,7 +5,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SourceType } from '@common/types';
 import { consoleLogger, errorClass, Logger } from '../shared/logger';
 import { EVENT_HISTORY_WINDOW_MS, MAX_PAGES_PER_RUN } from '../sync/constants';
-import type { SourceAccess } from '../sync/source-access';
+import type { IntegrationService } from '../integrations/service';
 import type { SyncWriter } from '../sync/writer';
 
 type CalendarRow = typeof calendars.$inferSelect;
@@ -14,7 +14,7 @@ export interface EventFetcherOptions {
   db: BetterSQLite3Database;
   // whether the provider may be asked now, the provider and auth; rejected credentials stop the
   // integration until a reconnect, as in a run
-  access: Pick<SourceAccess, 'call'>;
+  integrations: Pick<IntegrationService, 'withSource'>;
   // saves each page as a sync run does, so fetched events are linked, read-only and indexed
   writer: Pick<SyncWriter, 'applyEventPage'>;
   // the workspace closing: cancels a request in flight, and nothing is saved after it
@@ -102,10 +102,10 @@ export class EventFetcher {
    * integration for re-authentication, as in a run, then are rethrown.
    */
   private async fetchEvents(calendar: CalendarRow, from: Date, until: Date): Promise<boolean> {
-    const { db, access, writer, signal } = this.options;
+    const { db, integrations, writer, signal } = this.options;
     const sourceId = calendar.sourceId!;
     const range = { from: from.toISOString(), until: until.toISOString() };
-    const result = await access.call(
+    const result = await integrations.withSource(
       sourceId,
       (provider, target) =>
         target.sourceType === SourceType.EVENTS ? provider.calendars : undefined,

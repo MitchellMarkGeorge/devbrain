@@ -30,6 +30,7 @@ import {
   NotFoundError,
 } from '../../shared/errors';
 import { Workspace } from '../../workspace/workspace';
+import { SyncSkipReason } from '../../sync/types';
 
 const API_KEY = 'lin_api_supersecretkey';
 const ACCOUNT: ExternalAccount = {
@@ -742,5 +743,91 @@ describe('IntegrationService — workspaces', () => {
     } finally {
       await workspace.close();
     }
+  });
+});
+
+describe('IntegrationService — calling a provider', () => {
+  // a feature's own capability on the provider, as a future one would add it
+  type Echo = (auth: Auth) => Promise<string>;
+  const echo = (provider: Provider) => (provider as Provider & { echo?: Echo }).echo;
+
+  async function connected(echoImpl?: Echo) {
+    const { provider } = fakeProvider();
+    const withEcho = echoImpl ? Object.assign(provider, { echo: echoImpl }) : provider;
+    const { db, service } = setup(registryOf(withEcho));
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
+    return { db, service, integration };
+  }
+
+  it('runs a call through the provider that connected the integration, with its auth', async () => {
+    const { service, integration } = await connected(async (auth) => `hi ${auth.authorization}`);
+
+    const result = await service.withConnection(integration.id, echo, ({ source, auth }) =>
+      source(auth),
+    );
+
+    expect(result).toEqual({ ok: true, value: `hi ${API_KEY}` });
+  });
+
+  it('refuses an integration that needs reauth or is disabled, or a provider without the part', async () => {
+    const call = vi.fn();
+    const { service, integration } = await connected(async () => 'unused');
+
+    service.markNeedsReauth(integration.id);
+    expect(await service.withConnection(integration.id, echo, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.NEEDS_REAUTH,
+    });
+
+    const other = await connected();
+    expect(await other.service.withConnection(other.integration.id, echo, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.UNSUPPORTED,
+    });
+    other.service.setEnabled(other.integration.id, false);
+    expect(await other.service.withConnection(other.integration.id, echo, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.INTEGRATION_DISABLED,
+    });
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('moves the integration to needs_reauth when the provider rejects the call, and rethrows', async () => {
+    const { service, integration } = await connected(async () => {
+      throw new IntegrationAuthError('rejected');
+    });
+
+    await expect(
+      service.withConnection(integration.id, echo, ({ source, auth }) => source(auth)),
+    ).rejects.toThrow(IntegrationAuthError);
+    expect(service.getById(integration.id).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+  });
+
+  it('gates a source on its own state too: switched off, or waiting out a rate limit', async () => {
+    const { db, service, integration } = await connected(async () => 'unused');
+    const [source] = integration.sources;
+    const call = vi.fn();
+    const pickEcho = (provider: Provider) => echo(provider);
+
+    db.update(externalSources)
+      .set({ retryAt: new Date(Date.now() + 60_000) })
+      .where(eq(externalSources.id, source.id))
+      .run();
+    expect(await service.withSource(source.id, pickEcho, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.RATE_LIMITED,
+    });
+    expect(service.getSourceProvider(source.id)).toBe(SyncSkipReason.RATE_LIMITED);
+
+    service.setSourceEnabled(source.id, false);
+    expect(service.getSourceProvider(source.id)).toBe(SyncSkipReason.SOURCE_DISABLED);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError for an unknown integration', async () => {
+    const { service } = setup();
+    await expect(
+      service.withConnection('int_unknown' as IntegrationId, echo, vi.fn()),
+    ).rejects.toThrow(NotFoundError);
   });
 });

@@ -115,7 +115,12 @@ function project(overrides: Partial<ExternalProject> = {}): ExternalProject {
 async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPagesPerRun?: number) {
   db = createDb();
   credentials = new CredentialStore(db, { cipher: new FakeCipher() });
-  service = new IntegrationService(db, { credentials, providers: fakeRegistry(registryProvider) });
+  // the engine and the gate share the test's clock
+  service = new IntegrationService(db, {
+    credentials,
+    providers: fakeRegistry(registryProvider),
+    now: () => clock,
+  });
   writer = new SyncWriter(db, new SearchService(db, workspacePath));
   syncState = new SyncStateManager(db);
   logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };

@@ -37,6 +37,31 @@ export function syncSkipReason(target: SyncTarget, now: Date): SyncSkipReason | 
   return null;
 }
 
+/**
+ * A source's stored sync state and its integration's, read in one query. SyncStateManager and
+ * IntegrationService's gate (getSourceProvider) both read it. Throws NotFoundError for an unknown source.
+ */
+export function readSyncTarget(db: BetterSQLite3Database, sourceId: ExternalSourceId): SyncTarget {
+  const row = db
+    .select({
+      integrationId: externalSources.integrationId,
+      provider: integrations.provider,
+      status: integrations.status,
+      sourceType: externalSources.sourceType,
+      enabled: externalSources.enabled,
+      cursor: externalSources.cursor,
+      initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
+      retryAt: externalSources.retryAt,
+      consecutiveFailures: externalSources.consecutiveFailures,
+    })
+    .from(externalSources)
+    .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))
+    .where(eq(externalSources.id, sourceId))
+    .get();
+  if (!row) throw new NotFoundError(sourceId);
+  return row;
+}
+
 // how a sync run ended, as recorded on its source
 export type SyncOutcome =
   | { ok: true; at: Date }
@@ -86,24 +111,7 @@ export class SyncStateManager {
 
   /** the stored sync state of a source and its integration */
   getSyncTarget(sourceId: ExternalSourceId): SyncTarget {
-    const row = this.db
-      .select({
-        integrationId: externalSources.integrationId,
-        provider: integrations.provider,
-        status: integrations.status,
-        sourceType: externalSources.sourceType,
-        enabled: externalSources.enabled,
-        cursor: externalSources.cursor,
-        initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
-        retryAt: externalSources.retryAt,
-        consecutiveFailures: externalSources.consecutiveFailures,
-      })
-      .from(externalSources)
-      .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))
-      .where(eq(externalSources.id, sourceId))
-      .get();
-    if (!row) throw new NotFoundError(sourceId);
-    return row;
+    return readSyncTarget(this.db, sourceId);
   }
 
   /**

@@ -8,15 +8,15 @@ Remove an entry once it is done or decided against, and note the decision in the
 
 ### A per-task refresh, and reattach as an option on it
 
-_Found in feature 12 (PR #17). Narrowed when every call to a provider went through `SourceAccess`._
+_Found in feature 12 (PR #17). Narrowed when every call to a provider went through `IntegrationService`._
 
-Every entry point that talks to a provider for a source now goes through `SourceAccess` (`src/main/core/sync/source-access.ts`): the gate (`syncSkipReason`), the provider from `IntegrationService`, auth, and `needs_reauth` on rejected credentials. A run (`SyncEngine`), a reattach (`TaskReconciler.reattachGroups`) and a history fetch (`EventFetcher`) follow the same rules. What is left is the write side:
+Every entry point that talks to a provider for a source now goes through `IntegrationService` (`getSourceProvider`, `withSource`): the gate (`syncSkipReason`), the provider that connected the integration, auth, and `needs_reauth` on rejected credentials. A run (`SyncEngine`), a reattach (`TaskReconciler.reattachGroups`) and a history fetch (`EventFetcher`) follow the same rules. What is left is the write side:
 
 - **Resolve then write:** reconcile calls `resolveTasks` and `resolveProjects` and then `writer.applyReconcile`. Reattach calls `resolveTasks` and then `writer.reattachTasks`, which moves detached links to `synced`, promotes the subtasks left detached and upserts the page.
 
 Proposal:
 
-1. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues through `SourceAccess.call` and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a route in the `sync` router. A product decision.
+1. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues through `IntegrationService.withSource` and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a route in the `sync` router. A product decision.
 2. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change. A refactor with no change in behaviour, worth doing with item 1 rather than before it.
 
 ### Calendar changes wait for a sync run
@@ -50,21 +50,14 @@ Options:
 
 ### A path for provider features that are not sync
 
-_Found in feature 16b._
+_Found in feature 16b. Narrowed when `IntegrationService` became the one way to reach a provider._
 
-Every provider feature so far is sync. Since the source/syncer split, the sources themselves know nothing of sync: `TaskSource` and `CalendarSource` take queries and return normalised items, with cursors, modes and windows in the syncers under `src/main/core/sync/`. So a source can already serve a caller outside sync, as `scripts/linear_scratch.mts` does. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, still has no obvious place:
+Every provider feature so far is sync. The sources themselves know nothing of sync: `TaskSource` and `CalendarSource` take queries and return normalised items, with cursors, modes and windows in the syncers under `src/main/core/sync/`. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, now has a path: `IntegrationService.withConnection(integrationId, pick, call)` picks a part of the integration's provider, runs `call({ provider, source, auth })` with fresh auth, refuses an integration that needs reauth or is disabled, and moves it to `needs_reauth` on a rejected call. `withSource` does the same for one source, with its own gate. A new feature needs only `IntegrationService`.
 
-- The provider contract (`src/main/core/integrations/providers/provider.ts`) has only `getAccount`, `tasks?: TaskSource` and `calendars?: CalendarSource`.
-- `SourceAccess.call` gives sync's code a provider's part with working auth for one source, with the gate and needs-reauth handling, but it works per source, not per integration or linked entity.
+Left to do, with the first such feature rather than guessing the shapes now:
 
-Proposal:
-
-1. **Optional capabilities on `Provider`** beside the sync sources, each a small typed interface under the same stateless rule, e.g. `pullRequests?: PullRequests` or `issueDetails?: IssueDetails`.
-2. **`IntegrationService.withConnection(integrationId, call)`:** runs `call({ provider, auth })` with fresh auth, and moves the integration to `needs_reauth` on a rejected call: `SourceAccess.call` without the source, built on the service's `getProvider` and `getAuth`.
-3. **A link lookup** from a local entity to its integration, provider and external id. `src/main/core/integrations/refs.ts` already reads links; it would also return the integration id.
-4. **One service per feature, in its own module,** using 1–3. For example, a pull request service resolves a task's link, then calls `provider.pullRequests.get(auth, url)` through `withConnection`. A new feature is then a capability interface, its implementation in the provider's folder, and that service. `IntegrationService`, `SyncEngine` and `SyncWriter` do not change.
-
-Design it properly with the first such feature, rather than guessing the capability shapes now.
+1. **Optional capabilities on `Provider`** beside the sync sources (`src/main/core/integrations/providers/provider.ts`), each a small typed interface under the same stateless rule, e.g. `pullRequests?: PullRequests` or `issueDetails?: IssueDetails`, picked by `withConnection`.
+2. **A link lookup** from a local entity to its integration, provider and external id. `src/main/core/integrations/refs.ts` already reads links; it would also return the integration id, for `withConnection`.
 
 ### Read `eventLabelId` for event colours
 

@@ -17,7 +17,7 @@ import { guardOpenExternal } from '../shared/untrusted';
 // Puts the integration services together for one workspace: the provider registry, the OAuth
 // client, CredentialStore with a refresher for every provider that declares OAuth, and
 // IntegrationService, which owns the registry and the store from then on. Sync reaches providers
-// through the service (SourceAccess), so an integration syncs through the provider that connected
+// through the service (getSourceProvider, withSource), so an integration syncs through the provider that connected
 // it. Workspace calls this; tests call it to get the same wiring.
 
 export interface IntegrationsSetupOptions {

@@ -17,6 +17,8 @@ import {
   UnsupportedByProviderError,
 } from '../shared/errors';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
+import { readSyncTarget, SyncTarget, syncSkipReason } from '../sync/sync-state';
+import { SyncSkipReason } from '../sync/types';
 import {
   AuthType,
   DisconnectCounts,
@@ -107,7 +109,27 @@ export interface IntegrationServiceOptions {
   signal?: AbortSignal;
   // where a failing change listener and a failed revoke are logged; defaults to the console
   logger?: Logger;
+  // the clock the gate compares a rate limit's retry time with; injected for tests
+  now?: () => Date;
 }
+
+// A source whose provider may be asked now, with the provider its integration connected through
+export interface SourceProvider {
+  target: SyncTarget;
+  provider: ProviderImpl;
+}
+
+// What a call to a provider is given: the provider, the part of it the call picked (its
+// TaskSource, CalendarSource or a feature's own capability), and fresh auth
+export interface ProviderCall<S> {
+  integrationId: IntegrationId;
+  provider: ProviderImpl;
+  source: S;
+  auth: Auth;
+}
+
+// a call's result, or why the provider may not be asked now
+export type ProviderCallResult<T> = { ok: true; value: T } | { ok: false; reason: SyncSkipReason };
 
 type IntegrationRow = typeof integrations.$inferSelect;
 type SourceRow = typeof externalSources.$inferSelect;
@@ -154,6 +176,7 @@ export class IntegrationService implements BaseIntegrationService {
   // transaction, and the removal stands even if a listener throws
   private readonly changes: ChangeListeners<IntegrationChange>;
   private readonly logger: Logger;
+  private readonly now: () => Date;
   // The OAuth flow running now, from the browser until the account query has answered; one per
   // workspace at a time. cancelConnect aborts it.
   private oauthFlow: AbortController | null = null;
@@ -173,6 +196,7 @@ export class IntegrationService implements BaseIntegrationService {
     this.oauth = options.oauth ?? null;
     this.signal = options.signal;
     this.logger = options.logger ?? consoleLogger;
+    this.now = options.now ?? (() => new Date());
     this.changes = new ChangeListeners<IntegrationChange>('Integration', {
       // the error class only: a listener's message could quote account or item data
       report: (error, change) =>
@@ -182,10 +206,16 @@ export class IntegrationService implements BaseIntegrationService {
     });
   }
 
+  /*
+   * Reaching a provider. The service owns the provider registry and the credential store, so
+   * everything that talks to a provider goes through it: sync runs, reattaches, history fetches,
+   * the calendar picker's refresh, and any provider feature added later. A new feature needs a
+   * capability on the provider and a call through withConnection or withSource, nothing else.
+   */
+
   /**
    * The provider integrations of `providerId` connect and sync through, or null when none is
-   * registered. The service owns the registry, so the provider that connected an integration is
-   * the one everything else reaches it through (see SourceAccess).
+   * registered.
    */
   getProvider(providerId: Provider): ProviderImpl | null {
     return this.providers.get(providerId) ?? null;
@@ -196,9 +226,102 @@ export class IntegrationService implements BaseIntegrationService {
    * stops this caller waiting for a refresh without cancelling it: see CredentialStore.getAuth.
    * Throws IntegrationAuthError for credentials that can't be read or a refresh the provider
    * rejected (which also moves the integration to needs_reauth; see createIntegrationServices).
+   * withConnection and withSource call this; a sync run calls it itself, after getSourceProvider.
    */
   getAuth(id: IntegrationId, options: { signal?: AbortSignal } = {}): Promise<Auth> {
     return this.credentials.getAuth(id, options);
+  }
+
+  /**
+   * The gate for a source, without asking the provider: the source and its provider, or why the
+   * provider may not be asked for it now. The source or its integration is off, the integration
+   * needs re-authentication, the provider's retry time has not passed (syncSkipReason), or no
+   * provider is registered for it (unsupported). Reads only. Throws NotFoundError for an unknown
+   * source.
+   */
+  getSourceProvider(sourceId: ExternalSourceId): SourceProvider | SyncSkipReason {
+    const target = readSyncTarget(this.db, sourceId);
+    const blocked = syncSkipReason(target, this.now());
+    if (blocked) return blocked;
+    const provider = this.getProvider(target.provider);
+    if (!provider) return SyncSkipReason.UNSUPPORTED;
+    return { target, provider };
+  }
+
+  /**
+   * Runs `call` against a source's provider, for a call outside a sync run (a reattach, a history
+   * fetch, the calendar picker's refresh): when getSourceProvider lets it, and the provider has the part
+   * `pick` asks for (else unsupported), with fresh auth. Rejected credentials (IntegrationAuthError
+   * from auth or the call) move the integration to needs_reauth, then are rethrown; any other
+   * failure is rethrown as it is.
+   */
+  async withSource<S, T>(
+    sourceId: ExternalSourceId,
+    pick: (provider: ProviderImpl, target: SyncTarget) => S | undefined,
+    call: (context: ProviderCall<S> & { target: SyncTarget }) => Promise<T>,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ProviderCallResult<T>> {
+    const found = this.getSourceProvider(sourceId);
+    if (typeof found === 'string') return { ok: false, reason: found };
+    const source = pick(found.provider, found.target);
+    if (source === undefined) return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
+    const { integrationId } = found.target;
+    return this.callProvider(integrationId, options.signal, async (auth) =>
+      call({ integrationId, provider: found.provider, source, auth, target: found.target }),
+    );
+  }
+
+  /**
+   * Runs `call` against an integration's provider, for a feature that belongs to the account
+   * rather than one of its sources (a pull request's checks, an issue's comments): when the
+   * integration is connected (else needs_reauth or integration_disabled) and its provider has the
+   * part `pick` asks for (else unsupported), with fresh auth. Rejected credentials move the
+   * integration to needs_reauth, then are rethrown, as with withSource. A source's rate limit is
+   * not checked: it was recorded by a sync run of that source. Throws NotFoundError for an unknown
+   * integration.
+   */
+  async withConnection<S, T>(
+    integrationId: IntegrationId,
+    pick: (provider: ProviderImpl) => S | undefined,
+    call: (context: ProviderCall<S>) => Promise<T>,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ProviderCallResult<T>> {
+    const row = this.db
+      .select({ status: integrations.status, provider: integrations.provider })
+      .from(integrations)
+      .where(eq(integrations.id, integrationId))
+      .get();
+    if (!row) throw new NotFoundError(integrationId);
+    if (row.status === IntegrationStatus.NEEDS_REAUTH) {
+      return { ok: false, reason: SyncSkipReason.NEEDS_REAUTH };
+    }
+    if (row.status === IntegrationStatus.DISABLED) {
+      return { ok: false, reason: SyncSkipReason.INTEGRATION_DISABLED };
+    }
+    const provider = this.getProvider(row.provider);
+    const source = provider ? pick(provider) : undefined;
+    if (!provider || source === undefined) {
+      return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
+    }
+    return this.callProvider(integrationId, options.signal, (auth) =>
+      call({ integrationId, provider, source, auth }),
+    );
+  }
+
+  // gets auth and runs the call; rejected credentials move the integration to needs_reauth
+  private async callProvider<T>(
+    integrationId: IntegrationId,
+    signal: AbortSignal | undefined,
+    call: (auth: Auth) => Promise<T>,
+  ): Promise<ProviderCallResult<T>> {
+    try {
+      const auth = await this.getAuth(integrationId, { signal });
+      return { ok: true, value: await call(auth) };
+    } catch (error) {
+      // only a reconnect fixes rejected credentials
+      if (error instanceof IntegrationAuthError) this.markNeedsReauth(integrationId);
+      throw error;
+    }
   }
 
   list(): Integration[] {
