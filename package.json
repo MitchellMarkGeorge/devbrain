@@ -57,7 +57,7 @@
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^6.0.2",
     "drizzle-kit": "^0.31.10",
-    "electron": "^42.4.0",
+    "electron": "^42.11.16",
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
@@ -73,8 +73,8 @@
     "tsx": "^4.22.4",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.61.1",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.9"
+    "vite": "^8.1.6",
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=24.0.0"
@@ -121,7 +121,7 @@
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",
     "highlight.js": "^11.12.0",
-    "js-yaml": "^5.2.3",
+    "js-yaml": "^5.4.1",
     "junk": "^4.0.1",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.67.0",
