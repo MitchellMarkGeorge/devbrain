@@ -4,8 +4,9 @@ import type { WorkspaceId } from '@common/ids';
 import { FakeMain, workspace } from './fake-main';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
-// The window's title bar in a workspace: the workspace menu at its start, the search field showing
-// the page's title (and opening search), and New's menu. The sidebar keeps none of them.
+// The window's title bar in a workspace: the search field showing the page's title (and opening
+// search), and New's menu, which the sidebar doesn't keep; the workspace menu is the sidebar's, at
+// its top, and not in the title bar.
 
 const WORK = 'wsp_work' as WorkspaceId;
 
@@ -59,18 +60,26 @@ describe('the title bar', () => {
     expect(main.callsTo('notes.create')).toHaveLength(0);
   });
 
-  it('opens the workspace menu from the workspace at its start', async () => {
+  it('opens the workspace menu from the top of the sidebar, not the title bar', async () => {
     await onWorkHome();
-    click(document.querySelector('[aria-label="Workspace: Work"]'));
+    const sidebar = document.querySelector('nav[aria-label="Main"]')!;
+    const header = sidebar.querySelector('[aria-label^="Workspace:"]');
+    expect(header?.getAttribute('aria-label')).toBe('Workspace: Work');
+    // the sidebar's only switcher, and the window's: the title bar has none
+    expect(document.querySelectorAll('[aria-label^="Workspace:"]')).toHaveLength(1);
+    // before the pages
+    const first = sidebar.querySelector('[aria-label^="Workspace:"], a');
+    expect(first).toBe(header);
+    click(header);
     await eventually(() => expect(menuItem('New workspace…')).not.toBeNull());
     expect(document.body.textContent).toContain('Home');
   });
 
-  it('leaves the sidebar without the workspace menu, search or New', async () => {
+  it('leaves the sidebar without search or New', async () => {
     await onWorkHome();
     const sidebar = document.querySelector('nav[aria-label="Main"]')!;
-    expect(sidebar.querySelector('[aria-label^="Workspace:"]')).toBeNull();
     expect(sidebar.querySelector('[aria-label="Search"]')).toBeNull();
+    expect(sidebar.querySelector('[aria-label="New"]')).toBeNull();
     expect(sidebar.querySelector('[aria-label="New note"]')).toBeNull();
   });
 });

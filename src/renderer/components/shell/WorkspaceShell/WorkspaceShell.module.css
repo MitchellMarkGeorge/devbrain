@@ -168,8 +168,8 @@
 }
 /*
  * while the drawer is open it runs the window's full height, and the title bar's start (the
- * window's start, the workspace, the toggle) stays on top of it, over the backdrop too: the drawer
- * reads as the whole sidebar, its top row and all
+ * window's start, the toggle) stays on top of it, over the backdrop too: the drawer reads as the
+ * whole sidebar, its top row and all
  */
 .shell[data-drawer] .titleBar > .bar {
   position: relative;

@@ -1,4 +1,4 @@
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { ArrowLeft, ArrowRight, Menu, Minus, PanelLeft, Square, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useFormatKeys, useWindowFrame } from '../../lib/platform';
@@ -199,26 +199,21 @@ export const HistoryControls = forwardRef<HTMLDivElement, HistoryControlsProps>(
   },
 );
 
-export interface WindowBarProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
-  /** the open workspace, opening the workspace menu (a `WorkspaceButton`), between the start and the toggle */
-  workspace?: ReactNode;
-}
+export type WindowBarProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'>;
 
 /**
  * The start of the title bar, as wide as the sidebar: the window's start (traffic lights on macOS,
- * the menu button on Windows), the workspace switcher, and the sidebar toggle right after it. The
- * switcher shrinks to its name and cuts a long one short, so the three never pass the sidebar's
- * width. None of it moves as the sidebar hides and docks. The strip drags the window; its buttons
- * don't.
+ * the menu button on Windows) and the sidebar toggle at its end, over the sidebar items' right
+ * edge. None of it moves as the sidebar hides and docks. The strip drags the window; its buttons
+ * don't. The workspace switcher is the sidebar's (its header).
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
-  { workspace, className, ...props },
+  { className, ...props },
   ref,
 ) {
   return (
     <div ref={ref} className={cn(styles.bar, className)} {...props}>
       <WindowStart />
-      {workspace && <div className={styles.workspace}>{workspace}</div>}
       <WindowControls />
     </div>
   );

@@ -133,7 +133,7 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
 ## Window frame
 
 The window draws its own title bar, a `title-bar-height` (44px) strip across the top (the
-`WorkspaceShell`'s: the `WindowBar` with the workspace and the sidebar toggle, back and forward,
+`WorkspaceShell`'s: the `WindowBar` with the sidebar toggle, back and forward,
 the search field showing the page's title, New, and the page's actions, docked sidebar or hidden;
 `AppShell`'s outside a workspace), and leaves room for the window controls the system draws. Main reads the
 height from the token (generated into `src/common/theme.ts`), so the system's controls follow it. Main sets the frame up per platform

@@ -20,8 +20,8 @@ export interface WorkspaceButtonProps {
 /**
  * The open workspace, opening the workspace menu: the 20px tile, the name (14px medium, cut short
  * with "…" when there's no room) and an up-down chevron, pressed while the menu is open. The app
- * puts it in the title bar (`WorkspaceShell`'s `workspace`), where it takes the room the sidebar's
- * width leaves beside the window's start and the sidebar toggle.
+ * puts it in the sidebar's header (a `SidebarHeader`), at the top of the sidebar, straight under
+ * the title bar.
  */
 export function WorkspaceButton({
   name,

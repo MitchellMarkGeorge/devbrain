@@ -7,7 +7,7 @@ import { swatchOf } from '@renderer/shared/lib/workspace/colors';
 import { useOpenFolder } from '@renderer/features/workspaces/hooks/use-open-folder';
 
 /**
- * The title bar's workspace menu. Switching is navigating to the workspace's link, `/app/<id>`,
+ * The sidebar's workspace menu, its header. Switching is navigating to the workspace's link, `/app/<id>`,
  * which opens it under the splash and lands on its last or landing page; "New workspace…" goes to
  * Create workspace, a page of its own, over this workspace (it stays open until the new one is
  * created); "Open folder…" adds a folder and goes to it.

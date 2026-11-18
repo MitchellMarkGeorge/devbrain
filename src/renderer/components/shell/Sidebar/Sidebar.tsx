@@ -21,9 +21,9 @@ import styles from './Sidebar.module.css';
 
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
   /**
-   * A row pinned at the top, staying put while the rest scrolls: a `SidebarHeader`, or the settings'
-   * Back to app. The app's sidebar has none: its workspace switcher, search and New are in the
-   * `WorkspaceShell`'s title bar, with the window's controls.
+   * A row pinned at the top, straight under the title bar, staying put while the rest scrolls: a
+   * `SidebarHeader` holding the workspace switcher (`WorkspaceButton`), or the settings' Back to
+   * app. Search and New are in the `WorkspaceShell`'s title bar, with the window's controls.
    */
   header?: ReactNode;
 }

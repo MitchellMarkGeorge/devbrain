@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
-import { WorkspaceButton, WorkspaceSwitcher } from '../WorkspaceSwitcher';
 import {
   AppMenuButton,
   CaptionButtons,
@@ -27,34 +26,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const WORKSPACES = [
-  { id: 'surveymonkey', name: 'SurveyMonkey', color: 'green' as const },
-  { id: 'personal', name: 'Personal', color: 'blue' as const },
-];
-
 /** The bar as `WorkspaceShell` sizes it: the sidebar's width, on the sidebar's colour. */
-function Bar({ name = 'SurveyMonkey' }: { name?: string }) {
-  return (
-    <WindowBar
-      style={{ width: 'var(--sidebar-width)', background: 'var(--sidebar)' }}
-      workspace={
-        <WorkspaceButton name={name} color="green">
-          <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
-        </WorkspaceButton>
-      }
-    />
-  );
+function Bar() {
+  return <WindowBar style={{ width: 'var(--sidebar-width)', background: 'var(--sidebar)' }} />;
 }
 
 /**
- * The title bar's start on the toolbar's platform: the window's start, the workspace switcher, and
- * the sidebar toggle at the end. `WorkspaceShell` puts back, forward, the search field and New
- * after it, then the page's actions.
+ * The title bar's start on the toolbar's platform: the window's start, and the sidebar toggle at
+ * the end, over the sidebar items' right edge. `WorkspaceShell` puts back, forward, the search
+ * field and New after it, then the page's actions. The workspace switcher is the sidebar's.
  */
 export const Default: Story = { render: () => <Bar /> };
-
-/** A long workspace name is cut short, so the switcher and the toggle stay within the sidebar's width. */
-export const LongName: Story = { render: () => <Bar name="Developer Platform Team" /> };
 
 /** The bar on each platform. On Windows the caption buttons are painted here, as `WorkspaceShell` does. */
 export const Platforms: Story = {

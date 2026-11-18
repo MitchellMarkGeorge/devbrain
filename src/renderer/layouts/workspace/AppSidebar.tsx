@@ -45,10 +45,10 @@ const FOOTER: NavPage[] = [
 ];
 
 /**
- * The app's sidebar: the pages as links (a page's details keep it active; Integrations is a
+ * The app's sidebar: the workspace menu, pinned at the top, then the pages as links (a page's details keep it active; Integrations is a
  * section of the settings), Recents and Favorites, then the sync line, Trash, Settings and Help,
- * which opens the keyboard shortcuts (as `?` does). The workspace menu, search and New are in the title bar
- * (`AppLayout` gives them to the shell).
+ * which opens the keyboard shortcuts (as `?` does). Search and New are in the title bar (`AppLayout`
+ * gives them to the shell).
  */
 export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });

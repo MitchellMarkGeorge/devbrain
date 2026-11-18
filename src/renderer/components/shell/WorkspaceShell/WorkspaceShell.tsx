@@ -41,11 +41,6 @@ export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'
   onForward?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
-  /**
-   * the open workspace, at the title bar's start between the window's start and the sidebar toggle:
-   * a `WorkspaceButton`, opening the workspace menu
-   */
-  workspace?: ReactNode;
   /** the title bar's search field was pressed: open search (the app's ⌘K) */
   onSearch?: () => void;
   /** after the search field: the app's New menu (a `DropdownMenu` on a "+" `IconButton`) */
@@ -95,7 +90,6 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       onForward,
       canGoBack = true,
       canGoForward = false,
-      workspace,
       onSearch,
       create,
       controlsRef,
@@ -260,13 +254,13 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
           >
             {/*
              * the title bar: always there, across the window, so nothing in it moves. Its start
-             * is as wide as the sidebar (the window's start, the workspace, the toggle); centred
+             * is as wide as the sidebar (the window's start, the sidebar toggle); centred
              * on the window, back, forward, the search field showing the page's title (a
              * `Page`'s, portalled in) and New; at its end the page's actions (its header,
              * portalled in)
              */}
             <div className={styles.titleBar}>
-              <WindowBar className={styles.bar} workspace={workspace} />
+              <WindowBar className={styles.bar} />
               <div className={styles.center}>
                 <HistoryControls />
                 <button

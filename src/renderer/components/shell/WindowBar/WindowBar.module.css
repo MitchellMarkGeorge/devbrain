@@ -1,5 +1,5 @@
 /*
- * The title bar's start: the window's start, the workspace switcher, the sidebar toggle. See
+ * The title bar's start: the window's start, then the sidebar toggle at its end. See
  * docs/design-system/components/WindowBar.md
  */
 .bar {
@@ -67,22 +67,11 @@
   width: 46px;
 }
 
-/*
- * ---------- the workspace switcher, then the toggle beside it ----------
- * It shrinks to its name, and cuts a long one short with "…" in the room the sidebar's width leaves
- */
-.workspace {
-  display: flex;
-  flex: 0 1 auto;
-  align-items: center;
-  min-width: 0;
-  margin-right: var(--space-1);
-}
-
 /* ---------- the sidebar toggle; back and forward ---------- */
 .controls {
   display: inline-flex;
   flex: none;
+  /* at the bar's end, over the sidebar items' right edge */
   margin-left: auto;
   align-items: center;
 }

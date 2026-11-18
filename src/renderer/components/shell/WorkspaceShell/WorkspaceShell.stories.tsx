@@ -66,9 +66,9 @@ function Frame({
 }
 
 /**
- * Wide (1280px and up): the title bar across the top (the workspace and the sidebar toggle over the
- * sidebar; back, forward, the search field showing the page's title, and New over the card), the
- * docked sidebar under it, the page's card beside it.
+ * Wide (1280px and up): the title bar across the top (the sidebar toggle over the sidebar; back,
+ * forward, the search field showing the page's title, and New over the card), the docked sidebar
+ * under it with the workspace switcher at its top, the page's card beside it.
  */
 export const Wide: Story = { render: () => <Frame width={1440} height={720} /> };
 

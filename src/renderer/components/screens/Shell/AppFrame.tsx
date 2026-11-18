@@ -76,7 +76,10 @@ export interface DemoSidebarProps {
   workspaceMenuOpen?: boolean;
 }
 
-/** The sidebar as every Figma screen draws it: the six pages, Recents, Favorites. */
+/**
+ * The sidebar as the app draws it: the workspace switcher at the top (its menu open with
+ * `workspaceMenuOpen`), the pages, Recents, Favorites.
+ */
 export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSidebarProps) {
   return (
     <Sidebar
@@ -155,8 +158,8 @@ export function DemoCreateMenu() {
 }
 
 /**
- * The title bar's workspace and New as the app fills them, for a `WorkspaceShell` in a story: the
- * sample workspace (its menu open with `workspaceMenuOpen`), and `DemoCreateMenu`.
+ * The title bar's New and search as the app fills them, for a `WorkspaceShell` in a story:
+ * `DemoCreateMenu`, and a search that does nothing.
  */
 export function demoTitleBar() {
   return {
@@ -203,12 +206,16 @@ export function ScreenFrame({
   return (
     <div style={{ width, height, overflow: 'hidden', position: 'relative' }}>
       <WorkspaceShell
-        sidebar={sidebar ?? <DemoSidebar
-            active={page}
-            empty={emptySidebar}
-            sync={sync}
-            workspaceMenuOpen={workspaceMenuOpen}
-          />}
+        sidebar={
+          sidebar ?? (
+            <DemoSidebar
+              active={page}
+              empty={emptySidebar}
+              sync={sync}
+              workspaceMenuOpen={workspaceMenuOpen}
+            />
+          )
+        }
         style={style}
         {...demoTitleBar()}
         {...props}
