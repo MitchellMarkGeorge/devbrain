@@ -74,6 +74,10 @@ jobs:
       - run:
           name: Package the AppImage
           command: npm run compile
+      # the fuses, and what the asar holds (docs/security/hardening.md)
+      - run:
+          name: Check the package
+          command: npm run check:package && npm run check:package -- release/*.AppImage
       - save_cache:
           key: electron-builder-v1-{{ arch }}-{{ checksum "package-lock.json" }}
           paths:

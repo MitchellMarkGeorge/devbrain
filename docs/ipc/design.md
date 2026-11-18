@@ -135,7 +135,7 @@ prefix and gives the resolver a branded id; `zPage` and `zPageFields` are core's
 where they exist (`appSettingsSchema`, `safeUrlSchema`, `hexColorSchema`, `timeZoneSchema`).
 
 There is no sender check: the window is sandboxed, denies new windows and cancels navigation
-(`hardenWindow` in `src/main/index.ts`), so only the app's own page can call main.
+(`src/main/runtime/hardening.ts`, [hardening.md](../security/hardening.md)), so only the app's own page can call main.
 
 ## The routers
 

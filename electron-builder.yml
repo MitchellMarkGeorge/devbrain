@@ -27,6 +27,8 @@ files:
   - node_modules/bindings/**
   - node_modules/file-uri-to-path/**
   - node_modules/electron-log/**
+  # no source maps: the builds make none, and one would ship the source
+  - '!**/*.map'
 asar: true
 # A native module can't be loaded from inside an asar: it is unpacked beside it
 # (app.asar.unpacked), where Electron loads it from
@@ -40,16 +42,20 @@ extraResources:
   - from: ./src/main/db/migrations
     to: migrations
 
-# Electron's fuses, flipped in the packaged binary: it can't be run as plain Node, and ignores
-# NODE_OPTIONS and --inspect, so nothing can run other code in DevBrain's process, with its access
-# to the keychain; it only loads the app from its asar, and on macOS and Windows checks the asar
-# against the hash built into the app. The app's file:// page needs file: to keep its privileges.
+# Electron's fuses, flipped in the packaged binary (docs/security/hardening.md says why each is set;
+# scripts/check-package.mts checks them in the built app): it can't be run as plain Node, and
+# ignores NODE_OPTIONS and --inspect, so nothing can run other code in DevBrain's process, with its
+# access to the keychain; it encrypts its cookies with the OS key store; it only loads the app from
+# its asar, and on macOS and Windows checks the asar against the hash built into the app. The app's
+# file:// page needs file: to keep its privileges, and there is no custom V8 snapshot to load.
 electronFuses:
   runAsNode: false
+  enableCookieEncryption: true
   enableNodeOptionsEnvironmentVariable: false
   enableNodeCliInspectArguments: false
-  onlyLoadAppFromAsar: true
   enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: true
 
 # No auto-update, so nothing to publish to yet (docs/releasing.md): without this, electron-builder
