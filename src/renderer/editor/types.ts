@@ -1,10 +1,10 @@
+import type { ComponentType } from 'react';
 import type { TaskStatus } from '@common/types';
 import type { Swatch } from '@renderer/components';
 
-// What the editor asks the app to do: the actions it can't take itself, called from TipTap and
-// ProseMirror as much as from React. A page renders WorkspaceRichTextEditor, which passes the app's
-// (src/renderer/shared/components); Storybook and tests pass their own. The pills read their
-// entities themselves (use-entity-resolver.ts).
+// What the editor gets from the app. The editor never imports IPC, React Query or the router (ESLint
+// enforces it): a page renders WorkspaceRichTextEditor (src/renderer/shared/components), which
+// passes the app's; Storybook and tests pass their own.
 
 export type EditorEntityType = 'task' | 'project' | 'note' | 'event';
 
@@ -33,6 +33,19 @@ export interface EditorEntity {
   startAt?: Date | null;
 }
 
+// What an entity link's pill is given: RichTextEditor's `entityPill` draws one per link, finding
+// the entity and drawing it with the editor's EditorEntityPill.
+export interface EntityLinkPillProps {
+  type: EditorEntityType;
+  id: string;
+  // the label stored in the markdown, shown until the entity is found and once it is gone
+  label: string;
+}
+
+export type EntityLinkPill = ComponentType<EntityLinkPillProps>;
+
+// The actions the editor can't take itself, called from TipTap and ProseMirror as much as from
+// React.
 export interface EditorHost {
   // the tasks, notes and events matching what was typed after "@", best first
   searchEntities?: (query: string, types: MentionType[]) => Promise<EditorEntity[]>;

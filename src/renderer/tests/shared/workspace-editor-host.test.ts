@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TaskStatus, type SearchResult } from '@common/types';
-import { toEditorEntity } from '@renderer/editor/use-workspace-host';
+import { toEditorEntity } from '@renderer/shared/hooks/use-workspace-editor-host';
 
 // a match as search.search answers it, with what toEditorEntity reads of its entity
 const result = (

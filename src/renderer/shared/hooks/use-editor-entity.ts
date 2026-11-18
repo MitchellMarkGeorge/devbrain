@@ -2,8 +2,8 @@ import { skipToken, useQuery, type UseQueryOptions } from '@tanstack/react-query
 import { hexColorSchema } from '@common/color';
 import { isId } from '@common/ids';
 import { trpc } from '@renderer/ipc';
-import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import type { EditorEntity, EditorEntityType } from './types';
+import type { EditorEntity, EditorEntityType } from '@renderer/editor/types';
+import { ipcErrorCode } from '../lib/workspace/errors';
 
 // The entities behind an editor's pills, from React Query's cache: one query per pill, through the
 // routes that read one entity (`tasks.get`, `projects.get`, `notes.get`, `events.get`). The query
@@ -34,8 +34,7 @@ interface EntityRow {
 /**
  * An editor pill's entity, from React Query: its current title, status and colour, loaded the first
  * time its pill is drawn and drawn again when it changes; undefined until then. A deleted entity
- * (or one in the trash) is null, so its pill is drawn as missing. Each pill calls it
- * (EntityPillView.tsx).
+ * (or one in the trash) is null, so its pill is drawn as missing. WorkspaceEntityPill calls it.
  */
 export function useEditorEntity(
   type: EditorEntityType,

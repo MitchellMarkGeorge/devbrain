@@ -3,11 +3,11 @@ import { useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { SearchResult } from '@common/types';
 import { trpc } from '@renderer/ipc';
-import type { EditorEntity, EditorHost, MentionType } from './types';
+import type { EditorEntity, EditorHost, MentionType } from '@renderer/editor/types';
 
 /**
  * The editor host's "@" search over the open workspace and opening links, for
- * WorkspaceRichTextEditor (src/renderer/shared/components), which adds onOpenEntity from the router.
+ * WorkspaceRichTextEditor (../components), which adds onOpenEntity from the router.
  */
 export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'onOpenUrl'> {
   const queryClient = useQueryClient();

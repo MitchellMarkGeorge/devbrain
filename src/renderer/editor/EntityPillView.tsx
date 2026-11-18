@@ -5,45 +5,72 @@ import { TaskStatus } from '@common/types';
 import { EntityPill } from '@renderer/components';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
-import type { EditorEntityType, EditorHost } from './types';
-import { useEditorEntity } from './use-entity-resolver';
+import type {
+  EditorEntity,
+  EditorEntityType,
+  EditorHost,
+  EntityLinkPill,
+  EntityLinkPillProps,
+} from './types';
 import styles from './EntityPillView.module.css';
 
 // the host of the editor a pill is in; RichTextEditor provides it
 export const EditorHostContext = createContext<EditorHost>({});
 
-/**
- * An entity link as the design system's EntityPill: the entity's glyph and its current title, read
- * from React Query (useEditorEntity), or the stored label until it has loaded. One known to be
- * gone (deleted, or in the trash) keeps its label, drawn as missing. A click opens the entity.
- */
-function EntityLinkPill({ node, selected }: ReactNodeViewProps) {
-  const { onOpenEntity } = useContext(EditorHostContext);
-  const type = node.attrs.type as EditorEntityType;
-  const id = node.attrs.id as string;
-  const entity = useEditorEntity(type, id);
-  const title = entity?.title ?? (node.attrs.label as string);
+export interface EditorEntityPillProps extends EntityLinkPillProps {
+  // the entity as it is now: undefined while unknown, null when it is known to be gone (deleted,
+  // or in the trash)
+  entity: EditorEntity | null | undefined;
+}
 
+/**
+ * An entity link as the design system's EntityPill: the entity's glyph and its current title, or
+ * the stored label while it is unknown. One known to be gone keeps its label, drawn as missing. A
+ * click opens the entity. RichTextEditor's `entityPill` finds the entity and draws it with this.
+ */
+export function EditorEntityPill({ type, id, label, entity }: EditorEntityPillProps) {
+  const { onOpenEntity } = useContext(EditorHostContext);
+  const title = entity?.title ?? label;
+  return (
+    <EntityPill
+      entity={
+        type === 'task'
+          ? { type, title, status: entity?.status ?? TaskStatus.NOT_STARTED }
+          : type === 'note'
+            ? { type, title }
+            : { type, title, color: entity?.color ?? null }
+      }
+      data-missing={entity === null ? '' : undefined}
+      // the caret moves past it; Tab stays with the editor
+      tabIndex={-1}
+      onClick={() => onOpenEntity?.(type, id, entity ?? undefined)}
+    />
+  );
+}
+
+// without an entityPill, every pill shows its stored label
+function StoredLabelPill(props: EntityLinkPillProps) {
+  return <EditorEntityPill {...props} entity={undefined} />;
+}
+
+interface EntityLinkViewOptions {
+  // draws each link; set once, when the editor is made (RichTextEditor's `entityPill`)
+  pill: EntityLinkPill | undefined;
+}
+
+// an entity link in the text, drawn by its extension's pill. The pill re-renders itself when what
+// it reads changes; this re-renders when the node does (its attributes, being selected).
+function EntityLinkNodeView({ node, selected, extension }: ReactNodeViewProps) {
+  const Pill = (extension.options as EntityLinkViewOptions).pill ?? StoredLabelPill;
+  const type = node.attrs.type as EditorEntityType;
   return (
     <NodeViewWrapper
       as="span"
       className={styles.inline}
       data-selected={selected ? '' : undefined}
-      data-missing={entity === null ? '' : undefined}
       data-entity-type={type}
     >
-      <EntityPill
-        entity={
-          type === 'task'
-            ? { type, title, status: entity?.status ?? TaskStatus.NOT_STARTED }
-            : type === 'note'
-              ? { type, title }
-              : { type, title, color: entity?.color ?? null }
-        }
-        // the caret moves past it; Tab stays with the editor
-        tabIndex={-1}
-        onClick={() => onOpenEntity?.(type, id, entity ?? undefined)}
-      />
+      <Pill type={type} id={node.attrs.id as string} label={node.attrs.label as string} />
     </NodeViewWrapper>
   );
 }
@@ -66,9 +93,12 @@ function ImagePill({ node, selected }: ReactNodeViewProps) {
   );
 }
 
-export const EntityLinkView = EntityLink.extend({
+export const EntityLinkView = EntityLink.extend<EntityLinkViewOptions>({
+  addOptions() {
+    return { pill: undefined };
+  },
   addNodeView() {
-    return ReactNodeViewRenderer(EntityLinkPill, { as: 'span' });
+    return ReactNodeViewRenderer(EntityLinkNodeView, { as: 'span' });
   },
 });
 

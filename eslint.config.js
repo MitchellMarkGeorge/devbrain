@@ -127,6 +127,38 @@ export default tseslint.config(
     },
   },
 
+  // The editor is markdown in and out: it reads entities and acts only through what RichTextEditor
+  // is given (EditorHost, entityPill), so it never imports IPC, React Query, the router or the app
+  // (docs/editor.md). Stories may use anything
+  {
+    files: ['src/renderer/editor/**/*.{ts,tsx}'],
+    ignores: ['**/*.stories.tsx'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            mainTypeOnly,
+            {
+              group: [
+                '@renderer/ipc',
+                '@renderer/ipc/*',
+                '@tanstack/react-query',
+                '@tanstack/react-router',
+                '@renderer/app/*',
+                '@renderer/features/*',
+                '@renderer/layouts/*',
+                '@renderer/shared/*',
+              ],
+              message:
+                'The editor gets what it needs from the app through RichTextEditor (EditorHost, entityPill): it never imports IPC, React Query, the router or the app.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // src/common is bundled into the renderer as well as main: it imports only other src/common
   // files and zod (and small libraries such as uuid), never main, Drizzle, Electron or Node
   {
