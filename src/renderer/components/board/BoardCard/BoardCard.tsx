@@ -4,6 +4,7 @@ import { mergeProps } from '@base-ui/react/merge-props';
 import { cva } from 'class-variance-authority';
 import { Badge } from '../../ui/Badge';
 import { EntityPill } from '../../entities/EntityPill';
+import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
@@ -59,9 +60,9 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   const { external, subtaskProgress: subtasks } = task;
   const pills = [
     external?.key && (
-      <SourcePill key="source" provider={providerOf(external)}>
-        {external.key}
-      </SourcePill>
+      <PillHoverCard key="source" target={{ type: 'source', title: task.title, external }}>
+        <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>
+      </PillHoverCard>
     ),
     subtasks && (
       <Badge
@@ -72,8 +73,16 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         {subtasks.completed}/{subtasks.total}
       </Badge>
     ),
-    task.link && <EntityPill key="link" entity={task.link} />,
-    task.project && <EntityPill key="project" entity={{ type: 'project', ...task.project }} />,
+    task.link && (
+      <PillHoverCard key="link" target={linkTarget(task.link)}>
+        <EntityPill entity={task.link} />
+      </PillHoverCard>
+    ),
+    task.project && (
+      <PillHoverCard key="project" target={{ type: 'project', ...task.project }}>
+        <EntityPill entity={{ type: 'project', ...task.project }} />
+      </PillHoverCard>
+    ),
   ].filter(Boolean);
   // an undated open task the page can date: "Set due date" at the end of the meta line
   const settable =

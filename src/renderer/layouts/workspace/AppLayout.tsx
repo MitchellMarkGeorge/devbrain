@@ -11,12 +11,14 @@ import { useAppCommands } from './hooks/use-app-commands';
 import { useMenuCommands } from './hooks/use-menu-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
+import { PillCardsProvider } from '@renderer/shared/components/PillCards';
 
 /**
  * Every page in a workspace: the shell with the sidebar; in its title bar the workspace menu, back
  * and forward on the router's history, search (the field opens it, as ⌘K does) and New; the app-wide commands (from the keys and the app menu), import and export
  * (for the app menu), and the page. Each page declares its own title and actions (its `Page`'s), so
- * the layout holds nothing of the page's. While the settings are open the sidebar is
+ * the layout holds nothing of the page's; it gives the pills in the page's rows their hover cards
+ * (`PillCardsProvider`). While the settings are open the sidebar is
  * theirs (`SettingsSidebar`), whose Back to app returns to the last page outside them.
  */
 export function AppLayout() {
@@ -61,7 +63,9 @@ export function AppLayout() {
       onSearch={openSearch}
       create={<CreateMenu />}
     >
-      <Outlet />
+      <PillCardsProvider>
+        <Outlet />
+      </PillCardsProvider>
     </WorkspaceShell>
   );
 }
