@@ -59,7 +59,10 @@
   border-color: var(--ring);
 }
 
-/* the leading strip: the checkbox shows on hover, focus, and on every row while selecting */
+/*
+ * the leading strip: the checkbox shows on hover, keyboard focus, and on every row while selecting.
+ * Keyboard focus only: a click leaves focus on the checkbox, and it must hide once the pointer leaves.
+ */
 .check {
   position: absolute;
   top: 50%;
@@ -72,7 +75,7 @@
 }
 .row:hover .check,
 .row:focus-visible .check,
-.row:focus-within .check,
+.row:has(:focus-visible) .check,
 .row[data-state] .check,
 .row[data-selected] .check,
 .row[data-selecting] .check {

@@ -41,6 +41,7 @@
   border-color: var(--ring);
 }
 
+/* the selection checkbox: as TaskRow's, it shows on keyboard focus only, not after a click */
 .check {
   position: absolute;
   top: 50%;
@@ -50,7 +51,7 @@
 }
 .row:hover .check,
 .row:focus-visible .check,
-.row:focus-within .check,
+.row:has(:focus-visible) .check,
 .row[data-state] .check,
 .row[data-selected] .check,
 .row[data-selecting] .check {
