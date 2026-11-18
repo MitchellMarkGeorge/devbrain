@@ -73,7 +73,7 @@ function detail(state: SyncState, retryAt?: string): string | undefined {
     case 'offline':
       return 'Syncing resumes when you reconnect';
     case 'none':
-      return 'Sync tasks from Linear and events from Google Calendar';
+      return 'Sync tasks and events from your tools';
     default:
       return undefined;
   }
