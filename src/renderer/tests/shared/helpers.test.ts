@@ -3,7 +3,7 @@ import type { WorkspaceId } from '@common/ids';
 import { IntegrationStatus, type SourceSyncStatus } from '@common/types';
 import { entityPath } from '@renderer/shared/lib/entities';
 import { mutationErrorCopy } from '@renderer/shared/lib/mutation-errors';
-import { summarizeSync } from '@renderer/shared/lib/sync-state';
+import { hasConnectedIntegration, summarizeSync } from '@renderer/shared/lib/sync-state';
 
 // The workspace layout's pure helpers: where an entity opens, a failed write's words, and the
 // sidebar's sync line.
@@ -100,6 +100,20 @@ function source(extra: Partial<SourceSyncStatus> = {}): SourceSyncStatus {
     ...extra,
   } as SourceSyncStatus;
 }
+
+describe('hasConnectedIntegration', () => {
+  it('counts a connected account, or one that needs reconnecting, whether its sources are on or off', () => {
+    expect(hasConnectedIntegration([source({ enabled: false })])).toBe(true);
+    expect(
+      hasConnectedIntegration([source({ status: IntegrationStatus.NEEDS_REAUTH, enabled: false })]),
+    ).toBe(true);
+  });
+
+  it('counts nothing with no sources, or only turned-off accounts', () => {
+    expect(hasConnectedIntegration([])).toBe(false);
+    expect(hasConnectedIntegration([source({ status: IntegrationStatus.DISABLED })])).toBe(false);
+  });
+});
 
 describe('summarizeSync', () => {
   it('shows nothing while nothing syncs', () => {

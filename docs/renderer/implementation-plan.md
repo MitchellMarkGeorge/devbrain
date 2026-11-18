@@ -603,7 +603,7 @@ to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps it
   with a `SidebarHint` ("Star a task, note or project to keep it here"). Items open with
   `useOpenEntity`. Collapsed sidebar
   shows these as flyouts (`7167:14942`).
-- **Footer:** Trash, Settings, and Help, which opens the keyboard shortcuts (`help.shortcuts`, as `?`).
+- **Footer:** one row: the sync line, then Trash, Settings and Help as icons (Help opens the keyboard shortcuts, `help.shortcuts`, as `?`).
   `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and `sync.progress` events;
   Retry calls `sync.now`) comes with milestone 3. The keyboard shortcuts dialog opens with `?` and
   from ⌘K.

@@ -90,8 +90,10 @@ describe('the settings', () => {
 
   it('go Back to app, to the page they were opened from', async () => {
     const { app } = settingsPage('/tasks');
-    await eventually(() => expect(byText(app.container, 'a', 'Settings')).toBeTruthy());
-    click(byText(app.container, 'a', 'Settings')!);
+    // the sidebar footer's Settings icon, named by its label
+    const settingsLink = () => app.container.querySelector<HTMLElement>('a[aria-label="Settings"]');
+    await eventually(() => expect(settingsLink()).toBeTruthy());
+    click(settingsLink()!);
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/general`));
     await eventually(() => expect(settingsNav()).not.toBeNull());
     click(byText(settingsNav(), 'a', 'Tasks')!);

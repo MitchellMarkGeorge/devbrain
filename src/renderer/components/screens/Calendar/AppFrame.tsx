@@ -21,7 +21,9 @@ import { TooltipProvider } from '../../ui/Tooltip';
 import {
   Sidebar,
   SidebarContent,
+  SidebarAction,
   SidebarFooter,
+  SidebarFooterActions,
   SidebarGroup,
   SidebarHeader,
   SidebarHeaderActions,
@@ -103,11 +105,16 @@ export function AppFrame({
             </SidebarGroup>
           </SidebarContent>
           <SidebarFooter>
-            <SidebarItem icon={Trash2}>Trash</SidebarItem>
-            <SidebarItem icon={Settings} active={page === 'Settings'}>
-              Settings
-            </SidebarItem>
-            <SidebarItem icon={CircleHelp}>Help</SidebarItem>
+            <SidebarFooterActions>
+              <SidebarAction icon={Trash2} label="Trash" tooltipSide="top" />
+              <SidebarAction
+                icon={Settings}
+                label="Settings"
+                tooltipSide="top"
+                active={page === 'Settings'}
+              />
+              <SidebarAction icon={CircleHelp} label="Help" shortcut="?" tooltipSide="top" />
+            </SidebarFooterActions>
           </SidebarFooter>
         </Sidebar>
         <main

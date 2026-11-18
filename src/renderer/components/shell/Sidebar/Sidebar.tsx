@@ -72,28 +72,53 @@ export const SidebarHeaderActions = forwardRef<HTMLDivElement, ComponentPropsWit
   },
 );
 
-export interface SidebarActionProps extends Omit<ComponentPropsWithoutRef<'button'>, 'children'> {
+export interface SidebarActionProps extends Omit<useRender.ComponentProps<'button'>, 'children'> {
   icon: IconSource;
-  /** what it does: its name and tooltip ("Search", "New task") */
+  /** what it does: its name and tooltip ("Search", "New task", "Settings") */
   label: string;
   /** its shortcut in the tooltip: "⌘K" */
   shortcut?: string;
+  /** the current page (a footer action that is a link): filled, as a current item is */
+  active?: boolean;
+  /** where the tooltip opens: below in the header (default), above in the footer */
+  tooltipSide?: 'top' | 'bottom';
 }
 
-/** A header action (search, new): a 28px icon button beside the workspace, named in a tooltip. */
+/**
+ * An icon-only action, named in a tooltip: in the header (search, new) a 28px button beside the
+ * workspace; in the footer (`SidebarFooterActions`: Trash, Settings, Help) 24px, after the sync
+ * line. A `button` by default; pass `render={<a href="…" />}` for a page. Picking one in the
+ * drawer closes it.
+ */
 export const SidebarAction = forwardRef<HTMLButtonElement, SidebarActionProps>(
-  function SidebarAction({ icon, label, shortcut, className, ...props }, ref) {
+  function SidebarAction(
+    { icon, label, shortcut, active, tooltipSide = 'bottom', render, onClick, className, ...props },
+    ref,
+  ) {
+    const shell = useWorkspaceShell();
+    const element = useRender({
+      ref,
+      defaultTagName: 'button',
+      render,
+      props: mergeProps<'button'>(
+        {
+          className: cn(styles.action, className),
+          type: render ? undefined : 'button',
+          'aria-label': label,
+          'aria-current': active ? 'page' : undefined,
+          onClick: (event: MouseEvent<HTMLButtonElement>) => {
+            onClick?.(event);
+            if (shell.inDrawer && !event.defaultPrevented) shell.closeDrawer();
+          },
+          children: renderIcon(icon, 16),
+          ...({ 'data-active': active ? '' : undefined } as object),
+        },
+        props,
+      ),
+    });
     return (
-      <Tooltip content={<TooltipLabel label={label} shortcut={shortcut} />} side="bottom">
-        <button
-          ref={ref}
-          type="button"
-          aria-label={label}
-          className={cn(styles.action, className)}
-          {...props}
-        >
-          {renderIcon(icon, 16)}
-        </button>
+      <Tooltip content={<TooltipLabel label={label} shortcut={shortcut} />} side={tooltipSide}>
+        {element}
       </Tooltip>
     );
   },
@@ -275,9 +300,19 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(funct
   return element;
 });
 
-/** The bottom of the sidebar: the sync status, then Trash, Settings and Help. */
+/**
+ * The bottom of the sidebar, one row: the sync line (`SyncStatus`) taking the room, then
+ * `SidebarFooterActions` at the end.
+ */
 export const SidebarFooter = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
   function SidebarFooter({ className, ...props }, ref) {
     return <div ref={ref} className={cn(styles.footer, className)} {...props} />;
+  },
+);
+
+/** The footer's icon actions (Trash, Settings, Help: `SidebarAction`s), at the row's end. */
+export const SidebarFooterActions = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
+  function SidebarFooterActions({ className, ...props }, ref) {
+    return <div ref={ref} className={cn(styles.footerActions, className)} {...props} />;
   },
 );

@@ -27,7 +27,9 @@ import { IconButton } from '../../ui/IconButton';
 import {
   Sidebar,
   SidebarContent,
+  SidebarAction,
   SidebarFooter,
+  SidebarFooterActions,
   SidebarGroup,
   SidebarHeader,
   SidebarHeaderActions,
@@ -86,9 +88,11 @@ export function AppSidebar({ active }: { active: string }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarItem icon={Trash2}>Trash</SidebarItem>
-        <SidebarItem icon={Settings}>Settings</SidebarItem>
-        <SidebarItem icon={CircleHelp}>Help</SidebarItem>
+        <SidebarFooterActions>
+          <SidebarAction icon={Trash2} label="Trash" tooltipSide="top" />
+          <SidebarAction icon={Settings} label="Settings" tooltipSide="top" />
+          <SidebarAction icon={CircleHelp} label="Help" shortcut="?" tooltipSide="top" />
+        </SidebarFooterActions>
       </SidebarFooter>
     </Sidebar>
   );

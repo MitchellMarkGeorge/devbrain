@@ -2,8 +2,9 @@
 .status {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   width: 100%;
+  min-width: 0;
   min-height: var(--control-sm);
   color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
@@ -23,7 +24,7 @@
   cursor: pointer;
   transition: background-color var(--duration-fast);
 }
-/* the line fills the row, except a failure, whose Retry follows it */
+/* the line fills its room, except a failure, whose Retry follows it */
 .status:not([data-state='error']) .main {
   flex: 1;
 }
@@ -39,9 +40,14 @@
 }
 .text {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.dot {
-  color: var(--subtle-foreground);
+/* Retry, right after "Sync failed": the line's 16px icon size, not xs's 12px */
+.retry > svg {
+  width: 16px;
+  height: 16px;
 }
 
 .status[data-state='synced'] .icon {
@@ -52,7 +58,12 @@
 }
 .status[data-state='error'] .main {
   color: var(--destructive);
-  white-space: nowrap;
+}
+/* nothing syncs: sources turned off, or an invitation to set up; quieter than the states that
+   report on syncing */
+.status[data-state='off'],
+.status[data-state='none'] {
+  color: var(--subtle-foreground);
 }
 .status[data-state='rate-limited'] .icon {
   color: var(--date-today);
