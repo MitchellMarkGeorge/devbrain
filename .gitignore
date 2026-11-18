@@ -7,4 +7,5 @@ release
 *.tsbuildinfo
 .vite
 .dev
+.dev-logs
 storybook-static

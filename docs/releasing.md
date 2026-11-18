@@ -89,6 +89,8 @@ platform and check by hand that:
   you add shows up on the Tasks page;
 - the text is in Inter, not a fallback font;
 - on Linux, `release/linux-unpacked/devbrain` runs as well as the AppImage.
+- Help → Show Log File shows `main.log` in the platform's logs folder (`~/Library/Logs/DevBrain`,
+  `%APPDATA%\DevBrain\logs`, `~/.config/DevBrain/logs`); attach it to a bug report.
 
 ## Signing
 
