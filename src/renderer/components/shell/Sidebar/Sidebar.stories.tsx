@@ -50,7 +50,7 @@ export const WithSyncStatus: StoryObj<{ sync: SyncState }> = {
   argTypes: {
     sync: {
       control: 'inline-radio',
-      options: ['synced', 'syncing', 'error', 'rate-limited', 'offline'],
+      options: ['synced', 'syncing', 'error', 'rate-limited', 'offline', 'none'],
     },
   },
   render: ({ sync }) => <DemoSidebar active="Tasks" sync={sync} />,
@@ -89,38 +89,29 @@ export const EmptyGroupHint: Story = {
 };
 
 /**
- * The footer's row in every sync state, and with no source connected (no sync line: the actions
- * stay at the end). The line shortens before the actions do; Settings is the current page in the last.
+ * The footer's row in every sync state, the last with no source connected ("Not syncing", quieter).
+ * The line shortens before the actions do; Settings is the current page in the last.
  */
 export const FooterStates: Story = {
   render: () => {
-    const states: (SyncState | undefined)[] = [
-      'synced',
-      'syncing',
-      'error',
-      'rate-limited',
-      'offline',
-      undefined,
-    ];
+    const states: SyncState[] = ['synced', 'syncing', 'error', 'rate-limited', 'offline', 'none'];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 256, padding: 12 }}>
         {states.map((state) => (
-          <SidebarFooter key={state ?? 'none'}>
-            {state && (
-              <SyncStatus
-                state={state}
-                lastSynced="12 min ago"
-                retryAt="9:15 AM"
-                onRetry={() => {}}
-              />
-            )}
+          <SidebarFooter key={state}>
+            <SyncStatus
+              state={state}
+              lastSynced="12 min ago"
+              retryAt="9:15 AM"
+              onRetry={() => {}}
+            />
             <SidebarFooterActions>
               <SidebarAction icon={Trash2} label="Trash" tooltipSide="top" />
               <SidebarAction
                 icon={Settings}
                 label="Settings"
                 tooltipSide="top"
-                active={state === undefined}
+                active={state === 'none'}
               />
               <SidebarAction icon={CircleHelp} label="Help" shortcut="?" tooltipSide="top" />
             </SidebarFooterActions>

@@ -1,5 +1,13 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
-import { CircleAlert, CircleCheck, Clock, LoaderCircle, RotateCw, WifiOff } from 'lucide-react';
+import {
+  CircleAlert,
+  CircleCheck,
+  Clock,
+  CloudOff,
+  LoaderCircle,
+  RotateCw,
+  WifiOff,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Icon } from '../../ui/Icon';
@@ -7,8 +15,11 @@ import { IconButton } from '../../ui/IconButton';
 import { Tooltip } from '../../ui/Tooltip';
 import styles from './SyncStatus.module.css';
 
-/** What `sync.status` reports: the last run, one in flight, a failure, a provider's back-off, or no network. */
-export type SyncState = 'synced' | 'syncing' | 'error' | 'rate-limited' | 'offline';
+/**
+ * What `sync.status` reports: the last run, one in flight, a failure, a provider's back-off, or no
+ * network; or `none` while no source syncs (nothing connected).
+ */
+export type SyncState = 'synced' | 'syncing' | 'error' | 'rate-limited' | 'offline' | 'none';
 
 const ICONS: Record<SyncState, LucideIcon> = {
   synced: CircleCheck,
@@ -16,6 +27,7 @@ const ICONS: Record<SyncState, LucideIcon> = {
   error: CircleAlert,
   'rate-limited': Clock,
   offline: WifiOff,
+  none: CloudOff,
 };
 
 export interface SyncStatusProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
@@ -23,7 +35,7 @@ export interface SyncStatusProps extends Omit<ComponentPropsWithoutRef<'div'>, '
   /**
    * The line's text; each state has its own default, short enough for the footer's row: "Synced 2
    * min ago" (pass `lastSynced`), "Syncing…", "Sync failed", "Paused · 9:15 AM" (pass `retryAt`),
-   * "Offline". Paused and offline say the rest in a tooltip.
+   * "Offline", "Not syncing". Paused, offline and not syncing say the rest in a tooltip.
    */
   children?: ReactNode;
   /** when the last run finished: "2 min ago" */
@@ -48,6 +60,8 @@ function defaultText(state: SyncState, lastSynced?: string, retryAt?: string): s
       return retryAt ? `Paused · ${retryAt}` : 'Paused';
     case 'offline':
       return 'Offline';
+    case 'none':
+      return 'Not syncing';
   }
 }
 
@@ -58,6 +72,8 @@ function detail(state: SyncState, retryAt?: string): string | undefined {
       return retryAt ? `Syncing resumes at ${retryAt}` : 'Syncing resumes shortly';
     case 'offline':
       return 'Syncing resumes when you reconnect';
+    case 'none':
+      return 'Connect an account in Integrations to sync';
     default:
       return undefined;
   }

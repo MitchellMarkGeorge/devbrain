@@ -24,7 +24,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Synced: Story = {};
 
-/** The five states, in their short form; paused and offline say the rest in a tooltip. */
+/** The six states, in their short form; paused, offline and not syncing say the rest in a tooltip. */
 export const States: Story = {
   render: () => (
     <Stack gap="3">
@@ -34,6 +34,7 @@ export const States: Story = {
       <SyncStatus state="error" onRetry={() => {}} />
       <SyncStatus state="rate-limited" retryAt="9:15 AM" />
       <SyncStatus state="offline" />
+      <SyncStatus state="none" />
     </Stack>
   ),
 };

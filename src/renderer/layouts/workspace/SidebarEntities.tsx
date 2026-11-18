@@ -110,8 +110,8 @@ function subscribeOnline(listener: () => void) {
 }
 
 /**
- * The sync line at the start of the footer's row, for every source that syncs; nothing while none is
- * connected. Kept fresh by the invalidator (`sources.changed`, `sync.progress`). Its line opens
+ * The sync line at the start of the footer's row, for every source that syncs; "Not syncing" while
+ * none does (nothing connected), and nothing until `sync.status` first answers. Kept fresh by the invalidator (`sources.changed`, `sync.progress`). Its line opens
  * Integrations; Retry runs `sync.now`.
  */
 export function SidebarSync() {
@@ -121,8 +121,12 @@ export function SidebarSync() {
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine);
   const status = useQuery(trpc.sync.status.queryOptions());
   const syncNow = useMutation(trpc.sync.now.mutationOptions());
-  const summary = summarizeSync(status.data ?? [], online, format.now);
-  if (!summary) return null;
+  const openIntegrations = () =>
+    void navigate({ to: '/app/$workspaceId/settings/integrations', params: { workspaceId } });
+  // nothing until the first answer, so a workspace that syncs never flashes "Not syncing"
+  if (!status.data) return null;
+  const summary = summarizeSync(status.data, online, format.now);
+  if (!summary) return <SyncStatus state="none" onOpen={openIntegrations} />;
   return (
     <SyncStatus
       state={summary.state}
@@ -130,9 +134,7 @@ export function SidebarSync() {
         summary.lastSyncedAt ? format.formatRelative(summary.lastSyncedAt).toLowerCase() : undefined
       }
       retryAt={summary.retryAt ? format.formatTime(summary.retryAt) : undefined}
-      onOpen={() =>
-        void navigate({ to: '/app/$workspaceId/settings/integrations', params: { workspaceId } })
-      }
+      onOpen={openIntegrations}
       onRetry={() => syncNow.mutate(undefined)}
     />
   );
