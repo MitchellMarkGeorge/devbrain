@@ -92,7 +92,8 @@ A design change lands in all three in the same change: the component, its storie
 ## Rich text
 
 Every place the user writes or reads markdown uses `RichTextEditor` (`src/renderer/editor`), TipTap
-with markdown in and out. `docs/editor.md` says what it reads and writes, what a save changes, and
+with markdown in and out; a page renders it as `WorkspaceRichTextEditor`
+(`src/renderer/shared/components`), which gives it the app's actions. `docs/editor.md` says what it reads and writes, what a save changes, and
 how to add an element. A new element needs a round trip case in
 `src/renderer/tests/editor/markdown.test.ts`.
 

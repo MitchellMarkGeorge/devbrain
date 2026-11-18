@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskStatus } from '@common/types';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { trpc } from '@renderer/ipc';
 import { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
-import { EditorEntityPill } from './EntityPillView';
-import type { EditorEntity, EntityLinkPillProps } from './types';
+import type { EditorEntity, EditorEntityType } from './types';
 
 /**
  * The working editor: type, press "/" for blocks and "@" to link, select text for the format
@@ -25,9 +26,9 @@ const ENTITIES: EditorEntity[] = [
     status: TaskStatus.NOT_STARTED,
   },
   { type: 'task', id: 'tsk_3', title: 'Rotate the signing keys', status: TaskStatus.COMPLETED },
-  { type: 'project', id: 'prj_1', title: 'Auth rewrite', color: 'blue' },
+  { type: 'project', id: 'prj_1', title: 'Auth rewrite', color: '#3b82f6' },
   { type: 'note', id: 'nte_1', title: 'Auth0 call notes' },
-  { type: 'event', id: 'evt_1', title: 'Security review', color: 'pink' },
+  { type: 'event', id: 'evt_1', title: 'Security review', color: '#ec4899' },
 ];
 
 const NOTE = `# OAuth2 with PKCE
@@ -78,13 +79,23 @@ Inline <span style="color:red">HTML</span> and <img src=x onerror=alert(1)> stay
 
 [A script link](javascript:alert(1)) draws as text, and [a web link](https://example.com) opens through the app.`;
 
-// a plain lookup: an id it doesn't hold is gone
-function StoryEntityPill(props: EntityLinkPillProps) {
-  const entity = ENTITIES.find((entry) => entry.type === props.type && entry.id === props.id);
-  return <EditorEntityPill {...props} entity={entity ?? null} />;
+// the pills read their entities from React Query, as in the app: these, already in the cache, so
+// nothing is fetched (a link to any other id keeps its stored label)
+const ENTITY_KEYS: Record<EditorEntityType, (id: never) => readonly unknown[]> = {
+  task: (id) => trpc.tasks.get.queryKey({ id }),
+  project: (id) => trpc.projects.get.queryKey({ id }),
+  note: (id) => trpc.notes.get.queryKey({ id }),
+  event: (id) => trpc.events.get.queryKey({ id }),
+};
+
+const storyQueries = new QueryClient({
+  defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+});
+for (const { type, id, ...row } of ENTITIES) {
+  storyQueries.setQueryData(ENTITY_KEYS[type](id as never), row);
 }
 
-const host: Pick<RichTextEditorProps, 'searchEntities' | 'entityPill'> = {
+const host: Pick<RichTextEditorProps, 'searchEntities'> = {
   async searchEntities(query, types) {
     const q = query.toLowerCase();
     return ENTITIES.filter(
@@ -92,7 +103,6 @@ const host: Pick<RichTextEditorProps, 'searchEntities' | 'entityPill'> = {
         (types as string[]).includes(entity.type) && entity.title.toLowerCase().includes(q),
     );
   },
-  entityPill: StoryEntityPill,
 };
 
 const panel = {
@@ -127,37 +137,39 @@ function Playground({ initial, editable = true, label = 'Note' }: PlaygroundProp
   const log = (entry: string) => setOpened((list) => [entry, ...list].slice(0, 5));
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, var(--content-max-width)) minmax(240px, 360px)',
-        gap: 'var(--space-8)',
-        alignItems: 'start',
-      }}
-    >
-      <RichTextEditor
-        {...host}
-        label={label}
-        value={value}
-        editable={editable}
-        onChange={(markdown) => {
-          setValue(markdown);
-          setSaves((count) => count + 1);
+    <QueryClientProvider client={storyQueries}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, var(--content-max-width)) minmax(240px, 360px)',
+          gap: 'var(--space-8)',
+          alignItems: 'start',
         }}
-        onOpenEntity={(type, id) => log(`${type} ${id}`)}
-        onOpenUrl={(url) => log(url)}
-      />
-      <aside style={{ display: 'grid', gap: 'var(--space-4)' }}>
-        <section>
-          <h2 style={heading}>Saved markdown · {saves === 0 ? 'unchanged' : `${saves} edits`}</h2>
-          <pre style={panel}>{value || ' '}</pre>
-        </section>
-        <section>
-          <h2 style={heading}>Opened</h2>
-          <pre style={panel}>{opened.length ? opened.join('\n') : 'Nothing yet'}</pre>
-        </section>
-      </aside>
-    </div>
+      >
+        <RichTextEditor
+          {...host}
+          label={label}
+          value={value}
+          editable={editable}
+          onChange={(markdown) => {
+            setValue(markdown);
+            setSaves((count) => count + 1);
+          }}
+          onOpenEntity={(type, id) => log(`${type} ${id}`)}
+          onOpenUrl={(url) => log(url)}
+        />
+        <aside style={{ display: 'grid', gap: 'var(--space-4)' }}>
+          <section>
+            <h2 style={heading}>Saved markdown · {saves === 0 ? 'unchanged' : `${saves} edits`}</h2>
+            <pre style={panel}>{value || ' '}</pre>
+          </section>
+          <section>
+            <h2 style={heading}>Opened</h2>
+            <pre style={panel}>{opened.length ? opened.join('\n') : 'Nothing yet'}</pre>
+          </section>
+        </aside>
+      </div>
+    </QueryClientProvider>
   );
 }
 

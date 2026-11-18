@@ -5,18 +5,22 @@ descriptions, and read-only synced descriptions. It is built on [TipTap](https:/
 (ProseMirror) with TipTap's own markdown package, `@tiptap/markdown`: markdown in, markdown out.
 
 ```tsx
-// in a page: "@" search, links, the pills' entities and opening them (shared/hooks/use-editor-host.ts)
-const host = useEditorHost();
+// in a page: the editor acting in the open workspace (shared/components/WorkspaceRichTextEditor.tsx)
 // saved as it is typed, without its own save's refetch putting older text back (shared/hooks/use-autosave.ts)
 const body = useEditorAutosave(content, (markdown) => save(markdown));
-<RichTextEditor {...host} label="Note" value={body.value} onChange={body.onChange} />;
+<WorkspaceRichTextEditor label="Note" value={body.value} onChange={body.onChange} />;
 ```
 
-- `useEditorHost` combines `useWorkspaceEditorHost` ("@" search, `onOpenUrl`),
-  `WorkspaceEntityPill` (the host's `entityPill`, which draws each entity link: it reads its entity
-  with `useEditorEntity`, a `useQuery` on `tasks.get`, `projects.get`, `notes.get` or `events.get`,
-  so it loads it the first time it is drawn and draws again when it changes, and passes it to the
-  editor's `EditorEntityPill`; a deleted one is drawn as missing) and `useOpenEntity`. Every page's editor takes it.
+- `WorkspaceRichTextEditor` is `RichTextEditor` with the app's `EditorHost`: "@" searches the open
+  workspace and links open through `workspace.openUrl` (`useWorkspaceEditorHost`), and a pill opens
+  its entity where it lives (`useOpenEntity`; an event on its day). Every page's editor is one;
+  Storybook and the editor's tests render `RichTextEditor` with their own host.
+- Each entity pill reads its entity itself, with `useEditorEntity` (`use-entity-resolver.ts`): a
+  `useQuery` on `tasks.get`, `projects.get`, `notes.get` or `events.get`, the same cache the
+  entity's own page reads. It loads the entity the first time the pill is drawn, draws again when
+  core reports it changed, and shows the stored label until then; a deleted or trashed one keeps
+  its label, drawn as missing. So the editor needs a `QueryClientProvider` above it: the app's,
+  or in Storybook and tests one with the entities already in it.
 - `useEditorAutosave` saves 500ms after typing stops, and at once on leaving the page, on the
   window losing focus and when a workspace switch starts. A save makes core report the entity
   changed, so the text is refetched; by then more may have been typed. The editor is only handed
@@ -29,7 +33,10 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   the editor just sent is not loaded again.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
-- The editor never calls IPC. What it needs from the app is `EditorHost` (`types.ts`).
+- What the editor asks the app to do is `EditorHost` (`types.ts`): `searchEntities`, `onOpenEntity`
+  and `onOpenUrl`. These are actions, not data, and the "@" menu and the link click handler call
+  them from TipTap and ProseMirror, outside React. The editor reads (the pills' entities) but never
+  writes or navigates itself.
 - It is drawn by the design system's components (`src/renderer/components`): the blocks by
   `EditorContent`, entity links and images by `EntityPill`, keys by `Kbd`, the `/` menu by
   `SlashMenu`, the `@` menu by `MentionMenu`, and the toolbar over a selection by `FormatToolbar`,

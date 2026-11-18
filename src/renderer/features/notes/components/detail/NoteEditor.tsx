@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Editor } from '@tiptap/react';
 import type { NoteId } from '@common/ids';
-import { RichTextEditor } from '@renderer/editor/RichTextEditor';
 import { ipc, trpc } from '@renderer/ipc';
+import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
-import { useEditorHost } from '@renderer/shared/hooks/use-editor-host';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 
 /**
@@ -47,7 +46,6 @@ function NoteEditorLoaded({
   onReady?: (editor: Editor) => void;
   editable: boolean;
 }) {
-  const host = useEditorHost();
   const showError = useMutationErrorToast();
   const body = useEditorAutosave(content, (markdown) => {
     ipc.notes.updateContent
@@ -55,8 +53,7 @@ function NoteEditorLoaded({
       .catch((error: unknown) => showError(error, 'Couldn’t save the note'));
   });
   return (
-    <RichTextEditor
-      {...host}
+    <WorkspaceRichTextEditor
       label="Note"
       value={body.value}
       onChange={body.onChange}

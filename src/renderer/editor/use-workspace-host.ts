@@ -6,12 +6,8 @@ import { trpc } from '@renderer/ipc';
 import type { EditorEntity, EditorHost, MentionType } from './types';
 
 /**
- * The parts of an editor's host every page shares: "@" search over the open workspace and opening
- * links. A page adds what only it knows, such as entityPill drawing the rows it already holds and
- * onOpenEntity from its router:
- *
- *   const host = useWorkspaceEditorHost();
- *   <RichTextEditor {...host} value={note.content} onChange={save} onOpenEntity={open} label="Note" />
+ * The editor host's "@" search over the open workspace and opening links, for
+ * WorkspaceRichTextEditor (src/renderer/shared/components), which adds onOpenEntity from the router.
  */
 export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'onOpenUrl'> {
   const queryClient = useQueryClient();

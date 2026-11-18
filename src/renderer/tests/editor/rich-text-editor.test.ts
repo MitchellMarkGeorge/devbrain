@@ -7,8 +7,6 @@ import { QueryClient, QueryClientProvider, notifyManager } from '@tanstack/react
 import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
-import { EditorEntityPill } from '@renderer/editor/EntityPillView';
-import { WorkspaceEntityPill } from '@renderer/shared/components/WorkspaceEntityPill';
 import { trpc } from '@renderer/ipc';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -19,17 +17,33 @@ const STORED = '* one\n* two\n\n__bold__ & <b>raw</b>';
 let container: HTMLDivElement;
 let root: Root;
 let editor: Editor;
+// what the pills read their entities from; nothing is stale, so a seeded one is never fetched
+let queryClient: QueryClient;
 
 function render(props: Partial<RichTextEditorProps>) {
   act(() => {
     root.render(
-      createElement(RichTextEditor, {
-        value: STORED,
-        label: 'Note',
-        onReady: (instance: Editor) => (editor = instance),
-        ...props,
-      }),
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(RichTextEditor, {
+          value: STORED,
+          label: 'Note',
+          onReady: (instance: Editor) => (editor = instance),
+          ...props,
+        }),
+      ),
     );
+  });
+}
+
+// a task in the cache, as tasks.get returns it
+function setTask(task: { title: string; status?: TaskStatus; archivedAt?: Date }) {
+  act(() => {
+    queryClient.setQueryData(trpc.tasks.get.queryKey({ id: 'tsk_1' as never }), {
+      status: TaskStatus.NOT_STARTED,
+      ...task,
+    } as never);
   });
 }
 
@@ -37,6 +51,9 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
 });
 
 afterEach(() => {
@@ -90,22 +107,19 @@ describe('RichTextEditor', () => {
 
   it('shows an entity link with its current title, and opens it on click', async () => {
     const onOpenEntity = vi.fn();
-    render({
-      value: 'See [Old title](devbrain://task/tsk_1)',
-      entityPill: (props) =>
-        createElement(EditorEntityPill, {
-          ...props,
-          entity: { ...props, title: 'Current title', status: TaskStatus.COMPLETED },
-        }),
-      onOpenEntity,
-    });
+    setTask({ title: 'Current title', status: TaskStatus.COMPLETED });
+    render({ value: 'See [Old title](devbrain://task/tsk_1)', onOpenEntity });
     // React node views mount after the editor
     await act(async () => {});
     const pill = container.querySelector<HTMLElement>('[data-entity-type="task"]')!;
     expect(pill.textContent).toBe('Current title');
     // the design system's EntityPill is the button inside the node view
     act(() => pill.querySelector('button')!.click());
-    expect(onOpenEntity).toHaveBeenCalledWith('task', 'tsk_1');
+    expect(onOpenEntity).toHaveBeenCalledWith(
+      'task',
+      'tsk_1',
+      expect.objectContaining({ title: 'Current title' }),
+    );
     // the stored label is untouched
     expect(editor.getMarkdown()).toBe('See [Old title](devbrain://task/tsk_1)');
   });
@@ -114,42 +128,20 @@ describe('RichTextEditor', () => {
     // React Query tells its observers at once, not on a later tick, so each act sees the change
     notifyManager.setScheduler((callback) => callback());
     onTestFinished(() => notifyManager.setScheduler((callback) => setTimeout(callback, 0)));
-    // nothing is stale, so the pill's query reads the cache and never fetches
-    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
-    const key = trpc.tasks.get.queryKey({ id: 'tsk_1' as never });
-    const setTask = (task: { title: string; archivedAt?: Date }) =>
-      act(() => {
-        queryClient.setQueryData(key, {
-          status: TaskStatus.NOT_STARTED,
-          ...task,
-        } as never);
-      });
     setTask({ title: 'First title' });
-    act(() => {
-      root.render(
-        createElement(
-          QueryClientProvider,
-          { client: queryClient },
-          createElement(RichTextEditor, {
-            value: 'See [Old title](devbrain://task/tsk_1)',
-            label: 'Note',
-            entityPill: WorkspaceEntityPill,
-          }),
-        ),
-      );
-    });
+    render({ value: 'See [Old title](devbrain://task/tsk_1)' });
     await act(async () => {});
     const pill = () => container.querySelector<HTMLElement>('[data-entity-type="task"]')!;
     expect(pill().textContent).toBe('First title');
 
     setTask({ title: 'Renamed' });
     expect(pill().textContent).toBe('Renamed');
-    expect(pill().querySelector('[data-missing]')).toBeNull();
+    expect(pill().hasAttribute('data-missing')).toBe(false);
 
     setTask({ title: 'Renamed', archivedAt: new Date() });
     // gone: the stored label, drawn as missing
     expect(pill().textContent).toBe('Old title');
-    expect(pill().querySelector('[data-missing]')).not.toBeNull();
+    expect(pill().hasAttribute('data-missing')).toBe(true);
   });
 
   // a real click on the element, as the browser sends it: the browser follows a link on `click`,

@@ -1,8 +1,7 @@
 import type { Task } from '@common/types';
-import { RichTextEditor } from '@renderer/editor/RichTextEditor';
 import { ipc } from '@renderer/ipc';
+import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
-import { useEditorHost } from '@renderer/shared/hooks/use-editor-host';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '../../api/queries';
 
@@ -13,7 +12,6 @@ import { isSynced } from '../../api/queries';
  * read-only, and left out when it has none.
  */
 export function TaskDescription({ task, className }: { task: Task; className?: string }) {
-  const host = useEditorHost();
   const showError = useMutationErrorToast();
   const synced = isSynced(task);
   const description = useEditorAutosave(task.description ?? '', (markdown) => {
@@ -26,8 +24,7 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
   });
   if (synced && !task.description) return null;
   return (
-    <RichTextEditor
-      {...host}
+    <WorkspaceRichTextEditor
       className={className}
       label="Description"
       value={description.value}

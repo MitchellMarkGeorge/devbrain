@@ -1,6 +1,6 @@
 import { skipToken, useQuery, type UseQueryOptions } from '@tanstack/react-query';
+import { hexColorSchema } from '@common/color';
 import { isId } from '@common/ids';
-import { resolveColor } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import type { EditorEntity, EditorEntityType } from './types';
@@ -28,12 +28,14 @@ interface EntityRow {
   archivedAt?: Date | null;
   status?: EditorEntity['status'];
   color?: string | null;
+  startAt?: Date | null;
 }
 
 /**
  * An editor pill's entity, from React Query: its current title, status and colour, loaded the first
  * time its pill is drawn and drawn again when it changes; undefined until then. A deleted entity
- * (or one in the trash) is null, so its pill is drawn as missing. `WorkspaceEntityPill` calls it.
+ * (or one in the trash) is null, so its pill is drawn as missing. Each pill calls it
+ * (EntityPillView.tsx).
  */
 export function useEditorEntity(
   type: EditorEntityType,
@@ -54,7 +56,12 @@ export function useEditorEntity(
       id,
       title: row.title,
       status: type === 'task' ? row.status : undefined,
-      color: type === 'project' || type === 'event' ? resolveColor(row.color) : undefined,
+      // checked, not resolved: the pill resolves it (as the "@" menu's results)
+      color:
+        type === 'project' || type === 'event'
+          ? hexColorSchema.safeParse(row.color).data
+          : undefined,
+      startAt: type === 'event' ? row.startAt : undefined,
     };
   }
   if (error && ipcErrorCode(error) === 'not_found') return null;

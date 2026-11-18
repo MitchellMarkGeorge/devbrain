@@ -37,11 +37,10 @@ import {
   useFormat,
   useWorkspaceShell,
 } from '@renderer/components';
-import { RichTextEditor } from '@renderer/editor/RichTextEditor';
 import { trpc } from '@renderer/ipc';
+import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
-import { useEditorHost } from '@renderer/shared/hooks/use-editor-host';
 import { dayText, useEventActions } from '../../hooks/use-event-actions';
 import { seriesOccurrenceOf, type EventPatch, type EventTarget } from '../../lib/occurrence';
 import { meetingUrlOf } from '../create/CreateEventDialog';
@@ -540,7 +539,6 @@ function EventDescription({
   series: boolean;
   onSave: (description: string) => void;
 }) {
-  const host = useEditorHost();
   const pending = useRef<string | null>(null);
   const toDescription = (markdown: string) => (markdown.trim() === '' ? '' : markdown);
   const description = useEditorAutosave(event.description ?? '', (markdown) => {
@@ -560,8 +558,7 @@ function EventDescription({
   };
   return (
     <div onBlur={series ? onBlur : undefined}>
-      <RichTextEditor
-        {...host}
+      <WorkspaceRichTextEditor
         className={styles.description}
         label="Description"
         value={series ? (event.description ?? '') : description.value}

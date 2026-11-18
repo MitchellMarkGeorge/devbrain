@@ -1,8 +1,7 @@
 import type { Project } from '@common/types';
-import { RichTextEditor } from '@renderer/editor/RichTextEditor';
 import { ipc } from '@renderer/ipc';
+import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
-import { useEditorHost } from '@renderer/shared/hooks/use-editor-host';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import styles from './ProjectPage.module.css';
@@ -14,7 +13,6 @@ import styles from './ProjectPage.module.css';
  * read-only, and left out when empty.
  */
 export function ProjectDescription({ project }: { project: Project }) {
-  const host = useEditorHost();
   const showError = useMutationErrorToast();
   const synced = isSynced(project);
   const description = useEditorAutosave(project.description ?? '', (markdown) => {
@@ -27,8 +25,7 @@ export function ProjectDescription({ project }: { project: Project }) {
   });
   if (synced && !project.description) return null;
   return (
-    <RichTextEditor
-      {...host}
+    <WorkspaceRichTextEditor
       className={styles.description}
       label="Description"
       value={description.value}
