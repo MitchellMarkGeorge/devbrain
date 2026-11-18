@@ -150,9 +150,7 @@ export function EntityHoverCardPlaceholder({ title, message }: EntityHoverCardPl
   return (
     <div className={styles.card} aria-busy={message == null || undefined}>
       <div className={styles.head}>
-        <span className={styles.title} title={title}>
-          {title}
-        </span>
+        <span className={styles.title}>{title}</span>
       </div>
       {message != null ? (
         <div className={styles.meta}>

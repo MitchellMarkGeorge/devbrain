@@ -235,9 +235,7 @@ export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCard
       >
         <div className={styles.head}>
           <HeaderGlyph entity={entity} now={now} />
-          <span className={styles.title} title={title}>
-            {title}
-          </span>
+          <span className={styles.title}>{title}</span>
         </div>
         {pills != null && <div className={styles.pills}>{pills}</div>}
         {meta?.map((line, i) => (

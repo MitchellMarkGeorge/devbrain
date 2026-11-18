@@ -40,11 +40,15 @@
 .title {
   flex: 1;
   min-width: 0;
+  /* the card is the preview, so a long name wraps (two lines at most) rather than hiding its end */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--foreground-strong);
   font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .mutedGlyph {
   color: var(--muted-foreground);
