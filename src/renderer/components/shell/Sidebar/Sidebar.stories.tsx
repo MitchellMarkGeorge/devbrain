@@ -1,10 +1,19 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Folder } from 'lucide-react';
+import { CircleHelp, Folder, Settings, Trash2 } from 'lucide-react';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
-import type { SyncState } from '../SyncStatus';
+import { SyncStatus, type SyncState } from '../SyncStatus';
 import { TooltipProvider } from '../../ui/Tooltip';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarHint, SidebarItem } from './Sidebar';
+import {
+  Sidebar,
+  SidebarAction,
+  SidebarContent,
+  SidebarFooter,
+  SidebarFooterActions,
+  SidebarGroup,
+  SidebarHint,
+  SidebarItem,
+} from './Sidebar';
 
 const meta = {
   title: 'Shell/Sidebar',
@@ -26,15 +35,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * The sidebar as Figma's `Sidebar` symbol: header, the six pages, Recents and Favorites, Trash,
- * Settings and Help. Inside a `WorkspaceShell` it sits under the shell's title bar (traffic lights,
+ * The sidebar as Figma's `Sidebar` symbol: the pages, Recents and Favorites, then the footer's row
+ * with Trash, Settings and Help as icons. Inside a `WorkspaceShell` it sits under the shell's title bar (traffic lights,
  * toggle, back, forward), and the shell docks it or hides it; see Shell/WorkspaceShell.
  */
 export const Default: Story = { render: () => <DemoSidebar active="Home" /> };
 
 /**
- * The sync line at the top of the footer: synced, syncing, failed (with Retry), rate limited,
- * offline. Pick one with the `sync` control.
+ * The sync line at the start of the footer's row: synced, syncing, failed (with Retry), rate
+ * limited, offline. Pick one with the `sync` control.
  */
 export const WithSyncStatus: StoryObj<{ sync: SyncState }> = {
   args: { sync: 'error' },
@@ -77,4 +86,47 @@ export const EmptyGroupHint: Story = {
       </SidebarContent>
     </Sidebar>
   ),
+};
+
+/**
+ * The footer's row in every sync state, and with no source connected (no sync line: the actions
+ * stay at the end). The line shortens before the actions do; Settings is the current page in the last.
+ */
+export const FooterStates: Story = {
+  render: () => {
+    const states: (SyncState | undefined)[] = [
+      'synced',
+      'syncing',
+      'error',
+      'rate-limited',
+      'offline',
+      undefined,
+    ];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 256, padding: 12 }}>
+        {states.map((state) => (
+          <SidebarFooter key={state ?? 'none'}>
+            {state && (
+              <SyncStatus
+                state={state}
+                lastSynced="12 min ago"
+                retryAt="9:15 AM"
+                onRetry={() => {}}
+              />
+            )}
+            <SidebarFooterActions>
+              <SidebarAction icon={Trash2} label="Trash" tooltipSide="top" />
+              <SidebarAction
+                icon={Settings}
+                label="Settings"
+                tooltipSide="top"
+                active={state === undefined}
+              />
+              <SidebarAction icon={CircleHelp} label="Help" shortcut="?" tooltipSide="top" />
+            </SidebarFooterActions>
+          </SidebarFooter>
+        ))}
+      </div>
+    );
+  },
 };

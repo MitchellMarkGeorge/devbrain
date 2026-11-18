@@ -138,41 +138,6 @@
   color: var(--sidebar-accent-foreground);
 }
 
-/* the footer as one row: sync dot and text, then the icon buttons */
-.footer {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-md);
-  padding-left: var(--space-2);
-  border-top: 1px solid var(--sidebar-border);
-  padding-top: var(--space-2);
-  box-sizing: content-box;
-}
-.sync {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  color: var(--subtle-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-  white-space: nowrap;
-}
-.dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success, oklch(0.72 0.17 150));
-}
-.dot[data-state='error'] {
-  background: var(--destructive);
-}
-.dot[data-state='syncing'] {
-  background: var(--ring);
-}
-
 /* between the time views (Today, Upcoming) and the full lists (Tasks, Notes, Calendar): 4px above
    and below plus the menu's 2px gap, inset to the items' padding */
 .separator {

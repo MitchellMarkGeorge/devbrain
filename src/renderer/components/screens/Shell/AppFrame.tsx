@@ -23,7 +23,9 @@ import { Page } from '../../shell/Page';
 import {
   Sidebar,
   SidebarContent,
+  SidebarAction,
   SidebarFooter,
+  SidebarFooterActions,
   SidebarGroup,
   SidebarItem,
 } from '../../shell/Sidebar';
@@ -111,13 +113,21 @@ export function DemoSidebar({ active, empty, sync }: DemoSidebarProps) {
         {sync && (
           <SyncStatus state={sync} lastSynced="2 min ago" retryAt="9:15 AM" onRetry={() => {}} />
         )}
-        <SidebarItem icon={Trash2} active={active === 'Trash'}>
-          Trash
-        </SidebarItem>
-        <SidebarItem icon={Settings} active={active === 'Settings'}>
-          Settings
-        </SidebarItem>
-        <SidebarItem icon={CircleHelp}>Help</SidebarItem>
+        <SidebarFooterActions>
+          <SidebarAction
+            icon={Trash2}
+            label="Trash"
+            tooltipSide="top"
+            active={active === 'Trash'}
+          />
+          <SidebarAction
+            icon={Settings}
+            label="Settings"
+            tooltipSide="top"
+            active={active === 'Settings'}
+          />
+          <SidebarAction icon={CircleHelp} label="Help" shortcut="?" tooltipSide="top" />
+        </SidebarFooterActions>
       </SidebarFooter>
     </Sidebar>
   );

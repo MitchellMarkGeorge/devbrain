@@ -12,8 +12,10 @@ import {
 } from 'lucide-react';
 import {
   Sidebar,
+  SidebarAction,
   SidebarContent,
   SidebarFooter,
+  SidebarFooterActions,
   SidebarGroup,
   SidebarItem,
 } from '@renderer/components';
@@ -44,23 +46,35 @@ const FOOTER: NavPage[] = [
 
 /**
  * The app's sidebar: the pages as links (a page's details keep it active; Integrations is a
- * section of the settings), Recents and Favorites, then the sync line, Trash, Settings and Help,
- * which opens the keyboard shortcuts (as `?` does). The workspace menu, search and New are in the title bar
- * (`AppLayout` gives them to the shell).
+ * section of the settings), Recents and Favorites, then the footer's row: the sync line, and Trash,
+ * Settings and Help as icons (Help opens the keyboard shortcuts, as `?` does). The workspace menu,
+ * search and New are in the title bar (`AppLayout` gives them to the shell).
  */
 export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const matchRoute = useMatchRoute();
   const run = useRunCommand();
+  const isActive = (page: NavPage) =>
+    Boolean(matchRoute({ to: page.to, params: { workspaceId }, fuzzy: true }));
   const item = (page: NavPage) => (
     <SidebarItem
       key={page.to}
       icon={page.icon}
-      active={Boolean(matchRoute({ to: page.to, params: { workspaceId }, fuzzy: true }))}
+      active={isActive(page)}
       render={<Link to={page.to} params={{ workspaceId }} />}
     >
       {page.label}
     </SidebarItem>
+  );
+  const action = (page: NavPage) => (
+    <SidebarAction
+      key={page.to}
+      icon={page.icon}
+      label={page.label}
+      tooltipSide="top"
+      active={isActive(page)}
+      render={<Link to={page.to} params={{ workspaceId }} />}
+    />
   );
   return (
     <Sidebar>
@@ -71,10 +85,16 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarSync />
-        {FOOTER.map(item)}
-        <SidebarItem icon={CircleHelp} onClick={() => run('help.shortcuts')}>
-          Help
-        </SidebarItem>
+        <SidebarFooterActions>
+          {FOOTER.map(action)}
+          <SidebarAction
+            icon={CircleHelp}
+            label="Help"
+            shortcut="?"
+            tooltipSide="top"
+            onClick={() => run('help.shortcuts')}
+          />
+        </SidebarFooterActions>
       </SidebarFooter>
     </Sidebar>
   );

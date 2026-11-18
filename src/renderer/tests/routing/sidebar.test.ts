@@ -30,10 +30,19 @@ describe('the sidebar', () => {
 
   it('opens the keyboard shortcuts from Help', async () => {
     await onWorkHome();
-    const help = [...sidebar().querySelectorAll('button')].find((b) => b.textContent === 'Help');
+    const help = sidebar().querySelector<HTMLButtonElement>('button[aria-label="Help"]');
     expect(help?.disabled).toBe(false);
     help!.click();
     await eventually(() => expect(document.body.textContent).toContain('Keyboard shortcuts'));
     expect(document.body.textContent).toContain('Go to Tasks');
+  });
+
+  it('links Trash from its footer icon, which then shows as the current page', async () => {
+    const app = await onWorkHome();
+    const trash = () => sidebar().querySelector<HTMLAnchorElement>('a[aria-label="Trash"]');
+    expect(trash()?.getAttribute('aria-current')).toBeNull();
+    trash()!.click();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/trash`));
+    await eventually(() => expect(trash()?.getAttribute('aria-current')).toBe('page'));
   });
 });

@@ -3,6 +3,7 @@ export {
   SidebarAction,
   SidebarContent,
   SidebarFooter,
+  SidebarFooterActions,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,

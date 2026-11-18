@@ -110,7 +110,7 @@ function subscribeOnline(listener: () => void) {
 }
 
 /**
- * The sync line at the top of the footer, for every source that syncs; nothing while none is
+ * The sync line at the start of the footer's row, for every source that syncs; nothing while none is
  * connected. Kept fresh by the invalidator (`sources.changed`, `sync.progress`). Its line opens
  * Integrations; Retry runs `sync.now`.
  */

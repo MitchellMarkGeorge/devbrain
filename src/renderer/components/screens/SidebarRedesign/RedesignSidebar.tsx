@@ -7,7 +7,7 @@
  * - Projects is the spine: active projects with their colour and open-task count, "+" on hover.
  * - Saved views: task filters (the tasks page's search params) saved by name.
  * - Recents moves to ⌘K's empty state; Tasks, Notes and Calendar stay as rows under Upcoming.
- * - The footer is one line: sync dot, Settings and Help (Trash moves into Settings).
+ * - The footer is the app's one row: the sync line, then Trash, Settings and Help as icons.
  */
 import type { ReactNode } from 'react';
 import {
@@ -22,10 +22,20 @@ import {
   Plus,
   Settings,
   Sun,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import { TaskStatus } from '@common/types';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarItem } from '../../shell/Sidebar';
+import {
+  Sidebar,
+  SidebarAction,
+  SidebarContent,
+  SidebarFooter,
+  SidebarFooterActions,
+  SidebarGroup,
+  SidebarItem,
+} from '../../shell/Sidebar';
+import { SyncStatus, type SyncState } from '../../shell/SyncStatus';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { Icon } from '../../ui/Icon';
 import { Tooltip } from '../../ui/Tooltip';
@@ -75,7 +85,7 @@ export interface RedesignSidebarProps {
   hover?: string;
   /** show a pinned row mid-drag, with the line where it will land */
   dragging?: boolean;
-  sync?: 'synced' | 'syncing' | 'error';
+  sync?: SyncState;
   /** Tasks, Notes and Calendar: ordinary rows under Upcoming (default), or a row of tiles at the end */
   library?: 'rows' | 'tiles';
 }
@@ -234,28 +244,14 @@ export function RedesignSidebar({
         )}
       </SidebarContent>
 
-      <div className={styles.footer}>
-        <Tooltip content="Linear and Google Calendar · open Integrations">
-          <span className={styles.sync}>
-            <span className={styles.dot} data-state={sync} />
-            {sync === 'error'
-              ? 'Sync failed · Retry'
-              : sync === 'syncing'
-                ? 'Syncing…'
-                : 'Synced 2 min ago'}
-          </span>
-        </Tooltip>
-        <Tooltip content="Settings" shortcut="⌘,">
-          <button type="button" className={styles.labelAction} aria-label="Settings">
-            <Icon icon={Settings} size={16} />
-          </button>
-        </Tooltip>
-        <Tooltip content="Help" shortcut="?">
-          <button type="button" className={styles.labelAction} aria-label="Help">
-            <Icon icon={CircleHelp} size={16} />
-          </button>
-        </Tooltip>
-      </div>
+      <SidebarFooter>
+        <SyncStatus state={sync} lastSynced="2 min ago" onRetry={() => {}} />
+        <SidebarFooterActions>
+          <SidebarAction icon={Trash2} label="Trash" tooltipSide="top" />
+          <SidebarAction icon={Settings} label="Settings" tooltipSide="top" />
+          <SidebarAction icon={CircleHelp} label="Help" shortcut="?" tooltipSide="top" />
+        </SidebarFooterActions>
+      </SidebarFooter>
     </Sidebar>
   );
 }
