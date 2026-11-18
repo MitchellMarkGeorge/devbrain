@@ -14,6 +14,8 @@ import { setMenuAria } from '../extensions/editor-host';
  * through `handleRef`.
  */
 export interface MenuProps<T> {
+  // the editor the menu is open in, as it is now (the "/" typed and the query in it)
+  editor: Editor;
   // what is typed after the trigger character, as it is now
   query: string;
   // the items of the last search that finished, kept on screen while the next one runs
@@ -43,7 +45,6 @@ interface MenuViewProps<T> extends Omit<
   MenuProps<T>,
   'handleRef' | 'id' | 'onActiveDescendantChange'
 > {
-  editor: Editor;
   render: (props: MenuProps<T>) => ReactElement;
 }
 
@@ -58,7 +59,7 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
       (activeId: string | undefined) => setMenuAria(editor, { listId: id, activeId }),
       [editor, id],
     );
-    return render({ ...props, handleRef: ref, id, onActiveDescendantChange });
+    return render({ ...props, editor, handleRef: ref, id, onActiveDescendantChange });
   });
 
   return Extension.create({

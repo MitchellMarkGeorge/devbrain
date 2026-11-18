@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { EditorHostExtension, setEditorHost } from '@renderer/editor/extensions/editor-host';
 import { createDocumentExtensions } from '@renderer/editor/markdown';
-import { selectionTaskTitle, turnSelectionIntoTask } from '@renderer/editor/turn-into-task';
+import {
+  blockTaskTitle,
+  selectionTaskTitle,
+  turnBlockIntoTask,
+  turnSelectionIntoTask,
+} from '@renderer/editor/turn-into-task';
 import type { EditorEntity } from '@renderer/editor/types';
 
 let editor: Editor;
@@ -117,5 +122,29 @@ describe('turning a selection into a task', () => {
     select('Ship it');
     expect(await turnSelectionIntoTask(editor)).toBe(false);
     expect(editor.getMarkdown()).toBe('Ship it');
+  });
+});
+
+describe('turning a line into a task (the slash menu)', () => {
+  // the "/task" typed at the end of the first block
+  const slash = () => {
+    const to = editor.state.doc.firstChild!.nodeSize - 1;
+    editor.commands.setTextSelection(to);
+    return { from: to - '/task'.length, to };
+  };
+
+  it('titles it with the rest of the line, and offers nothing for a line of only "/task"', () => {
+    load('Call  Ana /task');
+    expect(blockTaskTitle(editor, slash())).toBe('Call Ana');
+    load('/task');
+    expect(blockTaskTitle(editor, slash())).toBeNull();
+  });
+
+  it('removes the "/task" and links the task in place of the line\'s text', async () => {
+    load('Call Ana /task\n\nNext');
+    const host = taskHost();
+    expect(await turnBlockIntoTask(editor, slash())).toBe(true);
+    expect(host.titles).toEqual(['Call Ana']);
+    expect(editor.getMarkdown()).toBe('[Call Ana](devbrain://task/tsk_new)\n\nNext');
   });
 });

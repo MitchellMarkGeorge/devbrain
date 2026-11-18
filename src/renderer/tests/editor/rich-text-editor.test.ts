@@ -165,6 +165,42 @@ describe('RichTextEditor', () => {
     expect(labels).not.toContain('Task');
   });
 
+  it('offers Task in the slash menu for a line with text, and turns the line into a task', async () => {
+    const createTask = vi.fn(async (title: string) => ({
+      type: 'task' as const,
+      id: 'tsk_new',
+      title,
+    }));
+    const options = () =>
+      [...document.querySelectorAll('[aria-label="Insert block"] [role="option"]')].map(
+        (item) => item.textContent,
+      );
+    render({ value: '', createTask });
+
+    // an empty line has nothing to make a task of
+    await act(async () => {
+      editor.chain().focus().insertContent('/ta').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    expect(options()).not.toContain('Task');
+
+    await act(async () => {
+      editor.commands.setContent('- [ ] Call Ana about the launch', {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+      editor.chain().focus('end').insertContent(' /task').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    expect(options()).toEqual(['Task', 'Link to task']);
+    await act(async () => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(createTask).toHaveBeenCalledWith('Call Ana about the launch');
+    expect(editor.getMarkdown()).toBe('- [ ] [Call Ana about the launch](devbrain://task/tsk_new)');
+  });
+
   it('searches tasks, notes and events on "@" and inserts the pick as an entity link', async () => {
     const searchEntities = vi.fn(async () => [
       { type: 'task' as const, id: 'tsk_1', title: 'Fix login', status: TaskStatus.IN_PROGRESS },

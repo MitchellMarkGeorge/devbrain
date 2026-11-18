@@ -68,7 +68,10 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   (a toast says so) the text stays. The colour button is left out: text colours are not in the
   note format.
 - `/` opens the `SlashMenu`; "Link to note", "Link to task" and "Mention event" open the `@` menu
-  for that kind, and "Task" is left out until tasks can be made from the editor. `@` searches
+  for that kind. "Task" turns the line it is typed on into a task, as Turn into task does a
+  selection: `Call Ana about the launch /task` makes "Call Ana about the launch" and leaves its
+  pill in the line (a to-do item stays one, with the pill as its text). It is offered only when the
+  host can make tasks and the line has text besides the `/task`. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
 

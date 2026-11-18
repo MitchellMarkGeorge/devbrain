@@ -9,20 +9,36 @@ import {
   type SlashItem,
 } from '@renderer/components';
 import { applyBlockType } from '../block-types';
+import { blockTaskTitle, turnBlockIntoTask } from '../turn-into-task';
 import { openMention } from './entity-menu';
 import { createSuggestionMenu } from './suggestion';
 
 /**
  * The slash menu: "/" at the start of a word opens the design system's SlashMenu, and picking an
  * item turns the block into it or inserts it. "Link to note", "Link to task" and "Mention event"
- * open the "@" menu for that kind. "Task" (making a task from the editor) waits for task creation,
- * so it is left out of the menu for now.
+ * open the "@" menu for that kind. "Task" turns the line it is typed on into a task: the rest of
+ * the block's text is its title, replaced by a link to it (turn-into-task.ts). It is offered only
+ * when the host can make tasks and the line has text besides the "/task".
  */
 
-const GROUPS = SLASH_GROUPS.map((group) => ({
+const WITHOUT_TASK = SLASH_GROUPS.map((group) => ({
   ...group,
   items: group.items.filter((item) => item.value !== 'task'),
 }));
+
+// the "/" and what is typed after it, which ends at the caret
+function slashRange(editor: Editor, query: string): Range {
+  const to = editor.state.selection.from;
+  return { from: to - query.length - 1, to };
+}
+
+// the menu's groups: Task only where it can make one
+function groupsFor(editor: Editor, query: string) {
+  const canMake =
+    editor.storage.editorHost.host.createTask !== undefined &&
+    blockTaskTitle(editor, slashRange(editor, query)) !== null;
+  return canMake ? SLASH_GROUPS : WITHOUT_TASK;
+}
 
 type Chain = ReturnType<Editor['chain']>;
 
@@ -44,7 +60,10 @@ const isBlockType = (command: SlashCommand): command is BlockType =>
   BLOCK_TYPES.some((type) => type.value === command);
 
 export function runSlashCommand(editor: Editor, range: Range, command: SlashCommand): void {
-  if (command === 'task') return;
+  if (command === 'task') {
+    void turnBlockIntoTask(editor, range);
+    return;
+  }
   const chain = editor.chain().focus().deleteRange(range);
   if (isBlockType(command)) applyBlockType(chain, command);
   else COMMANDS[command](chain, editor);
@@ -53,13 +72,14 @@ export function runSlashCommand(editor: Editor, range: Range, command: SlashComm
 export const SlashMenu = createSuggestionMenu<SlashItem>({
   name: 'slashMenu',
   char: '/',
-  items: (query) => filterSlashGroups(GROUPS, query).flatMap((group) => group.items),
+  items: (query, editor) =>
+    filterSlashGroups(groupsFor(editor, query), query).flatMap((group) => group.items),
   select: (editor, range, item) => runSlashCommand(editor, range, item.value),
-  render: ({ query, onSelect, handleRef, id, onActiveDescendantChange }) => (
+  render: ({ editor, query, onSelect, handleRef, id, onActiveDescendantChange }) => (
     <SlashMenuView
       id={id}
       query={query}
-      groups={GROUPS}
+      groups={groupsFor(editor, query)}
       onSelect={onSelect}
       handleRef={handleRef}
       onActiveDescendantChange={onActiveDescendantChange}
