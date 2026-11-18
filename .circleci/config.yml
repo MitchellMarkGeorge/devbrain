@@ -7,6 +7,12 @@ executors:
       - image: cimg/node:24.0
     working_directory: ~/project
 
+  # Electron needs the system libraries Chrome does, which the -browsers image has
+  browsers:
+    docker:
+      - image: cimg/node:24.0-browsers
+    working_directory: ~/project
+
 commands:
   install_deps:
     steps:
@@ -38,11 +44,8 @@ jobs:
       - run: npm run typecheck
 
   test:
-    # the tests run on Electron's Node (scripts/vitest.mts), and the Electron binary needs the
-    # system libraries Chrome does, which the -browsers image has
-    docker:
-      - image: cimg/node:24.0-browsers
-    working_directory: ~/project
+    # the tests run on Electron's Node (scripts/vitest.mts), so they need the -browsers image too
+    executor: browsers
     steps:
       - install_deps
       - run:
@@ -59,6 +62,30 @@ jobs:
       - store_artifacts:
           path: dist
 
+  # Packages the Linux AppImage. macOS and Windows aren't built here (docs/releasing.md).
+  package_linux:
+    executor: node
+    steps:
+      - install_deps
+      - restore_cache:
+          keys:
+            - electron-builder-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+            - electron-builder-v1-{{ arch }}-
+      - run:
+          name: Package the AppImage
+          command: npm run compile
+      - save_cache:
+          key: electron-builder-v1-{{ arch }}-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.cache/electron
+            - ~/.cache/electron-builder
+      # the AppImage alone: release/ also holds linux-unpacked, the same app unpacked
+      - run:
+          name: Collect the AppImage
+          command: mkdir -p artifacts && cp release/*.AppImage artifacts/
+      - store_artifacts:
+          path: artifacts
+
 workflows:
   ci:
     jobs:
@@ -66,3 +93,4 @@ workflows:
       - typecheck
       - test
       - build
+      - package_linux

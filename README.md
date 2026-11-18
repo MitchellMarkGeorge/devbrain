@@ -72,6 +72,7 @@ npm run dev            # Start Vite dev server + Electron (HMR in renderer, auto
 npm run build          # Build main, preload, and renderer into dist/
 npm run routes         # Regenerate src/renderer/routeTree.gen.ts from src/renderer/routes
 npm run compile        # build + package with electron-builder into release/
+npm run icons          # draw build/icon.{png,icns,ico} from the logomark
 npm run typecheck      # Type-check all source files (tsc --build; emits nothing)
 npm run lint           # Lint all TypeScript/JavaScript files
 npm run lint:fix       # Lint and auto-fix
@@ -148,15 +149,15 @@ The `Api` type is exported from the preload and imported in `env.d.ts`, so `wind
 
 ## Packaging and distribution
 
-`npm run compile` builds all three bundles and then runs `electron-builder` using `electron-builder.yml`:
+`npm run compile` builds all three bundles and then runs `electron-builder` using `electron-builder.yml`, for the platform it runs on:
 
-| Platform | Output format  | Output directory |
-| -------- | -------------- | ---------------- |
-| macOS    | `.dmg`         | `release/`       |
-| Windows  | NSIS installer | `release/`       |
-| Linux    | `.AppImage`    | `release/`       |
+| Platform | Output format          | Output directory |
+| -------- | ---------------------- | ---------------- |
+| macOS    | `.dmg` (arm64 and x64) | `release/`       |
+| Windows  | NSIS installer (x64)   | `release/`       |
+| Linux    | `.AppImage` (x64)      | `release/`       |
 
-The packaged build includes `dist/**` and `package.json`. Configure the app ID, product name, and build assets in `electron-builder.yml`.
+The package holds the three builds, `package.json` and the only dependencies Vite leaves external (better-sqlite3, unpacked from the asar, and electron-log), with the migrations as an extra resource and the icons from `build/` (`npm run icons` draws them from the logomark). [docs/releasing.md](docs/releasing.md) covers versions, building each platform, signing and what isn't automated yet.
 
 ## Code quality
 
