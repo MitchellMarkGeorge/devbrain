@@ -37,7 +37,7 @@ DevBrain's own syntax (local links between notes and tasks) is resolved by the r
 
 `Workspace.openUrl(url)` is the only way the renderer opens anything outside the app. The renderer may check first, to decide whether to draw a link at all, but `openUrl` checks again: the renderer's check is for display, core's is the one that counts. An `UnsafeUrlError` is not worth more than a quiet "This link can't be opened"; it means the value was never a web link.
 
-The main process should back this up at the window level: deny `window.open` with `setWindowOpenHandler` and cancel `will-navigate` to anything other than the app's own pages, so a link that escapes the rules above still cannot load a remote page inside DevBrain or reach `shell.openExternal` unchecked.
+The main process backs this up at the window level: it denies `window.open` with `setWindowOpenHandler` and cancels `will-navigate` to anything other than the app's own page, so a link that escapes the rules above still cannot load a remote page inside DevBrain or reach `shell.openExternal` unchecked ([hardening.md](hardening.md)).
 
 ## Imported files
 

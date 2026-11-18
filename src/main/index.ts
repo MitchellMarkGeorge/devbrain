@@ -7,6 +7,7 @@ import {
   net,
   powerMonitor,
   safeStorage,
+  session,
   shell,
 } from 'electron';
 import { IPC_EVENT_PREFIX } from '@common/ipc/constants';
@@ -27,6 +28,7 @@ import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
 import { keepTrafficLights, repaintChrome, windowChrome } from './runtime/window-chrome';
 import { followLaunchAtLogin, supportsLoginItem } from './runtime/login-item';
+import { denyPermissions, hardenAllWebContents } from './runtime/hardening';
 import { attachRouter } from './ipc/server';
 import { attachInitialLoadContext, initialLoadContext } from './ipc/initial-load-context';
 import { ChangeTracker } from './ipc/changes';
@@ -45,6 +47,11 @@ loadDevelopmentEnv();
 // One DevBrain at a time (runtime/lifecycle.ts): a later launch quits at once, and this one shows
 // its window instead
 const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
+
+// Every web page the app creates shows the app's page and nothing else: no new windows, no
+// navigation away, no <webview>, and no devtools in a packaged app (runtime/hardening.ts,
+// docs/security/hardening.md). Attached before any window exists.
+hardenAllWebContents(app, { isPackaged: app.isPackaged });
 
 // The repository's .env, in development only. A packaged app ships no .env: the OAuth client values
 // are inlined at build time (vite/main.config.ts), DEVBRAIN_PATH has a default, and every other
@@ -195,6 +202,8 @@ function createWindow() {
       // only through the contextBridge in src/preload/index.ts.
       sandbox: true,
       nodeIntegration: false,
+      // no devtools in a packaged app; the menu leaves out Toggle Developer Tools too
+      devTools: !app.isPackaged,
     },
   });
 
@@ -209,7 +218,6 @@ function createWindow() {
     if (mainWindow === win) mainWindow = null;
   });
   mainWindow = win;
-  hardenWindow(win);
 
   // The route names the workspace the page opens (docs/renderer/routing.md): the one open last
   // time, on its last page when "Reopen last page" is on, or onboarding. The renderer's hash
@@ -259,17 +267,6 @@ function followLaunchAtLoginSetting(devBrain: DevBrain | null) {
   followLaunchAtLogin(app, devBrain.settings, log.scope('login-item'));
 }
 
-// The window shows the app's page and nothing else (docs/security/untrusted-content.md): a link
-// that escapes the renderer's rules can't open a window or load another page inside DevBrain.
-// Links open in the browser through workspace.openUrl only. The app routes within its page, which
-// is no navigation; reloading it (as Vite does in development) is the one allowed.
-function hardenWindow(win: BrowserWindow) {
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', (event) => {
-    if (event.url !== win.webContents.getURL()) event.preventDefault();
-  });
-}
-
 // --- Menu ---------------------------------------------------------------
 // The menu bar (src/main/runtime/menu.ts): its commands run in main, with their dialogs modal to
 // the focused window. Set after DevBrain has loaded, so it follows the open workspace.
@@ -308,6 +305,8 @@ app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
   configureLogging();
+  // the page needs no camera, microphone, notifications or any other permission but the clipboard
+  denyPermissions(session.defaultSession);
   if (!app.isPackaged) app.dock?.setIcon(DEV_ICON);
 
   const devBrain = await loadCore();

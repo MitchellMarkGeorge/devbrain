@@ -69,9 +69,10 @@ What the package holds, and why (the comments in `electron-builder.yml` say more
   `package_linux` builds without them.
 
 Electron's **fuses** are flipped in the packaged binary: it can't run as plain Node, ignores
-`NODE_OPTIONS` and `--inspect`, loads the app only from its asar, and on macOS and Windows checks the
-asar against a hash built into the app. The window keeps its hardening (`sandbox`,
-`contextIsolation`, no `nodeIntegration`, the page's CSP; `docs/security/untrusted-content.md`).
+`NODE_OPTIONS` and `--inspect`, encrypts its cookies, loads the app only from its asar, and on macOS
+and Windows checks the asar against a hash built into the app. The window keeps its hardening
+(`sandbox`, `contextIsolation`, no `nodeIntegration`, permissions refused, the page's CSP).
+[security/hardening.md](security/hardening.md) lists each setting and why.
 
 The AppImage starts through electron-builder's `AppRun`, which adds `--no-sandbox` when the system
 gives no unprivileged user namespaces (Ubuntu 24.04 and later restrict them with AppArmor), as
@@ -80,6 +81,12 @@ sense (no Node in the page or the preload), without the OS sandbox around the re
 target, whose `chrome-sandbox` helper can be installed setuid, would keep it; that's a later choice.
 
 ## Checking a build
+
+`npm run check:package` checks what a build holds: the fuses, no `.env`, source maps or tests in
+the asar, and better-sqlite3 unpacked ([security/hardening.md](security/hardening.md)). It reads
+`release/linux-unpacked` by default; give it the AppImage, a `.app` or `win-unpacked` instead
+(`npm run check:package -- release/mac-arm64/DevBrain.app`). `package_linux` runs it on CI; on macOS
+and Windows, run it on the build before releasing it.
 
 Nothing launches the packaged app automatically yet. Before releasing a build, install it on its
 platform and check by hand that:
@@ -123,7 +130,8 @@ and a Windows build machine.
 
 - Building the macOS and Windows installers: CircleCI's `package_linux` covers Linux only. Adding
   them means a macOS and a Windows executor running `npm ci` and `npm run compile`.
-- Checking a build: nothing launches the packaged app automatically; check it by hand (above).
+- Checking a build: `check:package` reads the package, but nothing launches it automatically;
+  check that by hand (above).
 - Signing and notarization: no credentials exist yet (above).
 - Tagging, release notes and uploading the installers: by hand.
 - Updates: none (below). Users install each version over the last.
