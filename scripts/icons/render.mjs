@@ -16,8 +16,9 @@ function page(size, tile) {
   const square = Math.round(size * tile);
   // the macOS icon grid's corner: 185 of an 824 square
   const radius = Math.round(square * 0.225);
-  // the mark is 40 by 48: its height a little over half the square
-  const markHeight = Math.round(square * 0.56);
+  // The mark's viewBox is 40 by 48, its circle 40 across: at 0.7 of the square, the circle spans
+  // about 58% of it
+  const markHeight = Math.round(square * 0.7);
   return `<!doctype html><html><body style="margin:0;background:transparent">
     <div style="width:${size}px;height:${size}px;display:grid;place-items:center">
       <div style="width:${square}px;height:${square}px;border-radius:${radius}px;background:${BACKGROUND};display:grid;place-items:center">
