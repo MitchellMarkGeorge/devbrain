@@ -58,7 +58,7 @@ What the package holds, and why (the comments in `electron-builder.yml` say more
 - of `node_modules`, only what Vite leaves external (`vite/main.config.ts`): better-sqlite3 (with
   `bindings`) and electron-log. Its native module is **unpacked** beside the asar
   (`app.asar.unpacked`), as Electron can't load one from inside it. A new external dependency needs
-  its line in `files`, or the packaged app fails to start (and `npm run smoke:packaged` with it);
+  its line in `files`, or the packaged app fails to start;
 - the **migrations**, as an extra resource (`resources/migrations`), found from
   `process.resourcesPath` (`src/main/runtime/migrations.ts`);
 - the **icons** from `build/`, drawn from the logomark by `npm run icons`;
@@ -81,20 +81,14 @@ target, whose `chrome-sandbox` helper can be installed setuid, would keep it; th
 
 ## Checking a build
 
-`npm run smoke:packaged` launches the app in `release/` for this platform (the AppImage, extracted;
-`mac-arm64/DevBrain.app` or `mac/DevBrain.app`; `win-unpacked/DevBrain.exe`), or the one given with
-`--app <path>`, and fails unless:
+Nothing launches the packaged app automatically yet. Before releasing a build, install it on its
+platform and check by hand that:
 
-- the package holds the asar with the builds and fonts and no `.env`, the unpacked better-sqlite3,
-  and every migration in the journal;
-- the first window loads with no error thrown or logged (a CSP violation, a missing file), the CSP in
-  place and no Node in the page;
-- in a temporary DevBrain folder and home, it creates and opens a workspace (better-sqlite3 and the
-  shipped migrations), writes a task and draws it in the bundled fonts.
-
-CI runs it on the AppImage. Run it on the macOS and Windows builds before releasing them (on
-Linux without a display it needs `xvfb`). After signing, also open the installed app once by hand:
-the smoke check runs the app from `release/`, not as installed from the DMG or the installer.
+- it opens to onboarding on a first run, with no error dialog;
+- creating a workspace works (this loads better-sqlite3 and runs the shipped migrations), and a task
+  you add shows up on the Tasks page;
+- the text is in Inter, not a fallback font;
+- on Linux, `release/linux-unpacked/devbrain` runs as well as the AppImage.
 
 ## Signing
 
@@ -127,9 +121,9 @@ and a Windows build machine.
 
 ## Not automated yet
 
-- Building and checking the macOS and Windows installers: CircleCI's `package_linux` covers Linux
-  only. Adding them means a macOS and a Windows executor running `npm ci`, `npm run compile` and
-  `npm run smoke:packaged` (with `xvfb` not needed there).
+- Building the macOS and Windows installers: CircleCI's `package_linux` covers Linux only. Adding
+  them means a macOS and a Windows executor running `npm ci` and `npm run compile`.
+- Checking a build: nothing launches the packaged app automatically; check it by hand (above).
 - Signing and notarization: no credentials exist yet (above).
 - Tagging, release notes and uploading the installers: by hand.
 - Updates: none (below). Users install each version over the last.

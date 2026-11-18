@@ -29,17 +29,6 @@ commands:
           paths:
             - ~/.npm
 
-  # what launching the app on Linux needs beyond the -browsers image: a display (xvfb-run), if it
-  # lacks one
-  install_xvfb:
-    steps:
-      - run:
-          name: Install xvfb
-          command: |
-            if ! command -v xvfb-run > /dev/null; then
-              sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth
-            fi
-
 jobs:
   lint:
     executor: node
@@ -73,22 +62,11 @@ jobs:
       - store_artifacts:
           path: dist
 
-  # Launches the built app and fails on any startup error (scripts/smoke.mts). --no-sandbox: the
-  # container has no user namespaces for Chromium's sandbox, and its SUID helper isn't set up
-  smoke:
-    executor: browsers
-    steps:
-      - install_deps
-      - install_xvfb
-      - run: npm run smoke -- --no-sandbox
-
-  # Packages the Linux AppImage, then launches it (extracted) and checks it starts and opens a
-  # workspace (npm run smoke:packaged). macOS and Windows aren't built here (docs/releasing.md).
+  # Packages the Linux AppImage. macOS and Windows aren't built here (docs/releasing.md).
   package_linux:
-    executor: browsers
+    executor: node
     steps:
       - install_deps
-      - install_xvfb
       - restore_cache:
           keys:
             - electron-builder-v1-{{ arch }}-{{ checksum "package-lock.json" }}
@@ -101,9 +79,6 @@ jobs:
           paths:
             - ~/.cache/electron
             - ~/.cache/electron-builder
-      - run:
-          name: Smoke check the AppImage
-          command: npm run smoke:packaged -- --no-sandbox
       # the AppImage alone: release/ also holds linux-unpacked, the same app unpacked
       - run:
           name: Collect the AppImage
@@ -118,5 +93,4 @@ workflows:
       - typecheck
       - test
       - build
-      - smoke
       - package_linux

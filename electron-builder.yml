@@ -1,5 +1,4 @@
-# Packaging (npm run compile, after npm run build): docs/releasing.md. npm run smoke:packaged
-# launches the result and checks what this file is meant to give it (scripts/smoke.mts).
+# Packaging (npm run compile, after npm run build): docs/releasing.md.
 
 # A placeholder, not DevBrain's id: choose the real reverse-DNS id before the first release. It
 # names the macOS bundle and the Windows app (taskbar grouping, notifications), and changing it
@@ -14,7 +13,7 @@ directories:
 # What goes in the app's asar. Vite bundles every dependency into dist except what
 # vite/main.config.ts leaves external, so the only node_modules shipped are those (and what they
 # load): better-sqlite3, through bindings, and electron-log. A new external needs its line here,
-# and npm run smoke:packaged fails without it. Never .env: it holds the building machine's local
+# or the packaged app fails to start. Never .env: it holds the building machine's local
 # secrets (see loadDevelopmentEnv in src/main/index.ts).
 files:
   - package.json
