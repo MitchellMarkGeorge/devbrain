@@ -24,7 +24,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Synced: Story = {};
 
-/** The six states, in their short form; paused, offline and not syncing say the rest in a tooltip. */
+/** The six states, in their short form; paused, offline and set up sync say the rest in a tooltip. */
 export const States: Story = {
   render: () => (
     <Stack gap="3">

@@ -110,7 +110,7 @@ function subscribeOnline(listener: () => void) {
 }
 
 /**
- * The sync line at the start of the footer's row, for every source that syncs; "Not syncing" while
+ * The sync line at the start of the footer's row, for every source that syncs; "Set up sync" while
  * none does (nothing connected), and nothing until `sync.status` first answers. Kept fresh by the invalidator (`sources.changed`, `sync.progress`). Its line opens
  * Integrations; Retry runs `sync.now`.
  */
@@ -123,7 +123,7 @@ export function SidebarSync() {
   const syncNow = useMutation(trpc.sync.now.mutationOptions());
   const openIntegrations = () =>
     void navigate({ to: '/app/$workspaceId/settings/integrations', params: { workspaceId } });
-  // nothing until the first answer, so a workspace that syncs never flashes "Not syncing"
+  // nothing until the first answer, so a workspace that syncs never flashes "Set up sync"
   if (!status.data) return null;
   const summary = summarizeSync(status.data, online, format.now);
   if (!summary) return <SyncStatus state="none" onOpen={openIntegrations} />;

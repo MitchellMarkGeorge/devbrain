@@ -46,9 +46,9 @@ describe('the sidebar', () => {
     await eventually(() => expect(trash()?.getAttribute('aria-current')).toBe('page'));
   });
 
-  it('says "Not syncing" while nothing is connected, and opens Integrations from it', async () => {
+  it('invites to "Set up sync" while nothing is connected, opening Integrations', async () => {
     const app = await onWorkHome();
-    const line = () => byText(sidebar(), 'button', 'Not syncing');
+    const line = () => byText(sidebar(), 'button', 'Set up sync');
     await eventually(() => expect(line()).toBeTruthy());
     click(line()!);
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/integrations`));

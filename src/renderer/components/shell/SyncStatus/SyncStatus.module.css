@@ -59,7 +59,7 @@
 .status[data-state='error'] .main {
   color: var(--destructive);
 }
-/* nothing connected: quieter than the other states, as nothing needs the user */
+/* nothing syncs yet: an invitation, quieter than the states that report on syncing */
 .status[data-state='none'] {
   color: var(--subtle-foreground);
 }

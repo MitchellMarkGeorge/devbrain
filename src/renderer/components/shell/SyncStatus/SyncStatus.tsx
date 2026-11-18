@@ -3,8 +3,8 @@ import {
   CircleAlert,
   CircleCheck,
   Clock,
-  CloudOff,
   LoaderCircle,
+  Plug,
   RotateCw,
   WifiOff,
 } from 'lucide-react';
@@ -27,7 +27,7 @@ const ICONS: Record<SyncState, LucideIcon> = {
   error: CircleAlert,
   'rate-limited': Clock,
   offline: WifiOff,
-  none: CloudOff,
+  none: Plug,
 };
 
 export interface SyncStatusProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
@@ -35,7 +35,7 @@ export interface SyncStatusProps extends Omit<ComponentPropsWithoutRef<'div'>, '
   /**
    * The line's text; each state has its own default, short enough for the footer's row: "Synced 2
    * min ago" (pass `lastSynced`), "Syncing…", "Sync failed", "Paused · 9:15 AM" (pass `retryAt`),
-   * "Offline", "Not syncing". Paused, offline and not syncing say the rest in a tooltip.
+   * "Offline", "Set up sync". Paused, offline and set up sync say the rest in a tooltip.
    */
   children?: ReactNode;
   /** when the last run finished: "2 min ago" */
@@ -61,7 +61,7 @@ function defaultText(state: SyncState, lastSynced?: string, retryAt?: string): s
     case 'offline':
       return 'Offline';
     case 'none':
-      return 'Not syncing';
+      return 'Set up sync';
   }
 }
 
@@ -73,7 +73,7 @@ function detail(state: SyncState, retryAt?: string): string | undefined {
     case 'offline':
       return 'Syncing resumes when you reconnect';
     case 'none':
-      return 'Connect an account in Integrations to sync';
+      return 'Sync tasks from Linear and events from Google Calendar';
     default:
       return undefined;
   }

@@ -89,7 +89,7 @@ export const EmptyGroupHint: Story = {
 };
 
 /**
- * The footer's row in every sync state, the last with no source connected ("Not syncing", quieter).
+ * The footer's row in every sync state, the last with no source connected ("Set up sync", quieter).
  * The line shortens before the actions do; Settings is the current page in the last.
  */
 export const FooterStates: Story = {
