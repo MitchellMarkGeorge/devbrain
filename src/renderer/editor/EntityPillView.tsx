@@ -1,5 +1,5 @@
 import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react';
-import { createContext, useCallback, useContext, useSyncExternalStore } from 'react';
+import { createContext, useContext } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { TaskStatus } from '@common/types';
 import { EntityPill } from '@renderer/components';
@@ -11,32 +11,25 @@ import styles from './EntityPillView.module.css';
 // the host of the editor a pill is in; RichTextEditor provides it
 export const EditorHostContext = createContext<EditorHost>({});
 
+// a host with no `useEntity` knows no entity: every pill shows its stored label
+function useNoEntity(): undefined {
+  return undefined;
+}
+
 /**
- * An entity link as the design system's EntityPill: the entity's glyph and its current title, the
- * stored label while the host cannot resolve it. A click opens the entity.
+ * An entity link as the design system's EntityPill: the entity's glyph and its current title, from
+ * the host's `useEntity` hook, and the stored label while that is unknown. A click opens the entity.
  */
 function EntityLinkPill({ node, selected }: ReactNodeViewProps) {
   const host = useContext(EditorHostContext);
   const type = node.attrs.type as EditorEntityType;
   const id = node.attrs.id as string;
-  const { resolveEntity, watchEntity } = host;
-  const subscribe = useCallback(
-    (onChange: () => void) => watchEntity?.(type, id, onChange) ?? (() => {}),
-    [watchEntity, type, id],
-  );
-  // what the pill draws, as a string, so a resolver that builds a new object per call still
-  // gives the store an unchanged snapshot while the entity is unchanged
-  const snapshot = () => {
-    const found = resolveEntity?.(type, id);
-    return found
-      ? `${found.title}\u0000${found.status ?? ''}\u0000${found.color ?? ''}`
-      : String(found);
-  };
-  useSyncExternalStore(subscribe, snapshot, snapshot);
-  const entity = resolveEntity?.(type, id);
+  // the host keeps the same hook for its life (EditorHost), so this is always the same hook
+  const useEntity = host.useEntity ?? useNoEntity;
+  const entity = useEntity(type, id);
   const title = entity?.title ?? node.attrs.label;
-  // gone: known to be (null), or unknown to a host that can't watch for it to load
-  const missing = entity === null || (resolveEntity && !watchEntity && entity === undefined);
+  // known to be gone
+  const missing = entity === null;
 
   return (
     <NodeViewWrapper

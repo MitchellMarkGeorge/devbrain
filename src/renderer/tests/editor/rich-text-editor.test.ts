@@ -88,7 +88,7 @@ describe('RichTextEditor', () => {
     const onOpenEntity = vi.fn();
     render({
       value: 'See [Old title](devbrain://task/tsk_1)',
-      resolveEntity: (type, id) => ({
+      useEntity: (type, id) => ({
         type,
         id,
         title: 'Current title',
@@ -105,6 +105,20 @@ describe('RichTextEditor', () => {
     expect(onOpenEntity).toHaveBeenCalledWith('task', 'tsk_1');
     // the stored label is untouched
     expect(editor.getMarkdown()).toBe('See [Old title](devbrain://task/tsk_1)');
+  });
+
+  it('draws an entity known to be gone as missing, and one still loading with its stored label', async () => {
+    render({
+      value: '[Gone](devbrain://task/tsk_1) [Loading](devbrain://note/nte_1)',
+      useEntity: (type) => (type === 'task' ? null : undefined),
+    });
+    await act(async () => {});
+    const gone = container.querySelector<HTMLElement>('[data-entity-type="task"]')!;
+    const loading = container.querySelector<HTMLElement>('[data-entity-type="note"]')!;
+    expect(gone.textContent).toBe('Gone');
+    expect(gone.hasAttribute('data-missing')).toBe(true);
+    expect(loading.textContent).toBe('Loading');
+    expect(loading.hasAttribute('data-missing')).toBe(false);
   });
 
   // a real click on the element, as the browser sends it: the browser follows a link on `click`,

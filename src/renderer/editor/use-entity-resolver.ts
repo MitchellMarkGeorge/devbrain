@@ -1,22 +1,15 @@
-import {
-  QueryObserver,
-  queryOptions,
-  useQueryClient,
-  type QueryClient,
-} from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { queryOptions, skipToken, useQuery } from '@tanstack/react-query';
 import { isId } from '@common/ids';
 import type { EntitySummary, StampedId } from '@common/types';
 import { resolveColor } from '@renderer/components';
 import { ipc } from '@renderer/ipc';
-import type { EditorEntity, EditorEntityType, EditorHost } from './types';
+import type { EditorEntity, EditorEntityType } from './types';
 
-// The entities behind an editor's pills, from React Query's cache: one query per pill, keyed as
+// The entities behind an editor's pills, from React Query: one query per pill, keyed as
 // `notes.mentions` for that one id, so the query invalidator refetches it when core reports a
 // change and a renamed or completed task updates its pills. The queries a turn starts (a note's
-// pills mounting, or all of them refetching after a change) are sent as one call: a note with 550
-// task pills made 550 calls of `tasks.get` on opening and again after each save
-// (docs/performance.md).
+// pills mounting, or all of them refetching after a change) are sent as one call, so a note's
+// mentions load through one route, with at most one query per entity type in core.
 
 /** the most ids one `notes.mentions` call takes (its route's MAX_MENTION_IDS) */
 const BATCH_SIZE = 500;
@@ -63,26 +56,22 @@ export function createSummaryLoader(
 const loadSummary = createSummaryLoader((ids) => ipc.notes.mentions.query({ ids }));
 
 function entityQuery(type: EditorEntityType, id: string) {
-  // an id of no entity of its type is no entity
-  if (!isId(type, id)) return null;
+  // an id of no entity of its type is no entity, and never loaded
+  const valid = isId(type, id);
   return queryOptions({
     // tRPC's key for `notes.mentions` of this one id, which the query invalidator reads the
     // route from; its data is that id's summary
     queryKey: [['notes', 'mentions'], { input: { ids: [id] }, type: 'query' }] as const,
-    queryFn: () => loadSummary(id as StampedId),
+    queryFn: valid ? () => loadSummary(id as StampedId) : skipToken,
+    retry: false,
   });
 }
 
-function resolve(
-  queryClient: QueryClient,
+function toEditorEntity(
   type: EditorEntityType,
   id: string,
-): EditorEntity | null | undefined {
-  const options = entityQuery(type, id);
-  if (!options) return null;
-  const state = queryClient.getQueryState(options.queryKey);
-  if (state?.data === undefined) return undefined;
-  const summary = state.data as EntitySummary | null;
+  summary: EntitySummary | null,
+): EditorEntity | null {
   // gone, archived, or an id of another type
   if (summary === null || summary.type !== type) return null;
   return {
@@ -98,24 +87,16 @@ function resolve(
 }
 
 /**
- * The editor host's `resolveEntity` and `watchEntity`, from React Query: a pill shows its entity's
- * current title, status and colour, loads it the first time it is drawn, and draws again when it
- * changes. A deleted entity's pill is drawn as missing. Pass it to every `RichTextEditor`, with
- * `useWorkspaceEditorHost` (or take the three together from the app's `useEditorHost`).
+ * The editor host's `useEntity`, from React Query: a pill shows its entity's current title, status
+ * and colour, loads it the first time it is drawn, and draws again when it changes. A deleted
+ * entity's pill is drawn as missing. A module-level hook, so the host passes the same one for its
+ * life; every page's editor takes it through the app's `useEditorHost`.
  */
-export function useEntityResolver(): Pick<EditorHost, 'resolveEntity' | 'watchEntity'> {
-  const queryClient = useQueryClient();
-  return useMemo(
-    () => ({
-      resolveEntity: (type, id) => resolve(queryClient, type, id),
-      watchEntity(type, id, onChange) {
-        const options = entityQuery(type, id);
-        if (!options) return () => {};
-        // an observer loads the entity (once, while it's fresh) and hears every change to it
-        const observer = new QueryObserver(queryClient, { ...options, retry: false });
-        return observer.subscribe(() => onChange());
-      },
-    }),
-    [queryClient],
-  );
+export function useEditorEntity(
+  type: EditorEntityType,
+  id: string,
+): EditorEntity | null | undefined {
+  const { data } = useQuery(entityQuery(type, id));
+  if (!isId(type, id)) return null;
+  return data === undefined ? undefined : toEditorEntity(type, id, data);
 }

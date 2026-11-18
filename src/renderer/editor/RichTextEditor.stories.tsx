@@ -77,7 +77,7 @@ Inline <span style="color:red">HTML</span> and <img src=x onerror=alert(1)> stay
 
 [A script link](javascript:alert(1)) draws as text, and [a web link](https://example.com) opens through the app.`;
 
-const host: Pick<RichTextEditorProps, 'searchEntities' | 'resolveEntity'> = {
+const host: Pick<RichTextEditorProps, 'searchEntities' | 'useEntity'> = {
   async searchEntities(query, types) {
     const q = query.toLowerCase();
     return ENTITIES.filter(
@@ -85,7 +85,9 @@ const host: Pick<RichTextEditorProps, 'searchEntities' | 'resolveEntity'> = {
         (types as string[]).includes(entity.type) && entity.title.toLowerCase().includes(q),
     );
   },
-  resolveEntity: (type, id) => ENTITIES.find((entity) => entity.type === type && entity.id === id),
+  // a plain lookup: an entity not in the list is gone, and drawn as missing
+  useEntity: (type, id) =>
+    ENTITIES.find((entity) => entity.type === type && entity.id === id) ?? null,
 };
 
 const panel = {

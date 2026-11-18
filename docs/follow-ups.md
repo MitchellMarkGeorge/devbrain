@@ -197,7 +197,7 @@ _Found in the rich text editor (PR #101)._
 
 The editor knows an entity only by its type, id and title, so the pills in a note didn’t show its real state. (The "@" menu does now: each search result carries the entity it found, and `toEditorEntity` in `src/renderer/editor/use-workspace-host.ts` reads its status and colour from it.)
 
-**Done (milestone 5): `useEntityResolver`** (`src/renderer/editor/use-entity-resolver.ts`), which every page's editor takes through `useEditorHost` (`src/renderer/shared/hooks/use-editor-host.ts`). `resolveEntity` reads each pill's summary from React Query's cache, one query per pill, which the query invalidator refetches when core reports a change; the queries a turn starts are sent as one `notes.mentions` call, at most one query per entity type in core; each pill subscribes through the host's `watchEntity`, so it draws again when its query settles, and an entity known to be gone (`resolveEntity` returns null) gets the "missing" style.
+**Done (milestone 5): `useEditorEntity`** (`src/renderer/editor/use-entity-resolver.ts`), which every page's editor takes through `useEditorHost` (`src/renderer/shared/hooks/use-editor-host.ts`). Each pill reads its summary through the host's `useEntity` hook (`useEditorEntity`, a `useQuery` per pill), which the query invalidator refetches when core reports a change; the queries a turn starts are sent as one `notes.mentions` call, at most one query per entity type in core; a pill draws again when its query settles, and an entity known to be gone (`useEntity` returns null) gets the "missing" style.
 
 Colours from core are untrusted (docs/security/untrusted-content.md): parse them with `hexColorSchema` before they reach a style, falling back to the default when they fail.
 

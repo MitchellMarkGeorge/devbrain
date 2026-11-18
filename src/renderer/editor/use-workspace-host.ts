@@ -7,8 +7,8 @@ import type { EditorEntity, EditorHost, MentionType } from './types';
 
 /**
  * The parts of an editor's host every page shares: "@" search over the open workspace and opening
- * links. A page adds what only it knows, such as resolveEntity from the rows it already holds and
- * onOpenEntity from its router:
+ * links. A page adds the rest, such as onOpenEntity from its router, or takes it all from the app's
+ * useEditorHost:
  *
  *   const host = useWorkspaceEditorHost();
  *   <RichTextEditor {...host} value={note.content} onChange={save} onOpenEntity={open} label="Note" />
