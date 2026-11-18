@@ -6,6 +6,7 @@ import type { Editor } from '@tiptap/core';
 import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
+import { EditorEntityPill } from '@renderer/editor/EntityPillView';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -88,12 +89,11 @@ describe('RichTextEditor', () => {
     const onOpenEntity = vi.fn();
     render({
       value: 'See [Old title](devbrain://task/tsk_1)',
-      resolveEntity: (type, id) => ({
-        type,
-        id,
-        title: 'Current title',
-        status: TaskStatus.COMPLETED,
-      }),
+      entityPill: (props) =>
+        createElement(EditorEntityPill, {
+          ...props,
+          entity: { ...props, title: 'Current title', status: TaskStatus.COMPLETED },
+        }),
       onOpenEntity,
     });
     // React node views mount after the editor
@@ -102,7 +102,11 @@ describe('RichTextEditor', () => {
     expect(pill.textContent).toBe('Current title');
     // the design system's EntityPill is the button inside the node view
     act(() => pill.querySelector('button')!.click());
-    expect(onOpenEntity).toHaveBeenCalledWith('task', 'tsk_1');
+    expect(onOpenEntity).toHaveBeenCalledWith(
+      'task',
+      'tsk_1',
+      expect.objectContaining({ title: 'Current title' }),
+    );
     // the stored label is untouched
     expect(editor.getMarkdown()).toBe('See [Old title](devbrain://task/tsk_1)');
   });

@@ -12,7 +12,7 @@ import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
 import { createDocumentExtensions } from './markdown';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
-import type { EditorHost } from './types';
+import type { EditorHost, EntityLinkPill } from './types';
 import styles from './RichTextEditor.module.css';
 
 /**
@@ -26,6 +26,8 @@ import styles from './RichTextEditor.module.css';
  *   what the editor last sent.
  * - Links open through `onOpenUrl` (safe http/https only), with ⌘/Ctrl-click while editing and a
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
+ * - Each entity link is drawn by `entityPill`, which finds its entity (the app's reads React
+ *   Query); without one, a pill shows the label stored in the markdown.
  */
 
 export interface RichTextEditorProps extends EditorHost {
@@ -39,6 +41,9 @@ export interface RichTextEditorProps extends EditorHost {
   className?: string;
   // the editor, for a toolbar or tests
   onReady?: (editor: Editor) => void;
+  // draws each entity link: it finds the entity and draws it with EditorEntityPill. Read once,
+  // when the editor is made, like the placeholder.
+  entityPill?: EntityLinkPill;
 }
 
 export function RichTextEditor({
@@ -50,12 +55,13 @@ export function RichTextEditor({
   label,
   className,
   onReady,
+  entityPill,
   ...host
 }: RichTextEditorProps) {
-  // built once: the placeholder is fixed for an editor's life
+  // built once: the placeholder and the entity pill are fixed for an editor's life
   const [extensions] = useState(() => [
     ...createDocumentExtensions({
-      entityLink: EntityLinkView,
+      entityLink: EntityLinkView.configure({ pill: entityPill }),
       imageLink: ImageLinkView,
       callout: CalloutView,
       codeBlock: CodeBlockView,

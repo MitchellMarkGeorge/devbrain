@@ -3,15 +3,11 @@ import { useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { SearchResult } from '@common/types';
 import { trpc } from '@renderer/ipc';
-import type { EditorEntity, EditorHost, MentionType } from './types';
+import type { EditorEntity, EditorHost, MentionType } from '@renderer/editor/types';
 
 /**
- * The parts of an editor's host every page shares: "@" search over the open workspace and opening
- * links. A page adds what only it knows, such as resolveEntity from the rows it already holds and
- * onOpenEntity from its router:
- *
- *   const host = useWorkspaceEditorHost();
- *   <RichTextEditor {...host} value={note.content} onChange={save} onOpenEntity={open} label="Note" />
+ * The editor host's "@" search over the open workspace and opening links, for
+ * WorkspaceRichTextEditor (../components), which adds onOpenEntity from the router.
  */
 export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'onOpenUrl'> {
   const queryClient = useQueryClient();
