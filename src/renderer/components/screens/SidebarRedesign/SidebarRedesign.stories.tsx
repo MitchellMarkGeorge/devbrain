@@ -19,6 +19,13 @@ export const Today: Story = {
   render: () => <HomeScreen title="Today" sidebar={<RedesignSidebar active="Today" />} />,
 };
 
+/** The earlier try: Tasks, Notes and Calendar as a row of tiles at the end, for comparison. */
+export const LibraryAsTiles: Story = {
+  render: () => (
+    <HomeScreen title="Today" sidebar={<RedesignSidebar active="Today" library="tiles" />} />
+  ),
+};
+
 /** A project picked from the sidebar: its tasks; pointing at another project shows its "+". */
 export const Project: Story = {
   render: () => (

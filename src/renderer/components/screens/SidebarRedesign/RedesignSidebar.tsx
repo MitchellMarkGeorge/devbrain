@@ -6,7 +6,7 @@
  * - Pinned replaces Favorites: no cap, ordered by hand (drag), stable under the cursor.
  * - Projects is the spine: active projects with their colour and open-task count, "+" on hover.
  * - Saved views: task filters (the tasks page's search params) saved by name.
- * - Recents moves to ⌘K's empty state; Tasks, Notes and Calendar become one "all items" row.
+ * - Recents moves to ⌘K's empty state; Tasks, Notes and Calendar stay as rows under Upcoming.
  * - The footer is one line: sync dot, Settings and Help (Trash moves into Settings).
  */
 import type { ReactNode } from 'react';
@@ -76,7 +76,15 @@ export interface RedesignSidebarProps {
   /** show a pinned row mid-drag, with the line where it will land */
   dragging?: boolean;
   sync?: 'synced' | 'syncing' | 'error';
+  /** Tasks, Notes and Calendar: ordinary rows under Upcoming (default), or a row of tiles at the end */
+  library?: 'rows' | 'tiles';
 }
+
+const LIBRARY = [
+  ['Tasks', CircleCheck],
+  ['Notes', FileText],
+  ['Calendar', Calendar],
+] as const;
 
 function CountedItem({
   row,
@@ -149,6 +157,7 @@ export function RedesignSidebar({
   hover,
   dragging,
   sync = 'synced',
+  library = 'rows',
 }: RedesignSidebarProps) {
   const pinned = dragging
     ? [PINNED[0], PINNED[2], PINNED[1], PINNED[3]] // "Sprint Planning" lifted, moving up
@@ -165,6 +174,12 @@ export function RedesignSidebar({
             row={{ label: 'Upcoming', icon: CalendarClock, count: 14 }}
             active={active === 'Upcoming'}
           />
+          {library === 'rows' &&
+            LIBRARY.map(([label, icon]) => (
+              <SidebarItem key={label} icon={icon} active={active === label}>
+                {label}
+              </SidebarItem>
+            ))}
         </SidebarGroup>
 
         <SidebarGroup label="Pinned">
@@ -201,25 +216,21 @@ export function RedesignSidebar({
           ))}
         </div>
 
-        <div className={styles.library} role="group" aria-label="All items">
-          {(
-            [
-              ['Tasks', CircleCheck],
-              ['Notes', FileText],
-              ['Calendar', Calendar],
-            ] as const
-          ).map(([label, icon]) => (
-            <button
-              key={label}
-              type="button"
-              className={styles.libraryItem}
-              data-active={active === label ? '' : undefined}
-            >
-              <Icon icon={icon} size={16} />
-              {label}
-            </button>
-          ))}
-        </div>
+        {library === 'tiles' && (
+          <div className={styles.library} role="group" aria-label="All items">
+            {LIBRARY.map(([label, icon]) => (
+              <button
+                key={label}
+                type="button"
+                className={styles.libraryItem}
+                data-active={active === label ? '' : undefined}
+              >
+                <Icon icon={icon} size={16} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </SidebarContent>
 
       <div className={styles.footer}>
