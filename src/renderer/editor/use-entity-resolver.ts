@@ -31,10 +31,9 @@ interface EntityRow {
 }
 
 /**
- * The host's `useEntity`, from React Query: a pill shows its entity's current title, status and
- * colour, loads it the first time it is drawn, and draws again when it changes. A deleted entity
- * (or one in the trash) is null, so its pill is drawn as missing. Every page's editor takes it
- * through the app's `useEditorHost`.
+ * An editor pill's entity, from React Query: its current title, status and colour, loaded the first
+ * time its pill is drawn and drawn again when it changes; undefined until then. A deleted entity
+ * (or one in the trash) is null, so its pill is drawn as missing. `WorkspaceEntityPill` calls it.
  */
 export function useEditorEntity(
   type: EditorEntityType,

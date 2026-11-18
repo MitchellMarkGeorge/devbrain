@@ -7,7 +7,8 @@ import { QueryClient, QueryClientProvider, notifyManager } from '@tanstack/react
 import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
-import { useEditorEntity } from '@renderer/editor/use-entity-resolver';
+import { EditorEntityPill } from '@renderer/editor/EntityPillView';
+import { WorkspaceEntityPill } from '@renderer/shared/components/WorkspaceEntityPill';
 import { trpc } from '@renderer/ipc';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -91,12 +92,11 @@ describe('RichTextEditor', () => {
     const onOpenEntity = vi.fn();
     render({
       value: 'See [Old title](devbrain://task/tsk_1)',
-      useEntity: (type, id) => ({
-        type,
-        id,
-        title: 'Current title',
-        status: TaskStatus.COMPLETED,
-      }),
+      entityPill: (props) =>
+        createElement(EditorEntityPill, {
+          ...props,
+          entity: { ...props, title: 'Current title', status: TaskStatus.COMPLETED },
+        }),
       onOpenEntity,
     });
     // React node views mount after the editor
@@ -133,7 +133,7 @@ describe('RichTextEditor', () => {
           createElement(RichTextEditor, {
             value: 'See [Old title](devbrain://task/tsk_1)',
             label: 'Note',
-            useEntity: useEditorEntity,
+            entityPill: WorkspaceEntityPill,
           }),
         ),
       );
@@ -144,12 +144,12 @@ describe('RichTextEditor', () => {
 
     setTask({ title: 'Renamed' });
     expect(pill().textContent).toBe('Renamed');
-    expect(pill().hasAttribute('data-missing')).toBe(false);
+    expect(pill().querySelector('[data-missing]')).toBeNull();
 
     setTask({ title: 'Renamed', archivedAt: new Date() });
     // gone: the stored label, drawn as missing
     expect(pill().textContent).toBe('Old title');
-    expect(pill().hasAttribute('data-missing')).toBe(true);
+    expect(pill().querySelector('[data-missing]')).not.toBeNull();
   });
 
   // a real click on the element, as the browser sends it: the browser follows a link on `click`,

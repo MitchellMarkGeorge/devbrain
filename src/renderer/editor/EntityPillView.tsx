@@ -5,50 +5,60 @@ import { TaskStatus } from '@common/types';
 import { EntityPill } from '@renderer/components';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
-import type { EditorEntity, EditorEntityType, EditorHost } from './types';
+import type { EditorEntity, EditorEntityType, EditorHost, EntityLinkPillProps } from './types';
 import styles from './EntityPillView.module.css';
 
 // the host of the editor a pill is in; RichTextEditor provides it
 export const EditorHostContext = createContext<EditorHost>({});
 
-// a host that can't resolve entities: every pill shows its stored label
-function useNoEntity(): EditorEntity | undefined {
-  return undefined;
+export interface EditorEntityPillProps extends EntityLinkPillProps {
+  // the entity as it is now: undefined while unknown, null when it is known to be gone (deleted,
+  // or in the trash)
+  entity: EditorEntity | null | undefined;
 }
 
 /**
- * An entity link as the design system's EntityPill: the entity's glyph and its current title, the
- * stored label while the host cannot resolve it. A click opens the entity.
+ * An entity link as the design system's EntityPill: the entity's glyph and its current title, or
+ * the stored label while it is unknown. One known to be gone is drawn as missing. A click opens
+ * the entity. The host's `entityPill` finds the entity and draws it with this.
  */
-function EntityLinkPill({ node, selected }: ReactNodeViewProps) {
-  const host = useContext(EditorHostContext);
-  const type = node.attrs.type as EditorEntityType;
-  const id = node.attrs.id as string;
-  const useEntity = host.useEntity ?? useNoEntity;
-  const entity = useEntity(type, id);
-  const title = entity?.title ?? node.attrs.label;
-  const missing = entity === null;
+export function EditorEntityPill({ type, id, label, entity }: EditorEntityPillProps) {
+  const { onOpenEntity } = useContext(EditorHostContext);
+  const title = entity?.title ?? label;
+  return (
+    <EntityPill
+      entity={
+        type === 'task'
+          ? { type, title, status: entity?.status ?? TaskStatus.NOT_STARTED }
+          : type === 'note'
+            ? { type, title }
+            : { type, title, color: entity?.color ?? null }
+      }
+      data-missing={entity === null ? '' : undefined}
+      // the caret moves past it; Tab stays with the editor
+      tabIndex={-1}
+      onClick={() => onOpenEntity?.(type, id)}
+    />
+  );
+}
 
+// a host that can't find entities: every pill shows its stored label
+function StoredLabelPill(props: EntityLinkPillProps) {
+  return <EditorEntityPill {...props} entity={undefined} />;
+}
+
+// an entity link in the text, drawn by the host's entityPill
+function EntityLinkNodeView({ node, selected }: ReactNodeViewProps) {
+  const { entityPill: Pill = StoredLabelPill } = useContext(EditorHostContext);
+  const type = node.attrs.type as EditorEntityType;
   return (
     <NodeViewWrapper
       as="span"
       className={styles.inline}
       data-selected={selected ? '' : undefined}
-      data-missing={missing ? '' : undefined}
       data-entity-type={type}
     >
-      <EntityPill
-        entity={
-          type === 'task'
-            ? { type, title, status: entity?.status ?? TaskStatus.NOT_STARTED }
-            : type === 'note'
-              ? { type, title }
-              : { type, title, color: entity?.color ?? null }
-        }
-        // the caret moves past it; Tab stays with the editor
-        tabIndex={-1}
-        onClick={() => host.onOpenEntity?.(type, id)}
-      />
+      <Pill type={type} id={node.attrs.id as string} label={node.attrs.label as string} />
     </NodeViewWrapper>
   );
 }
@@ -73,7 +83,7 @@ function ImagePill({ node, selected }: ReactNodeViewProps) {
 
 export const EntityLinkView = EntityLink.extend({
   addNodeView() {
-    return ReactNodeViewRenderer(EntityLinkPill, { as: 'span' });
+    return ReactNodeViewRenderer(EntityLinkNodeView, { as: 'span' });
   },
 });
 

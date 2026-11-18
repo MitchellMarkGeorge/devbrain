@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskStatus } from '@common/types';
 import { useState } from 'react';
 import { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
-import type { EditorEntity } from './types';
+import { EditorEntityPill } from './EntityPillView';
+import type { EditorEntity, EntityLinkPillProps } from './types';
 
 /**
  * The working editor: type, press "/" for blocks and "@" to link, select text for the format
@@ -77,7 +78,13 @@ Inline <span style="color:red">HTML</span> and <img src=x onerror=alert(1)> stay
 
 [A script link](javascript:alert(1)) draws as text, and [a web link](https://example.com) opens through the app.`;
 
-const host: Pick<RichTextEditorProps, 'searchEntities' | 'useEntity'> = {
+// a plain lookup: an id it doesn't hold is gone
+function StoryEntityPill(props: EntityLinkPillProps) {
+  const entity = ENTITIES.find((entry) => entry.type === props.type && entry.id === props.id);
+  return <EditorEntityPill {...props} entity={entity ?? null} />;
+}
+
+const host: Pick<RichTextEditorProps, 'searchEntities' | 'entityPill'> = {
   async searchEntities(query, types) {
     const q = query.toLowerCase();
     return ENTITIES.filter(
@@ -85,9 +92,7 @@ const host: Pick<RichTextEditorProps, 'searchEntities' | 'useEntity'> = {
         (types as string[]).includes(entity.type) && entity.title.toLowerCase().includes(q),
     );
   },
-  // a plain lookup: an id it doesn't hold is gone
-  useEntity: (type, id) =>
-    ENTITIES.find((entity) => entity.type === type && entity.id === id) ?? null,
+  entityPill: StoryEntityPill,
 };
 
 const panel = {

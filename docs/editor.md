@@ -13,9 +13,10 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
 ```
 
 - `useEditorHost` combines `useWorkspaceEditorHost` ("@" search, `onOpenUrl`),
-  `useEditorEntity` (the host's `useEntity`: a hook each pill calls, a `useQuery` on `tasks.get`,
-  `projects.get`, `notes.get` or `events.get`, so it loads its entity the first time it is drawn
-  and draws again when it changes; a deleted one is drawn as missing) and `useOpenEntity`. Every page's editor takes it.
+  `WorkspaceEntityPill` (the host's `entityPill`, which draws each entity link: it reads its entity
+  with `useEditorEntity`, a `useQuery` on `tasks.get`, `projects.get`, `notes.get` or `events.get`,
+  so it loads it the first time it is drawn and draws again when it changes, and passes it to the
+  editor's `EditorEntityPill`; a deleted one is drawn as missing) and `useOpenEntity`. Every page's editor takes it.
 - `useEditorAutosave` saves 500ms after typing stops, and at once on leaving the page, on the
   window losing focus and when a workspace switch starts. A save makes core report the entity
   changed, so the text is refetched; by then more may have been typed. The editor is only handed

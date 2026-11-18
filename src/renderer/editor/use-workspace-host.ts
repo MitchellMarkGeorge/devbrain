@@ -7,7 +7,7 @@ import type { EditorEntity, EditorHost, MentionType } from './types';
 
 /**
  * The parts of an editor's host every page shares: "@" search over the open workspace and opening
- * links. A page adds what only it knows, such as useEntity from the rows it already holds and
+ * links. A page adds what only it knows, such as entityPill drawing the rows it already holds and
  * onOpenEntity from its router:
  *
  *   const host = useWorkspaceEditorHost();

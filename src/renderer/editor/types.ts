@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import type { TaskStatus } from '@common/types';
 import type { Swatch } from '@renderer/components';
 
@@ -29,15 +30,22 @@ export interface EditorEntity {
   status?: TaskStatus;
 }
 
+// what the host's entityPill is given for one entity link
+export interface EntityLinkPillProps {
+  type: EditorEntityType;
+  id: string;
+  // the label stored in the markdown, shown until the entity is found and once it is gone
+  label: string;
+}
+
 export interface EditorHost {
   // the tasks, notes and events matching what was typed after "@", best first
   searchEntities?: (query: string, types: MentionType[]) => Promise<EditorEntity[]>;
-  // A hook each entity pill calls while it is drawn: the entity as it is now, to show its current
-  // title. undefined while unknown (not loaded yet), and null when it is known to be gone (deleted,
-  // or in the trash); the pill then shows the label stored in the markdown, drawn as missing when
-  // it is gone. It follows the rules of hooks, so keep the same one for the editor's life (with or
-  // without React Query inside; a plain lookup is a hook too).
-  useEntity?: (type: EditorEntityType, id: string) => EditorEntity | null | undefined;
+  // Draws each entity link: a component that finds the entity and draws it with the editor's
+  // EditorEntityPill, passing it as it is now (in the app, WorkspaceEntityPill in
+  // src/renderer/shared/components). Keep the same one for the editor's life, or every pill
+  // mounts again. Without one, a pill shows the label stored in the markdown.
+  entityPill?: ComponentType<EntityLinkPillProps>;
   // a click on an entity pill
   onOpenEntity?: (type: EditorEntityType, id: string) => void;
   // a click on a link or image that safeExternalUrl accepted; the app passes it to
