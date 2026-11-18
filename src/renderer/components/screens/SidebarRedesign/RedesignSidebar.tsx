@@ -171,7 +171,7 @@ export function RedesignSidebar({
             active={active === 'Today'}
           />
           <CountedItem
-            row={{ label: 'Upcoming', icon: CalendarClock, count: 14 }}
+            row={{ label: 'Upcoming', icon: CalendarClock, count: 7 }}
             active={active === 'Upcoming'}
           />
           {library === 'rows' && <div className={styles.separator} role="separator" />}

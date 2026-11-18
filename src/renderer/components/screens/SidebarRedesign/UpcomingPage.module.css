@@ -1,0 +1,117 @@
+/* A proposal: the Upcoming page's pieces that the list components don't draw yet. */
+
+.days {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.day {
+  display: flex;
+  flex-direction: column;
+}
+/* a quieter sub-label inside a day: "Starting" */
+.subLabel {
+  padding: var(--space-2) var(--space-3) var(--space-1) 36px;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+/* tasks that only start that day: drawn quieter than the ones due */
+.starting {
+  opacity: 0.7;
+}
+
+/* a day with nothing on it: one line, not a block */
+.emptyDay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.emptyDay strong {
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-medium);
+}
+
+/* a project's due date: the same 48px row as a task, its folder in the project's colour */
+.deadline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-height, 48px);
+  padding: 0 var(--space-3) 0 36px;
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.deadline:hover {
+  background: var(--muted);
+}
+.deadlineIcon {
+  display: inline-flex;
+  color: var(--deadline-color);
+}
+.deadlineTitle {
+  font-weight: var(--font-weight-medium);
+}
+.deadlineDue {
+  color: var(--muted-foreground);
+}
+.deadlineMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+}
+.deadlineMeta[data-risk] {
+  color: var(--status-overdue);
+}
+.progress {
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--deadline-color);
+}
+
+/* the range control at the top */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.toolbar strong {
+  color: var(--foreground);
+  font-weight: var(--font-weight-medium);
+}
+.toolbar .spacer {
+  flex: 1;
+}
+
+/* a task being dragged to another day, and where it lands */
+.dragging {
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 8px 24px rgb(0 0 0 / 0.35);
+  transform: rotate(-0.6deg);
+}
+.dropTarget {
+  outline: 2px dashed color-mix(in oklab, var(--ring) 70%, transparent);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
