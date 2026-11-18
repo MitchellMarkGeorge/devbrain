@@ -51,8 +51,10 @@ interface EntityRow {
  */
 export function useEditorEntity(ref: EditorEntityRef): EditorEntity | null | undefined {
   const { type, id } = ref;
+  // the four routes' rows differ, so the union of their options is no one useQuery overload: read
+  // each as EntityRow, the fields used below (status only for a task, startAt only for an event)
   const { data: row, error } = useQuery({
-    ...(entityQuery(ref) as unknown as UseQueryOptions<EntityRow>),
+    ...(entityQuery(ref) as UseQueryOptions<EntityRow>),
     retry: false,
   });
   if (row) {
