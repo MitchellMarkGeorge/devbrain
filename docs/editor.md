@@ -38,8 +38,8 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   the editor just sent is not loaded again.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
-- The editor never imports IPC, React Query, the router or the app (ESLint enforces it). It gets
-  what it needs through `RichTextEditor`: `entityPill` to draw entity links, and `EditorHost`
+- The editor never imports IPC, React Query, the router or the app. It gets what it needs through
+  `RichTextEditor`: `entityPill` to draw entity links, and `EditorHost`
   (`types.ts`) for the actions it can't take itself: `searchEntities`, `onOpenEntity` and
   `onOpenUrl`, which the "@" menu and the link click handler call from TipTap and ProseMirror,
   outside React.

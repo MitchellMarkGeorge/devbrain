@@ -2,9 +2,9 @@ import type { ComponentType } from 'react';
 import type { TaskStatus } from '@common/types';
 import type { Swatch } from '@renderer/components';
 
-// What the editor gets from the app. The editor never imports IPC, React Query or the router (ESLint
-// enforces it): a page renders WorkspaceRichTextEditor (src/renderer/shared/components), which
-// passes the app's; Storybook and tests pass their own.
+// What the editor gets from the app. The editor never imports IPC, React Query or the router: a
+// page renders WorkspaceRichTextEditor (src/renderer/shared/components), which passes the app's;
+// Storybook and tests pass their own.
 
 export type EditorEntityType = 'task' | 'project' | 'note' | 'event';
 
