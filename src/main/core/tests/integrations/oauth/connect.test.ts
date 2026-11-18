@@ -431,7 +431,11 @@ describe('Provider registry — OAuth', () => {
     const oauthConfig = { tokenUrl: 'https://token.test' } as OAuthConfig;
     const refresh = vi.fn(async () => ({ accessToken: 'new', scopes: [] }));
     const client = { authorize: vi.fn(), refresh, revoke: vi.fn() };
-    const base = { supports: [], getAccount: vi.fn() };
+    // what they sync doesn't matter here; a provider always syncs at least one type
+    const base: Pick<Provider, 'supports' | 'getAccount'> = {
+      supports: [SourceType.TASKS],
+      getAccount: vi.fn(),
+    };
     const registry: ProviderRegistry = new Map<ProviderId, Provider>([
       [ProviderId.LINEAR, { ...base, id: ProviderId.LINEAR, authMethods: [AuthType.API_KEY] }],
       [

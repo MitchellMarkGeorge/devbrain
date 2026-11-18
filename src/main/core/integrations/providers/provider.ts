@@ -153,8 +153,10 @@ export interface CalendarSource {
 
 export interface Provider {
   id: ProviderId;
-  // the source types a connection gets, one external_sources row each
-  supports: SourceType[];
+  // the source types a connection gets, one external_sources row each. Never empty: a connection
+  // with no source would sync nothing, and the sidebar finds connected accounts through their
+  // sources (sync.status lists sources, not accounts)
+  supports: [SourceType, ...SourceType[]];
   // how an account can be connected; connectWithApiKey refuses a provider without API_KEY. Includes
   // OAUTH exactly when `oauth` is set.
   authMethods: AuthType[];
