@@ -17,7 +17,7 @@ import { trpc } from '@renderer/ipc';
 
 // The hover cards of the pills in rows and cards (TaskRow, NoteRow, BoardCard, NoteCard): each
 // loads its item through the route that reads one (`projects.get` and `projects.stats`,
-// `tasks.get`, `notes.get`, `events.get`) once a pill is pointed at, so a card opened 400ms later
+// `tasks.get`, `notes.get`, `events.get`; a subtask count `tasks.get` and `tasks.subtasks`) once a pill is pointed at, so a card opened 400ms later
 // is drawn. The query invalidator refetches them when core reports a change.
 
 // not again while what was loaded is a few seconds old: a change to it refetches it anyway
@@ -37,10 +37,14 @@ function prefetch(queryClient: QueryClient, target: PillTarget) {
       });
       return;
     case 'task':
+    case 'subtasks':
       queryClient.prefetchQuery({
         ...trpc.tasks.get.queryOptions({ id: target.id }),
         staleTime,
       });
+      if (target.type === 'subtasks') {
+        queryClient.prefetchQuery({ ...subtasksCardQuery(target.id), staleTime });
+      }
       return;
     case 'note':
       queryClient.prefetchQuery({
@@ -57,6 +61,11 @@ function prefetch(queryClient: QueryClient, target: PillTarget) {
     case 'source':
       return;
   }
+}
+
+// a subtask card's subtasks: one page of `tasks.subtasks`, as many as a task usually has
+function subtasksCardQuery(id: TaskId) {
+  return trpc.tasks.subtasks.queryOptions({ id, limit: 100 });
 }
 
 // a card whose item could not be read (deleted since the list loaded): its name and why
@@ -144,6 +153,21 @@ function SourceCard({ title, external }: { title: string; external: ExternalRef 
   );
 }
 
+function SubtasksCard({ id, title }: { id: TaskId; title: string }) {
+  const task = useQuery(trpc.tasks.get.queryOptions({ id }));
+  const subtasks = useQuery(subtasksCardQuery(id));
+  if (task.isError || subtasks.isError) {
+    return <EntityHoverCardPlaceholder title={title} message={GONE} />;
+  }
+  const progress = task.data?.subtaskProgress;
+  if (!progress || !subtasks.data) return <EntityHoverCardPlaceholder title={title} />;
+  return (
+    <EntityHoverCardContent
+      entity={{ type: 'subtasks', subtaskProgress: progress, subtasks: subtasks.data.items }}
+    />
+  );
+}
+
 function PillCard({ target }: { target: PillTarget }) {
   switch (target.type) {
     case 'project':
@@ -154,6 +178,8 @@ function PillCard({ target }: { target: PillTarget }) {
       return <NoteCard id={target.id} title={target.title || 'Untitled'} />;
     case 'event':
       return <EventCard id={target.id} title={target.title} />;
+    case 'subtasks':
+      return <SubtasksCard id={target.id} title={target.title} />;
     case 'source':
       return <SourceCard title={target.title} external={target.external} />;
   }

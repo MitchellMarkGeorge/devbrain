@@ -65,6 +65,27 @@
   gap: var(--space-1-5);
 }
 
+/* a subtask card's list: 12px status icons beside 12px titles, closed ones muted */
+.subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.subtask {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.subtask[data-closed] {
+  color: var(--muted-foreground);
+}
+
 .meta {
   display: flex;
   align-items: center;

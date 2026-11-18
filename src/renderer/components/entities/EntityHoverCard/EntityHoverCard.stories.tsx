@@ -10,7 +10,10 @@ import {
 } from '@common/types';
 import { Flex } from '../../layout/Flex';
 import { storyAgo, storyDate } from '../../lib/story-dates';
+import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
+import { ProgressRing } from '../../ui/ProgressRing';
+import type { TaskId } from '@common/ids';
 import { EntityPill } from '../EntityPill';
 import { SourcePill } from '../SourcePill';
 import { TaskRow } from '../../lists/TaskRow';
@@ -157,6 +160,41 @@ export const Source: Story = {
   },
 };
 
+const SUBTASKS = {
+  type: 'subtasks',
+  subtaskProgress: { completed: 2, total: 7 },
+  subtasks: [
+    'Move the scheduler onto change listeners',
+    'Drop the sync callbacks',
+    'Port the event writer',
+    'Port the task writer',
+    'Update the sync tests',
+    'Remove the old hooks',
+    'Write the migration note',
+  ].map((title, i) => ({
+    id: `tsk_sub_${i}` as TaskId,
+    title,
+    status:
+      i < 2 ? TaskStatus.COMPLETED : i === 2 ? TaskStatus.IN_PROGRESS : TaskStatus.NOT_STARTED,
+  })),
+} satisfies HoverCardEntity;
+
+/**
+ * A task's subtask count: how many are done, then its subtasks with their status, open ones first,
+ * five at most and then how many more.
+ */
+export const Subtasks: Story = {
+  args: {
+    defaultOpen: true,
+    entity: SUBTASKS,
+    children: (
+      <Badge muted icon={<ProgressRing value={2} total={7} size={12} />}>
+        2/7
+      </Badge>
+    ),
+  },
+};
+
 /** The card's content alone, for static pictures. */
 export const ContentOnly: Story = {
   render: () => (
@@ -206,12 +244,13 @@ function storyCard(target: PillTarget) {
       );
     case 'source':
       return <EntityHoverCardContent entity={target} />;
+    case 'subtasks':
+      return <EntityHoverCardContent entity={SUBTASKS} />;
   }
 }
 
 /**
- * A task row's pills in a `PillHoverCardsProvider`: each but the subtask count opens its card, one
- * popup for them all, filled by `renderCard` (the app's loads the item; this one draws fixtures).
+ * A task row's pills in a `PillHoverCardsProvider`: each opens its card, one popup for them all, filled by `renderCard` (the app's loads the item; this one draws fixtures).
  */
 export const InATaskRow: Story = {
   render: () => (

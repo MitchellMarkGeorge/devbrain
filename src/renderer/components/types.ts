@@ -116,6 +116,11 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   [TaskStatus.CANCELLED]: 'Cancelled',
 };
 
+/** A task's subtasks done, in words: "3 of 4 subtasks done". */
+export function subtasksDoneLabel(progress: { completed: number; total: number }): string {
+  return `${progress.completed} of ${progress.total} subtasks done`;
+}
+
 /** The statuses that close a task: never overdue, and drawn without a priority. */
 export function isClosed(status: TaskStatus): boolean {
   return status === TaskStatus.COMPLETED || status === TaskStatus.CANCELLED;
