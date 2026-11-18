@@ -19,6 +19,7 @@ import {
 import type { WorkspaceOptions } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
 import {
+  AlreadyArchivedError,
   IntegrationAuthError,
   UnsafeUrlError,
   WorkspaceClosedError,
@@ -842,7 +843,7 @@ describe('Workspace — search of archived and restored rows', () => {
     }
   });
 
-  it('a write to an archived task or project leaves it out of search', async () => {
+  it('a write to an archived task or project is refused, and lands in search once restored', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const project = workspace.projects.createProject({
@@ -853,12 +854,18 @@ describe('Workspace — search of archived and restored rows', () => {
       workspace.archive.archiveProject(project.id);
       workspace.archive.archiveTask(task.id);
 
-      workspace.projects.updateProject(project.id, { description: 'lunar' });
-      workspace.tasks.updateTask(task.id, { description: 'lunar' });
+      expect(() => workspace.projects.updateProject(project.id, { description: 'lunar' })).toThrow(
+        AlreadyArchivedError,
+      );
+      expect(() => workspace.tasks.updateTask(task.id, { description: 'lunar' })).toThrow(
+        AlreadyArchivedError,
+      );
 
       expect(searchIds(workspace, 'lunar')).toEqual([]);
       workspace.archive.restoreProject(project.id);
       workspace.archive.restoreTask(task.id);
+      workspace.projects.updateProject(project.id, { description: 'lunar' });
+      workspace.tasks.updateTask(task.id, { description: 'lunar' });
       expect(searchIds(workspace, 'lunar')).toEqual([project.id, task.id].sort());
     } finally {
       await workspace.close();

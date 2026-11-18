@@ -180,7 +180,7 @@ describe('archive', () => {
     });
     // its content can't be saved until it is restored
     expect(code(await mutate('notes.updateContent', { id: note.id, content: 'x' }))).toBe(
-      'not_found',
+      'already_archived',
     );
     expect(code(await call('projects.get', { id: 'prj_missing' }))).toBe('not_found');
   });

@@ -19,6 +19,7 @@ import { withEventDetails } from '../events/service';
 import { withExternalRef } from '../integrations/refs';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
+import { assertRowNotTrashed } from '../shared/trash';
 import { PageOptions } from '../shared/pagination';
 import { listByStamp } from '../shared/stamped';
 import type { FavoritesFilterOptions } from './types';
@@ -40,7 +41,9 @@ export type FavoriteChange =
  * Both are idempotent: favoriting a favorite or unfavoriting what is not one changes nothing, and
  * sends no change.
  *
- * An archived entity keeps its favorite, but is left out of listFavorites until it is restored.
+ * An archived task, project or note keeps its favorite, but is left out of listFavorites until it
+ * is restored. It opens read-only, so favoriting or unfavoriting it throws AlreadyArchivedError
+ * (docs/deleting.md, "Writes to items in the trash"); its favorite is kept as it was.
  */
 export class FavoritesService {
   private readonly changes = new ChangeListeners<FavoriteChange>('Favorites');
@@ -55,6 +58,7 @@ export class FavoritesService {
   favoriteTask(id: TaskId): Task {
     const existing = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     if (!existing) throw new NotFoundError(id);
+    assertRowNotTrashed(existing);
     // already a favorite: keep the first favoritedAt and send nothing
     if (existing.favoritedAt !== null) return withExternalRef(this.db, existing);
 
@@ -77,6 +81,7 @@ export class FavoritesService {
   unfavoriteTask(id: TaskId): Task {
     const existing = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     if (!existing) throw new NotFoundError(id);
+    assertRowNotTrashed(existing);
     // not a favorite: nothing to clear
     if (existing.favoritedAt === null) return withExternalRef(this.db, existing);
 
@@ -93,6 +98,7 @@ export class FavoritesService {
   favoriteProject(id: ProjectId): Project {
     const existing = this.db.select().from(projects).where(eq(projects.id, id)).get();
     if (!existing) throw new NotFoundError(id);
+    assertRowNotTrashed(existing);
     // already a favorite: keep the first favoritedAt and send nothing
     if (existing.favoritedAt !== null) return withExternalRef(this.db, existing);
 
@@ -115,6 +121,7 @@ export class FavoritesService {
   unfavoriteProject(id: ProjectId): Project {
     const existing = this.db.select().from(projects).where(eq(projects.id, id)).get();
     if (!existing) throw new NotFoundError(id);
+    assertRowNotTrashed(existing);
     // not a favorite: nothing to clear
     if (existing.favoritedAt === null) return withExternalRef(this.db, existing);
 
@@ -131,6 +138,7 @@ export class FavoritesService {
   favoriteNote(id: NoteId): Note {
     const existing = this.db.select().from(notes).where(eq(notes.id, id)).get();
     if (!existing) throw new NotFoundError(id);
+    assertRowNotTrashed(existing);
     // already a favorite: keep the first favoritedAt and send nothing
     if (existing.favoritedAt !== null) return existing;
 
@@ -153,6 +161,7 @@ export class FavoritesService {
   unfavoriteNote(id: NoteId): Note {
     const existing = this.db.select().from(notes).where(eq(notes.id, id)).get();
     if (!existing) throw new NotFoundError(id);
+    assertRowNotTrashed(existing);
     // not a favorite: nothing to clear
     if (existing.favoritedAt === null) return existing;
 
