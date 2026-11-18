@@ -115,7 +115,12 @@ function project(overrides: Partial<ExternalProject> = {}): ExternalProject {
 async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPagesPerRun?: number) {
   db = createDb();
   credentials = new CredentialStore(db, { cipher: new FakeCipher() });
-  service = new IntegrationService(db, { credentials, providers: fakeRegistry(registryProvider) });
+  // the engine and the gate share the test's clock
+  service = new IntegrationService(db, {
+    credentials,
+    providers: fakeRegistry(registryProvider),
+    now: () => clock,
+  });
   writer = new SyncWriter(db, new SearchService(db, workspacePath));
   syncState = new SyncStateManager(db);
   logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
@@ -123,8 +128,6 @@ async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPages
   engine = new SyncEngine(db, {
     integrations: service,
     syncState,
-    credentials,
-    providers: fakeRegistry(registryProvider),
     writer,
     logger,
     now: () => clock,
@@ -825,15 +828,9 @@ describe('SyncEngine — logging and change events', () => {
         type: 'sync_status_changed',
         integrationId,
         sourceId,
-        source: {
-          id: sourceId,
-          sourceType: 'tasks',
-          enabled: true,
-          initialSyncCompleted: true,
-          lastSyncedAt: NOW,
-          lastError: null,
-          retryAt: null,
-        },
+        ok: true,
+        lastSyncedAt: NOW,
+        retryAt: null,
       },
     ]);
   });

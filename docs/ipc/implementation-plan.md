@@ -151,7 +151,7 @@ that caused it, or into the background batch.
 | `CalendarChange`                    | `calendar`                                                           |
 | `ArchiveChange`                     | each of `task`, `project`, `note` whose id list is not empty         |
 | `FavoriteChange`                    | the favorited entity's type (`tasks` → `task`, …)                    |
-| `TaskLinkChange` (detach, reattach) | `task` plus its `changed`; `credentials_rejected` → `integration`    |
+| `TaskLinkChange` (detach, reattach) | `task` plus its `changed`                                            |
 | `IntegrationChange`                 | `integration` and `externalSource`, plus `changed` on `disconnected` |
 | `SyncProgress`                      | `summary.changed`                                                    |
 | `SyncStatusChange`                  | `externalSource`                                                     |

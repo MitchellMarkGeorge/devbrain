@@ -260,12 +260,12 @@ describe('SyncScheduler — start', () => {
     // integration list; without the deferral the failure is reported during these and missed
     service.list();
     for (let step = 0; step < 20; step++) await Promise.resolve();
-    const errors: (string | null)[] = [];
-    syncState.onChange((change) => errors.push(change.source.lastError));
+    const outcomes: boolean[] = [];
+    syncState.onChange((change) => outcomes.push(change.ok));
 
     await vi.advanceTimersByTimeAsync(0);
     expect(engine.runs()).toHaveLength(1);
-    expect(errors).toEqual(['down']);
+    expect(outcomes).toEqual([false]);
   });
 
   it('a second start while started does nothing', async () => {
@@ -686,11 +686,9 @@ describe('SyncScheduler — status and progress', () => {
       type: 'sync_status_changed',
       integrationId: linearId,
       sourceId: linearSourceId,
-      source: expect.objectContaining({
-        id: linearSourceId,
-        lastSyncedAt: START,
-        lastError: null,
-      }),
+      ok: true,
+      lastSyncedAt: START,
+      retryAt: null,
     });
 
     unsubscribe();
@@ -792,8 +790,6 @@ describe('SyncScheduler — stop with the real engine', () => {
     const realEngine = new SyncEngine(db, {
       integrations: service,
       syncState,
-      credentials,
-      providers: registry,
       writer: new SyncWriter(db, new SearchService(db, workspacePath)),
       logger: quietLogger(),
     });

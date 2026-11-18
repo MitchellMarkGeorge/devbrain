@@ -1,6 +1,6 @@
 import { AuthType, Provider as ProviderId, SourceType } from '@common/types';
 import { Auth } from '../../auth';
-import { ExternalAccount, FetchFn, Provider, RequestOptions } from '../provider';
+import { ExternalAccount, FetchFn, Provider, RequestOptions, TaskSource } from '../provider';
 import { LinearClient } from './client';
 import { VIEWER_QUERY } from './queries';
 import { viewerResponseSchema } from './schema';
@@ -11,7 +11,11 @@ export interface LinearProviderOptions {
   now?: () => Date;
 }
 
-export function createLinearProvider(options: LinearProviderOptions): Provider {
+// Linear as a provider. A Linear-only feature adds its methods here, and reaches them through
+// IntegrationService.withProvider(sourceId, Provider.LINEAR, …)
+export type LinearProvider = Provider & { tasks: TaskSource };
+
+export function createLinearProvider(options: LinearProviderOptions): LinearProvider {
   const client = new LinearClient(options);
   return {
     id: ProviderId.LINEAR,

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
-import { IntegrationId, WorkspaceId } from '@common/ids';
+import { ExternalSourceId, IntegrationId, WorkspaceId } from '@common/ids';
 import { externalSources, integrations } from '@main/db/schema/integrations';
 import { createDb, WORKSPACE_OPTIONS } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
@@ -13,7 +13,7 @@ import viewerFixture from './fixtures/linear/viewer.json';
 import authenticationErrorFixture from './fixtures/linear/authentication-error.json';
 import { CredentialStore } from '../../integrations/credential-store';
 import { Auth } from '../../integrations/auth';
-import { ExternalAccount, Provider } from '../../integrations/providers/provider';
+import { ExternalAccount, Provider, TaskSource } from '../../integrations/providers/provider';
 import { createProviderRegistry, ProviderRegistry } from '../../integrations/providers/registry';
 import { IntegrationChange, IntegrationService } from '../../integrations/service';
 import {
@@ -30,6 +30,7 @@ import {
   NotFoundError,
 } from '../../shared/errors';
 import { Workspace } from '../../workspace/workspace';
+import { SyncSkipReason } from '../../sync/types';
 
 const API_KEY = 'lin_api_supersecretkey';
 const ACCOUNT: ExternalAccount = {
@@ -240,9 +241,36 @@ describe('IntegrationService — connectWithApiKey', () => {
       {
         type: 'connected',
         integrationId: integration.id,
-        sources: integration.sources.map((source) => ({ sourceId: source.id, enabled: true })),
+        sources: integration.sources.map((source) => ({
+          sourceId: source.id,
+          sourceType: source.sourceType,
+          enabled: true,
+        })),
       },
     ]);
+  });
+});
+
+describe('IntegrationService — logging', () => {
+  it('logs a listener that throws through its logger, by the change type and error class only', async () => {
+    const db = createDb();
+    const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const service = new IntegrationService(db, {
+      credentials,
+      providers: registryOf(fakeProvider().provider),
+      logger,
+    });
+    service.onChange(() => {
+      throw new TypeError('Ada, Acme');
+    });
+
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
+
+    expect(integration.status).toBe(IntegrationStatus.CONNECTED);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+      'Integration change listener threw change=connected error=TypeError',
+    );
   });
 });
 
@@ -269,7 +297,11 @@ describe('IntegrationService — choosing sources at connect', () => {
     const [change] = changes;
     expect(change.type === 'connected' && change.sources).toEqual(
       expect.arrayContaining(
-        integration.sources.map((source) => ({ sourceId: source.id, enabled: source.enabled })),
+        integration.sources.map((source) => ({
+          sourceId: source.id,
+          sourceType: source.sourceType,
+          enabled: source.enabled,
+        })),
       ),
     );
   });
@@ -711,5 +743,131 @@ describe('IntegrationService — workspaces', () => {
     } finally {
       await workspace.close();
     }
+  });
+});
+
+describe('IntegrationService — calling a provider', () => {
+  // a TaskSource whose only answer echoes the auth it was given, standing in for a feature's call
+  function echoTasks(answer: (auth: Auth) => Promise<string[]>): TaskSource {
+    return { listOpenAssignedTaskIds: answer } as unknown as TaskSource;
+  }
+
+  async function connect(
+    service: IntegrationService,
+    providerId: ProviderId,
+  ): Promise<{ id: IntegrationId; sourceId: ExternalSourceId }> {
+    const integration = await service.connectWithApiKey(providerId, API_KEY);
+    return { id: integration.id, sourceId: integration.sources[0].id };
+  }
+
+  it("gives a call the part of the source's provider for its type, with its auth", async () => {
+    const tasks = echoTasks(async (auth) => [auth.authorization]);
+    const { service } = setup(registryOf(fakeProvider({ tasks }).provider));
+    const { sourceId } = await connect(service, ProviderId.LINEAR);
+
+    const result = await service.withSource(sourceId, SourceType.TASKS, ({ source, auth }) =>
+      source.listOpenAssignedTaskIds(auth),
+    );
+
+    expect(result).toEqual({ ok: true, value: [API_KEY] });
+  });
+
+  it('refuses a source of another type, or one that may not be asked now', async () => {
+    const call = vi.fn();
+    const { db, service } = setup(registryOf(fakeProvider({ tasks: echoTasks(call) }).provider));
+    const { id, sourceId } = await connect(service, ProviderId.LINEAR);
+
+    expect(await service.withSource(sourceId, SourceType.EVENTS, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.UNSUPPORTED,
+    });
+    db.update(externalSources)
+      .set({ retryAt: new Date(Date.now() + 60_000) })
+      .where(eq(externalSources.id, sourceId))
+      .run();
+    expect(await service.withSource(sourceId, SourceType.TASKS, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.RATE_LIMITED,
+    });
+    service.markNeedsReauth(id);
+    expect(service.getSourceProvider(sourceId)).toBe(SyncSkipReason.NEEDS_REAUTH);
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('moves the integration to needs_reauth when the provider rejects the call, and rethrows', async () => {
+    const tasks = echoTasks(async () => {
+      throw new IntegrationAuthError('rejected');
+    });
+    const { service } = setup(registryOf(fakeProvider({ tasks }).provider));
+    const { id, sourceId } = await connect(service, ProviderId.LINEAR);
+
+    await expect(
+      service.withSource(sourceId, SourceType.TASKS, ({ source, auth }) =>
+        source.listOpenAssignedTaskIds(auth),
+      ),
+    ).rejects.toThrow(IntegrationAuthError);
+    expect(service.getById(id).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+  });
+
+  it('runs a call for every source of a type, whatever its provider, each apart', async () => {
+    // two providers serving the same source type, as Linear and GitHub would for tasks
+    const linear = fakeProvider({ tasks: echoTasks(async () => ['ENG-1']) }).provider;
+    const other = fakeProvider({
+      id: ProviderId.GOOGLE_CALENDAR,
+      tasks: echoTasks(async () => {
+        throw new Error('down');
+      }),
+    }).provider;
+    const { service } = setup(registryOf(linear, other));
+    const first = await connect(service, ProviderId.LINEAR);
+    const second = await connect(service, ProviderId.GOOGLE_CALENDAR);
+
+    const outcomes = await service.forEachSource(SourceType.TASKS, ({ source, auth }) =>
+      source.listOpenAssignedTaskIds(auth),
+    );
+
+    expect(outcomes.get(first.sourceId)).toEqual({ ok: true, value: ['ENG-1'] });
+    expect(outcomes.get(second.sourceId)).toEqual({ ok: false, error: new Error('down') });
+
+    // limited to some sources, and refusing what may not be asked now
+    service.setSourceEnabled(first.sourceId, false);
+    const limited = await service.forEachSource(SourceType.TASKS, vi.fn(), {
+      sourceIds: [first.sourceId],
+    });
+    expect([...limited]).toEqual([
+      [first.sourceId, { ok: false, reason: SyncSkipReason.SOURCE_DISABLED }],
+    ]);
+  });
+
+  it("gives a provider-specific call that provider's own implementation, and refuses others", async () => {
+    const { service } = setup(
+      registryOf(
+        fakeProvider({ tasks: echoTasks(async () => []) }).provider,
+        fakeProvider({ id: ProviderId.GOOGLE_CALENDAR }).provider,
+      ),
+    );
+    const linear = await connect(service, ProviderId.LINEAR);
+    const google = await connect(service, ProviderId.GOOGLE_CALENDAR);
+
+    const result = await service.withProvider(
+      linear.sourceId,
+      ProviderId.LINEAR,
+      async ({ provider, auth }) => `${provider.id} ${auth.authorization}`,
+    );
+    expect(result).toEqual({ ok: true, value: `linear ${API_KEY}` });
+
+    const call = vi.fn();
+    expect(await service.withProvider(google.sourceId, ProviderId.LINEAR, call)).toEqual({
+      ok: false,
+      reason: SyncSkipReason.UNSUPPORTED,
+    });
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundError for an unknown source', async () => {
+    const { service } = setup();
+    await expect(
+      service.withSource('src_unknown' as ExternalSourceId, SourceType.TASKS, vi.fn()),
+    ).rejects.toThrow(NotFoundError);
   });
 });

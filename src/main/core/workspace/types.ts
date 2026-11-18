@@ -29,7 +29,8 @@ export interface WorkspaceOptions {
   // https URLs through to it (docs/security/untrusted-content.md). Defaults to one that refuses,
   // so an OAuth connect fails.
   openExternal?: OpenExternal;
-  // where sync logs its runs; defaults to the console
+  // where sync logs its runs, and sync and integrations a failing change listener; defaults to the
+  // console
   logger?: Logger;
   // The task settings an import fills missing values from, read at each import. DevBrain passes
   // its settings; defaults to a due date of today and low priority.

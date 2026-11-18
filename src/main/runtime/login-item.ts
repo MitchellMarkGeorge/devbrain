@@ -1,13 +1,13 @@
 import type { App, LoginItemSettings } from 'electron';
 import type { DevBrain } from '@main/core';
-import type { SyncLogger } from '@main/core/sync/types';
+import type { Logger as CoreLogger } from '@main/core/shared/logger';
 
 // Keeps the general.launchOnStartup setting and the OS login item in step. Electron's app is passed
 // in, typed down to the two calls used, so tests can pass a fake.
 
 export type LoginItemApp = Pick<App, 'getLoginItemSettings' | 'setLoginItemSettings'>;
 type Settings = Pick<DevBrain['settings'], 'get' | 'set' | 'onChange'>;
-type Logger = Pick<SyncLogger, 'warn'>;
+type Logger = Pick<CoreLogger, 'warn'>;
 
 // Electron manages login items on macOS and Windows only. In development the item would open the
 // bare Electron binary, not DevBrain, so only a packaged app registers one.

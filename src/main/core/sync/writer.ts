@@ -425,7 +425,7 @@ class PageWrite {
 
     // 3. re-index what was written, and tell the renderer to refetch projects
     this.search.indexProjects(written);
-    if (written.length > 0) this.changed.add('project');
+    if (written.length > 0) this.changed.add(SyncEntityType.PROJECT);
   }
 
   /**
@@ -545,7 +545,7 @@ class PageWrite {
     // 6. re-index what was written, and tell the renderer to refetch tasks
     const written = [...inserted, ...updated];
     this.search.indexTasks(written);
-    if (written.length > 0) this.changed.add('task');
+    if (written.length > 0) this.changed.add(SyncEntityType.TASK);
   }
 
   /**
@@ -591,7 +591,7 @@ class PageWrite {
     // 3. removed rows are no longer searchable; a restore re-indexes them
     this.search.removeFromIndex(taskIds);
     this.removed += taskIds.length;
-    this.changed.add('task');
+    this.changed.add(SyncEntityType.TASK);
   }
 
   /**
@@ -689,7 +689,7 @@ class PageWrite {
           .set({ projectId: null })
           .where(syncedTasksIn(sql`${projectId}`))
           .run().changes;
-        if (moved > 0) this.changed.add('task');
+        if (moved > 0) this.changed.add(SyncEntityType.TASK);
       }
 
       // 3. live tasks that are not synced are local or detached; a removed task is archived
@@ -725,7 +725,7 @@ class PageWrite {
         archived.push(projectId);
         this.removed += 1;
       }
-      this.changed.add('project');
+      this.changed.add(SyncEntityType.PROJECT);
     }
 
     // archived projects are no longer searchable; a restore re-indexes them
@@ -845,7 +845,7 @@ class PageWrite {
     // 6.
     const written = [...inserted, ...updated];
     this.search.indexEvents(written);
-    if (written.length > 0) this.changed.add('event');
+    if (written.length > 0) this.changed.add(SyncEntityType.EVENT);
   }
 
   /**
@@ -882,7 +882,7 @@ class PageWrite {
           .onConflictDoNothing()
           .run();
         this.tx.delete(externalEventExceptions).where(parked).run();
-        this.changed.add('event');
+        this.changed.add(SyncEntityType.EVENT);
       }
 
       // The occurrence rows: shaped as adoptChildren's statement (see there), with `occurrence`
@@ -925,7 +925,7 @@ class PageWrite {
         )
         .run().changes;
       this.updated += adopted;
-      if (adopted > 0) this.changed.add('event');
+      if (adopted > 0) this.changed.add(SyncEntityType.EVENT);
     }
   }
 
@@ -948,7 +948,7 @@ class PageWrite {
         // the series shows one occurrence fewer
         if (recorded > 0) {
           this.updated += 1;
-          this.changed.add('event');
+          this.changed.add(SyncEntityType.EVENT);
         }
         continue;
       }
@@ -1130,7 +1130,7 @@ class PageWrite {
           .set({ ...fields, sourceId: this.sourceId })
           .where(eq(calendars.id, orphan.id))
           .run();
-        this.changed.add('calendar');
+        this.changed.add(SyncEntityType.CALENDAR);
         continue;
       }
       const row = existing.get(calendar.id);
@@ -1144,12 +1144,12 @@ class PageWrite {
             selected: first && selectedOnFirstListing(calendar),
           })
           .run();
-        this.changed.add('calendar');
+        this.changed.add(SyncEntityType.CALENDAR);
       } else if (
         (Object.keys(fields) as (keyof typeof fields)[]).some((k) => row[k] !== fields[k])
       ) {
         this.tx.update(calendars).set(fields).where(eq(calendars.id, row.id)).run();
-        this.changed.add('calendar');
+        this.changed.add(SyncEntityType.CALENDAR);
       }
     }
   }
@@ -1287,7 +1287,7 @@ class PageWrite {
     // 4. neither kind is searchable any more; a restore re-indexes a kept one
     this.search.removeFromIndex(eventIds);
     this.removed += eventIds.length;
-    this.changed.add('event');
+    this.changed.add(SyncEntityType.EVENT);
   }
 
   /** Ends the call: records that the unchanged items were seen, and returns the summary. */

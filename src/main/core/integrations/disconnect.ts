@@ -180,15 +180,15 @@ export function applyDisconnect(tx: Tx, plan: DisconnectPlan): SyncEntityType[] 
   // 2. a deleted project holds no task that is kept, so nothing of the user's loses its project
   if (taskIds.length > 0) {
     tx.delete(tasks).where(inArray(tasks.id, taskIds)).run();
-    changed.add('task');
+    changed.add(SyncEntityType.TASK);
   }
   if (projectIds.length > 0) {
     tx.delete(projects).where(inArray(projects.id, projectIds)).run();
-    changed.add('project');
+    changed.add(SyncEntityType.PROJECT);
   }
   if (eventIds.length > 0) {
     tx.delete(events).where(inArray(events.id, eventIds)).run();
-    changed.add('event');
+    changed.add(SyncEntityType.EVENT);
   }
 
   // 3.
@@ -208,7 +208,13 @@ export function applyDisconnect(tx: Tx, plan: DisconnectPlan): SyncEntityType[] 
     })
     .all();
   for (const link of detached) {
-    changed.add(link.taskId ? 'task' : link.projectId ? 'project' : 'event');
+    changed.add(
+      link.taskId
+        ? SyncEntityType.TASK
+        : link.projectId
+          ? SyncEntityType.PROJECT
+          : SyncEntityType.EVENT,
+    );
   }
 
   // 4.
@@ -223,6 +229,6 @@ export function applyDisconnect(tx: Tx, plan: DisconnectPlan): SyncEntityType[] 
       ),
     )
     .run().changes;
-  if (emptied > 0) changed.add('calendar');
+  if (emptied > 0) changed.add(SyncEntityType.CALENDAR);
   return [...changed];
 }

@@ -286,6 +286,66 @@ describe('CredentialStore — refresh', () => {
     expect(refresher).toHaveBeenCalledTimes(1);
   });
 
+  it('stops an aborted caller waiting at once, and lets the refresh store its tokens', async () => {
+    const pending = deferred<RefreshedTokens>();
+    const refresher = vi.fn<TokenRefresher>().mockReturnValue(pending.promise);
+    const store = storeWith(refresher);
+    await saveToken(store, 1000);
+
+    const controller = new AbortController();
+    const aborted = store.getAuth(id, { signal: controller.signal });
+    const waiting = store.getAuth(id);
+    await vi.waitFor(() => expect(refresher).toHaveBeenCalledTimes(1));
+    const reason = new Error('closing');
+    controller.abort(reason);
+    await expect(aborted).rejects.toBe(reason);
+
+    // the shared refresh goes on: the caller still waiting gets its tokens, and they are stored
+    let idle = false;
+    const whenIdle = store.whenIdle().then(() => (idle = true));
+    await Promise.resolve();
+    expect(idle).toBe(false);
+    pending.resolve({ accessToken: 'new-access', expiresAt: new Date(NOW + 60 * 60 * 1000) });
+    expect(await waiting).toEqual({ authorization: 'Bearer new-access' });
+    await whenIdle;
+    expect((await decryptStored(cipher, db, id)).accessToken).toBe('new-access');
+    expect(refresher).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts no refresh for a caller aborted while it was queued', async () => {
+    const first = deferred<RefreshedTokens>();
+    const refresher = vi
+      .fn<TokenRefresher>()
+      .mockReturnValueOnce(first.promise)
+      .mockRejectedValue(new Error('not expected'));
+    const store = storeWith(refresher);
+    await saveToken(store, 1000);
+
+    const running = store.getAuth(id);
+    const controller = new AbortController();
+    const queued = store.getAuth(id, { signal: controller.signal });
+    await vi.waitFor(() => expect(refresher).toHaveBeenCalledTimes(1));
+    controller.abort();
+    await expect(queued).rejects.toThrow();
+    // a refresh that fails stores nothing, so a queued caller would refresh again were it run
+    first.resolve({ accessToken: 'new-access', expiresAt: new Date(now - 1) });
+    await running;
+    await store.whenIdle();
+
+    expect(refresher).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses at once with a signal already aborted', async () => {
+    const refresher = vi.fn<TokenRefresher>();
+    const store = storeWith(refresher);
+    await saveToken(store, 0);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(store.getAuth(id, { signal: controller.signal })).rejects.toThrow();
+    expect(refresher).not.toHaveBeenCalled();
+  });
+
   it('refreshes each integration independently', async () => {
     const other = insertIntegration(db, Provider.GOOGLE_CALENDAR);
     const refresher = vi.fn<TokenRefresher>().mockResolvedValue({ accessToken: 'new-access' });

@@ -1,5 +1,5 @@
 import type { DevBrain } from '@main/core';
-import type { SyncLogger } from '@main/core/sync/types';
+import type { Logger as CoreLogger } from '@main/core/shared/logger';
 
 // What the app's lifecycle does: keep DevBrain to one instance, forward window focus and system
 // resume to the open workspace's scheduler, and close it before the app quits. Electron's app and powerMonitor are passed in,
@@ -27,7 +27,7 @@ export interface SingleInstanceApp {
   quit(): void;
 }
 
-type Logger = Pick<SyncLogger, 'warn'>;
+type Logger = Pick<CoreLogger, 'warn'>;
 
 /**
  * Keeps DevBrain to one running instance: two would open the same DevBrain folder, write its

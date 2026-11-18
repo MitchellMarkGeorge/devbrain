@@ -10,7 +10,6 @@ import { createDb } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FakeProvider, fakeRegistry, FAKE_API_KEY } from './fake-provider';
 import { SyncWriter } from '../../sync/writer';
-import { SyncStateManager } from '../../sync/sync-state';
 import { TaskReconciler } from '../../sync/task-reconciler';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
@@ -204,9 +203,7 @@ async function workspace() {
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const reconciler = new TaskReconciler({
     db,
-    syncState: new SyncStateManager(db),
-    credentials,
-    providers,
+    integrations,
     writer,
     logger,
   });

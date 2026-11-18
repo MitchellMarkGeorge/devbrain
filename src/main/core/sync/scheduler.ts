@@ -1,5 +1,5 @@
 import { ExternalSourceId, IntegrationId } from '@common/ids';
-import { consoleLogger } from '../shared/logger';
+import { consoleLogger, type Logger } from '../shared/logger';
 import { BaseIntegrationService, IntegrationChange } from '../integrations/service';
 import { IntegrationStatus, type SourceSyncStatus } from '@common/types';
 import {
@@ -11,7 +11,7 @@ import {
 } from './constants';
 import type { BaseSyncEngine } from './engine';
 import { SyncStateManager, SyncStatusListener, SyncTarget } from './sync-state';
-import { SyncLogger, SyncProgressListener, SyncRunOutcome } from './types';
+import { SyncProgressListener, SyncRunOutcome } from './types';
 
 // The clock and timers the scheduler runs on. Defaults to the global ones, resolved at each call,
 // so Vitest's fake timers drive it.
@@ -30,7 +30,7 @@ export interface SyncSchedulerOptions {
   // each source's failure count and retry time, for backoff, and how each run ended (onStatus)
   syncState: Pick<SyncStateManager, 'getSyncTarget' | 'onChange'>;
   timers?: SchedulerTimers;
-  logger?: SyncLogger;
+  logger?: Logger;
 }
 
 /**
@@ -107,7 +107,7 @@ export class SyncScheduler {
   private readonly integrations: BaseIntegrationService;
   private readonly syncState: Pick<SyncStateManager, 'getSyncTarget' | 'onChange'>;
   private readonly timers: SchedulerTimers;
-  private readonly logger: SyncLogger;
+  private readonly logger: Logger;
   // each source's run now, if any; one that was aborted stays here until it settles
   private readonly currentRuns = new Map<ExternalSourceId, SourceRun>();
   // every run that has not settled, aborted ones still finishing included; stop() waits on these

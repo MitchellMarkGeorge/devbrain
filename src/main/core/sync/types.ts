@@ -3,7 +3,6 @@ import type { SyncEntityType } from '@common/types';
 import type { ExternalEvent, ExternalProject, ExternalTask } from '../integrations/types';
 import type { EventCursor } from './event-cursor';
 import type { TaskCursor } from './task-cursor';
-import type { Logger } from '../shared/logger';
 
 // a source's cursor, as its syncer stores it on external_sources; opaque to the engine
 export type SyncCursor = TaskCursor | EventCursor;
@@ -89,9 +88,6 @@ export type EventPageItems = Pick<
   EventSyncPage,
   'events' | 'cancelledIds' | 'skippedIds' | 'fullPass'
 >;
-
-// the logger sync writes its run lines to; see shared/logger
-export type SyncLogger = Logger;
 
 // what one writer call did; the engine passes it to its progress callback
 export interface SyncSummary {
