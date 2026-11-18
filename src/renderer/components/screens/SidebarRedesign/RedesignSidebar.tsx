@@ -174,6 +174,7 @@ export function RedesignSidebar({
             row={{ label: 'Upcoming', icon: CalendarClock, count: 14 }}
             active={active === 'Upcoming'}
           />
+          {library === 'rows' && <div className={styles.separator} role="separator" />}
           {library === 'rows' &&
             LIBRARY.map(([label, icon]) => (
               <SidebarItem key={label} icon={icon} active={active === label}>

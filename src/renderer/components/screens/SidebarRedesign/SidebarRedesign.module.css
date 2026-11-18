@@ -172,3 +172,11 @@
 .dot[data-state='syncing'] {
   background: var(--ring);
 }
+
+/* between the time views (Today, Upcoming) and the full lists (Tasks, Notes, Calendar): 4px above
+   and below plus the menu's 2px gap, inset to the items' padding */
+.separator {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--sidebar-border);
+}
