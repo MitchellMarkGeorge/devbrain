@@ -42,8 +42,8 @@
   background: inherit;
 }
 /*
- * The header (the settings' Back to app), pinned while the rest scrolls under it: 8px under the
- * title bar (or the sidebar's top), opaque down to the gap below it, so items
+ * The header (the workspace switcher, or the settings' Back to app), pinned while the rest scrolls
+ * under it: straight under the title bar (or at the sidebar's top), opaque down to the gap below it, so items
  * slide out of sight under its edge. While anything is scrolled under it, it casts a shadow.
  */
 .top {
@@ -54,15 +54,11 @@
   flex: none;
   flex-direction: column;
   gap: var(--sidebar-gap);
-  padding: var(--space-2) var(--sidebar-inset) var(--sidebar-gap);
+  padding: 0 var(--sidebar-inset) var(--sidebar-gap);
   /* a colour of its own, not inherited: inside the shell the sidebar is transparent (the window
      draws its colour), and the header has to hide what scrolls under it */
   background: var(--sidebar);
   transition: box-shadow var(--duration-normal) var(--ease-out);
-}
-/* the workspace switcher's row: straight under the title bar, without the 8px */
-.top:has(> .header) {
-  padding-top: 0;
 }
 .sidebar[data-drawer] .top {
   background: var(--popover);
