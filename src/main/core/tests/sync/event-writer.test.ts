@@ -331,6 +331,21 @@ describe('SyncWriter events — insert and update', () => {
     expect(eventRow(item.externalId)).toEqual(before);
   });
 
+  it('writes a changed answer to the invitation even when updatedAt did not move', () => {
+    const item = event({ response: EventResponse.ACCEPTED });
+    writer.applyEventPage(sourceId, calendarId, page({ events: [item] }));
+
+    // Google's `updated` may leave out an attendee's answer (to confirm against the live API)
+    const summary = writer.applyEventPage(
+      sourceId,
+      calendarId,
+      page({ events: [{ ...item, response: EventResponse.DECLINED }] }),
+    );
+
+    expect(summary).toMatchObject({ updated: 1, changed: ['event'] });
+    expect(eventRow(item.externalId)).toMatchObject({ response: EventResponse.DECLINED });
+  });
+
   it('updates a changed event and re-indexes it', () => {
     const item = event({ title: 'Planning' });
     writer.applyEventPage(sourceId, calendarId, page({ events: [item] }));
