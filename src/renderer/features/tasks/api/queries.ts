@@ -14,14 +14,14 @@ import type { TaskListInput } from './search';
 // The tasks page's reads, and the in-place patch its optimistic writes use
 // (docs/renderer/implementation-plan.md, "How the infinite lists work" and "Mutations").
 
-/** At most this many pages stay loaded per list; scrolling back past them reloads the earlier ones. */
-const MAX_PAGES = 10;
-
-/** One infinite list of tasks (`tasks.list`), paged by core's cursor. */
+/**
+ * One infinite list of tasks (`tasks.list`), paged by core's cursor. Every loaded page stays, as in
+ * every paged list here: `maxPages` would drop the first pages with no way to load them again, and
+ * the list stopped loading at that many (docs/renderer/implementation-plan.md).
+ */
 export function taskListQuery(input: TaskListInput) {
   return trpc.tasks.list.infiniteQueryOptions(input, {
     getNextPageParam: (page) => page.nextCursor,
-    maxPages: MAX_PAGES,
   });
 }
 
@@ -51,7 +51,7 @@ export function groupTasksQuery(input: TaskListInput, pages: number) {
 export function subtasksQuery(id: TaskId) {
   return trpc.tasks.subtasks.infiniteQueryOptions(
     { id, limit: 100 },
-    { getNextPageParam: (page) => page.nextCursor, maxPages: MAX_PAGES },
+    { getNextPageParam: (page) => page.nextCursor },
   );
 }
 
