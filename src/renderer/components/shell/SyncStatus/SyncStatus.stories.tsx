@@ -10,7 +10,8 @@ const meta = {
   decorators: [
     (Story) => (
       <TooltipProvider>
-        <div style={{ width: 224 }}>
+        {/* the room the footer's row leaves it, beside Trash, Settings and Help */}
+        <div style={{ width: 152 }}>
           <Story />
         </div>
       </TooltipProvider>
@@ -23,15 +24,17 @@ type Story = StoryObj<typeof meta>;
 
 export const Synced: Story = {};
 
-/** The five states of Figma's `SyncStatus`. */
+/** The six states, in their short form; paused, offline and set up sync say the rest in a tooltip. */
 export const States: Story = {
   render: () => (
     <Stack gap="3">
       <SyncStatus state="synced" lastSynced="2 min ago" />
+      <SyncStatus state="synced" lastSynced="yesterday at 4:12 PM" />
       <SyncStatus state="syncing" />
       <SyncStatus state="error" onRetry={() => {}} />
       <SyncStatus state="rate-limited" retryAt="9:15 AM" />
       <SyncStatus state="offline" />
+      <SyncStatus state="none" />
     </Stack>
   ),
 };

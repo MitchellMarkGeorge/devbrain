@@ -107,13 +107,15 @@
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--muted-foreground);
+  text-decoration: none;
   cursor: pointer;
   transition:
     background-color var(--duration-fast),
     color var(--duration-fast);
 }
 .action:hover,
-.action[data-popup-open] {
+.action[data-popup-open],
+.action[data-active] {
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
 }
@@ -274,11 +276,30 @@ button.groupLabel:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* ---------- footer: sync status, Trash, Settings and Help ---------- */
+/* ---------- footer: the sync line, then Trash, Settings and Help as icons ---------- */
 .footer {
   display: flex;
   flex: none;
-  flex-direction: column;
-  gap: var(--space-0-5);
+  align-items: center;
+  gap: var(--space-1);
   width: 100%;
+  min-height: var(--control-md);
+}
+/* the sync line takes the room the actions leave, shortening before they do */
+.footer > :not(.footerActions) {
+  flex: 1;
+  min-width: 0;
+}
+.footerActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-0-5);
+  /* at the end even with no sync line (no source connected) */
+  margin-left: auto;
+}
+/* 24px in the footer, so the sync line keeps room for "Synced 12 min ago" */
+.footerActions .action {
+  width: var(--control-xs);
+  height: var(--control-xs);
 }

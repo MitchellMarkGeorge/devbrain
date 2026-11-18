@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { FakeMain, workspace } from './fake-main';
-import { eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The app's sidebar, in a workspace where nothing is favorited (the fake main's favorites.list).
 
@@ -30,10 +30,27 @@ describe('the sidebar', () => {
 
   it('opens the keyboard shortcuts from Help', async () => {
     await onWorkHome();
-    const help = [...sidebar().querySelectorAll('button')].find((b) => b.textContent === 'Help');
+    const help = sidebar().querySelector<HTMLButtonElement>('button[aria-label="Help"]');
     expect(help?.disabled).toBe(false);
     help!.click();
     await eventually(() => expect(document.body.textContent).toContain('Keyboard shortcuts'));
     expect(document.body.textContent).toContain('Go to Tasks');
+  });
+
+  it('links Trash from its footer icon, which then shows as the current page', async () => {
+    const app = await onWorkHome();
+    const trash = () => sidebar().querySelector<HTMLAnchorElement>('a[aria-label="Trash"]');
+    expect(trash()?.getAttribute('aria-current')).toBeNull();
+    trash()!.click();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/trash`));
+    await eventually(() => expect(trash()?.getAttribute('aria-current')).toBe('page'));
+  });
+
+  it('invites to "Set up sync" while nothing is connected, opening Integrations', async () => {
+    const app = await onWorkHome();
+    const line = () => byText(sidebar(), 'button', 'Set up sync');
+    await eventually(() => expect(line()).toBeTruthy());
+    click(line()!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/integrations`));
   });
 });
