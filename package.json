@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.1.0",
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "1.63.0",
     "@storybook/react-vite": "^10.6.5",
     "@tanstack/react-router-devtools": "1.167.2",
