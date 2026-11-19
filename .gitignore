@@ -8,3 +8,7 @@ release
 .vite
 .dev
 storybook-static
+
+# end-to-end test output (npm run e2e)
+test-results
+playwright-report

@@ -1618,9 +1618,9 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 - **Pages:** a smoke test per page that renders with fixture data through the fake bridge and
   checks its main states (loading, empty, data). Keep them few; the components' stories already
   cover how they look.
-- **End to end:** later, Playwright's Electron support (`_electron.launch`) over a temporary
-  DevBrain folder seeded with `npm run seed:dev`: create workspace → create task → open it →
-  trash and restore.
+- **End to end:** built in `e2e/`: Playwright's Electron support (`_electron.launch`) over a
+  temporary DevBrain folder, empty or seeded with `seed:dev`'s code. See
+  [testing.md](../testing.md).
 
 ## Open questions
 
