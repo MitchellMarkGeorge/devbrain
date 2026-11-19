@@ -274,7 +274,7 @@ export class DetachService {
       }
     }
 
-    const refusedForGood: { sourceId: ExternalSourceId; externalIds: string[] }[] = [];
+    const refusedForGood = new Map<ExternalSourceId, string[]>();
     for (const [sourceId, sourceRoots] of bySource) {
       // 2.
       const results = await this.reconciler.reattachGroups(
@@ -283,7 +283,6 @@ export class DetachService {
       );
       // 3.
       const settled: string[] = [];
-      refusedForGood.push({ sourceId, externalIds: settled });
       for (const { taskId, key, group } of sourceRoots) {
         const result = results.get(group.rootExternalId)!;
         if (result.ok) this.emitReattached(taskId, result.summary);
@@ -297,9 +296,10 @@ export class DetachService {
           }
         }
       }
+      if (settled.length > 0) refusedForGood.set(sourceId, settled);
     }
     const reattached = before - this.keptCopies(integrationId).tasks;
-    for (const { sourceId, externalIds } of refusedForGood) {
+    for (const [sourceId, externalIds] of refusedForGood) {
       this.stopOffering(integrationId, sourceId, externalIds);
     }
     return { reattached, failed };
