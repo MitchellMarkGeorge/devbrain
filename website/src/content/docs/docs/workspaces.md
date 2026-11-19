@@ -15,7 +15,7 @@ DevBrain opens it on the page you last had open there. The menu also has:
 - **New workspace…**: a name and a colour, then **Create Workspace**.
 - **Open folder…**: add a workspace from a folder, such as one copied from another computer (also
   **File › Open Workspace Folder…**, <kbd>⌘O</kbd>).
-- **Show in Finder**: show the workspace's folder in your file manager.
+- **Show in Finder** (Explorer on Windows, File Manager on Linux): show the workspace's folder in your file manager.
 
 Rename a workspace or change its colour in [Settings › General](/docs/settings/#general), where you
 can also delete it.

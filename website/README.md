@@ -122,7 +122,7 @@ Installers are never served from the site: they stay on GitHub Releases (Pages r
 
 A page is a Markdown file in `src/content/docs/docs/`, with a `title` and `description` in its front
 matter; add it to `sidebar` in `astro.config.mjs`. A page that shows a screenshot is MDX (`.mdx`),
-importing `DocsScreenshot` with the capture's name (`page="tasks-board"`), alt text, and `focusX`
+importing `DocsScreenshot` with the capture's name (`page="board"`), alt text, and `focusX`
 for the crop phones show. Starlight's
 [asides](https://starlight.astro.build/guides/authoring-content/#asides) (`:::note`) and code blocks
 work as in its docs. Search is built with the site.
