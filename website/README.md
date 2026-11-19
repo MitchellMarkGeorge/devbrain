@@ -29,7 +29,7 @@ step with the app**.
 | `src/pages/index.astro`       | The home page                                                         |
 | `src/pages/download.astro`    | The installers of the latest release, read from GitHub Releases       |
 | `src/pages/changelog.astro`   | Every release's notes, from GitHub Releases                           |
-| `src/content/docs/docs/*.md`  | The docs, served under `/docs/`; the sidebar is in `astro.config.mjs` |
+| `src/content/docs/docs/*.md*` | The docs, served under `/docs/`; the sidebar is in `astro.config.mjs` |
 | `src/components/Layout.astro` | The frame of the home, download and changelog pages                   |
 | `src/lib/releases.ts`         | Reads the releases and sorts their files by platform                  |
 | `src/styles/site.css`         | The marketing pages' base styles                                      |
@@ -56,18 +56,38 @@ The site doesn't copy the design system; it reads it from the app:
 The screenshots on the home page are the real app, taken by `npm run website:screenshots` at the
 repository's root: it builds the app, makes the **showcase workspace**
 (`scripts/setup_showcase_workspace.mts`: a few projects, tasks, notes and a week of meetings,
-dated from the day it runs), opens it in the built app through the end-to-end harness
+dated from the moment the screenshots show: 10:40 on a weekday of this week, with each note
+edited a believable while before), opens it in the built app through the end-to-end harness
 (`e2e/screenshots/website.screens.ts`), and captures each page in dark and light at 2x into
 `src/assets/screenshots/<page>-<theme>.png`. Commit the new files.
 
 - Take them again when a page they show changes, or to bring their dates up to now.
-- `Screenshot.astro` shows the capture in the visitor's theme (`prefers-color-scheme`), resized
-  and converted to WebP when the site is built.
+- `Screenshot.astro` (the home page) shows the capture in the visitor's theme
+  (`prefers-color-scheme`), resized and converted to WebP when the site is built.
   Its `crop` shows one part of a capture (a close-up of a piece of the UI), so a new close-up
   needs no new capture.
+- `DocsScreenshot.astro` does the same in the docs, following Starlight's theme picker instead, with
+  a caption.
+- The showcase workspace's links (a task's note, a meeting's note) are there for the task and event
+  screenshots; keep them when changing its data.
+- The same run draws the **share image** (`public/og.png`, 1200x630: what a link to any page shows in
+  Slack, X or LinkedIn) from the dark task list, in a hidden window of the app
+  (`e2e/screenshots/share-card.ts`). Every page names it as `og:image` (`src/lib/share-image.ts`);
+  change its words in `share-card.ts` and its alt text there too.
 - To show another page, add it to `PAGES` in `website.screens.ts`, and to what the showcase
   workspace holds if it needs data; `seed:dev`'s generated rows are for testing, not for showing.
 - On Linux without a display it runs under Xvfb, as the end-to-end tests do.
+
+## Search engines and link previews
+
+- Every page has its own title ("Tasks · DevBrain"), a description of 100–160 characters (front
+  matter `description`, or `Layout`'s prop), a canonical link to `https://devbrainapp.dev`, and the
+  share image. Keep new pages' descriptions in that range: shorter ones are often replaced by text
+  taken from the page.
+- `robots.txt` (`src/pages/robots.txt.ts`) and the sitemap (`@astrojs/sitemap`) are built for the
+  site's address.
+- The home page describes the app to search engines as a `SoftwareApplication` (JSON-LD, in
+  `index.astro`): update its platforms or licence when those change.
 
 ## Releases on the site
 
@@ -117,7 +137,9 @@ Installers are never served from the site: they stay on GitHub Releases (Pages r
 ## Writing docs
 
 A page is a Markdown file in `src/content/docs/docs/`, with a `title` and `description` in its front
-matter; add it to `sidebar` in `astro.config.mjs`. Starlight's
+matter; add it to `sidebar` in `astro.config.mjs`. A page that shows a screenshot is MDX (`.mdx`),
+importing `DocsScreenshot` with the capture's name (`page="board"`), alt text, and `focusX`
+for the crop phones show. Starlight's
 [asides](https://starlight.astro.build/guides/authoring-content/#asides) (`:::note`) and code blocks
 work as in its docs. Search is built with the site.
 

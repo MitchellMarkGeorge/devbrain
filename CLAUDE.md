@@ -256,8 +256,8 @@ The site describes the app, so a change users can see lands with its website cha
 pull request**, as a design change lands with its stories and guide. Before finishing an app change,
 go through this list:
 
-- **UI on a page the screenshots show** (`PAGES` in `e2e/screenshots/website.screens.ts`: the task
-  list and board, a project's overview, a note, the calendar's week and agenda): run
+- **UI on a page the screenshots show** (`PAGES` in `e2e/screenshots/website.screens.ts`: the pages
+  the home page and the docs show, from Home and the task list to search, settings and integrations): run
   `npm run website:screenshots`, look at the new captures and commit them. Check that the home page's
   close-ups (`crop` in `website/src/pages/index.astro`) still frame what their text describes, and
   move a crop that doesn't. If the change needs data the showcase workspace lacks, or makes it look

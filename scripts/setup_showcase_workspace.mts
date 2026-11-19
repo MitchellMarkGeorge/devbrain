@@ -1,10 +1,18 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
 import { openDevBrain } from '@main/core';
 import { openElectronSettingsStore } from '@main/runtime/settings-store';
 import { devCipher } from '@main/runtime/dev-cipher';
-import { type Project, ProjectStatus, TaskPriority, TaskStatus } from '@common/types';
+import {
+  type Note,
+  type Event,
+  type Project,
+  ProjectStatus,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import type { Workspace } from '@main/core/workspace/workspace';
 
 /**
@@ -16,6 +24,11 @@ import type { Workspace } from '@main/core/workspace/workspace';
  * It goes through the same services as the app, as `seed:dev` does.
  *
  *   tsx scripts/run-with-vite.mts scripts/setup_showcase_workspace.mts --path <folder> [--name Acme]
+ *     [--now 2026-11-19T10:40:00Z]
+ *
+ * `--now` is the moment the workspace is shown at (the screenshots pin the window's clock to it):
+ * its dates are relative to that day, and its rows are dated as made before it, each note edited a
+ * believable while ago, so nothing reads as edited "in 7h".
  *
  * The folder must not exist yet.
  */
@@ -33,10 +46,12 @@ const option = (name: string): string | undefined => {
 
 const ROOT_PATH = option('path');
 const WORKSPACE_NAME = option('name') ?? 'Acme';
+const NOW_OPTION = option('now');
+const NOW = NOW_OPTION === undefined ? new Date() : new Date(NOW_OPTION);
 
 // --- Dates, relative to today ---------------------------------------------------------------
 
-const today = new Date();
+const today = new Date(NOW);
 today.setHours(0, 0, 0, 0);
 
 function day(offset: number): Date {
@@ -120,6 +135,47 @@ function seedProjects(workspace: Workspace) {
 async function seedWorkspace(workspace: Workspace) {
   const projects = seedProjects(workspace);
 
+  // the note the proration task links to (a task links one note or one event)
+  const prorationNote = await workspace.notes.createNote({
+    title: 'Proration rules',
+    projectId: projects.billing.id,
+    content: [
+      'How a plan change in the middle of a billing cycle is charged, as agreed in the Billing v2 design review.',
+      '',
+      '> [!NOTE]',
+      '> These rules apply to monthly plans. Annual plans are still open (below).',
+      '',
+      '## Upgrades',
+      '',
+      '- Charge the difference for the days left in the cycle, **today**.',
+      '- The new limits apply at once.',
+      '',
+      '## Downgrades',
+      '',
+      '- Credit the unused days to the next invoice; never refund to the card.',
+      '- The old limits stay until the cycle ends.',
+      '',
+      '## Examples',
+      '',
+      '| Change | Day of cycle | Charged today | Credited |',
+      '| --- | --- | --- | --- |',
+      '| Starter → Team | 10 of 30 | $26.67 | n/a |',
+      '| Team → Starter | 20 of 30 | n/a | $13.33 |',
+      '| Team → Business | 1 of 30 | $96.67 | n/a |',
+      '',
+      '```ts',
+      'const credit = (unusedDays / cycleDays) * oldPlan.price;',
+      'const charge = (unusedDays / cycleDays) * (newPlan.price - oldPlan.price);',
+      '```',
+      '',
+      '## Open questions',
+      '',
+      '- [ ] Annual plans: prorate by day or by month?',
+      '- [x] Taxes follow the line item, not the invoice',
+      '- [x] Show the proration on the invoice preview',
+    ].join('\n'),
+  });
+
   type TaskDef = {
     title: string;
     project?: Project;
@@ -127,6 +183,7 @@ async function seedWorkspace(workspace: Workspace) {
     priority?: (typeof TaskPriority)['LOW' | 'MEDIUM' | 'HIGH'];
     due?: number | null;
     pr?: string;
+    note?: Note;
     subtasks?: { title: string; status?: TaskStatus }[];
   };
   const tasks: TaskDef[] = [
@@ -137,6 +194,7 @@ async function seedWorkspace(workspace: Workspace) {
       priority: HIGH,
       due: 1,
       pr: 'https://github.com/acme/billing/pull/412',
+      note: prorationNote,
       subtasks: [
         { title: 'Credit unused days on downgrade', status: COMPLETED },
         { title: 'Charge the difference on upgrade', status: IN_PROGRESS },
@@ -254,6 +312,7 @@ async function seedWorkspace(workspace: Workspace) {
       dueDate: def.due === undefined || def.due === null ? null : day(def.due),
       projectId: def.project?.id,
       pullRequestUrl: def.pr,
+      linkedNoteId: def.note?.id,
     });
     for (const subtask of def.subtasks ?? []) {
       workspace.tasks.createSubtask(task.id, {
@@ -289,55 +348,18 @@ async function seedWorkspace(workspace: Workspace) {
     { title: 'Focus: rate limits', start: weekday(3, 13), minutes: 90, color: '#22c55e' },
     { title: 'Retro', start: weekday(4, 13, 30), minutes: 45, color: '#14b8a6' },
   ];
+  const events = new Map<string, Event>();
   for (const meeting of meetings) {
-    workspace.events.createEvent({
+    const event = workspace.events.createEvent({
       title: meeting.title,
       startAt: meeting.start,
       endAt: minutesAfter(meeting.start, meeting.minutes),
       color: meeting.color,
     });
+    events.set(meeting.title, event);
   }
 
   // Notes
-  await workspace.notes.createNote({
-    title: 'Proration rules',
-    projectId: projects.billing.id,
-    content: [
-      'How a plan change in the middle of a billing cycle is charged, as agreed in the Billing v2 design review.',
-      '',
-      '> [!NOTE]',
-      '> These rules apply to monthly plans. Annual plans are still open (below).',
-      '',
-      '## Upgrades',
-      '',
-      '- Charge the difference for the days left in the cycle, **today**.',
-      '- The new limits apply at once.',
-      '',
-      '## Downgrades',
-      '',
-      '- Credit the unused days to the next invoice; never refund to the card.',
-      '- The old limits stay until the cycle ends.',
-      '',
-      '## Examples',
-      '',
-      '| Change | Day of cycle | Charged today | Credited |',
-      '| --- | --- | --- | --- |',
-      '| Starter → Team | 10 of 30 | $26.67 | n/a |',
-      '| Team → Starter | 20 of 30 | n/a | $13.33 |',
-      '| Team → Business | 1 of 30 | $96.67 | n/a |',
-      '',
-      '```ts',
-      'const credit = (unusedDays / cycleDays) * oldPlan.price;',
-      'const charge = (unusedDays / cycleDays) * (newPlan.price - oldPlan.price);',
-      '```',
-      '',
-      '## Open questions',
-      '',
-      '- [ ] Annual plans: prorate by day or by month?',
-      '- [x] Taxes follow the line item, not the invoice',
-      '- [x] Show the proration on the invoice preview',
-    ].join('\n'),
-  });
   await workspace.notes.createNote({
     title: 'Invoice email copy',
     projectId: projects.billing.id,
@@ -371,6 +393,8 @@ async function seedWorkspace(workspace: Workspace) {
   await workspace.notes.createNote({
     title: 'Onboarding usability test: script',
     projectId: projects.onboarding.id,
+    // the meeting's note, as one started from its event
+    linkedEventId: events.get('Onboarding usability test')?.id,
     content: [
       '1. Install the app from the store link.',
       '2. Sign up, and create a first project from a template.',
@@ -402,6 +426,62 @@ async function seedWorkspace(workspace: Workspace) {
   });
 }
 
+// --- Dating the rows ------------------------------------------------------------------------
+
+// How long before NOW each note was last edited, in minutes; a note not listed was edited a day ago
+const NOTE_EDITED_MINUTES_AGO: Record<string, number> = {
+  'Proration rules': 25,
+  'Weekly notes': 70,
+  'Billing v2 launch checklist': 3 * 60,
+  'Onboarding usability test: script': 20 * 60,
+  'Invoice email copy': 26 * 60,
+  'API versioning decision': 2 * 24 * 60,
+  'Postgres upgrade checklist': 4 * 24 * 60,
+};
+const DEFAULT_NOTE_EDITED_MINUTES_AGO = 24 * 60;
+// everything else was made this long before NOW
+const MADE_MINUTES_AGO = 2 * 24 * 60;
+
+/**
+ * Dates the rows as made before NOW. The database stamps a row with its own clock as it's inserted,
+ * so a workspace made this afternoon and shown at 10:40 this morning would say "edited in 7h": every
+ * timestamp is moved back by the same amount, keeping their order, then each note gets its own
+ * "edited" time. Done on the closed workspace's database, after the services made it.
+ */
+function dateRows(dbPath: string, madeAt: Date): void {
+  const db = new Database(dbPath);
+  try {
+    const shift = NOW.getTime() - MADE_MINUTES_AGO * 60_000 - madeAt.getTime();
+    db.transaction(() => {
+      for (const table of ['projects', 'tasks', 'notes', 'events', 'calendars']) {
+        const columns = (db.pragma(`table_info(${table})`) as { name: string }[]).map(
+          (c) => c.name,
+        );
+        for (const column of ['created_at', 'updated_at', 'completed_at']) {
+          if (!columns.includes(column)) continue;
+          db.prepare(
+            `UPDATE ${table} SET ${column} = ${column} + ? WHERE ${column} IS NOT NULL`,
+          ).run(shift);
+        }
+      }
+      const notes = db.prepare('SELECT id, title FROM notes').all() as {
+        id: string;
+        title: string;
+      }[];
+      const edit = db.prepare(
+        'UPDATE notes SET updated_at = ?, created_at = MIN(created_at, ?) WHERE id = ?',
+      );
+      for (const note of notes) {
+        const minutes = NOTE_EDITED_MINUTES_AGO[note.title] ?? DEFAULT_NOTE_EDITED_MINUTES_AGO;
+        const editedAt = NOW.getTime() - minutes * 60_000;
+        edit.run(editedAt, editedAt, note.id);
+      }
+    })();
+  } finally {
+    db.close();
+  }
+}
+
 async function main() {
   if (!ROOT_PATH) {
     console.error('Usage: setup_showcase_workspace.mts --path <folder> [--name <name>]');
@@ -423,14 +503,17 @@ async function main() {
     createIfMissing: true,
     workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
+  let workspaceId: string;
   try {
     const created = await devBrain.workspaces.create({ name: WORKSPACE_NAME, color: '#6366f1' });
+    workspaceId = created.id;
     const workspace = await devBrain.workspaces.open(created.id);
     // search indexes each row as its service creates it (Workspace)
     await seedWorkspace(workspace);
   } finally {
     await devBrain.close();
   }
+  dateRows(path.join(root, 'workspaces', workspaceId, 'db.sqlite'), new Date());
   console.log(`Showcase workspace "${WORKSPACE_NAME}" at ${root}`);
 }
 

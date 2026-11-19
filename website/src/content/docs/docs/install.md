@@ -1,6 +1,6 @@
 ---
 title: Installing DevBrain
-description: Install DevBrain on macOS, Windows or Linux.
+description: 'Install DevBrain on macOS (Apple silicon or Intel), Windows or Linux, where it keeps your data, and how to update to a new version.'
 ---
 
 Get the installer for your computer from the [download page](/download/).
@@ -38,7 +38,8 @@ protections (no Node.js in the page, strict isolation) still apply.
 ## Where your data lives
 
 DevBrain keeps everything in one folder, `.devbrain` in your home folder: its settings, and a
-folder for each [workspace](/docs/workspaces/). Uninstalling DevBrain leaves it in place.
+folder for each [workspace](/docs/workspaces/). Uninstalling DevBrain leaves it in place. See
+[Data and privacy](/docs/data-and-privacy/).
 
 ## Updating
 

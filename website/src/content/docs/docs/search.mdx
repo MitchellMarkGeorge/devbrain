@@ -1,0 +1,51 @@
+---
+title: Search
+description: 'Search every task, note, project and event in DevBrain with ⌘K or Ctrl K: what it searches, filtering by type, and jumping to any page.'
+---
+
+import DocsScreenshot from '../../../components/DocsScreenshot.astro';
+
+Press <kbd>⌘K</kbd> (<kbd>Ctrl K</kbd> on Windows and Linux) from anywhere, even while you're
+typing, or click the search field in the title bar. **Edit › Find…** in the menu bar opens it too.
+
+<DocsScreenshot
+  page="search"
+  alt="The search dialog: the query 'proration', type filters with counts (All 5, Tasks 2, Notes 2, Projects 0, Events 1), and results grouped by type with the matching words in bold"
+  focusX={0.35}
+/>
+
+## What it searches
+
+| Type     | Searched in              |
+| -------- | ------------------------ |
+| Tasks    | Title and description    |
+| Notes    | Title and the whole note |
+| Projects | Title and description    |
+| Events   | Title and description    |
+
+Synced items from Linear and Google Calendar are searched like your own. Items in the trash aren't.
+
+- Every word you type must match. Words match the start of words too, so `meet` finds "meeting".
+- Accents and case don't matter.
+- Results update as you type. A match in the title ranks higher than one in the body, and the
+  matching words are shown in bold.
+
+## Narrowing to a type
+
+The buttons under the field (**All**, **Tasks**, **Notes**, **Projects**, **Events**) show how many
+matches each has. Press <kbd>Tab</kbd> and <kbd>Shift Tab</kbd> to move between them. **All** shows
+the top five of each type; a single type shows every match.
+
+## Before you type
+
+With nothing typed, search shows the items you opened last under **Recent**, and **Go to** for every page with
+its shortcut (<kbd>G</kbd> then <kbd>T</kbd> for Tasks, for example). Pick a type first to see the
+recently updated tasks, notes or projects.
+
+## Opening a result
+
+Use <kbd>↑</kbd> and <kbd>↓</kbd> to choose a result, and <kbd>Enter</kbd> to open it: a task,
+note or project on its page, an event in the calendar on its day. <kbd>Esc</kbd> closes search.
+
+If nothing matches, search offers to make it: **New Task** with what you typed as its title, or
+**New Note**.
