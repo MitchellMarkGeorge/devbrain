@@ -31,7 +31,7 @@ doing today, what's next, and what you worked on last week:
   offline, and keeps your data in files you own.
 - **Out of your way.** It's quiet and quick, with a [keyboard shortcut](/docs/keyboard-shortcuts/)
   for most things. What it puts in front of you, on Home and in the calendar's Up next, comes from
-  your dates and the connections you make: there's no AI deciding for you.
+  your dates and the connections you make.
 
 It draws on the ideas of Getting Things Done and the second-brain method, without asking you to
 learn either.
