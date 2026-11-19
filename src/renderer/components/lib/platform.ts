@@ -65,6 +65,27 @@ export function usePlatform(): Platform {
   return useWindowFrame().platform;
 }
 
+/**
+ * How the UI names the platform's things, as the menu bar does (src/main/runtime/menu.ts):
+ * `fileManager` for "Show in Finder" ("Explorer" on Windows, "File Manager" on Linux) and
+ * `computer` for where DevBrain keeps data ("this Mac", "this PC", "this computer").
+ */
+export interface PlatformWords {
+  fileManager: 'Finder' | 'Explorer' | 'File Manager';
+  computer: 'this Mac' | 'this PC' | 'this computer';
+}
+
+export function platformWords(platform: Platform): PlatformWords {
+  if (platform === 'macos') return { fileManager: 'Finder', computer: 'this Mac' };
+  if (platform === 'windows') return { fileManager: 'Explorer', computer: 'this PC' };
+  return { fileManager: 'File Manager', computer: 'this computer' };
+}
+
+/** `platformWords` for this subtree's platform. */
+export function usePlatformWords(): PlatformWords {
+  return platformWords(usePlatform());
+}
+
 // macOS's modifier glyphs, in the order Windows and Linux write them: Ctrl+Alt+Shift+key
 const MODIFIERS: [glyph: string, name: string][] = [
   ['⌘', 'Ctrl'],

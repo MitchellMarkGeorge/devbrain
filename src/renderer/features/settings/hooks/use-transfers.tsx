@@ -19,6 +19,7 @@ import {
   ScrollArea,
   toast,
 } from '@renderer/components';
+import { usePlatformWords } from '@renderer/components/lib/platform';
 import { ipc, trpc } from '@renderer/ipc';
 import { KeyScope, useCommands, type Command } from '@renderer/keyboard';
 import { useModals, type ModalProps } from '@renderer/app/modals';
@@ -28,7 +29,7 @@ import styles from '../components/SettingsPage.module.css';
 // Importing and exporting the open workspace's tasks and notes, as Settings › Import & export's
 // buttons and the app menu's File › Import and Export both run it (docs/import-export.md): the
 // transfer route, which asks for the file with the system dialog, then the summary dialog for an
-// import, a toast with Show in Finder for an export, or an error toast. One at a time, wherever it
+// import, a toast with Show in Finder (Explorer, File Manager) for an export, or an error toast. One at a time, wherever it
 // was started: each opens a system dialog.
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
@@ -171,6 +172,7 @@ export function useTransfers(): Transfers {
   const navigate = useNavigate();
   const modals = useModals();
   const showError = useMutationErrorToast();
+  const { fileManager } = usePlatformWords();
   const running = useIsMutating({ mutationKey: TRANSFER_KEY }) > 0;
   const { mutateAsync } = useMutation({
     mutationKey: TRANSFER_KEY,
@@ -212,7 +214,7 @@ export function useTransfers(): Transfers {
     toast({
       ...text,
       action: {
-        label: 'Show in Finder',
+        label: `Show in ${fileManager}`,
         onClick: () =>
           void ipc.app.showFile
             .mutate({ path })

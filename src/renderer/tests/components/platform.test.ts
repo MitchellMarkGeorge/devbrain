@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatKeys, platformFromNode } from '@renderer/components/lib/platform';
+import { formatKeys, platformFromNode, platformWords } from '@renderer/components/lib/platform';
 
 describe('platformFromNode', () => {
   it('maps Node platforms, with every other one keeping a system frame', () => {
@@ -7,6 +7,17 @@ describe('platformFromNode', () => {
     expect(platformFromNode('win32')).toBe('windows');
     expect(platformFromNode('linux')).toBe('linux');
     expect(platformFromNode('freebsd')).toBe('linux');
+  });
+});
+
+describe('platformWords', () => {
+  it('names the file manager and the computer as each platform does', () => {
+    expect(platformWords('macos')).toEqual({ fileManager: 'Finder', computer: 'this Mac' });
+    expect(platformWords('windows')).toEqual({ fileManager: 'Explorer', computer: 'this PC' });
+    expect(platformWords('linux')).toEqual({
+      fileManager: 'File Manager',
+      computer: 'this computer',
+    });
   });
 });
 

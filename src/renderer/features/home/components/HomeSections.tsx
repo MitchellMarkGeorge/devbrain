@@ -154,7 +154,12 @@ function HomeTaskRow({
 function ProjectsSection({ section }: { section: Section<'projects'> }) {
   const goTo = useGoTo();
   return (
-    <HomeSection title="Recent projects" link="All projects" onLinkClick={() => goTo('projects')}>
+    <HomeSection
+      // projects coming due, else (with no recent note) the open projects changed last
+      title={section.due ? 'Projects due soon' : 'Recent projects'}
+      link="All projects"
+      onLinkClick={() => goTo('projects')}
+    >
       {section.rows.map((project) => (
         <HomeProjectRow key={project.id} project={project} />
       ))}

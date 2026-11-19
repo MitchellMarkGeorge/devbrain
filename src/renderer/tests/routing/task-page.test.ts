@@ -306,6 +306,59 @@ describe('the task page', () => {
       await eventually(() => expect(document.body.textContent).toContain('Copied'));
     });
 
+    it('can’t link a local subtask, which takes its parent’s links', async () => {
+      const app = startApp(mainWith(store()), { url: `/app/${WORK}/tasks/${subtask.id}` });
+      await eventually(() => expect(app.text()).toContain('Mobile fallback'));
+      // "+ Add" offers no event or note
+      click(document.querySelector<HTMLElement>('[aria-label="Add property"]')!);
+      await eventually(() =>
+        expect(document.querySelectorAll('[role="menuitem"]').length).toBeGreaterThan(0),
+      );
+      const added = [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent);
+      expect(added).toContain('Pull request');
+      expect(added).not.toContain('Event or note');
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      // nor does the "…" menu
+      (document.querySelector('[aria-label="More actions"]') as HTMLElement).click();
+      await eventually(() => {
+        const item = [...document.querySelectorAll('[role="menuitem"]')].find((element) =>
+          element.textContent?.startsWith('Link to event or note'),
+        );
+        expect(item?.getAttribute('aria-disabled')).toBe('true');
+      });
+    });
+
+    it('links a top-level task from its "…" menu', async () => {
+      const app = startApp(mainWith(store()), { url: `/app/${WORK}/tasks/${parent.id}` });
+      await choose(app, 'Link to event or note');
+      await eventually(() =>
+        expect(document.querySelector('[aria-label="Search events and notes"]')).not.toBeNull(),
+      );
+    });
+
+    it('shows a synced task’s pull request read-only', async () => {
+      const synced = fakeTask('tsk_pkce', 'Implement OAuth2 PKCE flow', {
+        pullRequestUrl: 'https://github.com/acme/app/pull/42',
+        external: {
+          provider: Provider.LINEAR,
+          state: LinkState.SYNCED,
+          key: 'ENG-1',
+          url: 'https://linear.app/x/issue/ENG-1',
+          statusLabel: 'Todo',
+          priorityLabel: 'Low',
+          lastSyncedAt: new Date(),
+        },
+      });
+      const app = startApp(mainWith(new FakeTasks([synced])), {
+        url: `/app/${WORK}/tasks/${synced.id}`,
+      });
+      await eventually(() => expect(app.text()).toContain('#42'));
+      click(byText(app.container, 'button', '#42')!);
+      await eventually(() => expect(document.body.textContent).toContain('Open pull request'));
+      expect(document.body.textContent).not.toContain('Edit link');
+      expect(document.body.textContent).not.toContain('Remove pull request');
+    });
+
     it('can’t convert a synced task', async () => {
       const synced = fakeTask('tsk_pkce', 'Implement OAuth2 PKCE flow', {
         external: {

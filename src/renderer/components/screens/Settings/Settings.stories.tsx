@@ -213,7 +213,7 @@ function Preferences() {
           />
           <SettingsRow
             label="Launch at login"
-            description="Open DevBrain when you log in to your Mac."
+            description="Open DevBrain when you log in."
             control={<Switch defaultChecked aria-label="Launch at login" />}
           />
           <SettingsRow
