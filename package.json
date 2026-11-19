@@ -32,6 +32,7 @@
     "test": "tsx scripts/vitest.mts run",
     "test:watch": "tsx scripts/vitest.mts",
     "e2e": "tsx scripts/e2e.mts",
+    "e2e:fixture": "tsx scripts/run-with-vite.mts scripts/build_upgrade_fixtures.mts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o dist/storybook"
   },

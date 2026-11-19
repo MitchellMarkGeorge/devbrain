@@ -3,6 +3,7 @@ import path from 'node:path';
 import { test as base, expect, type TestInfo } from '@playwright/test';
 import { launchApp, quitApp, type RunningApp } from './app';
 import {
+  buildUpgradeFixture,
   FolderState,
   makeTempDir,
   scaffoldFolder,
@@ -49,6 +50,12 @@ export class DevBrainHarness {
   /** Makes the folder a DevBrain folder with one workspace from seed:dev's code. */
   async seed(options?: SeedOptions): Promise<void> {
     await seedDevFolder(this.folder, options);
+  }
+
+  /** Makes the folder the upgrade fixture `name`: as an earlier version of the app left it. */
+  async useUpgradeFixture(name: string): Promise<void> {
+    fs.rmSync(this.folder, { recursive: true, force: true });
+    await buildUpgradeFixture(name, this.folder);
   }
 
   /** Copies `source` (a DevBrain folder) in as this test's folder. */

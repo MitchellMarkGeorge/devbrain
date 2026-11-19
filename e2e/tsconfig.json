@@ -20,5 +20,5 @@
       "@main/*": ["../src/main/*"]
     }
   },
-  "include": ["**/*.ts", "../scripts/e2e.mts"]
+  "include": ["**/*.ts", "../scripts/e2e.mts", "../scripts/build_upgrade_fixtures.mts"]
 }

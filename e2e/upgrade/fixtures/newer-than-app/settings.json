@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "theme": "system",
+    "devBrainPath": "${DEVBRAIN}",
+    "general": {
+      "defaultLandingPage": "home",
+      "launchOnStartup": false,
+      "openToLastPage": true,
+      "timeFormat": "12",
+      "confirmBeforeArchiving": true,
+      "confirmBeforeDeleting": true
+    },
+    "tasks": {
+      "defaultSort": "priority",
+      "defaultView": "list",
+      "defaultDueDate": "today",
+      "defaultPriority": 1,
+      "showCompletedTasks": true
+    },
+    "calendar": {
+      "defaultEventDuration": "15m",
+      "defaultView": "week",
+      "firstDayOfWeek": "monday",
+      "hideWeekends": false
+    }
+  },
+  "state": { "lastWorkspaceId": "wsp_019b0000-0000-7fff-9aff-00000000000d" }
+}

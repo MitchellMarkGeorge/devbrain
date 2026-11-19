@@ -35,13 +35,20 @@ export interface SeedOptions {
  * Linear: DEV_LINEAR_API_KEY is set empty, which the repository's .env doesn't override.
  */
 export async function seedDevFolder(root: string, options: SeedOptions = {}): Promise<void> {
-  const args = [
-    path.join(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs'),
-    'scripts/run-with-vite.mts',
-    'scripts/setup_dev_workspace.mts',
+  await runScript('scripts/setup_dev_workspace.mts', [
     `--path=${root}`,
     `--name=${options.name ?? 'Seeded'}`,
     `--seed=${options.seed ?? 42}`,
+  ]);
+}
+
+/** Runs a script that imports core, on Electron's Node through Vite (scripts/run-with-vite.mts). */
+async function runScript(script: string, scriptArgs: string[]): Promise<void> {
+  const args = [
+    path.join(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs'),
+    'scripts/run-with-vite.mts',
+    script,
+    ...scriptArgs,
   ];
   const output: string[] = [];
   const code = await new Promise<number | null>((resolve, reject) => {
@@ -55,7 +62,17 @@ export async function seedDevFolder(root: string, options: SeedOptions = {}): Pr
     child.on('error', reject);
     child.on('exit', resolve);
   });
-  if (code !== 0) throw new Error(`seed:dev failed (exit ${code}):\n${output.join('')}`);
+  if (code !== 0) throw new Error(`${script} failed (exit ${code}):\n${output.join('')}`);
+}
+
+/**
+ * Builds the upgrade fixture `name` (e2e/upgrade/fixtures/<name>) at `root`: a DevBrain folder as an
+ * earlier version left it, its databases made at that version's migration
+ * (scripts/build_upgrade_fixtures.mts). Built where the test uses it, as the folder's own paths
+ * are written into its files.
+ */
+export async function buildUpgradeFixture(name: string, root: string): Promise<void> {
+  await runScript('scripts/build_upgrade_fixtures.mts', [name, root]);
 }
 
 // --- Reading the app's state back -----------------------------------------------------------
@@ -116,6 +133,24 @@ export class FolderState {
     const id = this.workspaceIds().find((wsId) => this.manifest(wsId).name === name);
     if (id === undefined) throw new Error(`No workspace named ${name} in ${this.root}`);
     return id;
+  }
+
+  /** How many rows each of a workspace's tables holds. */
+  rowCounts(id: string, tables: readonly string[]): Record<string, number> {
+    return Object.fromEntries(
+      tables.map((table) => [
+        table,
+        this.query<{ n: number }>(id, `SELECT count(*) AS n FROM "${table}"`)[0].n,
+      ]),
+    );
+  }
+
+  /** The migrations a workspace's database records as applied: drizzle's journal times. */
+  appliedMigrations(id: string): number[] {
+    return this.query<{ created_at: number }>(
+      id,
+      'SELECT created_at FROM "__drizzle_migrations" ORDER BY created_at',
+    ).map((row) => Number(row.created_at));
   }
 
   /** Runs a query on a workspace's database, read-only. */

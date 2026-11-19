@@ -1,0 +1,4 @@
+{
+  "description": "DevBrain as of a5728653 (2026-10-09): migrations up to 0018, before calendars and the event model (0019-0021). workspaces.json holds each workspace's name and colour (no workspace.json yet), settings.json has calendar.timezone and state.lastPage, and recurrence rules are stored as a bare FREQ=… value in events.reccurrence_rule.",
+  "migration": 18
+}

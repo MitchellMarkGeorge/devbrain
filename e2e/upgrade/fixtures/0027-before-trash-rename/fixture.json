@@ -1,0 +1,4 @@
+{
+  "description": "DevBrain as of d3fb95e0 (2026-11-16): migrations up to 0027, the folder as today's app writes it (the manifest keeps the last page). Trashed rows still use archived_at: the fixture for the archive-to-trash rename's migration.",
+  "migration": 27
+}

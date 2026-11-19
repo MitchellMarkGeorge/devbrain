@@ -1,0 +1,5 @@
+{
+  "description": "A workspace a newer DevBrain has opened: its database records a migration this app doesn't have (a day after this app's latest). Opening it must be refused with workspace_too_new, and nothing written.",
+  "migration": 27,
+  "newerMigration": "9999_from_a_newer_devbrain"
+}
