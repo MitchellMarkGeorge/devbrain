@@ -8,6 +8,34 @@ clear picture of what you're working on and when. Your **tasks**, **projects**, 
 **calendar** live in one window, linked to each other. Your **Linear** issues and **Google
 Calendar** events appear beside them.
 
+## Why DevBrain
+
+A developer's work is spread across an issue tracker, a calendar, a notes app and their head. The
+question DevBrain is built around is simple:
+
+> If you woke up tomorrow with no memory of your work, could you ramp back up?
+
+With DevBrain you can. It keeps your work in one place, connected, so you can tell what you're
+doing today, what's next, and what you worked on last week:
+
+- **Four things, connected.** Everything is a [task](/docs/tasks/), a [note](/docs/notes/), a
+  [project](/docs/projects/) or an [event](/docs/calendar/), and each knows the others it belongs
+  with: the meeting a task came out of, the spec it implements, the project it moves forward.
+  [How your work connects](/docs/connections/) explains the links.
+- **Technical and professional.** The bug you're fixing and the notes from your onboarding, a code
+  snippet and your 1:1 notes: it all goes in the same place.
+- **Easy to put things in, easier to find, easy to take out.** Capture a task in one line from
+  [Home](/docs/home/), find anything with [search](/docs/search/), and take everything out as CSV,
+  JSON or Markdown with [export](/docs/import-export/).
+- **Yours alone.** DevBrain is for your own work, not a team's. It runs on your computer, works
+  offline, and keeps your data in files you own.
+- **Out of your way.** It's quiet and quick, with a [keyboard shortcut](/docs/keyboard-shortcuts/)
+  for most things. What it puts in front of you, on Home and in the calendar's Up next, comes from
+  your dates and the connections you make: there's no AI deciding for you.
+
+It draws on the ideas of Getting Things Done and the second-brain method, without asking you to
+learn either.
+
 ## How it works
 
 - **Everything is on your computer.** A [workspace](/docs/workspaces/) is a folder on your disk. It

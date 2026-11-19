@@ -45,6 +45,7 @@ export default defineConfig({
             { label: 'Introduction', slug: 'docs' },
             { label: 'Installing DevBrain', slug: 'docs/install' },
             { label: 'Getting started', slug: 'docs/getting-started' },
+            { label: 'How your work connects', slug: 'docs/connections' },
           ],
         },
         {
