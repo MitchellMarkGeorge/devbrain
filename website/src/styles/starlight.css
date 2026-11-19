@@ -48,12 +48,6 @@
   border-radius: var(--radius-lg);
 }
 
-/* The logomark at the app's sidebar size, not Starlight's full nav height */
-.site-title img {
-  height: 1.5rem;
-  width: auto;
-}
-
 /* The current page as the app's sidebar draws it: a quiet fill and outline, not a solid block */
 .sidebar-content a[aria-current='page'],
 .sidebar-content a[aria-current='page']:hover,

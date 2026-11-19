@@ -44,7 +44,8 @@ The site doesn't copy the design system; it reads it from the app:
   `docs/design-system/tokens.json` and run `npm run tokens` at the root, as for the app; the site
   follows on its next build. Use the theme variables (`--background`, `--foreground`, …), never the
   raw palette.
-- **Logomark.** The header and the docs read `src/renderer/assets/devbrain-logomark*.svg`. Only
+- **Logomark.** The header and the docs read `src/renderer/assets/devbrain-logomark.svg` and draw it
+  inline (`Layout.astro`, `DocsSiteTitle.astro`), so it never waits on a request. Only
   `public/favicon.svg` is a copy (a favicon must be a public file): the same paths, drawn black or
   white by the browser's colour scheme.
 - **Typefaces.** Inter and Geist Mono, from the same `@fontsource` packages.

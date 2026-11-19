@@ -13,12 +13,6 @@ export default defineConfig({
     starlight({
       title: 'DevBrain',
       description: 'The second brain for developers.',
-      // the app's logomark, read from the app (website/README.md: what the site shares with it)
-      logo: {
-        dark: '../src/renderer/assets/devbrain-logomark.svg',
-        light: '../src/renderer/assets/devbrain-logomark-dark.svg',
-        alt: 'DevBrain',
-      },
       favicon: '/favicon.svg',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/MitchellMarkGeorge/devbrain' },
@@ -37,6 +31,8 @@ export default defineConfig({
       components: {
         // the docs' header links back to the marketing pages
         SocialIcons: './src/components/DocsHeaderLinks.astro',
+        // the app's logomark drawn inline, so it never flashes on navigation
+        SiteTitle: './src/components/DocsSiteTitle.astro',
       },
       sidebar: [
         {
