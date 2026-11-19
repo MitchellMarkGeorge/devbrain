@@ -21,32 +21,26 @@ Proposal:
 
 ### Calendar changes wait for a sync run
 
-_Found in feature 16b. Not a priority._
+_Found in feature 16b. Decided against for now (PR #187, closed): the visible effects are small._
 
-Feature 16b moved the calendar work out of `IntegrationService` so that services only read and write the database and `SyncWriter` stays inside `src/main/core/sync/`. Every calendar operation that needs the provider or the writer now happens at the start of a run, in `EventSyncer`. That changed some behaviour:
+Every calendar operation that needs the provider or the writer happens at the start of a run, in `EventSyncer`:
 
-- **Deselecting a calendar removes its events when the run it starts reaches its first page, not at once.** `Workspace` starts a run of the source on `selection_changed`; until it writes, the events stay in the database. The calendar view no longer shows them meanwhile: `EventService.listForCalendar` reads only selected synced calendars (and every local one).
-- **Refreshing the picker means running a sync.** New or renamed calendars appear when the run's listing stores them; the run's result has `'calendar'` in `changed`.
-- **A run that does not reach its first page does not clean up.** The clean-up is written with the run's first page, so with the integration disabled or needing reauth (the run is skipped), or offline (it fails before a page), a deselected calendar's events stay stored, out of the calendar view, until a run gets that far.
+- **Deselecting a calendar removes its events when the run it starts reaches its first page, not at once.** The calendar view hides them at once (`EventService.listForCalendar` reads only selected synced calendars), so what lingers is their search entries, for a second or two online.
+- **Refreshing the picker means running a sync.** New or renamed calendars appear when a run's listing stores them: every 5 minutes, on window focus, or after a manual sync.
+- **A run that does not reach its first page does not clean up.** With the integration disabled or needing reauth, or offline, a deselected calendar's events stay stored and searchable, out of the calendar view, until a run gets that far.
 
-If any of these matters in the calendar UI, `EventSyncer` can expose two operations beside `start`, keeping both rules:
-
-- **`refreshCalendars(sourceId, auth)`**: list the account's calendars and store them with `SyncWriter.applyCalendarList`, without pulling events. One request, for the picker.
-- **`deselectCalendar(sourceId, calendarId)`**: unselect the calendar, remove its events with `SyncWriter.removeCalendarEvents` and drop its entry from the source's cursor, in one transaction. `EventSyncer` owns the cursor's shape (`src/main/core/sync/event-cursor.ts`), so it can drop the entry itself. Database only, so it works offline and while the integration needs reauth.
-
-The picker's IPC handlers would call them through whatever owns the syncers (the engine, or the scheduler). Selecting a calendar would stay `CalendarService.setSelected` followed by a run.
+PR #187 built `refreshCalendars` (list the calendars only) and `deselectCalendar` (remove the events and the cursor entry at once), and was closed as more machinery than these warrant. If the picker needs fresher calendars, the cheap fix is for Choose Calendars to call `sync.now({ sourceId })` when it opens. If search showing an unticked calendar's events matters, search can filter on `selected` as the calendar view does. Note for an immediate deselect, should it come back: a run already going when the calendar is deselected must leave the calendar's remaining pages unapplied and drop it from the cursor it saves, or selecting it again resumes incrementally without the removed events.
 
 ### Take the calendar reads out of `EventSyncer`
 
 _Found in the source/syncer split. Subject to change: the current placement is a stopgap._
 
-Syncers should not hold a database handle, but `EventSyncer` (`src/main/core/sync/event-syncer.ts`) takes one for two reads of the calendars table: which listed calendars a run syncs (`calendarsToSync`), and a calendar's row id for `SyncWriter.applyEventPage` (`rowIdOf`). They briefly lived in their own `CalendarSelection` class, which was too thin to justify on its own.
+Syncers should not hold a database handle, but `EventSyncer` (`src/main/core/sync/event-syncer.ts`) takes one for two reads: which listed calendars a run syncs (`calendarsToSync`) and a calendar's row id for `SyncWriter.applyEventPage` (`rowIdOf`). They briefly lived in their own `CalendarSelection` class, which was too thin to justify on its own, and then in a `SyncReader` (PR #187, closed), which named a mechanism rather than a responsibility.
 
 Options:
 
-1. **A `SyncReader`**, the read side of `SyncWriter`: every read sync makes, namely the calendar rows and `rowIdOf` (and `TaskReconciler`'s `planReconcile`, which takes a database handle for the same reason). Syncers get a writer and a reader, never a handle, and the selection rule becomes a pure function `calendarsToSync(listed, rows)` testable without a database. Recommended.
-2. **The reads on `SyncWriter`**, with `applyEventPage` taking the calendar's external id and resolving the row itself, which removes `rowIdOf`. Fewest moving parts, but stretches the writer into all of sync's database access, and about 50 test call sites pass a `CalendarId` today.
-3. **Through `CalendarService`.** Not recommended: services are the public interface for IPC, and the rule works on provider shapes (`ExternalCalendar`).
+1. **The reads on `SyncWriter`**, which already reads constantly (links, parents, what links to an event, the sweep's own candidates) and is in practice sync's database layer. `applyEventPage` would take the calendar's external id and resolve the row itself, removing `rowIdOf`; the selection rule becomes a pure function `calendarsToSync(listed, rows)` over rows the writer hands back. About 50 test call sites pass a `CalendarId` today. Recommended.
+2. **Through `CalendarService`.** Not recommended: services are the public interface for IPC, and the rule works on provider shapes (`ExternalCalendar`).
 
 ### A path for provider features that are not sync
 
@@ -66,15 +60,16 @@ Left to do, with the first such feature rather than guessing the shapes now:
 
 ### Read `eventLabelId` for event colours
 
-_Found in feature 16b._
+_Found in feature 16b. Checked against Google's reference (Nov 2026); waiting on a decision about a new OAuth scope._
 
-The mapper (`src/main/core/integrations/providers/google-calendar/mapper.ts`) colours an event from its `colorId`, through a fixed copy of Google's event palette, and falls back to the calendar's colour. Google's event resource now has `eventLabelId`, which supersedes `colorId` and refers to a label defined on the calendar (`calendars.get` → `labelProperties.eventLabels`). An event coloured through a label gets its calendar's colour instead. Reading labels needs one `calendars.get` per calendar, and the scope that allows it is still to check. The palette itself is also still from memory.
+The mapper (`src/main/core/integrations/providers/google-calendar/mapper.ts`) colours an event from its `colorId`, through a fixed copy of Google's event palette, and falls back to the calendar's colour. What the reference says:
 
-### Check that answering an invitation changes `updated`
+- **The field.** `eventLabelId` is "the ID of an entry in the `labelProperties.eventLabels` property of the calendar (see the Calendars.get endpoint)" and "supersedes the index-based `colorId` property". An event coloured through a label gets its calendar's colour here instead.
+- **The label.** `calendars.get` returns `labelProperties.eventLabels[]`, each with `id` (a UUID), `name` (optional, up to 50 characters) and `backgroundColor` (hex, required: "Events with this label are displayed in this color"). A calendar has at most 200. The calendar list (`calendarList`) does not carry them, so reading them costs one `calendars.get` per selected calendar.
+- **The scope.** `calendars.get` needs `calendar.readonly`, `calendar`, `calendar.app.created`, `calendar.calendars` or `calendar.calendars.readonly`. DevBrain asks for `calendar.calendarlist.readonly` and `calendar.events.readonly`, neither of which allows it. The narrowest that does is `calendar.calendars.readonly` ("See the title, description, default time zone, and other properties of Google calendars you have access to"). Adding it changes the consent screen, may need Google's app verification again, and existing accounts would have to reconnect to grant it (`integrations.scopes` records what each granted, so labels could be read only where it was).
+- **The palette.** `colors.get` is allowed by `calendar.calendarlist.readonly`, which DevBrain already has. Reading the event palette from it with the calendar list, instead of the copy from memory in `EVENT_COLORS`, needs no new scope.
 
-_Found in feature 16b._
-
-The writer skips an event whose `updated` is not newer than the stored one, which is how unchanged events cost no write. Google says `updated` covers "the main event data" and does not change for reminders. If answering an invitation does not change it either, a changed `response` (accepted to declined, say) would be skipped. One live check settles it: answer an invitation, then run an incremental sync and compare `updated`. If it does not change, compare `response` as well in the unchanged check for events.
+To do once the scope is decided: read the labels with the calendar list (`CalendarSource.listCalendars`) onto `ExternalCalendar` for integrations that granted the scope, keep them on the calendar row, and resolve an event's colour from its label when it has one, `colorId` otherwise.
 
 ### Changing the mirrored event types needs a resync
 
@@ -95,13 +90,22 @@ Options:
 
 ### Ask the provider about events a full pass would remove
 
-_Found in PR #35._
+_Found in PR #35. Decided against for now: a token goes stale rarely, and an event moved more than a month back during that gap more rarely still._
 
 A full pass lists the events that end after its `timeMin`, so it cannot tell an event deleted while the token was stale from one moved to before the window: both are left unlisted, and `PageWrite.sweepCalendar` removes both. A meeting moved more than a month back is lost from history instead of moved; it comes back if edited again. An event changed while the pass pages may also be left off every page, if Google's paging does not guarantee otherwise, and comes back with the next incremental sync.
 
 Looking up each event the sweep would remove before removing it (`events.get`, one request each) would settle both: one that is deleted or cancelled goes, one that still exists is updated instead. The candidates are normally few. It needs a lookup on `CalendarSource`, the requests made before the last page is applied (pulls fetch, applies only write), and a read of the candidates in `EventSyncer`, which `Take the calendar reads out of EventSyncer` above wants to move. `TaskReconciler.resolveTasks` is the same pattern for tasks.
 
 Whether any of this is needed rests on Google no longer reporting older deletions in a full listing with `showDeleted=true`, which its documentation implies but does not state. A live check (delete an event, then run a full listing some days later and see whether it still comes back as cancelled) would show how often a deleted event goes unreported at all.
+
+### To confirm against the live Google Calendar API
+
+_From working through the calendar entries. Each was checked against Google's reference (Nov 2026) and is tested with recorded responses; none against the live API. What the reference settles is marked; what is left needs a real account._
+
+- **A full listing has every cancelled occurrence of the series it lists.** Settled by the reference, which makes option 1 of "A full pass after a 410 leaves cancelled occurrences as recorded" safe: `events.list` says cancelled instances of recurring events are included even when `showDeleted` and `singleEvents` are both false (DevBrain sends `showDeleted=true` with `singleEvents=false`), and the events resource tells clients to "store these events for the lifetime of the parent recurring event", so they are not purged while the series lives.
+- **Answering an invitation and `updated`.** Not settled: `updated` is the "last modification time of the main event data", and only reminders are named as not changing it. The writer compares the calendar's own `response` as well as `updated`, so an answer is written either way. If a live check shows answering does move `updated`, the extra read (`storedResponses` in `src/main/core/sync/writer.ts`) can go.
+- **A full listing does not keep every deletion.** Settled: deleted events "will eventually disappear", so a full pass after a 410 can miss them, as `sweepCalendar` assumes. It cannot tell those from events moved to before its window either (see "Ask the provider about events a full pass would remove").
+- **The event types filter and sync tokens.** Settled: `eventTypes` is not among the parameters refused with a `syncToken`, and "all other query parameters should be the same as for the initial synchronization to avoid undefined behavior". That is why changing the list needs a resync (see "Changing the mirrored event types needs a resync").
 
 ### Reconnecting leaves kept tasks detached
 

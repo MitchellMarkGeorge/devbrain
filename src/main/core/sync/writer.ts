@@ -40,6 +40,7 @@ import { RunResult } from 'better-sqlite3';
 import { SearchService } from '../search/service';
 import {
   Event,
+  EventResponse,
   LinkState,
   Project,
   ProjectStatus,
@@ -738,8 +739,11 @@ class PageWrite {
    * 1. Look up the links of the events, and of the masters of their occurrences, in one query.
    * 2. Walk the masters first, so an occurrence finds a master that is new in this page. Per event:
    *    no link → insert; detached → skip; synced and unchanged → touch only; otherwise (changed,
-   *    or removed) → update and restore. An occurrence points at its master's row, if mirrored. A
-   *    new event's id is made here, so an occurrence later in the walk can point at it.
+   *    or removed) → update and restore. Unchanged is the provider's updatedAt not being newer and
+   *    the calendar's own answer to the invitation (`response`) being the one stored: Google's
+   *    `updated` covers "the main event data", which may leave out an attendee's answer. An
+   *    occurrence points at its master's row, if mirrored. A new event's id is made here, so an
+   *    occurrence later in the walk can point at it.
    * 3. Insert the new events, then their links, a statement each (per chunk), before the updates:
    *    an updated occurrence may now point at a master that is new in this page.
    * 4. Update the changed and restored events and their links, one row at a time.
@@ -752,6 +756,9 @@ class PageWrite {
       ...items.map((item) => item.externalId),
       ...items.flatMap((item) => item.recurringEventExternalId ?? []),
     ]);
+    const responses = this.storedResponses(
+      items.flatMap((item) => links.get(item.externalId)?.eventId ?? []),
+    );
     const arrived = new Map<string, EventId>();
     const newEvents: (typeof events.$inferInsert)[] = [];
     const newLinks: Link[] = [];
@@ -802,7 +809,11 @@ class PageWrite {
       // 2b. detached: the user's own now, so sync leaves it alone
       if (link.state === LinkState.DETACHED) continue;
       // 2c. unchanged: the row is not written, so updatedAt stays put; lastSyncedAt moves in finish
-      if (link.state === LinkState.SYNCED && !isNewer(item, link)) {
+      if (
+        link.state === LinkState.SYNCED &&
+        !isNewer(item, link) &&
+        responses.get(eventId) === item.response
+      ) {
         this.touched.push(link.id);
         continue;
       }
@@ -846,6 +857,20 @@ class PageWrite {
     const written = [...inserted, ...updated];
     this.search.indexEvents(written);
     if (written.length > 0) this.changed.add(SyncEntityType.EVENT);
+  }
+
+  // the stored answer to the invitation of each of these events, for the unchanged check
+  private storedResponses(eventIds: EventId[]): Map<EventId, EventResponse | null> {
+    const responses = new Map<EventId, EventResponse | null>();
+    for (const batch of chunks(eventIds)) {
+      this.tx
+        .select({ id: events.id, response: events.response })
+        .from(events)
+        .where(inArray(events.id, batch))
+        .all()
+        .forEach((row) => responses.set(row.id, row.response));
+    }
+    return responses;
   }
 
   /**
