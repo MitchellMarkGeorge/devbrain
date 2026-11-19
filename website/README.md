@@ -29,7 +29,7 @@ step with the app**.
 | `src/pages/index.astro`       | The home page                                                         |
 | `src/pages/download.astro`    | The installers of the latest release, read from GitHub Releases       |
 | `src/pages/changelog.astro`   | Every release's notes, from GitHub Releases                           |
-| `src/content/docs/docs/*.md`  | The docs, served under `/docs/`; the sidebar is in `astro.config.mjs` |
+| `src/content/docs/docs/*.md*` | The docs, served under `/docs/`; the sidebar is in `astro.config.mjs` |
 | `src/components/Layout.astro` | The frame of the home, download and changelog pages                   |
 | `src/lib/releases.ts`         | Reads the releases and sorts their files by platform                  |
 | `src/styles/site.css`         | The marketing pages' base styles                                      |
@@ -61,10 +61,14 @@ dated from the day it runs), opens it in the built app through the end-to-end ha
 `src/assets/screenshots/<page>-<theme>.png`. Commit the new files.
 
 - Take them again when a page they show changes, or to bring their dates up to now.
-- `Screenshot.astro` shows the capture in the visitor's theme (`prefers-color-scheme`), resized
-  and converted to WebP when the site is built.
+- `Screenshot.astro` (the home page) shows the capture in the visitor's theme
+  (`prefers-color-scheme`), resized and converted to WebP when the site is built.
   Its `crop` shows one part of a capture (a close-up of a piece of the UI), so a new close-up
   needs no new capture.
+- `DocsScreenshot.astro` does the same in the docs, following Starlight's theme picker instead, with
+  a caption.
+- The showcase workspace's links (a task's note, a meeting's note) are there for the task and event
+  screenshots; keep them when changing its data.
 - To show another page, add it to `PAGES` in `website.screens.ts`, and to what the showcase
   workspace holds if it needs data; `seed:dev`'s generated rows are for testing, not for showing.
 - On Linux without a display it runs under Xvfb, as the end-to-end tests do.
@@ -117,7 +121,9 @@ Installers are never served from the site: they stay on GitHub Releases (Pages r
 ## Writing docs
 
 A page is a Markdown file in `src/content/docs/docs/`, with a `title` and `description` in its front
-matter; add it to `sidebar` in `astro.config.mjs`. Starlight's
+matter; add it to `sidebar` in `astro.config.mjs`. A page that shows a screenshot is MDX (`.mdx`),
+importing `DocsScreenshot` with the capture's name (`page="tasks-board"`), alt text, and `focusX`
+for the crop phones show. Starlight's
 [asides](https://starlight.astro.build/guides/authoring-content/#asides) (`:::note`) and code blocks
 work as in its docs. Search is built with the site.
 

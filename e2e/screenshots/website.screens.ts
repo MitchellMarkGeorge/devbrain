@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { test, expect } from '../support/fixtures';
 import { REPO_ROOT } from '../support/paths';
-import { goTo } from '../support/ui';
+import { goTo, search } from '../support/ui';
 
 /**
  * The website's screenshots of the app (website/README.md): the built app over the showcase
@@ -15,27 +15,66 @@ const OUT_DIR = path.join(REPO_ROOT, 'website/src/assets/screenshots');
 const WIDTH = 1440;
 const HEIGHT = 900;
 
-const PAGES: { name: string; open: (window: Page) => Promise<void> }[] = [
+/** Clicks a task, note or project by its title in the page's main area. */
+async function openByTitle(window: Page, title: string): Promise<void> {
+  await window.getByRole('main').getByText(title, { exact: true }).first().click();
+}
+
+/** Picks a view in the page toolbar's View switch (List, Board, Cards, …). */
+async function chooseView(window: Page, name: string): Promise<void> {
+  await window.getByRole('main').getByLabel(name, { exact: true }).click();
+}
+
+// Each page starts from wherever the one before it left off, so each opens its own page first
+const PAGES: {
+  name: string;
+  open: (window: Page) => Promise<void>;
+  close?: (window: Page) => Promise<void>;
+}[] = [
+  {
+    name: 'home',
+    open: async (window) => {
+      await goTo(window, 'Home');
+      await expect(window.getByRole('main').getByPlaceholder('What needs doing?')).toBeVisible();
+    },
+  },
   {
     name: 'tasks',
     open: async (window) => {
       await goTo(window, 'Tasks');
-      await window.getByRole('main').getByLabel('List', { exact: true }).click();
+      await chooseView(window, 'List');
     },
   },
   {
     name: 'board',
     open: async (window) => {
       await goTo(window, 'Tasks');
-      await window.getByRole('main').getByLabel('Board', { exact: true }).click();
+      await chooseView(window, 'Board');
       await expect(window).toHaveURL(/view=board/);
     },
+    close: (window) => chooseView(window, 'List'),
+  },
+  {
+    name: 'task',
+    open: async (window) => {
+      await goTo(window, 'Tasks');
+      await openByTitle(window, 'Ship proration for mid-cycle plan changes');
+      await expect(window.getByRole('main')).toContainText('Subtasks');
+    },
+  },
+  {
+    name: 'projects',
+    open: async (window) => {
+      await goTo(window, 'Projects');
+      await chooseView(window, 'Cards');
+    },
+    close: (window) => chooseView(window, 'List'),
   },
   {
     name: 'project',
     open: async (window) => {
       await goTo(window, 'Projects');
-      await window.getByRole('main').getByText('Billing v2', { exact: true }).first().click();
+      await openByTitle(window, 'Billing v2');
       await expect(window.getByRole('main').getByRole('heading', { name: 'Name' })).toHaveText(
         'Billing v2',
       );
@@ -45,11 +84,60 @@ const PAGES: { name: string; open: (window: Page) => Promise<void> }[] = [
     name: 'note',
     open: async (window) => {
       await goTo(window, 'Notes');
-      await window.getByRole('main').getByText('Proration rules', { exact: true }).first().click();
+      await openByTitle(window, 'Proration rules');
       await expect(window.getByRole('main')).toContainText('Credit the unused days');
     },
   },
   { name: 'calendar', open: (window) => goTo(window, 'Calendar') },
+  {
+    name: 'event',
+    open: async (window) => {
+      await goTo(window, 'Calendar');
+      await openByTitle(window, 'Onboarding usability test');
+      await expect(window.getByText('Event note')).toBeVisible();
+    },
+    close: (window) => window.getByRole('button', { name: 'Close' }).click(),
+  },
+  {
+    name: 'search',
+    open: async (window) => {
+      await goTo(window, 'Home');
+      const results = await search(window, 'proration');
+      await expect(results.getByRole('listbox').getByRole('option').first()).toBeVisible();
+    },
+    close: (window) => window.keyboard.press('Escape'),
+  },
+  {
+    name: 'shortcuts',
+    open: async (window) => {
+      await goTo(window, 'Home');
+      await window.keyboard.press('?');
+      await expect(window.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
+    },
+    close: (window) => window.keyboard.press('Escape'),
+  },
+  {
+    name: 'settings',
+    open: async (window) => {
+      await goTo(window, 'Settings');
+      await window
+        .getByRole('navigation', { name: 'Settings' })
+        .getByRole('link', { name: 'Preferences' })
+        .click();
+    },
+    close: (window) => window.getByRole('button', { name: 'Back to app' }).click(),
+  },
+  {
+    name: 'integrations',
+    open: async (window) => {
+      await goTo(window, 'Settings');
+      await window
+        .getByRole('navigation', { name: 'Settings' })
+        .getByRole('link', { name: 'Integrations' })
+        .click();
+    },
+    close: (window) => window.getByRole('button', { name: 'Back to app' }).click(),
+  },
 ];
 
 test('website screenshots', async ({ devbrain }) => {
@@ -81,7 +169,10 @@ test('website screenshots', async ({ devbrain }) => {
   );
 
   // every page once first, so the sidebar's Recents are the same in every capture
-  for (const page of PAGES) await page.open(window);
+  for (const page of PAGES) {
+    await page.open(window);
+    await page.close?.(window);
+  }
 
   for (const theme of ['dark', 'light'] as const) {
     // as the theme setting does: main sets the system's theme, the page pins its own
@@ -100,6 +191,7 @@ test('website screenshots', async ({ devbrain }) => {
       await window.evaluate(() => document.fonts.ready);
       await window.waitForTimeout(800);
       await window.screenshot({ path: path.join(OUT_DIR, `${page.name}-${theme}.png`) });
+      await page.close?.(window);
     }
   }
 });

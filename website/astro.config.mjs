@@ -44,14 +44,35 @@ export default defineConfig({
           items: [
             { label: 'Introduction', slug: 'docs' },
             { label: 'Installing DevBrain', slug: 'docs/install' },
+            { label: 'Getting started', slug: 'docs/getting-started' },
           ],
         },
         {
-          label: 'Guides',
+          label: 'Using DevBrain',
           items: [
-            { label: 'Workspaces', slug: 'docs/workspaces' },
+            { label: 'Home and quick capture', slug: 'docs/home' },
+            { label: 'Tasks', slug: 'docs/tasks' },
+            { label: 'Projects', slug: 'docs/projects' },
+            { label: 'Notes and the editor', slug: 'docs/notes' },
+            { label: 'Calendar', slug: 'docs/calendar' },
+            { label: 'Search', slug: 'docs/search' },
+          ],
+        },
+        {
+          label: 'Your data',
+          items: [
             { label: 'Integrations', slug: 'docs/integrations' },
+            { label: 'Workspaces', slug: 'docs/workspaces' },
+            { label: 'Data and privacy', slug: 'docs/data-and-privacy' },
             { label: 'Import and export', slug: 'docs/import-export' },
+          ],
+        },
+        {
+          label: 'Reference',
+          items: [
+            { label: 'Settings', slug: 'docs/settings' },
+            { label: 'Keyboard shortcuts', slug: 'docs/keyboard-shortcuts' },
+            { label: 'Troubleshooting and FAQ', slug: 'docs/troubleshooting' },
           ],
         },
         // the rest of the site, also in the docs' menu on phones, where the header has no room

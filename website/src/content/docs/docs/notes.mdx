@@ -1,0 +1,143 @@
+---
+title: Notes and the editor
+description: Write notes in rich text that's saved as Markdown, link them to projects, tasks and events, and use the editor everywhere in DevBrain.
+---
+
+import DocsScreenshot from '../../../components/DocsScreenshot.astro';
+
+Notes are for everything you write: specs, meeting notes, decisions, checklists. You write in rich
+text, and DevBrain saves each note as a Markdown file in your workspace.
+
+<DocsScreenshot
+  page="note"
+  alt="A note's page: its title, its project, and a body with headings, bullet lists, a checklist and a code block"
+  focusX={0.3}
+/>
+
+## Writing a note
+
+Press <kbd>N</kbd> anywhere, choose **New Note** on the Notes page, or type a title in
+[Home](/docs/home/#quick-capture)'s capture box with **Note** picked. The note opens with the cursor
+in its title; press <kbd>Enter</kbd> to move into the body.
+
+There's no save button: a note saves as you type, and when you leave it or switch to another app.
+
+## The Notes page
+
+Show notes as a **List** (with a one-line preview) or as **Cards**.
+
+- **Sort** by **Last edited** (the default), **Created** or **Title**.
+- **Filter** by **Project**, or by **Link**: linked to an event, linked to a task, or not linked.
+- Right-click a note to open it, favourite it, change its link or project, copy it as Markdown or
+  move it to the trash.
+
+## Linking notes
+
+A note can be:
+
+- **In a project**: **+ Add to project** under its title, or **Change project** in its **…** menu.
+- **The note of one event or one task**: **Link to** in its **…** menu. A meeting's note is the
+  usual case: start one from the event in the [calendar](/docs/calendar/#meeting-notes), and it
+  opens beside the event while the meeting happens.
+
+The links show as pills under the title. Click one to open the project, task or event.
+
+### Tasks from a note
+
+Any number of tasks can point back at a note, such as the follow-ups from a meeting. Under the
+title, **+ Add task** creates a **New task linked to this note**, or links an existing one. Once a
+note has tasks, the pill says how many and how they're going ("3 tasks · 2 in progress"), and a
+**Tasks** section at the end of the note lists them.
+
+### Mentions
+
+Type <kbd>@</kbd> in any note, then a few words, to link a task, another note or an event right in
+the text. The link shows the item's current title, and clicking it opens the item.
+
+## The editor
+
+The same editor is used everywhere you write in DevBrain: notes, and the descriptions of tasks,
+projects and events. It reads and writes Markdown.
+
+### Blocks
+
+Type <kbd>/</kbd> at the start of a line for the block menu, or type the Markdown shortcut:
+
+| Block                  | Shortcut                       |
+| ---------------------- | ------------------------------ |
+| Heading 1, 2, 3        | `#`, `##`, `###` and a space   |
+| Bulleted list          | `-` and a space                |
+| Numbered list          | `1.` and a space               |
+| To-do list (checklist) | `[ ]` and a space              |
+| Quote                  | `>` and a space                |
+| Code block             | ` ``` `                        |
+| Divider                | `---`                          |
+| Callout                | <kbd>/</kbd> menu: **Callout** |
+| Table                  | <kbd>/</kbd> menu: **Table**   |
+| Collapsible section    | <kbd>/</kbd> menu              |
+
+- **Code blocks** highlight about 35 languages. Click the label above a block to choose its
+  language; a block with none stays plain text.
+- **Callouts** are GitHub's alerts: Note, Tip, Important, Warning or Caution. Click the callout's
+  title to change its kind.
+- **To-do items** are checkboxes in the note, saved as `- [ ]` and `- [x]`. They aren't DevBrain
+  tasks; use **+ Add task** for those.
+- The block menu's **DevBrain** section links a note, a task or an event, like <kbd>@</kbd>.
+
+### Formatting text
+
+Select text for the format toolbar: **Turn into** another block, **Bold** (<kbd>⌘B</kbd>),
+**Italic** (<kbd>⌘I</kbd>), **Underline** (<kbd>⌘U</kbd>), **Strikethrough** (<kbd>⌘⇧X</kbd>),
+**Code** (<kbd>⌘E</kbd>) and **Link** (<kbd>⌘K</kbd>). Markdown typed inline works too:
+`**bold**`, `*italic*`, `~~strike~~` and `` `code` ``.
+
+<kbd>⌘</kbd>-click (<kbd>Ctrl</kbd>-click) a link to open it in your browser.
+
+### Copying and pasting
+
+- Copying puts Markdown on the clipboard, so a note pastes cleanly into a pull request, an issue or
+  a chat.
+- Pasting Markdown, from a README or an issue, turns it into formatting. Pasting from a web page or
+  a document keeps its formatting. <kbd>⌘⇧V</kbd> (<kbd>Ctrl Shift V</kbd>) pastes plain text.
+- Code copied from VS Code becomes a code block in its language.
+
+### What the editor doesn't show
+
+For your safety, a note never loads anything from the internet:
+
+- **Images** show as a chip with their description; click it to open the image in your browser.
+- Only web (`http` and `https`) links can be opened.
+- HTML that isn't one of the elements above shows as its source text.
+
+All of these are kept in the file as you wrote them.
+
+## How notes are stored
+
+Each note is a Markdown file in the `notes` folder of your [workspace's folder](/docs/workspaces/),
+named after the note's ID (such as `nte_….md`), with its title in front matter:
+
+```markdown
+---
+id: nte_01JD3…
+title: Proration rules
+---
+
+How a plan change mid-cycle is charged…
+```
+
+The note's project, links and favourite are kept in the workspace's database, not in the file.
+
+- Opening a note never changes its file. The first time you edit one, DevBrain writes it in its own
+  consistent Markdown style: `-` for bullets, `**` for bold, tables lined up in columns.
+- Saves are written to a new file and then moved into place, so a crash never leaves half a note.
+- **Show in Finder** in a note's **…** menu shows its file in your file manager.
+
+:::caution[Editing note files outside DevBrain]
+DevBrain doesn't watch the files for changes. If you edit a note's file in another app, quit
+DevBrain first: while the note is open in DevBrain, its next save replaces your edit, and DevBrain
+may keep showing the old text until it reopens. Keep the front matter's `id` and `title`, or
+DevBrain can't read the note.
+:::
+
+To take notes out of DevBrain as Markdown named by their titles, or to bring Markdown files in, use
+[Import and export](/docs/import-export/#notes).
