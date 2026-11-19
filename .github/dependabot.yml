@@ -1,0 +1,31 @@
+# Dependency updates (docs/security/dependencies.md). Turned on in the repository's settings:
+# Settings → Code security → Dependabot version updates and security updates.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # a version must have been out two weeks before it is proposed (security updates are not held)
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 10
+    groups:
+      # Electron alone: a new Chromium and Node, the fuses and better-sqlite3's rebuild need a run
+      # of the app, not just the tests
+      electron:
+        patterns:
+          - electron
+        update-types:
+          - minor
+          - patch
+      minor-and-patch:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - electron
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: deps

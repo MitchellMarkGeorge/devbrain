@@ -30,6 +30,16 @@ commands:
             - ~/.npm
 
 jobs:
+  # Fails on a high or critical advisory in a production dependency. Reads the lockfile only, so it
+  # needs no install, and fails on a newly published advisory too (docs/security/dependencies.md)
+  audit:
+    executor: node
+    steps:
+      - checkout
+      - run:
+          name: Audit production dependencies
+          command: npm audit --omit=dev --audit-level=high
+
   lint:
     executor: node
     steps:
@@ -113,6 +123,7 @@ jobs:
 workflows:
   ci:
     jobs:
+      - audit
       - lint
       - typecheck
       - test
