@@ -1,4 +1,4 @@
--- A workspace as DevBrain wrote it at migration 0026 (2026-11-03): calendars and the event
+-- The Work workspace, as main (b0bb3767, migration 0027) writes it: calendars and the event
 -- model, Linear and Google Calendar connected (now waiting for sign-in, so the test never syncs).
 -- Migration 0020 made the default calendar, cal_default.
 
@@ -33,10 +33,10 @@ INSERT INTO notes (id, title, file_path, preview, project_id, linked_event_id, l
   ('nte_019a4a10-2b00-7c26-8b26-000000000001', 'Standup notes', '${DEVBRAIN}/workspaces/wsp_019a4a10-2b00-7c26-9a26-00000000000a/notes/nte_019a4a10-2b00-7c26-8b26-000000000001.md', 'Billing is blocked on the tax API.', 'prj_019a4a10-2b00-7c26-8a26-000000000001', 'evt_019a4a10-2b00-7c26-8e26-000000000001', NULL, 1793714400000, 1793880000000, NULL, 1793880000000),
   ('nte_019a4a10-2b00-7c26-8b26-000000000002', 'Old retro', '${DEVBRAIN}/workspaces/wsp_019a4a10-2b00-7c26-9a26-00000000000a/notes/nte_019a4a10-2b00-7c26-8b26-000000000002.md', 'Moved to the wiki.', NULL, NULL, NULL, 1790812800000, 1793577600000, 1793577600000, NULL);
 
--- tasks: three synced from Linear (one with Linear's "No priority", which 0018-0026 stored as Low;
--- one detached, its priority the user's own now), one local, one in the trash
+-- tasks: three synced from Linear (one with Linear's "No priority", stored as NONE, 0; one
+-- detached, its priority the user's own), one local, one in the trash
 INSERT INTO tasks (id, title, description, priority, status, start_date, due_date, parent_task_id, project_id, linked_event_id, linked_note_id, pull_request_url, created_at, updated_at, favorited_at, completed_at, archived_at, viewed_at) VALUES
-  ('tsk_019a4a10-2b00-7c26-8f26-000000000001', 'Triage the support inbox', NULL, 1, 1, NULL, NULL, NULL, 'prj_019a4a10-2b00-7c26-8a26-000000000001', NULL, NULL, NULL, 1790816400000, 1793880000000, NULL, NULL, NULL, NULL),
+  ('tsk_019a4a10-2b00-7c26-8f26-000000000001', 'Triage the support inbox', NULL, 0, 1, NULL, NULL, NULL, 'prj_019a4a10-2b00-7c26-8a26-000000000001', NULL, NULL, NULL, 1790816400000, 1793880000000, NULL, NULL, NULL, NULL),
   ('tsk_019a4a10-2b00-7c26-8f26-000000000002', 'Ship invoices', 'Behind the **billing_v2** flag.', 3, 2, 1793577600000, 1795996800000, NULL, 'prj_019a4a10-2b00-7c26-8a26-000000000001', NULL, NULL, 'https://github.com/acme/api/pull/310', 1790816400000, 1793880000000, 1793880000000, NULL, NULL, 1793880000000),
   ('tsk_019a4a10-2b00-7c26-8f26-000000000003', 'Write the onboarding guide', NULL, 1, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1790816400000, 1793880000000, NULL, NULL, NULL, NULL),
   ('tsk_019a4a10-2b00-7c26-8f26-000000000004', 'Post the job ad', NULL, 2, 3, NULL, 1792454400000, NULL, 'prj_019a4a10-2b00-7c26-8a26-000000000002', NULL, NULL, NULL, 1790812800000, 1792454400000, NULL, 1792454400000, NULL, NULL),

@@ -115,24 +115,24 @@ today's app, and checks that the migrations run, every row survives, and the pag
 Core's migration tests (`src/main/core/tests/db/migrations.test.ts`) check one migration against a
 few rows; these check a whole folder, as a user upgrading has it, through the app.
 
-| Fixture                          | Written by                     | What it holds                                                                                                                                                                                     |
-| -------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0018-before-calendars`          | `a5728653`, 2026-10-09         | before calendars and the event model (0019–0021); names and colours in `workspaces.json`, no `workspace.json`; old settings keys; bare `FREQ=…` recurrence rules                                  |
-| `0026-before-manifest-last-page` | `e54351f0`, 2026-11-03         | two workspaces with manifests but no `lastPage`, the last page in `settings.json`'s `state`; Linear's "No priority" stored as Low (0027); a Google series with a cancelled and a moved occurrence |
-| `0027-before-trash-rename`       | `d3fb95e0`, 2026-11-16         | today's schema; the manifest's last page (the Trash); a project trashed with its tasks, a task and a note, still in `archived_at`                                                                 |
-| `newer-than-app`                 | a DevBrain newer than this one | today's schema plus a migration this app doesn't have: opening it must fail with `workspace_too_new` and write nothing                                                                            |
+**main as of `b0bb3767` (2026-11-18, migration 0027) is ground zero**: DevBrain had not shipped
+before it, so no folder older than it needs to open. Every fixture is that version or a later one.
 
-Each has trashed items, links between tasks, notes, projects and events, and the older ones synced
-items with their external links (integrations waiting for sign-in, so nothing syncs in a test).
-Besides opening each, the tests check that a migration which fails restores the database from the
-backup taken when the workspace opened (a migration that commits but leaves a broken reference,
-added to a copy of the migrations), and that the app then opens it with its own.
+| Fixture          | Written by                     | What it holds                                                                                                                                                                                                                                                                                                             |
+| ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0027-baseline`  | main at `b0bb3767`             | two workspaces. Home lab, open last on its last page (the Trash): a project trashed with its tasks, a task and a note, in `archived_at`. Work: Linear and Google Calendar synced items with their external links, a Google weekly series with a cancelled and a moved occurrence, a local series, an all-day event, notes |
+| `newer-than-app` | a DevBrain newer than this one | today's schema plus a migration this app doesn't have: opening it must fail with `workspace_too_new` and write nothing                                                                                                                                                                                                    |
+
+The integrations are waiting for sign-in, so nothing syncs in a test. Besides opening each, the
+tests check that a migration which fails restores the database from the backup taken when the
+workspace opened (a migration that commits but leaves a broken reference, added to a copy of the
+migrations), and that the app then opens it with its own.
 
 #### How a fixture is made
 
 A fixture is a folder in `e2e/upgrade/fixtures/<name>/`, laid out as the DevBrain folder was then:
-`settings.json`, `workspaces.json`, `workspaces/<id>/` with its `notes/*.md` (and
-`workspace.json`, once there was one), plus:
+`settings.json`, `workspaces.json`, `workspaces/<id>/` with its `workspace.json` and
+`notes/*.md`, plus:
 
 - `fixture.json`: `migration`, the index of the last migration that version shipped, a
   `description` naming the commit it stands for, and optionally `newerMigration`;
@@ -140,19 +140,19 @@ A fixture is a folder in `e2e/upgrade/fixtures/<name>/`, laid out as the DevBrai
   services wrote them (its ids, timestamps in milliseconds, note file paths, the search index).
 
 `scripts/build_upgrade_fixtures.mts` turns it into a DevBrain folder: each `db.sql` becomes a
-`db.sqlite` made by drizzle's migrator, as the app ran it, over the migration set as it stood at
+`db.sqlite` made by drizzle's migrator, as the app runs it, over the migration set as it stood at
 `migration` (this repository's migrations with the journal cut there: a merged migration never
 changes, so that is the set the version shipped), then the rows. `${DEVBRAIN}` in any file becomes
-the folder's path, as that version wrote absolute paths. Nothing binary is committed; the
-harness builds a fixture into each test's own folder (`devbrain.useUpgradeFixture(name)`, about a
-second). To look at one: `npm run e2e:fixture -- 0018-before-calendars /tmp/fixture`, then open
-it with `sqlite3`, or point the app at it (`DEV_PATH=/tmp/fixture npm run dev`).
+the folder's path, as the app writes absolute paths. Nothing binary is committed; the harness
+builds a fixture into each test's own folder (`devbrain.useUpgradeFixture(name)`, about a
+second). To look at one: `npm run e2e:fixture -- 0027-baseline /tmp/fixture`, then open it with
+`sqlite3`, or point the app at it (`DEV_PATH=/tmp/fixture npm run dev`). The fixtures are left out
+of Prettier, so their files stay as the app wrote them.
 
 The rows are written by hand, not by running the old version's code: an old checkout would need
 its own `npm ci` and Electron, which is slow and breaks as dependencies move. To get them right,
-read that version's schema (apply the migrations up to it) and its services and seed script with
-`git show <commit>:<path>`, and write what they wrote, including mistakes since fixed: the 0018
-fixture stores recurrence rules as that version's seed did (`FREQ=…`, no `RRULE:`).
+read that version's schema (apply the migrations up to it) and its services with
+`git show <commit>:<path>`, and write what they wrote.
 
 #### Adding a fixture when a migration lands
 
@@ -160,23 +160,19 @@ When a migration changes existing rows or the folder's layout:
 
 1. Copy the newest fixture to `e2e/upgrade/fixtures/<NNNN>-before-<change>/`, where `NNNN` is the
    last migration before yours; set `migration` and the `description` (the commit it stands for).
+   Until a version ships, the newest fixture can be `0027-baseline` itself: change only what your
+   migration converts.
 2. Make its rows exercise your change: rows your data migration converts, and rows it must leave
    alone. Build it (`npm run e2e:fixture`) to check the SQL is valid for that schema.
 3. Add a test in `upgrade.spec.ts`: open it, check the pages show the rows, then quit and check the
    database (`devbrain.state.query`, `appliedMigrations`, `rowCounts`) holds what your migration
    should have made.
-4. Leave the older fixtures as they are: they are the versions users upgrade from. Update their
-   assertions only where your change means the app shows something new.
+4. Leave the older fixtures' rows as they are: they are the versions users upgrade from. Update
+   their assertions only where your change means the app shows or stores something new.
 
-The archive→trash rename is the next: its fixture is `0027-before-trash-rename`, already here, so
-the rename adds its assertions there (the trashed rows' new column) and a new fixture only for the
-change after it.
-
-#### Known failures
-
-A check that finds a bug not yet fixed stays in the suite as `test.fail(true, why)`: it runs, it
-must fail, and it turns red when the bug is fixed so the marker is removed. Today: recurrence rules
-stored without `RRULE:` (before 2026-11-06) don't show on the calendar after an upgrade.
+The archive→trash rename is the next: `0027-baseline` already holds trashed rows in every table,
+so the rename adds its assertions there (the trashed rows' new column, the queries that read
+`archived_at` today) and a new fixture only for the change after it.
 
 ### In CI
 

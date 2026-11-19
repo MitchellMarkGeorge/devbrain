@@ -1,0 +1,4 @@
+{
+  "description": "main as of b0bb3767 (2026-11-18), migrations up to 0027: the first version of DevBrain, which every later one must open. Two workspaces: Home lab (open last, on its last page, the Trash; a project trashed with its tasks, a task and a note, in archived_at) and Work (Linear and Google Calendar synced items with their external links, a Google weekly series with a cancelled and a moved occurrence, a local series, an all-day event, notes).",
+  "migration": 27
+}

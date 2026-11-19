@@ -1,4 +1,4 @@
--- A workspace at migration 0027 (2026-11-16): the schema today's app has. What is in the trash
+-- The Home lab workspace, as main (b0bb3767, migration 0027) writes it. What is in the trash
 -- has archived_at set: a project trashed with its two tasks (the same time, as a cascade trash
 -- writes it), a lone task, and a note.
 

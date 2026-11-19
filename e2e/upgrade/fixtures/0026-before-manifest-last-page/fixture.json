@@ -1,4 +1,0 @@
-{
-  "description": "DevBrain as of e54351f0 (2026-11-03): migrations up to 0026, before 0027 (Linear's No priority). Each workspace has a workspace.json manifest without lastPage; the last page is still settings.json's state.lastPage, and settings.json predates calendar.hideWeekends.",
-  "migration": 26
-}
