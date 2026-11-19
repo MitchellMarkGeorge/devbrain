@@ -20,6 +20,7 @@ import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
+import { configureLogging } from './runtime/logging';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { initialRoute, saveLastPageOnClose, type LastPages } from './runtime/last-page';
 import { createElectronDesktop } from './runtime/desktop';
@@ -41,6 +42,8 @@ const REPO_ROOT = path.join(__dirname, '../..');
 const DEV_ICON = path.join(REPO_ROOT, 'build/icon.png');
 
 loadDevelopmentEnv();
+// before anything logs, so startup errors reach the file too (runtime/logging.ts)
+configureLogging(log, app, REPO_ROOT);
 
 // One DevBrain at a time (runtime/lifecycle.ts): a later launch quits at once, and this one shows
 // its window instead
@@ -52,18 +55,6 @@ const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
 function loadDevelopmentEnv() {
   if (app.isPackaged) return;
   loadEnv({ path: path.join(REPO_ROOT, '.env') });
-}
-
-function configureLogging() {
-  log.initialize();
-  // Never log process.env, credentials or auth headers: in development the environment holds
-  // DEV_LINEAR_API_KEY and GOOGLE_CLIENT_SECRET from .env.
-  // handle uncaught errors
-  log.errorHandler.startCatching();
-  // this path will be gotten from settings like
-  // settings.get('data.logPath', process.env.LOG_PATH)
-  // TODO: in dev, disable console logging
-  log.transports.file.resolvePathFn = () => path.join(os.homedir(), 'devteam', 'logs');
 }
 
 // where electron-log writes: the menu's Show Log File, and app.showLogFile
@@ -307,7 +298,6 @@ function attachMenu(devBrain: DevBrain | null) {
 app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
-  configureLogging();
   if (!app.isPackaged) app.dock?.setIcon(DEV_ICON);
 
   const devBrain = await loadCore();

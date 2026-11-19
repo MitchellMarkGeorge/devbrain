@@ -159,6 +159,19 @@ The `Api` type is exported from the preload and imported in `env.d.ts`, so `wind
 
 The package holds the three builds, `package.json` and the only dependencies Vite leaves external (better-sqlite3, unpacked from the asar, and electron-log), with the migrations as an extra resource and the icons from `build/` (`npm run icons` draws them from the logomark). [docs/releasing.md](docs/releasing.md) covers versions, building each platform, signing and what isn't automated yet.
 
+## Logs
+
+The main process and every window log to one file through electron-log
+(`src/main/runtime/logging.ts`). Help → Show Log File opens it.
+
+| Build       | Log file                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Packaged    | `~/Library/Logs/DevBrain/main.log` (macOS), `%APPDATA%\DevBrain\logs\main.log` (Windows), `~/.config/DevBrain/logs/main.log` (Linux) |
+| Development | `.dev-logs/main.log` in the repository, apart from an installed release's; also printed to the terminal                              |
+
+At 5 MB the file moves to `main.old.log` (replacing the last one) and a new one starts. Never log
+`process.env`, credentials or auth headers.
+
 ## Code quality
 
 A pre-commit hook (Husky + lint-staged) runs automatically on every commit:
