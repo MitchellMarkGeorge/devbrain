@@ -1,0 +1,24 @@
+{
+  // The end-to-end tests (docs/testing.md): Playwright runs them on Node, and their helpers import
+  // a few of core's plain modules (scaffolding a DevBrain folder). Typecheck only.
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // DOM for the callbacks that run in the window (page.evaluate)
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "paths": {
+      "@common/*": ["../src/common/*"],
+      "@main/*": ["../src/main/*"]
+    }
+  },
+  "include": ["**/*.ts", "../scripts/e2e.mts", "../scripts/build_upgrade_fixtures.mts"]
+}
