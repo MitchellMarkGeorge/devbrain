@@ -25,6 +25,7 @@
  *   npm run seed:dev -- --path .dev2 --name Perf    # override .env for this run
  *   npm run seed:dev -- --path=.dev2 --name=Perf    # the same
  *   npm run seed:dev -- --seed 7                    # different dataset shape
+ *   npm run seed:large                              # --size=large: ~10,000 tasks (docs/performance.md)
  *
  * DEV_PATH and DEV_WORKSPACE_NAME are read from the repo's .env file (same
  * variables the app itself uses), falling back to `.dev` / `Dev` if either is
@@ -95,15 +96,30 @@ const LINEAR_API_KEY = process.env.DEV_LINEAR_API_KEY?.trim() || null;
 // making a single seed run take forever.
 // ---------------------------------------------------------------------------
 
-const REGULAR_TASK_COUNT = 150;
-const ONE_OFF_EVENT_COUNT = 110;
-const PROJECT_NOTES_PER_PROJECT: [number, number] = [2, 4];
-const FREESTANDING_NOTE_COUNT = 30;
-const MEETING_NOTE_RATE = 0.25; // fraction of one-off events that get a note
-const FOLLOWUP_TASK_EVENT_RATE = 0.2; // fraction of one-off events that spawn tasks
+// `--size=large` (npm run seed:large) is the workspace docs/performance.md measures: about 10,000
+// tasks, 200 projects, 3,000 notes (a few of them long, one very long), 5,000 events with 30
+// recurring series, and favorites, recents and a filled Trash.
+const SIZE = getOpt('size', 'default');
+if (SIZE !== 'default' && SIZE !== 'large') {
+  console.error(`Unknown --size ${SIZE}: use default or large`);
+  process.exit(1);
+}
+const LARGE = SIZE === 'large';
+
+const REGULAR_TASK_COUNT = LARGE ? 5100 : 150;
+const ONE_OFF_EVENT_COUNT = LARGE ? 4970 : 110;
+const PROJECT_COUNT = LARGE ? 200 : null; // null: one per PROJECT_DEFS entry
+const SERIES_VARIANTS = LARGE ? 5 : 1; // copies of each RECURRING_SERIES, for other teams
+const EVENT_DAYS: [number, number] = LARGE ? [-180, 180] : [-60, 90];
+const TASK_DUE_DAYS: [number, number] = LARGE ? [-180, 180] : [-45, 60];
+const UNDATED_TASK_RATE = LARGE ? 0.15 : 0; // regular tasks with no due date
+const PROJECT_NOTES_PER_PROJECT: [number, number] = LARGE ? [1, 3] : [2, 4];
+const FREESTANDING_NOTE_COUNT = LARGE ? 1200 : 30;
+const MEETING_NOTE_RATE = LARGE ? 0.1 : 0.25; // fraction of one-off events that get a note
+const FOLLOWUP_TASK_EVENT_RATE = LARGE ? 0.05 : 0.2; // fraction of one-off events that spawn tasks
 const NOTE_DERIVED_TASK_RATE = 0.25; // fraction of project/freestanding notes that spawn tasks
-const TASK_NOTE_RATE = 0.2; // fraction of top-level tasks that get a "task note"
-const SUBTASK_RATE = 0.35; // fraction of top-level tasks that get subtasks
+const TASK_NOTE_RATE = LARGE ? 0.15 : 0.2; // fraction of top-level tasks that get a "task note"
+const SUBTASK_RATE = LARGE ? 0.3 : 0.35; // fraction of top-level tasks that get subtasks
 
 // ---------------------------------------------------------------------------
 // Deterministic RNG — re-running with the same --seed reproduces the same
@@ -609,8 +625,117 @@ function freeformNoteContent(topic: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Long notes (large workspace only)
+// ---------------------------------------------------------------------------
+
+// Entity links a long note points at, as the editor writes them (docs/editor.md): filled as tasks
+// and projects are made, so a note's pills name real rows
+const linkTargets: string[] = [];
+function addLinkTargets(rows: Array<Task | Project>, type: 'task' | 'project') {
+  for (const row of rows) linkTargets.push(`[${row.title}](devbrain://${type}/${row.id})`);
+}
+
+const CODE_SNIPPETS = [
+  [
+    'ts',
+    'export async function retry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {\n  for (let i = 1; ; i++) {\n    try {\n      return await run();\n    } catch (error) {\n      if (i >= attempts) throw error;\n    }\n  }\n}',
+  ],
+  [
+    'sql',
+    'SELECT id, title FROM tasks\nWHERE archived_at IS NULL AND status = 2\nORDER BY due_date, id\nLIMIT 100;',
+  ],
+  ['bash', 'npm ci\nnpm run build\nnpm test -- --reporter=dot'],
+] as const;
+
+// One section of a long note: a heading, prose, a list with pills, sometimes a to-do list, a code
+// block or a table
+function longSection(index: number): string {
+  const parts = [
+    `## ${capitalize(pick(DISCUSSION_POINTS))} (${index + 1})`,
+    '',
+    pickMany(FILLER_SENTENCES, randomInt(3, 6)).join(' '),
+    '',
+    bulletList(pickMany(ACTION_ITEM_PHRASES, randomInt(2, 4))),
+  ];
+  if (linkTargets.length > 0) {
+    parts.push('', `Related: ${pickMany(linkTargets, randomInt(1, 4)).join(', ')}`);
+  }
+  if (chance(0.4)) {
+    const steps = pickMany(SUBTASK_FRAGMENTS, randomInt(2, 5));
+    parts.push('', steps.map((step) => `- [${chance(0.4) ? 'x' : ' '}] ${step}`).join('\n'));
+  }
+  if (chance(0.25)) {
+    const [language, code] = pick(CODE_SNIPPETS);
+    parts.push('', '```' + language, code, '```');
+  }
+  if (chance(0.15)) {
+    parts.push(
+      '',
+      '| Item | Owner | State |',
+      '| ---- | ----- | ----- |',
+      ...pickMany(TASK_OBJECTS, 3).map(
+        (item) => `| ${item} | ${pick(TEAMS)} | ${pick(['open', 'done', 'blocked'])} |`,
+      ),
+    );
+  }
+  return parts.join('\n');
+}
+
+// Grows a note's markdown to about `bytes`, a section at a time
+function lengthen(content: string, bytes: number): string {
+  const sections = [content];
+  let size = content.length;
+  for (let i = 0; size < bytes; i++) {
+    const section = longSection(i);
+    sections.push(section);
+    size += section.length + 2;
+  }
+  return sections.join('\n\n');
+}
+
+// In the large workspace, most notes stay short, about one in four runs to a few kilobytes and one
+// in twenty-five to tens of kilobytes. The default workspace keeps its notes as written.
+function sized(content: string): string {
+  if (!LARGE) return content;
+  const bytes = weightedPick<number>([
+    [0, 0.6],
+    [randomInt(1_000, 4_000), 0.25],
+    [randomInt(4_000, 20_000), 0.11],
+    [randomInt(20_000, 60_000), 0.04],
+  ]);
+  return bytes === 0 ? content : lengthen(content, bytes);
+}
+
+// ---------------------------------------------------------------------------
 // Seeding phases
 // ---------------------------------------------------------------------------
+
+// The i-th project: PROJECT_DEFS in order, then (in the large workspace) the same again for each
+// team, as "Payments: API Gateway Revamp"
+const TEAMS = [
+  'Payments',
+  'Growth',
+  'Platform',
+  'Mobile',
+  'Data',
+  'Security',
+  'Infra',
+  'Search',
+  'Billing',
+  'Identity',
+  'Docs',
+  'Support',
+  'Ads',
+  'Maps',
+  'Media',
+];
+function projectDef(i: number): { title: string; description: string } {
+  const def = PROJECT_DEFS[i % PROJECT_DEFS.length];
+  if (i < PROJECT_DEFS.length) return def;
+  const team = TEAMS[Math.floor(i / PROJECT_DEFS.length - 1) % TEAMS.length];
+  const round = Math.floor(i / (PROJECT_DEFS.length * (TEAMS.length + 1)));
+  return { ...def, title: `${team}: ${def.title}${round > 0 ? ` ${round + 1}` : ''}` };
+}
 
 async function seedProjects(workspace: Workspace): Promise<Project[]> {
   const now = new Date();
@@ -622,8 +747,9 @@ async function seedProjects(workspace: Workspace): Promise<Project[]> {
   ];
 
   const projects: Project[] = [];
-  for (let i = 0; i < PROJECT_DEFS.length; i++) {
-    const { title, description } = PROJECT_DEFS[i];
+  const count = PROJECT_COUNT ?? PROJECT_DEFS.length;
+  for (let i = 0; i < count; i++) {
+    const { title, description } = projectDef(i);
     const status = statusPlan[i % statusPlan.length];
 
     let startDate: Date | undefined;
@@ -663,30 +789,32 @@ async function seedEvents(workspace: Workspace): Promise<Event[]> {
   const now = new Date();
   const events: Event[] = [];
 
-  // recurring series: one anchor row per series, RRULE describes the rest
-  for (const series of RECURRING_SERIES) {
-    const anchor = addDays(startOfDay(now), -randomInt(0, 14));
-    const startAt = new Date(anchor);
-    startAt.setHours(series.hour, series.minute, 0, 0);
-    const endAt = addMinutes(startAt, series.durationMinutes);
+  // recurring series: one anchor row per series, RRULE describes the rest. The large workspace has
+  // each series for several teams, an hour apart, and starts them months back
+  for (let variant = 0; variant < SERIES_VARIANTS; variant++)
+    for (const series of RECURRING_SERIES) {
+      const anchor = addDays(startOfDay(now), -randomInt(0, 14) - (LARGE ? 180 : 0));
+      const startAt = new Date(anchor);
+      startAt.setHours(series.hour + (variant % 3), series.minute, 0, 0);
+      const endAt = addMinutes(startAt, series.durationMinutes);
 
-    const event = await workspace.events.createEvent({
-      title: series.title,
-      description: series.description,
-      startAt,
-      endAt,
-      recurrenceRule: series.recurrenceRule,
-      location: series.location,
-      meetingUrl: series.meetingUrl,
-      color: pick(PALETTE),
-    });
-    events.push(event);
-  }
+      const event = await workspace.events.createEvent({
+        title: variant === 0 ? series.title : `${series.title} (${TEAMS[variant - 1]})`,
+        description: series.description,
+        startAt,
+        endAt,
+        recurrenceRule: series.recurrenceRule,
+        location: series.location,
+        meetingUrl: series.meetingUrl,
+        color: pick(PALETTE),
+      });
+      events.push(event);
+    }
 
   // one-off meetings/events spread across roughly -60..+90 days
   for (let i = 0; i < ONE_OFF_EVENT_COUNT; i++) {
     const isAllDay = chance(0.08);
-    const dayOffset = randomInt(-60, 90);
+    const dayOffset = randomInt(EVENT_DAYS[0], EVENT_DAYS[1]);
     const day = addDays(startOfDay(now), dayOffset);
 
     let startAt: Date;
@@ -739,7 +867,7 @@ function taskTitle(): string {
 }
 
 function pickTaskDueDate(): Date {
-  return addDays(new Date(), randomInt(-45, 60));
+  return addDays(new Date(), randomInt(TASK_DUE_DAYS[0], TASK_DUE_DAYS[1]));
 }
 
 function pickTaskStatus(dueDate: Date): TaskStatus {
@@ -785,16 +913,17 @@ async function seedRegularTasks(workspace: Workspace, projects: Project[]): Prom
   const tasks: Task[] = [];
   for (let i = 0; i < REGULAR_TASK_COUNT; i++) {
     const project = weightedPick(projectWeights);
+    const undated = UNDATED_TASK_RATE > 0 && chance(UNDATED_TASK_RATE);
     const dueDate = pickTaskDueDate();
     const status = pickTaskStatus(dueDate);
-    const startDate = chance(0.6) ? addDays(dueDate, -randomInt(3, 21)) : undefined;
+    const startDate = !undated && chance(0.6) ? addDays(dueDate, -randomInt(3, 21)) : undefined;
 
     const task = await workspace.tasks.createTask({
       title: taskTitle(),
       description: chance(0.6) ? pick(TASK_DESCRIPTIONS) : undefined,
       priority: pickTaskPriority(),
       status,
-      dueDate,
+      dueDate: undated ? null : dueDate,
       startDate,
       projectId: project?.id,
     });
@@ -837,7 +966,7 @@ async function seedEventFollowups(
       linkedEventId: event.id,
       projectId: chance(0.3) ? pick(projects).id : undefined,
     });
-    await workspace.notes.updateNoteContent(note.id, meetingNoteContent(event));
+    await workspace.notes.updateNoteContent(note.id, sized(meetingNoteContent(event)));
     notes.push(note);
   }
 
@@ -872,7 +1001,7 @@ async function seedFreeformNotes(workspace: Workspace, projects: Project[]): Pro
         title: `${project.title}: ${pick(['Notes', 'Design doc', 'Context', 'Open questions', 'Plan'])}`,
         projectId: project.id,
       });
-      await workspace.notes.updateNoteContent(note.id, projectNoteContent(project));
+      await workspace.notes.updateNoteContent(note.id, sized(projectNoteContent(project)));
       notes.push(note);
     }
   }
@@ -883,7 +1012,7 @@ async function seedFreeformNotes(workspace: Workspace, projects: Project[]): Pro
     const note = await workspace.notes.createNote({ title: topic });
     // leave a few genuinely empty, like a title jotted down and never filled in
     if (chance(0.85)) {
-      await workspace.notes.updateNoteContent(note.id, freeformNoteContent(topic));
+      await workspace.notes.updateNoteContent(note.id, sized(freeformNoteContent(topic)));
     }
     notes.push(note);
   }
@@ -923,7 +1052,7 @@ async function seedTaskNotes(workspace: Workspace, tasks: Task[]): Promise<Note[
       linkedTaskId: task.id,
       projectId: task.projectId ?? undefined,
     });
-    await workspace.notes.updateNoteContent(note.id, taskNoteContent(task));
+    await workspace.notes.updateNoteContent(note.id, sized(taskNoteContent(task)));
     notes.push(note);
   }
 
@@ -957,6 +1086,97 @@ async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]
   }
 
   return subtasks;
+}
+
+// ---------------------------------------------------------------------------
+// Favorites, recents, Trash and one very long note (large workspace only)
+// ---------------------------------------------------------------------------
+
+const VERY_LONG_NOTE_TITLE = 'Engineering handbook (long note)';
+
+async function seedLargeExtras(
+  workspace: Workspace,
+  {
+    tasks,
+    projects,
+    notes,
+    events,
+  }: { tasks: Task[]; projects: Project[]; notes: Note[]; events: Event[] },
+): Promise<{ veryLongNote: Note; favorites: number; recents: number; archived: number }> {
+  // the note docs/performance.md opens and types in: about 200 KB
+  const veryLongNote = await workspace.notes.createNote({ title: VERY_LONG_NOTE_TITLE });
+  await workspace.notes.updateNoteContent(
+    veryLongNote.id,
+    lengthen(`# ${VERY_LONG_NOTE_TITLE}\n\n${pick(FILLER_SENTENCES)}`, 200_000),
+  );
+
+  // archived first, so nothing favorited or viewed is then hidden by the Trash. Archiving cascades
+  // (a project takes its tasks and notes, a task its subtasks and note), so a row the Trash already
+  // holds is skipped
+  const skipArchived = (archive: () => unknown) => {
+    try {
+      archive();
+    } catch (error) {
+      if ((error as { code?: string }).code !== 'already_archived') throw error;
+    }
+  };
+  for (const project of pickMany(projects, 10)) {
+    skipArchived(() => workspace.archive.archiveProject(project.id));
+  }
+  const topLevel = tasks.filter((task) => task.parentTaskId === null);
+  for (const task of pickMany(topLevel, 300)) {
+    skipArchived(() => workspace.archive.archiveTask(task.id));
+  }
+  for (const note of pickMany(notes, 100)) {
+    skipArchived(() => workspace.archive.archiveNote(note.id));
+  }
+  // what is left out of the Trash: getById leaves archived rows out
+  const isLive = (get: () => unknown) => {
+    try {
+      get();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const liveTasks = tasks.filter((task) => isLive(() => workspace.tasks.getById(task.id)));
+  const liveNotes = notes.filter((note) => isLive(() => workspace.notes.getById(note.id)));
+  const liveProjects = projects.filter((project) =>
+    isLive(() => workspace.projects.getById(project.id)),
+  );
+  const archived =
+    tasks.length -
+    liveTasks.length +
+    notes.length -
+    liveNotes.length +
+    projects.length -
+    liveProjects.length;
+
+  const favorites = [
+    ...pickMany(liveTasks, 30).map((task) => () => workspace.favorites.favoriteTask(task.id)),
+    ...pickMany(liveProjects, 12).map(
+      (project) => () => workspace.favorites.favoriteProject(project.id),
+    ),
+    ...pickMany(liveNotes, 20).map((note) => () => workspace.favorites.favoriteNote(note.id)),
+    ...pickMany(events, 5).map((event) => () => workspace.favorites.favoriteEvent(event.id)),
+  ];
+  favorites.forEach((favorite) => favorite());
+
+  const viewed = shuffle([
+    ...pickMany(liveTasks, 120).map((task) => task.id),
+    ...pickMany(liveProjects, 30).map((project) => project.id),
+    ...pickMany(liveNotes, 60).map((note) => note.id),
+    ...pickMany(events, 20).map((event) => event.id),
+  ]);
+  for (const id of viewed) workspace.recents.recordView(id);
+  workspace.recents.recordView(veryLongNote.id);
+
+  return {
+    veryLongNote,
+    favorites: favorites.length,
+    recents: viewed.length + 1,
+    archived,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1041,6 +1261,10 @@ async function main() {
 
     console.log('Creating regular tasks...');
     const regularTasks = await seedRegularTasks(workspace, projects);
+    if (LARGE) {
+      addLinkTargets(projects, 'project');
+      addLinkTargets(regularTasks, 'task');
+    }
 
     console.log('Creating meeting notes and event follow-up tasks...');
     const eventFollowups = await seedEventFollowups(workspace, events, projects);
@@ -1062,11 +1286,20 @@ async function main() {
     const allNotes = [...eventFollowups.notes, ...freeformNotes, ...taskNotes];
     const allTasks = [...topLevelTasks, ...subtasks];
 
-    console.log('Indexing everything for search...');
-    workspace.search.indexProjects(projects);
-    workspace.search.indexEvents(events);
-    workspace.search.indexTasks(allTasks);
-    await workspace.search.indexNotes(allNotes);
+    // the services index each row for search as it is made (Workspace's change listeners)
+    await workspace.search.whenIdle();
+
+    let extras: Awaited<ReturnType<typeof seedLargeExtras>> | null = null;
+    if (LARGE) {
+      console.log('Creating a long note, favorites, recents and the Trash...');
+      extras = await seedLargeExtras(workspace, {
+        tasks: allTasks,
+        projects,
+        notes: allNotes,
+        events,
+      });
+      allNotes.push(extras.veryLongNote);
+    }
 
     const linear = await connectLinear(workspace);
 
@@ -1082,6 +1315,11 @@ async function main() {
       'tasks (subtasks)': subtasks.length,
       'tasks (total)': allTasks.length,
       'notes (total)': allNotes.length,
+      ...(extras && {
+        favorites: extras.favorites,
+        recents: extras.recents,
+        'archived (Trash)': extras.archived,
+      }),
     });
     console.log(`Linear: ${linear}`);
     console.log(`Workspace: ${WORKSPACE_NAME} (${workspace.info.id})`);

@@ -8,6 +8,8 @@ release
 .vite
 .dev
 .dev-logs
+# npm run seed:large -- --path=.perf (docs/performance.md)
+.perf
 storybook-static
 
 # end-to-end test output (npm run e2e)
