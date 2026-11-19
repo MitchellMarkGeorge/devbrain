@@ -1,132 +1,125 @@
-# DevBrain
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src/renderer/assets/devbrain-logomark.svg" />
+    <img src="src/renderer/assets/devbrain-logomark-dark.svg" alt="" width="64" height="77" />
+  </picture>
 
-The second brain for developers: your tasks, projects, notes and calendar in one desktop app that
-runs on your computer.
+  <h1>DevBrain</h1>
 
-DevBrain organises your working life around four things (tasks, notes, projects and events) and
-the links between them, so you always have a clear picture of what you're working on and when. It
-is local first: each workspace is a folder on your computer, holding a SQLite database and your
-notes as plain Markdown files. There is no account and no DevBrain server, and it works offline.
+  <p><strong>The second brain for developers.</strong><br />
+  Your tasks, projects, notes and calendar, in one desktop app that runs on your computer.</p>
 
-- **Tasks:** lists and boards grouped by status, with priorities, dates, subtasks and links to the
-  projects, notes and events they belong to.
-- **Projects:** an overview of each project's open and finished tasks, its notes, health and
-  progress.
-- **Notes:** a rich text editor that reads and writes Markdown, with checklists, tables, callouts
-  and highlighted code.
-- **Calendar:** your week on a time grid, with an agenda and the meeting up next.
-- **Search:** ⌘K (Ctrl K on Windows and Linux) across everything.
-- **Integrations:** Linear issues and Google Calendar events, mirrored in read-only.
+  <p>
+    <a href="https://devbrainapp.dev">Website</a> ·
+    <a href="https://devbrainapp.dev/download/">Download</a> ·
+    <a href="https://devbrainapp.dev/docs/">Docs</a> ·
+    <a href="https://devbrainapp.dev/changelog/">Changelog</a>
+  </p>
+
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey" alt="Platforms: macOS, Windows and Linux" />
+    <img src="https://img.shields.io/badge/local--first-no%20account%2C%20no%20server-brightgreen" alt="Local first: no account, no server" />
+  </p>
+</div>
+
+<br />
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/tasks-dark.png" />
+  <img src="website/src/assets/screenshots/tasks-light.png" alt="DevBrain's task list: tasks with their status, subtasks, project, priority and due date" />
+</picture>
+
+## What it is
+
+DevBrain organises your working life around four things (**tasks, notes, projects and events**)
+and the links between them: a task to its project, a note to its meeting. So you always have a
+clear picture of what you're working on and when, and can pick your work back up after a week
+away.
+
+It's personal, not a team tool, and it stays out of your way: quick to put things in, quicker to
+find them again.
+
+## Features
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Tasks</h3>
+      <p>Lists and boards grouped by status, with priorities, dates, subtasks, and links to the projects, notes and events they belong to.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/board-dark.png" />
+        <img src="website/src/assets/screenshots/board-light.png" alt="The board: tasks in Not started, In progress and Completed columns" />
+      </picture>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Projects</h3>
+      <p>Each project's open and recently finished tasks, its notes, and its progress at a glance.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/project-dark.png" />
+        <img src="website/src/assets/screenshots/project-light.png" alt="A project's overview: status and dates, open tasks, progress and notes" />
+      </picture>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Notes</h3>
+      <p>A rich text editor that reads and writes Markdown: checklists, tables, callouts and highlighted code, saved as plain files you own.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/note-dark.png" />
+        <img src="website/src/assets/screenshots/note-light.png" alt="A note with a callout, lists, a table and a TypeScript code block" />
+      </picture>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Calendar</h3>
+      <p>Your week on a time grid, with today's agenda, the tasks that are due, and the meeting up next.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/calendar-dark.png" />
+        <img src="website/src/assets/screenshots/calendar-light.png" alt="The week view with meetings, the month, an Up next card and the agenda" />
+      </picture>
+    </td>
+  </tr>
+</table>
+
+And around them:
+
+- **Search everything** with ⌘K (Ctrl K on Windows and Linux): tasks, projects, notes and events.
+- **Linear and Google Calendar,** mirrored in read-only: the issues assigned to you, and the events
+  of the calendars you choose, beside your own work.
 - **Import and export:** tasks as CSV or JSON, notes as Markdown.
 
-DevBrain hasn't been released yet. It runs on macOS, Windows and Linux.
+## Local first
 
-## Developing
+- **Your work stays on your computer.** Each workspace is a folder: a SQLite database and your
+  notes as Markdown files. Copy the folder to move it to another computer.
+- **No account and no DevBrain server.** It works offline, and sends no analytics or telemetry.
+- **Integrations talk to Linear and Google directly,** with your sign-ins encrypted in your
+  system's keychain.
 
-### Prerequisites
+The [privacy policy](https://devbrainapp.dev/privacy/) has the details.
 
-| Requirement                   | Version                        |
-| ----------------------------- | ------------------------------ |
-| [Node.js](https://nodejs.org) | 24 or later (`.nvmrc` pins it) |
-| npm                           | bundled with Node.js           |
+## Download
 
-With nvm, `nvm use` in the repository switches to the pinned version.
-
-### Getting started
+DevBrain is for macOS (Apple silicon and Intel), Windows and Linux. It hasn't had its first
+release yet: installers will be on the [download page](https://devbrainapp.dev/download/) and the
+[GitHub releases](https://github.com/MitchellMarkGeorge/devbrain/releases). Until then, you can
+build it from source:
 
 ```bash
 git clone https://github.com/MitchellMarkGeorge/devbrain.git
 cd devbrain
-npm install        # also builds better-sqlite3 for Electron
-npm run seed:dev   # makes a DevBrain folder (.dev) with a workspace full of sample data
-npm run dev        # starts Vite and Electron, with hot reload
+npm install
+npm run seed:dev   # a sample workspace to try it with
+npm run dev
 ```
 
-A development build opens the DevBrain folder in `.dev`, never your own `~/.devbrain`. It needs
-one: `npm run seed:dev` makes it (`--reset` starts it again). `.env` is optional; copy
-`.env.template` to set the Google OAuth client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) for
-Google Calendar, or `DEV_LINEAR_API_KEY` to connect Linear when seeding. Leave `DEV_PATH` unset to
-keep the default `.dev`, which `.gitignore` covers.
+You'll need Node.js 24. [CONTRIBUTING.md](CONTRIBUTING.md) covers the rest.
 
-### Commands
+## Contributing
 
-```bash
-npm run dev                     # Vite + Electron: hot reload in the window, restart on main/preload changes
-npm run seed:dev                # a DevBrain folder with a sample workspace (-- --reset to start again)
-npm test                        # unit tests: Vitest on Electron's Node (-- <path> for some)
-npm run test:watch              # the same, watching
-npm run e2e                     # end-to-end tests: the built app, driven by Playwright
-npm run typecheck               # tsc --build
-npm run lint                    # ESLint (lint:fix to fix)
-npm run format:check            # Prettier (format to write)
-npm run storybook               # the design system's components, on localhost:6006
-npm run build                   # main, preload and renderer into dist/
-npm run compile                 # build, then package with electron-builder into release/
-npm run routes                  # regenerate src/renderer/routeTree.gen.ts
-npm run tokens                  # regenerate the styles from docs/design-system/tokens.json
-npm run icons                   # draw build/icon.* from the logomark
-npm run db:generate-migrations  # a migration from the schema (read CLAUDE.md first)
-```
-
-A pre-commit hook (Husky and lint-staged) runs ESLint and Prettier on staged files. Before
-pushing, run `npm run typecheck && npm run lint && npm run format:check && npm test`.
-
-## How it's built
-
-An Electron app in three parts, written in TypeScript:
-
-- **Main** (`src/main`): Node. `core/` is the app's logic, with no Electron in it: workspaces,
-  their SQLite databases (better-sqlite3 and Drizzle, migrations in `db/`), note files, search,
-  and syncing integrations. `ipc/` exposes core to the window as a typed tRPC router, and
-  `runtime/` wires it to Electron: windows, menus, the keychain, logging.
-- **Preload** (`src/preload`): carries tRPC between the window and main over Electron IPC. The
-  window runs sandboxed, with context isolation and no Node.
-- **Renderer** (`src/renderer`): React, with TanStack Router and Query. Pages are organised by
-  feature (`features/`), on the design system in `components/` and a TipTap editor in `editor/`.
-- **Common** (`src/common`): the types, enums and schemas both sides share.
-
-```
-src/
-  main/        core/, db/, ipc/, runtime/, index.ts
-  preload/     the IPC bridge
-  renderer/    app/, features/, layouts/, shared/, components/, editor/, routes/, styles/
-  common/      types and schemas shared by main and the renderer
-e2e/           end-to-end tests (Playwright)
-scripts/       dev, seeding, tests, code generation
-vite/          the Vite builds for main, preload and renderer
-docs/          design notes
-build/         app icons for packaging
-```
-
-## Documentation
-
-- [`CLAUDE.md`](CLAUDE.md): the codebase's rules (migrations, database access, change events, the
-  design system, IPC, the renderer's layout and routing). Read it before changing an area it
-  covers.
-- [`docs/ipc/design.md`](docs/ipc/design.md): how the window talks to core, with a checklist for
-  adding a route.
-- [`docs/renderer/routing.md`](docs/renderer/routing.md): routing and workspaces in the window.
-- [`docs/design-system/README.md`](docs/design-system/README.md): the design system and its tokens.
-- [`docs/editor.md`](docs/editor.md): what the note editor reads and writes.
-- [`docs/integrations/tech-design.md`](docs/integrations/tech-design.md): Linear, Google Calendar
-  and sync.
-- [`docs/testing.md`](docs/testing.md): unit, route and end-to-end tests.
-- [`docs/security/`](docs/security): untrusted content and dependencies.
-- [`docs/releasing.md`](docs/releasing.md): versions, packaging each platform and signing.
-
-## Logs
-
-The main process and every window log to one file through electron-log
-(`src/main/runtime/logging.ts`). Help › Show Log File opens it.
-
-| Build       | Log file                                                                                                                             |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Packaged    | `~/Library/Logs/DevBrain/main.log` (macOS), `%APPDATA%\DevBrain\logs\main.log` (Windows), `~/.config/DevBrain/logs/main.log` (Linux) |
-| Development | `.dev-logs/main.log` in the repository; also printed to the terminal                                                                 |
-
-At 5 MB the file moves to `main.old.log` and a new one starts. Never log `process.env`,
-credentials or auth headers.
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to get
+a development build running, how the app is built, and the rules the codebase follows.
 
 ## License
 
-MIT.
+[MIT](LICENSE) © Mitchell Mark-George
