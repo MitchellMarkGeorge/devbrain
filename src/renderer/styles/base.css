@@ -104,3 +104,15 @@ body {
   );
   --title-bar-end: calc(var(--caption-buttons-width) + var(--space-4));
 }
+
+/*
+ * Electron gives a press on a drag region (the title bars, -webkit-app-region: drag) to the window,
+ * so the page never sees it, and a menu open over it wouldn't close on a press there. Base UI
+ * covers the window with an invisible backdrop while a modal popup is open (a menu, a select, a
+ * dialog) to catch presses outside it; this one never drags, so a press on the title bar reaches
+ * it and closes the popup, as a press anywhere else outside does. The window drags again once it
+ * has closed.
+ */
+[data-base-ui-inert] {
+  -webkit-app-region: no-drag;
+}
