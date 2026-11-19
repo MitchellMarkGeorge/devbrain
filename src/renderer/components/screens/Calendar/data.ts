@@ -1,3 +1,5 @@
+import { TaskStatus } from '@common/types';
+import type { CalendarDueTask } from '../../calendar/CalendarView';
 import type { CalendarEvent } from '../../types';
 
 /** The Figma file's calendar: the week of Monday 22 June 2026, "now" at 8:46 AM. */
@@ -110,3 +112,49 @@ export const MONTH_EVENTS: CalendarEvent[] = (() => {
   out.push(WEEK_EVENTS[0]);
   return out;
 })();
+
+/** The tasks due that week, for the week and day views' due lane (two more are overdue) */
+export const WEEK_DUE_TASKS: CalendarDueTask[] = [
+  {
+    id: 'guide',
+    title: 'Write PKCE migration guide',
+    status: TaskStatus.NOT_STARTED,
+    dueDate: new Date(2026, 5, 22),
+  },
+  {
+    id: 'pkce',
+    title: 'Implement OAuth2 PKCE flow',
+    status: TaskStatus.IN_PROGRESS,
+    dueDate: new Date(2026, 5, 24),
+  },
+  {
+    id: 'bench',
+    title: 'Benchmark inference latency',
+    status: TaskStatus.IN_PROGRESS,
+    dueDate: new Date(2026, 5, 25),
+  },
+  {
+    id: 'db',
+    title: 'Integrate database connection',
+    status: TaskStatus.NOT_STARTED,
+    dueDate: new Date(2026, 5, 26),
+  },
+  {
+    id: 'feedback',
+    title: 'Summarise sprint feedback',
+    status: TaskStatus.NOT_STARTED,
+    dueDate: new Date(2026, 5, 26),
+  },
+  {
+    id: 'notify',
+    title: 'Notify partners of auth change',
+    status: TaskStatus.NOT_STARTED,
+    dueDate: new Date(2026, 5, 26),
+  },
+  {
+    id: 'gateway',
+    title: 'Set up API Gateway',
+    status: TaskStatus.COMPLETED,
+    dueDate: new Date(2026, 5, 23),
+  },
+];

@@ -1,0 +1,54 @@
+/* The calendar panel's next meeting. See docs/design-system/components/CalendarUpNext.md */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-3);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+.interactive {
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+.interactive:hover {
+  background: var(--accent);
+}
+.interactive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.heading {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.titleText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.when {
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.soon {
+  color: var(--date-today);
+}
+.join {
+  align-self: flex-start;
+  margin-top: var(--space-0-5);
+}

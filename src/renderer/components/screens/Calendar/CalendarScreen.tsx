@@ -8,6 +8,7 @@ import {
   CalendarAgendaItem,
   type AgendaEventData,
 } from '../../calendar/CalendarAgenda';
+import { CalendarUpNext } from '../../calendar/CalendarUpNext';
 import { storyDate } from '../../lib/story-dates';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from './AppFrame';
@@ -32,7 +33,8 @@ function agendaEvent(
 
 /**
  * The calendar page around a grid: the header (title, calendar filter, view switch, date stepper,
- * New Event) and the right panel (month picker, today's and tomorrow's agenda).
+ * New Event) and the right panel (month picker, the meeting up next, today's and tomorrow's
+ * agenda).
  */
 export function CalendarScreen({
   view,
@@ -81,8 +83,15 @@ export function CalendarScreen({
           }}
         >
           <Calendar today={NOW} defaultMonth={NOW} />
+          <CalendarUpNext
+            event={{
+              ...agendaEvent('Sprint Planning', 0, 9, 0, 'green'),
+              meetingUrl: 'https://meet.example.com/sprint',
+            }}
+            onOpen={() => {}}
+            onJoin={() => {}}
+          />
           <CalendarAgenda title="Today">
-            <CalendarAgendaItem event={agendaEvent('Sprint Planning', 0, 9, 0, 'green')} />
             <CalendarAgendaItem event={agendaEvent('Daily Standup', 0, 9, 30, 'green')} />
             <CalendarAgendaItem event={agendaEvent('Mitchell / Jesse 1:1', 0, 10, 30, 'green')} />
             <CalendarAgendaItem event={agendaEvent('Design Review', 0, 13, 0, 'blue')} />

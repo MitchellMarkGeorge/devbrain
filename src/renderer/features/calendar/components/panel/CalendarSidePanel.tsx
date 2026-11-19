@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import type { EventId, TaskId } from '@common/ids';
 import type { Calendar as CalendarModel, Event, TaskListItem } from '@common/types';
@@ -8,9 +8,11 @@ import {
   Calendar,
   CalendarAgenda,
   CalendarAgendaItem,
+  CalendarUpNext,
   ScrollArea,
   useFormat,
 } from '@renderer/components';
+import { trpc } from '@renderer/ipc';
 import { agendaEventsQuery, agendaRange, tasksDueQuery } from '../../api/queries';
 import styles from './CalendarSidePanel.module.css';
 
@@ -49,6 +51,17 @@ export function agendaItems(
   ];
 }
 
+/**
+ * The meeting the panel puts above the agenda: today's timed occurrence in progress, else the next
+ * to start; none once the day's last has ended.
+ */
+export function upNext(items: readonly AgendaItem[], now: Date): Occurrence | undefined {
+  return items
+    .flatMap((item) => (item.kind === 'event' ? [item.occurrence] : []))
+    .filter((occurrence) => !occurrence.event.allDay && occurrence.end > now)
+    .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+}
+
 // an agenda line opens on a click, and on Enter or Space while focused
 function activate(open: () => void) {
   return {
@@ -75,7 +88,8 @@ export interface CalendarSidePanelProps {
 
 /**
  * The calendar's right panel, in wide windows (Figma `7158:13273`): the mini calendar, which moves
- * the page to a day, and today's and tomorrow's agenda, mixing events and tasks due.
+ * the page to a day, the meeting up next (in progress or next to start today, with Join), and
+ * today's and tomorrow's agenda, mixing events and tasks due.
  */
 export function CalendarSidePanel({
   date,
@@ -100,11 +114,21 @@ export function CalendarSidePanel({
   const dueToday = useQuery(tasksDueQuery(range.start)).data?.items ?? [];
   const dueTomorrow = useQuery(tasksDueQuery(tomorrow)).data?.items ?? [];
   const colorOf = (event: Event) => calendars.find((c) => c.id === event.calendarId)?.color;
+  const { mutate: openUrl } = useMutation(trpc.workspace.openUrl.mutationOptions());
 
+  const today = agendaItems(events, dueToday, range.start);
+  const next = upNext(today, now);
+  const nextKey = next && `${next.event.id}@${next.start.getTime()}`;
+  // the meeting up next is the card, not a line of the agenda as well
   const days = [
-    { title: 'Today', items: agendaItems(events, dueToday, range.start) },
+    { title: 'Today', items: today.filter((item) => item.key !== nextKey) },
     { title: 'Tomorrow', items: agendaItems(events, dueTomorrow, tomorrow) },
   ];
+  const openOccurrence = (occurrence: Occurrence) =>
+    onOpenEvent(
+      occurrence.event.id,
+      occurrence.event.recurrenceRule ? occurrence.start : undefined,
+    );
 
   return (
     <ScrollArea
@@ -123,6 +147,14 @@ export function CalendarSidePanel({
         selected={date}
         onSelect={(day) => day && onDateChange(day)}
       />
+      {next && (
+        <CalendarUpNext
+          event={{ ...next.event, startAt: next.start, endAt: next.end }}
+          calendarColor={colorOf(next.event)}
+          onOpen={() => openOccurrence(next)}
+          onJoin={() => next.event.meetingUrl && openUrl({ url: next.event.meetingUrl })}
+        />
+      )}
       {days.map((day) => (
         <CalendarAgenda key={day.title} title={day.title}>
           {day.items.map((item) =>
@@ -135,12 +167,7 @@ export function CalendarSidePanel({
                   endAt: item.occurrence.end,
                 }}
                 calendarColor={colorOf(item.occurrence.event)}
-                {...activate(() =>
-                  onOpenEvent(
-                    item.occurrence.event.id,
-                    item.occurrence.event.recurrenceRule ? item.occurrence.start : undefined,
-                  ),
-                )}
+                {...activate(() => openOccurrence(item.occurrence))}
               />
             ) : (
               <CalendarAgendaItem

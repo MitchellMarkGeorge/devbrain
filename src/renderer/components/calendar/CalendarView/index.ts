@@ -1,6 +1,7 @@
 export {
   CalendarView,
   calendarEventInput,
+  type CalendarDueTask,
   type CalendarViewEvent,
   type CalendarViewEventProps,
   type CalendarViewHandle,

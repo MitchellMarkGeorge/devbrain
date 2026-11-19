@@ -8,7 +8,10 @@ import {
   draftFromSelection,
   meetingUrlOf,
 } from '@renderer/features/calendar/components/create/CreateEventDialog';
-import { agendaItems } from '@renderer/features/calendar/components/panel/CalendarSidePanel';
+import {
+  agendaItems,
+  upNext,
+} from '@renderer/features/calendar/components/panel/CalendarSidePanel';
 import { fakeTask } from '../../routing/fake-tasks';
 import { WORK, event, id } from '../../fixtures/calendar';
 
@@ -94,5 +97,29 @@ describe('the agenda', () => {
     ).toEqual(['Course', 'Standup', 'Review', 'Write guide']);
     const occurrence = items[1];
     expect(occurrence.kind === 'event' && occurrence.occurrence.start).toEqual(at(9, 30));
+  });
+
+  it('puts the meeting in progress up next, else the next to start, never an all-day one', () => {
+    const standup = event({
+      id: id('evt_standup'),
+      title: 'Standup',
+      startAt: at(9, 30),
+      endAt: at(9, 45),
+    });
+    const review = event({ id: id('evt_review'), title: 'Review', startAt: at(13), endAt: at(14) });
+    const course = event({
+      id: id('evt_course'),
+      title: 'Course',
+      allDay: true,
+      startDate: '2026-06-24',
+      endDate: '2026-06-25',
+      startAt: new Date(2026, 5, 24),
+      endAt: new Date(2026, 5, 25),
+    });
+    const items = agendaItems([review, standup, course], [], new Date(2026, 5, 24));
+    expect(upNext(items, at(9))?.event.title).toBe('Standup');
+    expect(upNext(items, at(9, 40))?.event.title).toBe('Standup');
+    expect(upNext(items, at(9, 45))?.event.title).toBe('Review');
+    expect(upNext(items, at(14))).toBeUndefined();
   });
 });
