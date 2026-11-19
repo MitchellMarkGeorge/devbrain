@@ -1,5 +1,6 @@
 /* The calendar panel's next meeting. See docs/design-system/components/CalendarUpNext.md */
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
@@ -10,14 +11,30 @@
   color: var(--card-foreground);
 }
 .interactive {
-  cursor: pointer;
   transition: background-color var(--duration-fast);
 }
 .interactive:hover {
   background: var(--accent);
 }
-.interactive:focus-visible {
+/* the title opens the event; its click area (and focus ring) is the whole card, under Join */
+.open {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+}
+.open:focus-visible {
   outline: none;
+}
+.open:focus-visible::after {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .heading {
@@ -49,6 +66,8 @@
   color: var(--date-today);
 }
 .join {
+  position: relative;
+  z-index: 1;
   align-self: flex-start;
   margin-top: var(--space-0-5);
 }

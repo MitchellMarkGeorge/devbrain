@@ -1,4 +1,4 @@
-import { forwardRef, useId, type ComponentPropsWithoutRef, type MouseEvent } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { Video } from 'lucide-react';
 import type { Event } from '@common/types';
 import { cn } from '../../lib/cn';
@@ -16,7 +16,7 @@ export type UpNextEventData = Pick<
 >;
 
 export interface CalendarUpNextProps extends Omit<
-  ComponentPropsWithoutRef<'section'>,
+  ComponentPropsWithoutRef<'div'>,
   'title' | 'children'
 > {
   /** the next timed event today, or the one in progress */
@@ -25,7 +25,7 @@ export interface CalendarUpNextProps extends Omit<
   calendarColor?: string | null;
   /** "Join", shown when the event has a meeting link */
   onJoin?: () => void;
-  /** opens the event: a click on the card, or Enter */
+  /** opens the event: the title is a button for it, its click area the whole card */
   onOpen?: () => void;
 }
 
@@ -34,46 +34,48 @@ export interface CalendarUpNextProps extends Omit<
  * calendar's colour bar and the title, how soon it starts ("In 12m", `date-today` from an hour
  * before) and its time, then "Join" when it has a meeting link. A `card` with the `edge` outline.
  */
-export const CalendarUpNext = forwardRef<HTMLElement, CalendarUpNextProps>(function CalendarUpNext(
-  { event, calendarColor, onJoin, onOpen, className, ...props },
-  ref,
-) {
-  const id = useId();
-  const format = useFormat('minute');
-  const countdown = eventCountdown(event, format);
-  const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');
-  const now = countdown.text === 'Now';
-  return (
-    <section
-      ref={ref}
-      aria-labelledby={id}
-      className={cn(styles.card, onOpen && styles.interactive, className)}
-      tabIndex={onOpen ? 0 : undefined}
-      onClick={(e: MouseEvent<HTMLElement>) => {
-        if (onOpen && !(e.target as Element).closest('button')) onOpen();
-      }}
-      onKeyDown={(e) => {
-        if (onOpen && e.key === 'Enter' && e.target === e.currentTarget) onOpen();
-      }}
-      data-testid="calendar-up-next"
-      {...props}
-    >
-      <h3 className={styles.heading}>{now ? 'Now' : 'Up next'}</h3>
-      <div className={styles.title} id={id}>
+export const CalendarUpNext = forwardRef<HTMLDivElement, CalendarUpNextProps>(
+  function CalendarUpNext({ event, calendarColor, onJoin, onOpen, className, ...props }, ref) {
+    const format = useFormat('minute');
+    const countdown = eventCountdown(event, format);
+    const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');
+    const now = countdown.text === 'Now';
+    const title = (
+      <>
         <ColourBar color={color} height={16} />
         <span className={styles.titleText}>{event.title}</span>
-      </div>
-      <div className={styles.when}>
-        {!now && (
-          <span className={cn(countdown.tone === 'soon' && styles.soon)}>{countdown.text} · </span>
+      </>
+    );
+    // not a landmark: the "Up next" heading is enough to find it, and the panel is the region
+    return (
+      <div
+        ref={ref}
+        className={cn(styles.card, onOpen && styles.interactive, className)}
+        data-testid="calendar-up-next"
+        {...props}
+      >
+        <h3 className={styles.heading}>{now ? 'Now' : 'Up next'}</h3>
+        {onOpen ? (
+          <button type="button" className={cn(styles.title, styles.open)} onClick={onOpen}>
+            {title}
+          </button>
+        ) : (
+          <div className={styles.title}>{title}</div>
         )}
-        <span>{eventTimeRange(event, format)}</span>
+        <div className={styles.when}>
+          {!now && (
+            <span className={cn(countdown.tone === 'soon' && styles.soon)}>
+              {countdown.text} ·{' '}
+            </span>
+          )}
+          <span>{eventTimeRange(event, format)}</span>
+        </div>
+        {event.meetingUrl && (
+          <Button variant="outline" size="xs" icon={Video} onClick={onJoin} className={styles.join}>
+            Join
+          </Button>
+        )}
       </div>
-      {event.meetingUrl && (
-        <Button variant="outline" size="xs" icon={Video} onClick={onJoin} className={styles.join}>
-          Join
-        </Button>
-      )}
-    </section>
-  );
-});
+    );
+  },
+);

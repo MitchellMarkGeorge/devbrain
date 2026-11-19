@@ -9,7 +9,9 @@ progress, or else the next to start. A `card` with the `edge` outline, `radius-l
   countdown in `date-today` from an hour before (`eventCountdown`, as `EventRow` words it);
 - "Join" (an outline xs button with the video icon) when the event has a meeting link.
 
-The card opens the event on a click or Enter (`onOpen`); Join calls `onJoin`. The panel picks the
+With `onOpen`, the title is a button that opens the event, and its click area and focus ring cover
+the whole card (the card fills with `accent` on hover); Join sits above it and calls `onJoin`. The
+card is not a landmark: its "Up next" heading is enough to find it, inside the panel's own region. The panel picks the
 event (`upNext` in `CalendarSidePanel`: timed occurrences today that haven't ended, the earliest
 first; none once the last has ended, and never an all-day event) and leaves it out of Today's
 agenda lines, so it shows once.
@@ -18,4 +20,4 @@ agenda lines, so it shows once.
   `allDay`, `meetingUrl`, `color`); `calendarColor` for an event with no colour of its own.
 - Times read `useFormat('minute')`, so "In 14m" counts down and the time format follows settings.
 
-**Base UI:** No Base UI part: a section with the design system's `Button`.
+**Base UI:** No Base UI part: a `div` with a heading, a native button and the design system's `Button`.
