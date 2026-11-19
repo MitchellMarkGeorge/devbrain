@@ -28,7 +28,18 @@
   width: 3px;
   align-self: stretch;
   border-radius: var(--radius-xs);
-  background: var(--bar-color, var(--swatch-green));
+  background: var(--event-color, var(--swatch-green));
+}
+/* an event takes its calendar's colour: the ground 15% of it over the page (as the swatch tints
+   are), the outline 30%, 55% on hover; the title in `foreground-strong` reads on either theme.
+   `:where` keeps these at a plain class's weight, so focus and the grid's selected ring win */
+.block:where([data-kind='event']) {
+  border-color: color-mix(in oklab, var(--event-color, var(--swatch-green)) 30%, transparent);
+  background: color-mix(in oklab, var(--event-color, var(--swatch-green)) 15%, var(--background));
+  color: var(--foreground-strong);
+}
+.block:hover:where([data-kind='event']:not(:focus-visible)) {
+  border-color: color-mix(in oklab, var(--event-color, var(--swatch-green)) 55%, transparent);
 }
 /* a scheduled task's status icon, in place of the bar */
 .glyph {

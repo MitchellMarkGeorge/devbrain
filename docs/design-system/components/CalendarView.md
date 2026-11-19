@@ -70,7 +70,7 @@ Each event's look comes from its `extendedProps` (`CalendarViewEventProps`), whi
 - `declined`: the whole event at 50%.
 - `meeting`: the video icon.
 
-The colour is FullCalendar's: the event's own `color`, else its source's (one source per calendar).
+The colour is FullCalendar's: the event's own `color`, else its source's (one source per calendar); a timed event's block is tinted with it (`EventBlock`).
 A swatch name (`'green'`) or a `#rrggbb` both work. FullCalendar's own event chrome (fill, border,
 shadow) is removed; the selected event (`selectedEventId`) and a focused one get the `ring` outline.
 Events are focusable and open on Enter when `onEventClick` is set.
