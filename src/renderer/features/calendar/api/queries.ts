@@ -57,34 +57,3 @@ export function tasksDueQuery(day: Date) {
     limit: 50,
   });
 }
-
-/**
- * The tasks due in a range, open or not, for the week and day views' due lane. `dueAfter` is
- * exclusive, so it starts a millisecond before the range: a task due at the first midnight counts.
- */
-export function tasksDueInRangeQuery(range: DayRange) {
-  return trpc.tasks.list.queryOptions({
-    filter: {
-      dueAfter: new Date(range.start.getTime() - 1),
-      dueBefore: range.end,
-      excludeSubtasks: true,
-    },
-    sort: { sortBy: 'priority', direction: 'desc' },
-    limit: 200,
-  });
-}
-
-/** most overdue tasks counted; more show as this many ("100 overdue") */
-export const OVERDUE_COUNT_LIMIT = 100;
-
-/** The open tasks due before today: their count heads today's due lane. */
-export function tasksOverdueQuery(today: Date) {
-  return trpc.tasks.list.queryOptions({
-    filter: {
-      dueBefore: DateTime.fromJSDate(today).startOf('day').toJSDate(),
-      excludeClosed: true,
-      excludeSubtasks: true,
-    },
-    limit: OVERDUE_COUNT_LIMIT,
-  });
-}

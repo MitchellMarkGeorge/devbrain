@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
 import { isId, type EventId, type TaskId } from '@common/ids';
@@ -30,8 +30,7 @@ import {
   headerLayout,
 } from '../components/header/CalendarHeader';
 import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
-import { neighbouringRanges, rangeOptionsOf, stepDate, visibleRange } from '../lib/range';
-import { tasksDueInRangeQuery, tasksOverdueQuery } from '../api/queries';
+import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
 import { dateParam, openEventSearch, type CalendarSearch } from '../api/search';
 import { EventSheet } from '../components/sheet/EventSheet';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
@@ -58,7 +57,6 @@ declare module '@tanstack/history' {
 export function CalendarPage() {
   const { resolved, setSearch } = useCalendarSearch();
   const navigate = calendarRoute.useNavigate();
-  const { workspaceId } = calendarRoute.useParams();
   const router = useRouter();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const calendars = useSuspenseQuery(trpc.calendars.list.queryOptions()).data;
@@ -74,16 +72,6 @@ export function CalendarPage() {
   usePrefetchRanges(calendars, neighbouringRanges(resolved.view, resolved.date, options));
   const [loading, onLoading] = useDelayedLoading();
   const duration = defaultDurationMinutes(settings);
-
-  // the due lane: the tasks due in the week or day shown, and how many are overdue (on today)
-  const range = visibleRange(resolved.view, resolved.date, options);
-  const dueQuery = useQuery({ ...tasksDueInRangeQuery(range), enabled: resolved.view !== 'month' });
-  const overdueQuery = useQuery({ ...tasksOverdueQuery(now), enabled: resolved.view !== 'month' });
-  const dueTasks = (dueQuery.data?.items ?? []).flatMap((task) =>
-    task.dueDate
-      ? [{ id: task.id, title: task.title, status: task.status, dueDate: task.dueDate }]
-      : [],
-  );
 
   // the sheet pushes an entry when it opens (Back closes it), and replaces it while open
   const openSheet = useCallback(
@@ -187,16 +175,6 @@ export function CalendarPage() {
               createEvent(draftFromSelection(selection, duration))
             }
             onDayClick={(day) => goTo(day, { view: 'day' })}
-            dueTasks={dueTasks}
-            overdueCount={overdueQuery.data?.items.length ?? 0}
-            onDueTaskClick={(id) => openTask(id as TaskId)}
-            onOverdueClick={() =>
-              void navigate({
-                to: '/app/$workspaceId/tasks',
-                params: { workspaceId },
-                search: { due: 'overdue', status: 'open' },
-              })
-            }
             onLoading={onLoading}
           />
         </div>

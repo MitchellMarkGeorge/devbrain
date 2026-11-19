@@ -3,7 +3,7 @@ import type { EventSourceInput } from '@fullcalendar/react';
 import { CalendarView, calendarEventInput } from '../../calendar/CalendarView';
 import type { CalendarEvent } from '../../types';
 import { CalendarScreen } from './CalendarScreen';
-import { MONTH_EVENTS, NOW, WEEK_DUE_TASKS, WEEK_EVENTS, WEEK_EVENTS_MORE } from './data';
+import { MONTH_EVENTS, NOW, WEEK_EVENTS, WEEK_EVENTS_MORE } from './data';
 
 const meta = {
   title: 'Screens/Calendar/Calendar',
@@ -27,53 +27,6 @@ export const Week: Story = {
         date={NOW}
         now={NOW}
         eventSources={sources(WEEK_EVENTS)}
-        startHour={8}
-        endHour={24}
-      />
-    </CalendarScreen>
-  ),
-};
-
-/**
- * The week with its due lane: the tasks due each day under its date, today's two overdue first;
- * Friday has more than fit, so its last line is "+2 more". Sprint Planning and the standup inside
- * it overlap: the standup is drawn over the right part of the planning block
- */
-export const WeekTasksDue: Story = {
-  name: 'Week — tasks due',
-  render: () => (
-    <CalendarScreen view="week">
-      <CalendarView
-        view="week"
-        date={NOW}
-        now={NOW}
-        eventSources={sources(WEEK_EVENTS)}
-        dueTasks={WEEK_DUE_TASKS}
-        overdueCount={2}
-        onDueTaskClick={() => {}}
-        onOverdueClick={() => {}}
-        onDayClick={() => {}}
-        startHour={8}
-        endHour={24}
-      />
-    </CalendarScreen>
-  ),
-};
-
-/** The day with its due lane */
-export const DayTasksDue: Story = {
-  name: 'Day — tasks due',
-  render: () => (
-    <CalendarScreen view="day">
-      <CalendarView
-        view="day"
-        date={NOW}
-        now={NOW}
-        eventSources={sources(WEEK_EVENTS)}
-        dueTasks={WEEK_DUE_TASKS}
-        overdueCount={2}
-        onDueTaskClick={() => {}}
-        onOverdueClick={() => {}}
         startHour={8}
         endHour={24}
       />

@@ -27,8 +27,7 @@ import rrulePlugin from '@fullcalendar/rrule';
 import '@fullcalendar/react/skeleton.css';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
-import { StatusIcon } from '../../entities/StatusIcon';
-import { TaskStatus } from '@common/types';
+import type { TaskStatus } from '@common/types';
 import type { CalendarEvent } from '../../types';
 import { AllDayEvent, EventBlock, NowIndicator } from '../EventBlock';
 import { formatHour, formatShortTime, formatTimeRange, type TimeFormat } from '../calendar-events';
@@ -66,22 +65,6 @@ function scrollTimeBefore(hour: number): string {
 }
 
 const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
-/** due tasks shown under a day's date before "+N more" takes the last line */
-const DUE_LINES = 2;
-
-/** A task due on a day of the week or day view, drawn in the due lane under that day's date. */
-export interface CalendarDueTask {
-  id: string;
-  title: string;
-  status: TaskStatus;
-  /** the day it is due: any time that day */
-  dueDate: Date;
-}
-
-/** "2026-06-22": a local day, as the due lane groups tasks by */
-function dayKey(date: Date): string {
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-}
 
 /**
  * The display hints CalendarView reads from an event's `extendedProps` (the adapter's
@@ -153,17 +136,6 @@ export interface CalendarViewProps {
   selectedEventId?: string;
   /** the label of the all-day row's gutter */
   allDayLabel?: ReactNode;
-  /**
-   * tasks due in the range: the week and day views list each under its day's date, in the due
-   * lane (the month leaves them out). The lane shows while there are any, or `overdueCount`
-   */
-  dueTasks?: readonly CalendarDueTask[];
-  /** open tasks due before today: a "N overdue" line in today's due lane */
-  overdueCount?: number;
-  /** a task in the due lane; without it the tasks are drawn but not buttons */
-  onDueTaskClick?: (id: string) => void;
-  /** the "N overdue" line */
-  onOverdueClick?: () => void;
   onEventClick?: (event: CalendarViewEvent, info: EventClickInfo) => void;
   /** a range dragged (or a slot clicked) on empty grid */
   onSelect?: (selection: CalendarViewSelection) => void;
@@ -248,10 +220,6 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
     maxEvents = 3,
     selectedEventId,
     allDayLabel = 'All day',
-    dueTasks,
-    overdueCount = 0,
-    onDueTaskClick,
-    onOverdueClick,
     onEventClick,
     onSelect,
     onDayClick,
@@ -294,31 +262,6 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
     [selectedEventId],
   );
 
-  // the due lane: the tasks by day, for the week and day views' headers
-  const dueByDay = new Map<string, CalendarDueTask[]>();
-  for (const task of dueTasks ?? []) {
-    const key = dayKey(task.dueDate);
-    dueByDay.set(key, [...(dueByDay.get(key) ?? []), task]);
-  }
-  const dueLane = view !== 'month' && (dueByDay.size > 0 || overdueCount > 0);
-  const dayHeaderContent = (arg: DayHeaderInfo) => (
-    <DayHeader
-      arg={arg}
-      due={
-        dueLane
-          ? {
-              tasks: dueByDay.get(dayKey(arg.date)) ?? [],
-              overdue: arg.isToday ? overdueCount : 0,
-              onTaskClick: onDueTaskClick,
-              onOverdueClick,
-              onMoreClick: onDayClick,
-              onDateClick: arg.view.type === 'timeGridWeek' ? onDayClick : undefined,
-            }
-          : undefined
-      }
-    />
-  );
-
   const handleSelect = useCallback(
     (info: DateSelectInfo) => {
       onSelect?.({ start: info.start, end: info.end, allDay: info.allDay });
@@ -357,13 +300,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   );
 
   return (
-    <div
-      ref={viewRef}
-      className={cn(styles.view, className)}
-      style={style}
-      data-view={view}
-      data-due-lane={dueLane || undefined}
-    >
+    <div ref={viewRef} className={cn(styles.view, className)} style={style} data-view={view}>
       <FullCalendar
         ref={calendarRef}
         plugins={PLUGINS}
@@ -406,7 +343,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         allDayHeaderContent={allDayLabel}
         slotHeaderContent={(arg: { date: Date }) => formatHour(arg.date.getHours(), timeFormat)}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: timeFormat === '12' }}
-        dayHeaderContent={dayHeaderContent}
+        dayHeaderContent={(arg: DayHeaderInfo) => <DayHeader arg={arg} />}
         nowIndicatorLineContent={() => <NowIndicator className={styles.now} />}
         // the month view: five or six weeks that fill the height
         fixedWeekCount={false}
@@ -414,15 +351,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         dayMaxEvents={monthFits ? maxEvents : true}
         dayCellTopContent={(arg: DayCellInfo) => <DayNumber arg={arg} />}
         moreLinkContent={(arg: { num: number }) => `+${arg.num} more`}
-        views={{
-          dayGridMonth: { expandRows: true },
-          // with the due lane, the header holds buttons: its date is a button of its own (DayHeader)
-          // rather than FullCalendar's link around the whole cell, so no button sits in a link
-          ...(dueLane && {
-            timeGridWeek: { navLinks: false },
-            timeGridDay: { navLinks: false },
-          }),
-        }}
+        views={{ dayGridMonth: { expandRows: true } }}
         eventDisplay="block"
         eventContent={eventContent}
         eventClass={eventClass}
@@ -485,130 +414,13 @@ function EventContent({ arg, timeFormat }: { arg: EventDisplayInfo; timeFormat: 
   );
 }
 
-interface DueLaneProps {
-  tasks: readonly CalendarDueTask[];
-  overdue: number;
-  onTaskClick?: (id: string) => void;
-  onOverdueClick?: () => void;
-  /** "+N more": opens the day */
-  onMoreClick?: (day: Date) => void;
-  /** the weekday and date: opens the day (FullCalendar's header link is off with the lane) */
-  onDateClick?: (day: Date) => void;
-}
-
-function DayHeader({ arg, due }: { arg: DayHeaderInfo; due?: DueLaneProps }) {
+function DayHeader({ arg }: { arg: DayHeaderInfo }) {
   const weekday = <span className={styles.weekday}>{WEEKDAY.format(arg.date)}</span>;
   if (arg.view.type === 'dayGridMonth') return weekday;
-  const head = (
+  return (
     <span className={styles.dayHead}>
       {weekday}
       <span className={cn(styles.date, arg.isToday && styles.today)}>{arg.date.getDate()}</span>
-    </span>
-  );
-  if (!due) return head;
-  const { onDateClick, ...lane } = due;
-  return (
-    <span className={styles.dayHeadWithLane}>
-      {onDateClick ? (
-        <button type="button" className={styles.dateButton} onClick={() => onDateClick(arg.date)}>
-          {head}
-        </button>
-      ) : (
-        head
-      )}
-      <DueLane day={arg.date} {...lane} />
-    </span>
-  );
-}
-
-/**
- * A day's due tasks under its date: the overdue count (today only), then the tasks, two lines in
- * all; more than fit end in "+N more", which opens the day.
- */
-function DueLane({
-  day,
-  tasks,
-  overdue,
-  onTaskClick,
-  onOverdueClick,
-  onMoreClick,
-}: Omit<DueLaneProps, 'onDateClick'> & { day: Date }) {
-  const lines = DUE_LINES - (overdue > 0 ? 1 : 0);
-  // open tasks first; completed and cancelled ones last, in the order given
-  const closed = (task: CalendarDueTask) =>
-    task.status === TaskStatus.COMPLETED || task.status === TaskStatus.CANCELLED;
-  const sorted = [...tasks].sort((a, b) => Number(closed(a)) - Number(closed(b)));
-  const shown = sorted.length > lines ? sorted.slice(0, lines - 1) : sorted;
-  const more = tasks.length - shown.length;
-  return (
-    <span className={styles.dueLane} data-testid="calendar-due-lane">
-      {overdue > 0 && (
-        <DueLine
-          className={styles.dueOverdue}
-          onClick={onOverdueClick}
-          icon={<StatusIcon status={TaskStatus.NOT_STARTED} overdue size={12} />}
-        >
-          {overdue} overdue
-        </DueLine>
-      )}
-      {shown.map((task) => (
-        <DueLine
-          key={task.id}
-          title={task.title}
-          className={cn(closed(task) && styles.dueDone)}
-          onClick={onTaskClick ? () => onTaskClick(task.id) : undefined}
-          icon={<StatusIcon status={task.status} size={12} />}
-        >
-          {task.title}
-        </DueLine>
-      ))}
-      {more > 0 && (
-        <DueLine
-          className={styles.dueMore}
-          onClick={onMoreClick ? () => onMoreClick(day) : undefined}
-        >
-          +{more} more
-        </DueLine>
-      )}
-    </span>
-  );
-}
-
-function DueLine({
-  icon,
-  title,
-  className,
-  onClick,
-  children,
-}: {
-  icon?: ReactNode;
-  title?: string;
-  className?: string;
-  onClick?: () => void;
-  children: ReactNode;
-}) {
-  const content = (
-    <>
-      {icon}
-      <span className={styles.dueTitle}>{children}</span>
-    </>
-  );
-  // FullCalendar's header cell is not a control: a click on a line stops there
-  return onClick ? (
-    <button
-      type="button"
-      className={cn(styles.due, className)}
-      title={title}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-    >
-      {content}
-    </button>
-  ) : (
-    <span className={cn(styles.due, className)} title={title}>
-      {content}
     </span>
   );
 }

@@ -14,15 +14,6 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
 - **Day headers** (40px): the weekday (12px `muted-foreground`) and the date (14px medium
   `foreground-strong`); today's date sits on a 24px `now-indicator` disc with a white number.
   No lines between the headers; one `border` line under them.
-- **Due lane**: with `dueTasks` (or an `overdueCount`), each header gains two 20px lines under the
-  date, 6px below it: today's "N overdue" first (the overdue flag, `date-overdue`), then the tasks
-  due that day (their `StatusIcon`, the title in 12px `foreground` cut with "…"; open tasks first,
-  completed and cancelled ones after, in `muted-foreground`). A day with more than fit ends in
-  "+N more" (`muted-foreground`), which calls `onDayClick`. Every column keeps both lines, so the
-  lane reads as one band across the week; the month view leaves it out. A line is a button when its
-  callback is set (`onDueTaskClick(id)`, `onOverdueClick`), filling with `accent` on hover. With the
-  lane, the weekday and date are a button of their own that opens the day (`onDayClick`), in place
-  of FullCalendar's link around the whole header, so no button sits inside a link.
 - **All-day row**: "All day" in the gutter (`subtle-foreground`), `AllDayEvent` chips spanning the
   days they cover, 4px in from the column lines, stacked in 22px rows 4px apart (32px for one row).
   More than `maxEvents` → "+N more".
@@ -82,8 +73,6 @@ Events are focusable and open on Enter when `onEventClick` is set.
 from `firstDayOfWeek`), `timeFormat` (`'12' | '24'`: "9:00 – 10:00 AM" or "09:00 – 10:00", hour
 labels "8 AM" or "08:00"), `hideWeekends` (FullCalendar's `weekends: false`), `now`, `startHour`/
 `endHour` (0–24), `scrollToHour` (8), `maxEvents` (3), `selectedEventId`, `allDayLabel`,
-`dueTasks` (`CalendarDueTask[]`: `id`, `title`, `status`, `dueDate`), `overdueCount`,
-`onDueTaskClick(id)`, `onOverdueClick`,
 `onEventClick(event, info)` (the occurrence clicked: its `id`, `groupId`, `start` as drawn,
 `end`, `allDay` and `props`), `onSelect({ start, end, allDay })` (a drag on empty grid, or a click,
 which selects one 15-minute slot or one day; selecting is off without it), `onDayClick(day)`,
