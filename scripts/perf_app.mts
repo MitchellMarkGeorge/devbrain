@@ -10,7 +10,7 @@
  * Each step is timed in the page, from the navigation to the frame its content first shows, with
  * the renderer's long tasks (over 50 ms) counted. Main's IPC handler is wrapped for the run, so each
  * step also reports the calls it made, their time in main and their size. Playwright drives
- * Electron; it isn't a dependency of the app: `npm i --no-save playwright-core` if it is missing.
+ * Electron, through the playwright-core that `@playwright/test` (the end-to-end tests) installs.
  *
  * The run writes to the workspace (it creates a second workspace to switch to, types into the long
  * note, sets the status of 200 tasks): seed a copy for it, not your own.
@@ -42,7 +42,7 @@ async function loadElectronDriver(): Promise<any> {
       // try the next
     }
   }
-  console.error('Playwright is missing: npm i --no-save playwright-core');
+  console.error('Playwright is missing: run npm ci');
   process.exit(1);
 }
 

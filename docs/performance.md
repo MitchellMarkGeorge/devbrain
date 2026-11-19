@@ -50,7 +50,7 @@ opening makes.
 
 **The app: `npm run build`, then `xvfb-run -a npm run perf:app -- --path=.perf [--json=out.json]`**
 (no xvfb on a desktop). Launches the built app through Playwright's Electron driver
-(`npm i --no-save playwright-core` if it is missing: it isn't a dependency of the app) and walks
+(from `@playwright/test`, which the end-to-end tests already install) and walks
 through startup, a switch, every page, scrolling, the long note, ⌘K, a bulk edit and a sync page.
 Each step is timed in the page, from the navigation to the frame its content first shows (polled
 each animation frame), with the renderer's long tasks (over 50 ms) counted. Main's IPC handler is
