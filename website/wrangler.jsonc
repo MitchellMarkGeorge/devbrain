@@ -1,0 +1,9 @@
+{
+  "name": "devbrain-website",
+  "compatibility_date": "2026-11-01",
+  // the built site, served as static files; no Worker code
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}
