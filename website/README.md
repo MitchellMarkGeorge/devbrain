@@ -56,7 +56,8 @@ The site doesn't copy the design system; it reads it from the app:
 The screenshots on the home page are the real app, taken by `npm run website:screenshots` at the
 repository's root: it builds the app, makes the **showcase workspace**
 (`scripts/setup_showcase_workspace.mts`: a few projects, tasks, notes and a week of meetings,
-dated from the day it runs), opens it in the built app through the end-to-end harness
+dated from the moment the screenshots show: 10:40 on a weekday of this week, with each note
+edited a believable while before), opens it in the built app through the end-to-end harness
 (`e2e/screenshots/website.screens.ts`), and captures each page in dark and light at 2x into
 `src/assets/screenshots/<page>-<theme>.png`. Commit the new files.
 

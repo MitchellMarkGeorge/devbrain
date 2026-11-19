@@ -30,6 +30,8 @@ export interface SeedOptions {
   // 'showcase': the small hand-written workspace the website's screenshots show
   // (scripts/setup_showcase_workspace.mts) instead of seed:dev's generated one
   dataset?: 'dev' | 'showcase';
+  // the showcase's --now: the moment it's shown at, which its dates are made before
+  now?: Date;
 }
 
 /**
@@ -46,6 +48,9 @@ export async function seedDevFolder(root: string, options: SeedOptions = {}): Pr
       : ['scripts/setup_dev_workspace.mts', `--seed=${options.seed ?? 42}`]),
     `--path=${root}`,
     `--name=${options.name ?? 'Seeded'}`,
+    ...(options.dataset === 'showcase' && options.now
+      ? [`--now=${options.now.toISOString()}`]
+      : []),
   ];
   const output: string[] = [];
   const code = await new Promise<number | null>((resolve, reject) => {

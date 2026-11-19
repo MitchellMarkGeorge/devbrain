@@ -143,11 +143,6 @@ const PAGES: {
 test('website screenshots', async ({ devbrain }) => {
   // the seed's dates and the app's (support/app.ts) in one zone, so "today" is the same day
   process.env.TZ = process.env.E2E_TZ ?? 'UTC';
-  await devbrain.seed({ dataset: 'showcase', name: 'Acme' });
-  // drawn at 2x, whatever the display it runs on
-  const { app, window } = await devbrain.launch({ args: ['--force-device-scale-factor=2'] });
-  await window.getByRole('button', { name: /^Acme Last opened/ }).click();
-  await expect(window.getByRole('button', { name: 'Workspace: Acme' })).toBeVisible();
 
   // The window's clock, pinned to 10:40 on a weekday of the showcase week (today, or Friday at a
   // weekend), whenever this runs: the calendar's "Up next" card shows the next meeting, the "now"
@@ -157,6 +152,13 @@ test('website screenshots', async ({ devbrain }) => {
   const shown = new Date(now);
   shown.setDate(now.getDate() - Math.max(0, weekday - 4));
   shown.setHours(10, 40, 0, 0);
+  // the workspace made just before that moment, so nothing reads as edited "in 7h"
+  await devbrain.seed({ dataset: 'showcase', name: 'Acme', now: shown });
+  // drawn at 2x, whatever the display it runs on
+  const { app, window } = await devbrain.launch({ args: ['--force-device-scale-factor=2'] });
+  await window.getByRole('button', { name: /^Acme Last opened/ }).click();
+  await expect(window.getByRole('button', { name: 'Workspace: Acme' })).toBeVisible();
+
   await window.context().clock.setFixedTime(shown);
   await window.reload();
   await expect(window.getByRole('button', { name: 'Workspace: Acme' })).toBeVisible();

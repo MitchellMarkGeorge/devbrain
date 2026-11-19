@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
 import { openDevBrain } from '@main/core';
 import { openElectronSettingsStore } from '@main/runtime/settings-store';
 import { devCipher } from '@main/runtime/dev-cipher';
@@ -23,6 +24,11 @@ import type { Workspace } from '@main/core/workspace/workspace';
  * It goes through the same services as the app, as `seed:dev` does.
  *
  *   tsx scripts/run-with-vite.mts scripts/setup_showcase_workspace.mts --path <folder> [--name Acme]
+ *     [--now 2026-11-19T10:40:00Z]
+ *
+ * `--now` is the moment the workspace is shown at (the screenshots pin the window's clock to it):
+ * its dates are relative to that day, and its rows are dated as made before it, each note edited a
+ * believable while ago, so nothing reads as edited "in 7h".
  *
  * The folder must not exist yet.
  */
@@ -40,10 +46,12 @@ const option = (name: string): string | undefined => {
 
 const ROOT_PATH = option('path');
 const WORKSPACE_NAME = option('name') ?? 'Acme';
+const NOW_OPTION = option('now');
+const NOW = NOW_OPTION === undefined ? new Date() : new Date(NOW_OPTION);
 
 // --- Dates, relative to today ---------------------------------------------------------------
 
-const today = new Date();
+const today = new Date(NOW);
 today.setHours(0, 0, 0, 0);
 
 function day(offset: number): Date {
@@ -418,6 +426,62 @@ async function seedWorkspace(workspace: Workspace) {
   });
 }
 
+// --- Dating the rows ------------------------------------------------------------------------
+
+// How long before NOW each note was last edited, in minutes; a note not listed was edited a day ago
+const NOTE_EDITED_MINUTES_AGO: Record<string, number> = {
+  'Proration rules': 25,
+  'Weekly notes': 70,
+  'Billing v2 launch checklist': 3 * 60,
+  'Onboarding usability test: script': 20 * 60,
+  'Invoice email copy': 26 * 60,
+  'API versioning decision': 2 * 24 * 60,
+  'Postgres upgrade checklist': 4 * 24 * 60,
+};
+const DEFAULT_NOTE_EDITED_MINUTES_AGO = 24 * 60;
+// everything else was made this long before NOW
+const MADE_MINUTES_AGO = 2 * 24 * 60;
+
+/**
+ * Dates the rows as made before NOW. The database stamps a row with its own clock as it's inserted,
+ * so a workspace made this afternoon and shown at 10:40 this morning would say "edited in 7h": every
+ * timestamp is moved back by the same amount, keeping their order, then each note gets its own
+ * "edited" time. Done on the closed workspace's database, after the services made it.
+ */
+function dateRows(dbPath: string, madeAt: Date): void {
+  const db = new Database(dbPath);
+  try {
+    const shift = NOW.getTime() - MADE_MINUTES_AGO * 60_000 - madeAt.getTime();
+    db.transaction(() => {
+      for (const table of ['projects', 'tasks', 'notes', 'events', 'calendars']) {
+        const columns = (db.pragma(`table_info(${table})`) as { name: string }[]).map(
+          (c) => c.name,
+        );
+        for (const column of ['created_at', 'updated_at', 'completed_at']) {
+          if (!columns.includes(column)) continue;
+          db.prepare(
+            `UPDATE ${table} SET ${column} = ${column} + ? WHERE ${column} IS NOT NULL`,
+          ).run(shift);
+        }
+      }
+      const notes = db.prepare('SELECT id, title FROM notes').all() as {
+        id: string;
+        title: string;
+      }[];
+      const edit = db.prepare(
+        'UPDATE notes SET updated_at = ?, created_at = MIN(created_at, ?) WHERE id = ?',
+      );
+      for (const note of notes) {
+        const minutes = NOTE_EDITED_MINUTES_AGO[note.title] ?? DEFAULT_NOTE_EDITED_MINUTES_AGO;
+        const editedAt = NOW.getTime() - minutes * 60_000;
+        edit.run(editedAt, editedAt, note.id);
+      }
+    })();
+  } finally {
+    db.close();
+  }
+}
+
 async function main() {
   if (!ROOT_PATH) {
     console.error('Usage: setup_showcase_workspace.mts --path <folder> [--name <name>]');
@@ -439,14 +503,17 @@ async function main() {
     createIfMissing: true,
     workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
+  let workspaceId: string;
   try {
     const created = await devBrain.workspaces.create({ name: WORKSPACE_NAME, color: '#6366f1' });
+    workspaceId = created.id;
     const workspace = await devBrain.workspaces.open(created.id);
     // search indexes each row as its service creates it (Workspace)
     await seedWorkspace(workspace);
   } finally {
     await devBrain.close();
   }
+  dateRows(path.join(root, 'workspaces', workspaceId, 'db.sqlite'), new Date());
   console.log(`Showcase workspace "${WORKSPACE_NAME}" at ${root}`);
 }
 
