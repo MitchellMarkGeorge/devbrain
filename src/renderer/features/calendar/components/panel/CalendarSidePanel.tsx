@@ -100,6 +100,9 @@ export function CalendarSidePanel({
   onOpenTask,
 }: CalendarSidePanelProps) {
   const { now } = useFormat();
+  // the meeting up next moves on as the time does: `now` above is the start of today (the agenda's
+  // days), so the card's choice reads the minute, and the panel re-renders as each minute starts
+  const { now: minute } = useFormat('minute');
   // the month shown follows the anchor, and ‹ › page through months on their own
   const [month, setMonth] = useState(date);
   const [anchor, setAnchor] = useState(date);
@@ -117,7 +120,7 @@ export function CalendarSidePanel({
   const { mutate: openUrl } = useMutation(trpc.workspace.openUrl.mutationOptions());
 
   const today = agendaItems(events, dueToday, range.start);
-  const next = upNext(today, now);
+  const next = upNext(today, minute);
   const nextKey = next && `${next.event.id}@${next.start.getTime()}`;
   // the meeting up next is the card, not a line of the agenda as well
   const days = [
