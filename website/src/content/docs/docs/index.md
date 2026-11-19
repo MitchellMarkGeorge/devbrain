@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: What DevBrain is, how it works, and where to start.
+description: 'What DevBrain is, a local-first second brain for developers: how it keeps your tasks, projects, notes and calendar together, and where to start.'
 ---
 
 DevBrain is a local-first, personal second brain for developers: a desktop app that gives you a

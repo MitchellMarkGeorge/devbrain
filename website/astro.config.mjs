@@ -2,10 +2,12 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { fileURLToPath } from 'node:url';
+import { SHARE_IMAGE } from './src/lib/share-image.ts';
 
 // The site's address, for canonical links and the sitemap: devbrainapp.dev, also in a preview
 // build, so search engines treat a preview as a copy of the real site. SITE_URL overrides it.
 const site = process.env.SITE_URL ?? 'https://devbrainapp.dev';
+const shareImage = new URL(SHARE_IMAGE.path, site).href;
 
 export default defineConfig({
   site,
@@ -20,19 +22,19 @@ export default defineConfig({
         alt: 'DevBrain',
       },
       favicon: '/favicon.svg',
-      social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/MitchellMarkGeorge/devbrain' },
-      ],
-      editLink: {
-        baseUrl: 'https://github.com/MitchellMarkGeorge/devbrain/edit/main/website/',
-      },
-      // Inter and Geist Mono, as in the app, then the app's tokens and the theme built on them
-      customCss: [
-        '@fontsource/inter/400.css',
-        '@fontsource/inter/500.css',
-        '@fontsource/inter/600.css',
-        '@fontsource/geist-mono/400.css',
-        './src/styles/starlight.css',
+      // titles as the marketing pages write them: "Tasks · DevBrain"
+      titleDelimiter: '·',
+      // the share image every page shows when linked (src/lib/share-image.ts); Starlight writes
+      // the other Open Graph and Twitter tags itself
+      head: [
+        { tag: 'meta', attrs: { property: 'og:image', content: shareImage } },
+        { tag: 'meta', attrs: { property: 'og:image:width', content: String(SHARE_IMAGE.width) } },
+        {
+          tag: 'meta',
+          attrs: { property: 'og:image:height', content: String(SHARE_IMAGE.height) },
+        },
+        { tag: 'meta', attrs: { property: 'og:image:alt', content: SHARE_IMAGE.alt } },
+        { tag: 'meta', attrs: { name: 'twitter:image', content: shareImage } },
       ],
       components: {
         // the docs' header links back to the marketing pages

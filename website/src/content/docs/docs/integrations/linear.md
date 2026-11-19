@@ -1,6 +1,6 @@
 ---
 title: Linear
-description: Bring the Linear issues assigned to you into DevBrain as tasks, with their projects.
+description: 'Connect Linear to DevBrain with a personal API key: the issues assigned to you become tasks, with their projects, statuses and priorities mapped.'
 ---
 
 Connect Linear, and the issues assigned to you appear in your [tasks](/docs/tasks/) beside your own,

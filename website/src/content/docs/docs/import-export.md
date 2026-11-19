@@ -1,6 +1,6 @@
 ---
 title: Import and export
-description: Bring tasks and notes into DevBrain, and take them out again.
+description: 'Import tasks from CSV or JSON and notes from Markdown files into DevBrain, and export them again: the formats, the columns and the rules.'
 ---
 
 Find import and export in **Settings › Import & export**, or in the menu bar's **File › Import**

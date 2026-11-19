@@ -1,6 +1,6 @@
 ---
 title: Data and privacy
-description: Where DevBrain keeps your data, what goes over the network, how sign-ins are protected, and how to back up.
+description: 'Where DevBrain keeps your data, what goes over the network, how sign-ins are protected, and how to back up.'
 ---
 
 This page explains how DevBrain handles your data in practice; the

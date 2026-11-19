@@ -6,19 +6,25 @@
 import '../styles/site.css';
 import logomark from '../../../src/renderer/assets/devbrain-logomark.svg?raw';
 import { REPOSITORY_URL } from '../lib/releases';
+import { SHARE_IMAGE } from '../lib/share-image';
 
 interface Props {
   title: string;
   description?: string;
+  // structured data for search engines (schema.org), as a JSON-LD block in the head
+  jsonLd?: Record<string, unknown>;
 }
 
 const {
   title,
   description = 'The second brain for developers: tasks, projects, notes and your calendar in one local-first desktop app.',
+  jsonLd,
 } = Astro.props;
 // a title that already names DevBrain (the home page's) is used as it is
 const pageTitle = title.startsWith('DevBrain') ? title : `${title} · DevBrain`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+// the share image, made by npm run website:screenshots (website/README.md)
+const shareImage = new URL(SHARE_IMAGE.path, Astro.site);
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const nav = [
   { href: '/docs/', label: 'Docs' },
@@ -61,10 +67,19 @@ const footer = [
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="DevBrain" />
+    <meta property="og:image" content={shareImage} />
+    <meta property="og:image:width" content={String(SHARE_IMAGE.width)} />
+    <meta property="og:image:height" content={String(SHARE_IMAGE.height)} />
+    <meta property="og:image:alt" content={SHARE_IMAGE.alt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={shareImage} />
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
     <!-- before the first paint: the reveals start hidden only when the script can show them -->
     <script is:inline>
       document.documentElement.classList.add('js');

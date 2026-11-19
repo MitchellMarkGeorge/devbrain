@@ -1,7 +1,7 @@
 ---
 layout: ../components/LegalPage.astro
 title: Privacy policy
-description: What DevBrain and this website do with your information, which is very little.
+description: 'What DevBrain and this website do with your information, which is very little: your work stays on your computer, and nothing is sent to us.'
 updated: November 19, 2026
 ---
 

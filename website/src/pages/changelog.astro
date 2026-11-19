@@ -10,7 +10,7 @@ const releases = await getReleases();
 const latestId = releases.find((r) => !r.prerelease)?.version;
 ---
 
-<Layout title="Changelog" description="What’s new in each version of DevBrain.">
+<Layout title="Changelog" description="What’s new in each version of DevBrain, the second brain for developers: new features, changes and fixes, from the release notes.">
   <PageHeader
     live={releases.length > 0}
     badge={releases.length > 0

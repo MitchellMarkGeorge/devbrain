@@ -3,11 +3,13 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../support/fixtures';
 import { REPO_ROOT } from '../support/paths';
 import { goTo, search } from '../support/ui';
+import { captureShareCard } from './share-card';
 
 /**
  * The website's screenshots of the app (website/README.md): the built app over the showcase
  * workspace (scripts/setup_showcase_workspace.mts), each page in dark and light, written to
- * website/src/assets/screenshots/<page>-<theme>.png. Run with `npm run website:screenshots`.
+ * website/src/assets/screenshots/<page>-<theme>.png, then the share image (share-card.ts) to
+ * website/public/og.png. Run with `npm run website:screenshots`.
  */
 
 const OUT_DIR = path.join(REPO_ROOT, 'website/src/assets/screenshots');
@@ -196,4 +198,11 @@ test('website screenshots', async ({ devbrain }) => {
       await page.close?.(window);
     }
   }
+
+  // the site's share image (og:image), beside the dark task list just taken
+  await captureShareCard(
+    app,
+    path.join(OUT_DIR, 'tasks-dark.png'),
+    path.join(REPO_ROOT, 'website/public/og.png'),
+  );
 });

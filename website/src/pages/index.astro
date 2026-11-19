@@ -1,5 +1,6 @@
 ---
 import Layout from '../components/Layout.astro';
+import { SHARE_IMAGE } from '../lib/share-image';
 import Screenshot from '../components/Screenshot.astro';
 import { Activity, ArrowRight, Calendar, ChevronsUp, Circle, CircleCheck, Download, Equal, FileText, Folder, Kanban, Search } from '@lucide/astro';
 import linearIcon from '../../../src/renderer/assets/brand/linear-icon.svg';
@@ -123,9 +124,26 @@ const platformOrder: Platform[] = ['mac-arm64', 'mac-x64', 'windows', 'linux'];
 const installers = latest
   ? platformOrder.flatMap((p) => latest.installers.filter((i) => i.platform === p))
   : [];
+
+// what search engines show for the app (schema.org's SoftwareApplication): free and open source,
+// for the three platforms the download page offers
+const softwareApplication = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'DevBrain',
+  description:
+    'The second brain for developers: tasks, projects, notes and your calendar in one local-first desktop app.',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Windows, Linux',
+  url: new URL('/', Astro.site).href,
+  downloadUrl: new URL('/download/', Astro.site).href,
+  image: new URL(SHARE_IMAGE.path, Astro.site).href,
+  license: 'https://opensource.org/licenses/MIT',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
 ---
 
-<Layout title="DevBrain: the second brain for developers">
+<Layout title="DevBrain: the second brain for developers" jsonLd={softwareApplication}>
   <!-- Hero -->
   <section class="hero">
     <div class="grid-backdrop"></div>

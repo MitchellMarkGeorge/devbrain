@@ -1,6 +1,6 @@
 ---
 title: Installing DevBrain
-description: Install DevBrain on macOS, Windows or Linux.
+description: 'Install DevBrain on macOS (Apple silicon or Intel), Windows or Linux, where it keeps your data, and how to update to a new version.'
 ---
 
 Get the installer for your computer from the [download page](/download/).

@@ -1,6 +1,6 @@
 ---
 title: Google Calendar
-description: Show the events of the Google calendars you choose in DevBrain's calendar.
+description: 'Connect Google Calendar to DevBrain with read-only access: choosing calendars, which events sync, meeting notes on them, and reconnecting.'
 ---
 
 Connect Google Calendar, and the events of the calendars you choose appear in DevBrain's

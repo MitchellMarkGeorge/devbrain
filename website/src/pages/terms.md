@@ -1,7 +1,7 @@
 ---
 layout: ../components/LegalPage.astro
 title: Terms of service
-description: The terms for using the DevBrain app and this website.
+description: 'The terms for using DevBrain, the open-source desktop app, and this website: your work is yours and stays on your computer, and the app comes as it is.'
 updated: November 19, 2026
 ---
 

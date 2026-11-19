@@ -70,9 +70,24 @@ edited a believable while before), opens it in the built app through the end-to-
   a caption.
 - The showcase workspace's links (a task's note, a meeting's note) are there for the task and event
   screenshots; keep them when changing its data.
+- The same run draws the **share image** (`public/og.png`, 1200x630: what a link to any page shows in
+  Slack, X or LinkedIn) from the dark task list, in a hidden window of the app
+  (`e2e/screenshots/share-card.ts`). Every page names it as `og:image` (`src/lib/share-image.ts`);
+  change its words in `share-card.ts` and its alt text there too.
 - To show another page, add it to `PAGES` in `website.screens.ts`, and to what the showcase
   workspace holds if it needs data; `seed:dev`'s generated rows are for testing, not for showing.
 - On Linux without a display it runs under Xvfb, as the end-to-end tests do.
+
+## Search engines and link previews
+
+- Every page has its own title ("Tasks · DevBrain"), a description of 100–160 characters (front
+  matter `description`, or `Layout`'s prop), a canonical link to `https://devbrainapp.dev`, and the
+  share image. Keep new pages' descriptions in that range: shorter ones are often replaced by text
+  taken from the page.
+- `robots.txt` (`src/pages/robots.txt.ts`) and the sitemap (`@astrojs/sitemap`) are built for the
+  site's address.
+- The home page describes the app to search engines as a `SoftwareApplication` (JSON-LD, in
+  `index.astro`): update its platforms or licence when those change.
 
 ## Releases on the site
 

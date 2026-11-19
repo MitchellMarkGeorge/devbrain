@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting and FAQ
-description: Where DevBrain's log is, what its error screens mean, and answers to common questions.
+description: 'Fix problems with DevBrain: where its log file is, what each error screen means, the Linux AppImage sandbox, and answers to common questions.'
 ---
 
 ## The log file

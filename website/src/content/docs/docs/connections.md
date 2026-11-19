@@ -1,6 +1,6 @@
 ---
 title: How your work connects
-description: The four things in DevBrain (tasks, notes, projects and events) and the links between them.
+description: 'How DevBrain connects your work: projects hold tasks and notes, a task links to one note or event, meeting and task notes, subtasks and mentions.'
 ---
 
 DevBrain has four kinds of things: **tasks**, **notes**, **projects** and **events**. On their own,

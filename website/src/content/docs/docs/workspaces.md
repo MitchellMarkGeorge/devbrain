@@ -1,6 +1,6 @@
 ---
 title: Workspaces
-description: What a workspace is, switching between them, and moving one to another computer.
+description: 'What a DevBrain workspace is, switching between workspaces, and moving one to another computer by copying its folder, with the errors you might see.'
 ---
 
 A **workspace** holds everything for one area of your work: its tasks, projects, notes, events and
