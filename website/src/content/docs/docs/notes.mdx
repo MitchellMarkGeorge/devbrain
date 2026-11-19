@@ -1,12 +1,13 @@
 ---
 title: Notes and the editor
-description: Write notes in rich text that's saved as Markdown, link them to projects, tasks and events, and use the editor everywhere in DevBrain.
+description: Write notes in rich text that's saved as GitHub Flavored Markdown, link them to projects, tasks and events, and use the editor everywhere in DevBrain.
 ---
 
 import DocsScreenshot from '../../../components/DocsScreenshot.astro';
 
 Notes are for everything you write: specs, meeting notes, decisions, checklists. You write in rich
-text, and DevBrain saves each note as a Markdown file in your workspace.
+text, and DevBrain saves each note as a Markdown file in your workspace, in
+[GitHub Flavored Markdown](https://github.github.com/gfm/).
 
 <DocsScreenshot
   page="note"
@@ -57,7 +58,24 @@ the text. The link shows the item's current title, and clicking it opens the ite
 ## The editor
 
 The same editor is used everywhere you write in DevBrain: notes, and the descriptions of tasks,
-projects and events. It reads and writes Markdown.
+projects and events.
+
+### GitHub Flavored Markdown
+
+What you write is stored as [GitHub Flavored Markdown](https://github.github.com/gfm/) (GFM), the
+Markdown of READMEs, issues and pull requests. A note reads the same on GitHub as in DevBrain, and
+you can paste one into an issue, or a README into a note, without losing its formatting.
+
+- **GFM covers** headings, bold, italic, strikethrough, inline code, bulleted, numbered and to-do
+  lists, quotes, code blocks, tables, links and dividers. Callouts are GitHub's alerts
+  (`> [!NOTE]`).
+- **For what GFM has no syntax for**, DevBrain writes the HTML tags GitHub reads: `<u>` for
+  underline, `<kbd>` for a key, `<sub>` and `<sup>`, and `<details>` for a collapsible section.
+- **Links to tasks, notes and events** are ordinary Markdown links to a `devbrain://` address, such
+  as `[Proration rules](devbrain://note/nte_…)`, so in another app they read as plain links.
+
+You never have to write Markdown yourself: the menus, shortcuts and toolbar produce it, and Markdown
+you do type turns into formatting as you type.
 
 ### Blocks
 
