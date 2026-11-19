@@ -28,7 +28,7 @@ most spreadsheets import as they are.
 | `pull_request_url` | A link to the task's pull request                      |
 | `id`, `parent_id`  | Make a row a subtask of the row whose `id` it names    |
 
-`todo`, `done` and `canceled` are accepted as statuses too.
+The status column also accepts `todo`, `done` and `canceled`.
 
 ### JSON
 
