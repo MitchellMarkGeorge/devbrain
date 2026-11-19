@@ -6,4 +6,6 @@
     "directory": "./dist",
     "not_found_handling": "404-page",
   },
+  // lets branch builds publish a preview with `wrangler preview`; it takes the settings above
+  "previews": {},
 }
