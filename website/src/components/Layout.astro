@@ -13,12 +13,15 @@ interface Props {
   description?: string;
   // structured data for search engines (schema.org), as a JSON-LD block in the head
   jsonLd?: Record<string, unknown>;
+  // kept out of search engines, with no canonical address (the 404 page)
+  noindex?: boolean;
 }
 
 const {
   title,
   description = 'The second brain for developers: tasks, projects, notes and your calendar in one local-first desktop app.',
   jsonLd,
+  noindex = false,
 } = Astro.props;
 // a title that already names DevBrain (the home page's) is used as it is
 const pageTitle = title.startsWith('DevBrain') ? title : `${title} · DevBrain`;
@@ -65,7 +68,7 @@ const footer = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <meta property="og:title" content={pageTitle} />
