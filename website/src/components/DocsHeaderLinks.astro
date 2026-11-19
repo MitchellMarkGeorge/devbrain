@@ -1,0 +1,33 @@
+---
+/**
+ * Replaces Starlight's SocialIcons in the docs' header: links back to the marketing pages, then
+ * the social icons (the GitHub link in astro.config.mjs).
+ */
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+---
+
+<nav class="links" aria-label="Site">
+  <a href="/download/">Download</a>
+  <a href="/changelog/">Changelog</a>
+</nav>
+<Default />
+
+<style>
+  .links {
+    display: none;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+  }
+  @media (min-width: 50rem) {
+    .links {
+      display: flex;
+    }
+  }
+  .links a {
+    color: var(--muted-foreground);
+    text-decoration: none;
+  }
+  .links a:hover {
+    color: var(--foreground-strong);
+  }
+</style>

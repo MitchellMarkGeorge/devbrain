@@ -13,3 +13,6 @@ storybook-static
 # end-to-end test output (npm run e2e)
 test-results
 playwright-report
+
+# the website's generated types (website/README.md)
+website/.astro

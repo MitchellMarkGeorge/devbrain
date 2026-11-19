@@ -1,0 +1,99 @@
+---
+/**
+ * The layout of a legal page written in Markdown (src/pages/privacy.md, terms.md): the site's frame
+ * and page header, then the text in a readable column. Front matter: title, description, updated
+ * (the date the text last changed, shown in the badge).
+ */
+import Layout from './Layout.astro';
+import PageHeader from './PageHeader.astro';
+
+interface Props {
+  frontmatter: { title: string; description: string; updated: string };
+}
+
+const { title, description, updated } = Astro.props.frontmatter;
+---
+
+<Layout title={title} description={description}>
+  <PageHeader badge={`Last updated ${updated}`} live={false} title={title} lede={description} />
+  <article class="container prose" data-reveal>
+    <slot />
+  </article>
+</Layout>
+
+<style>
+  .prose {
+    max-width: 720px;
+    margin-top: var(--space-12);
+    color: var(--foreground);
+    font-size: var(--text-base);
+    line-height: 1.7;
+  }
+  .prose :global(h2) {
+    margin-top: var(--space-12);
+    color: var(--foreground-strong);
+    font-size: var(--text-xl);
+    line-height: var(--text-xl-leading);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.01em;
+  }
+  .prose :global(h3) {
+    margin-top: var(--space-8);
+    color: var(--foreground-strong);
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+  }
+  .prose :global(:is(p, ul, ol, table, blockquote)) {
+    margin-top: var(--space-4);
+  }
+  .prose :global(:is(ul, ol)) {
+    padding-left: var(--space-6);
+  }
+  .prose :global(li + li) {
+    margin-top: var(--space-2);
+  }
+  .prose :global(strong) {
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-medium);
+  }
+  .prose :global(a) {
+    color: var(--foreground-strong);
+  }
+  .prose :global(code) {
+    padding: 1px 4px;
+    border-radius: var(--radius-xs);
+    background: var(--secondary);
+  }
+  /* the summary at the top: a raised card */
+  .prose :global(blockquote) {
+    margin-inline: 0;
+    padding: var(--space-4) var(--space-6);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-xl);
+    background: var(--card);
+  }
+  .prose :global(blockquote > :first-child) {
+    margin-top: 0;
+  }
+  .prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm-leading);
+  }
+  .prose :global(:is(th, td)) {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .prose :global(th) {
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-medium);
+  }
+  /* a wide table scrolls inside the column rather than widening the page */
+  .prose :global(table) {
+    display: block;
+    overflow-x: auto;
+  }
+</style>

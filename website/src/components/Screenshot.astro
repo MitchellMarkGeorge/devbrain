@@ -1,0 +1,129 @@
+---
+/**
+ * A screenshot of the app, in the visitor's theme: the dark or light capture of `page` from
+ * src/assets/screenshots (made by `npm run website:screenshots`, website/README.md), resized and
+ * converted to WebP at build time.
+ *
+ * On a phone the whole window would be too small to read, so it shows a crop at twice the size:
+ * half the window's width, starting `focusX` of the way across (0 is the left edge, 1 the right),
+ * from the top. Pick the start that keeps what the section is about in view.
+ *
+ * With `crop`, it shows only that part of the window, at every width: a close-up of one piece of
+ * the UI. x, y, w and h are fractions of the window (1440x900 CSS pixels: x 0.5 is 720px in).
+ * An edge where the crop cuts through the window fades into the page, so the cut reads as
+ * deliberate; an edge on the window's own border stays sharp.
+ */
+import { getImage } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  page: 'tasks' | 'board' | 'project' | 'note' | 'calendar';
+  alt: string;
+  // the image loads with the page, for one in the first screen
+  eager?: boolean;
+  // where a phone's crop starts, as a fraction of the window's width
+  focusX?: number;
+  // a close-up: this part of the window only
+  crop?: { x: number; y: number; w: number; h: number };
+}
+
+const { page, alt, eager = false, focusX = 0, crop } = Astro.props;
+const captures = import.meta.glob<{ default: ImageMetadata }>('../assets/screenshots/*.png', {
+  eager: true,
+});
+const capture = (theme: 'dark' | 'light') => {
+  const image = captures[`../assets/screenshots/${page}-${theme}.png`];
+  if (!image) throw new Error(`No ${theme} screenshot of ${page}: run npm run website:screenshots`);
+  return image.default;
+};
+
+// up to the capture's own width (2x of a 1440px window), for a screen that shows it 1080px wide
+// (on a phone, twice the screen's width: the crop is half the image)
+// (a close-up is shown 1/w of its frame's width, a frame at most 720px wide)
+const sizes = crop
+  ? `(min-width: 720px) ${Math.round(720 / crop.w)}px, ${Math.round(100 / crop.w)}vw`
+  : '(max-width: 639px) 200vw, (min-width: 1080px) 1080px, 100vw';
+// One gradient per edge the crop cuts, intersected (mask-composite): opaque inside, clear at that edge
+function fadeMask(c: { x: number; y: number; w: number; h: number }): string {
+  const cuts = [
+    c.x > 0.001 && 'to right',
+    c.y > 0.001 && 'to bottom',
+    c.x + c.w < 0.999 && 'to left',
+    c.y + c.h < 0.999 && 'to top',
+  ].filter(Boolean);
+  if (cuts.length === 0) return 'none';
+  return cuts.map((side) => `linear-gradient(${side}, transparent, #000 14%)`).join(', ');
+}
+
+// the frame has the crop's shape, and the image is moved and scaled so the crop fills it
+const style = crop
+  ? [
+      `aspect-ratio: ${crop.w * 1440} / ${crop.h * 900}`,
+      `--crop-width: ${100 / crop.w}%`,
+      `--crop-left: ${(-crop.x / crop.w) * 100}%`,
+      `--crop-top: ${(-crop.y / crop.h) * 100}%`,
+      `--fade: ${fadeMask(crop)}`,
+    ].join('; ')
+  : `--focus-x: ${focusX}`;
+const widths = [720, 1080, 1440, 2160, 2880];
+const [dark, light] = await Promise.all(
+  [capture('dark'), capture('light')].map((src) => getImage({ src, widths, format: 'webp' })),
+);
+---
+
+<picture class:list={['screenshot', { cropped: crop }]} style={style}>
+  <source media="(prefers-color-scheme: dark)" srcset={dark.srcSet.attribute} sizes={sizes} />
+  <img
+    src={light.src}
+    srcset={light.srcSet.attribute}
+    sizes={sizes}
+    alt={alt}
+    width={light.attributes.width}
+    height={light.attributes.height}
+    loading={eager ? 'eager' : 'lazy'}
+    decoding="async"
+  />
+</picture>
+
+<style>
+  .screenshot {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-2xl);
+  }
+  .screenshot img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .cropped {
+    position: relative;
+    /* the faded edges take the frame's outline and shadow with them */
+    box-shadow: none;
+    mask-image: var(--fade);
+    mask-composite: intersect;
+  }
+  .cropped img {
+    position: absolute;
+    max-width: none;
+    width: var(--crop-width);
+    left: var(--crop-left);
+    top: var(--crop-top);
+  }
+
+  /* Phones: half the window, at twice the size, in a 4:3 frame */
+  @media (max-width: 639px) {
+    .screenshot:not(.cropped) {
+      aspect-ratio: 4 / 3;
+    }
+    .screenshot:not(.cropped) img {
+      width: 200%;
+      max-width: none;
+      /* --focus-x of the image's width, which is twice the frame's */
+      margin-left: calc(var(--focus-x) * -200%);
+    }
+  }
+</style>

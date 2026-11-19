@@ -1,0 +1,278 @@
+/*
+ * The marketing pages (home, download, changelog): the app's tokens, typefaces and base text.
+ * Everything here uses the tokens' theme variables (--background, --foreground, ...), never the raw
+ * palette, as the app does (docs/design-system/README.md).
+ */
+@import '../../../src/renderer/styles/tokens.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/geist-mono/400.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base-leading);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* the footer stays at the bottom of a short page */
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+code,
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.container {
+  width: 100%;
+  max-width: 1080px;
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding-inline: var(--space-8);
+  }
+}
+
+/* The app's buttons: the quiet bordered default, and the filled primary */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-lg);
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--input);
+  background: var(--input-fill);
+  color: var(--foreground-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast);
+}
+
+.button:hover {
+  background: var(--accent);
+}
+
+.button.primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.button.primary:hover {
+  background: color-mix(in srgb, var(--primary) 85%, transparent);
+}
+
+.button[aria-disabled='true'] {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.eyebrow {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.muted {
+  color: var(--muted-foreground);
+}
+
+/* A raised surface, as the app's cards: filled one step above the page, with the edge outline */
+.card {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+}
+
+/*
+ * Motion. Everything here moves only when the visitor allows it (prefers-reduced-motion), and only
+ * once the page's script is running (Layout sets .js on <html>), so nothing is ever left hidden.
+ *
+ * [data-reveal]: fades, rises and sharpens into place as it scrolls into view; --delay staggers a
+ * group; data-reveal="left" or "right" slides it in from that side instead.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+    transition:
+      opacity 0.9s var(--ease-out),
+      transform 0.9s var(--ease-out),
+      filter 0.9s var(--ease-out);
+    transition-delay: var(--delay, 0ms);
+  }
+  .js [data-reveal='left'] {
+    transform: translateX(-32px);
+  }
+  .js [data-reveal='right'] {
+    transform: translateX(32px);
+  }
+  .js [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* A small pill above a heading: a label in mono, with an optional dot */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-sm);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--input-fill);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--status-completed);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-completed) 25%, transparent);
+}
+
+/* A heading drawn from the strongest text to the muted one */
+.gradient-text {
+  background: linear-gradient(180deg, var(--foreground-strong) 30%, var(--muted-foreground));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/*
+ * .spotlight: a raised card whose edge and fill catch a soft light under the pointer
+ * (Layout's script sets --spot-x and --spot-y on [data-spotlight]).
+ */
+.spotlight {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+}
+.spotlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  background: radial-gradient(
+    400px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    color-mix(in srgb, var(--foreground) 8%, transparent),
+    transparent 60%
+  );
+  transition: opacity var(--duration-slow);
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+/* Faint lines in a grid, fading out from the top: the backdrop of the hero and the closing panel */
+.grid-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: center top;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
+/* A soft coloured light behind a screenshot, in the workspace swatches' colours */
+.glow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inset: 10% 5% auto;
+  height: 60%;
+  background:
+    radial-gradient(closest-side, var(--swatch-indigo-tint), transparent),
+    radial-gradient(closest-side at 25% 60%, var(--swatch-green-tint), transparent),
+    radial-gradient(closest-side at 75% 60%, var(--swatch-amber-tint), transparent);
+  filter: blur(40px);
+  opacity: 0.9;
+}
+
+.section-head {
+  max-width: 640px;
+  margin-inline: auto;
+  text-align: center;
+}
+.section-head h2 {
+  margin-top: var(--space-4);
+  color: var(--foreground-strong);
+  font-size: clamp(28px, 4.5vw, 44px);
+  line-height: 1.1;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
+}
+.section-head p {
+  margin-top: var(--space-4);
+  color: var(--muted-foreground);
+  font-size: var(--text-lg);
+  line-height: var(--text-lg-leading);
+}
+
+/* Lucide's icons (@lucide/astro, the set the app draws with) sit on the text's baseline */
+.lucide {
+  flex: none;
+  display: inline-block;
+  vertical-align: -3px;
+}

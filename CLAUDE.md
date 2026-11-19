@@ -214,3 +214,71 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   `src/renderer/components` stays the design system: no router, no IPC.
 - When a TanStack upgrade fails `src/renderer/tests/routing/tanstack-behaviour.test.ts`, the
   routing note says which part of the design relied on it.
+
+## Website
+
+`website/` is the public site (home, download, changelog, user docs, privacy policy, terms): Astro
+with Starlight, its own npm package and lockfile, hosted as a static site. `website/README.md`
+covers building, hosting and how releases reach it.
+
+- It imports the app's `tokens.css` and logomark rather than copying them: style it with the
+  theme variables, and a token change reaches it through `tokens.json` like any other.
+- Installers stay on GitHub Releases; the site reads them when it's built. A change to
+  `artifactName` in `electron-builder.yml` needs one in `website/src/lib/releases.ts`.
+- Its docs are for users (what the app does, in the UI's words); `docs/` stays the design notes for
+  building DevBrain.
+- Its screenshots of the app are taken from the built app by `npm run website:screenshots`, over
+  the hand-written showcase workspace (`scripts/setup_showcase_workspace.mts`), never by hand.
+
+### Voice
+
+Copy on the site (and in the app's own words to users) follows what DevBrain is: **a local-first,
+personal second brain for developers.**
+
+- **Personal, not collaborative.** It's one developer's tool for their own work: "your tasks",
+  "your notes". Never teams, sharing or collaboration.
+- **What it's for:** a clear picture of what you're working on and when, and being able to pick
+  your work back up ("If you woke up tomorrow with no memory of your work, could you ramp back
+  up?"). Easy to put things in, easier to find them and to take them out.
+- **Quiet and direct,** like the app: short sentences, plain words, no hype or exclamation marks.
+  Say what it does, then stop.
+- **Its ideas, not their jargon.** It draws on Getting Things Done and the second-brain method;
+  "second brain" is ours to use, but don't lean on GTD terms (contexts, inboxes, PARA).
+- **Privacy is a fact, not a slogan:** local, offline, plain Markdown on disk, no account, no
+  server. Never imply sync or backup DevBrain doesn't do, or integrations it doesn't have (Linear
+  and Google Calendar today, not "all your dev tools").
+- **No AI claims.** DevBrain surfaces things from the connections you make (Home, Up next, a
+  project's health); don't describe that as AI.
+
+### Keeping it in step with the app
+
+The site describes the app, so a change users can see lands with its website changes **in the same
+pull request**, as a design change lands with its stories and guide. Before finishing an app change,
+go through this list:
+
+- **UI on a page the screenshots show** (`PAGES` in `e2e/screenshots/website.screens.ts`: the task
+  list and board, a project's overview, a note, the calendar's week and agenda): run
+  `npm run website:screenshots`, look at the new captures and commit them. Check that the home page's
+  close-ups (`crop` in `website/src/pages/index.astro`) still frame what their text describes, and
+  move a crop that doesn't. If the change needs data the showcase workspace lacks, or makes it look
+  wrong, change the showcase workspace, not the capture.
+- **A feature added, changed or removed, or its UI text renamed:** update the user docs
+  (`website/src/content/docs/docs/`) and any copy on the home page that describes it (the tour, the
+  close-ups, the feature cards and the integrations card's drawn rows). The site never claims what
+  the app doesn't do: check a claim against the code.
+- **What the app sends over the network or stores** (a new integration, an OAuth scope, a host it
+  contacts, telemetry, crash reports, update checks, remote content): update the privacy policy
+  (`website/src/pages/privacy.md`) and its `updated` date before the change ships. A Google scope
+  goes in its table of permissions and must keep to Google's Limited Use rules. A new third-party
+  service also goes in the terms (`website/src/pages/terms.md`).
+- **An integration's logo or the app's brand assets:** two of the site's marks are copies of the
+  app's in `src/renderer/components/entities/ProviderLogo/marks.tsx`: Google Calendar's logo
+  (`website/src/assets/brand/google-calendar.svg`) and GitHub's mark
+  (`website/src/components/GitHubMark.astro`); change both. The logomark and Linear's mark are read
+  from the app. Other icons are Lucide's, from `@lucide/astro` at the app's `lucide-react` version:
+  upgrade the two together.
+- **Platforms, installers or how DevBrain is installed and updated:** update the download page, the
+  install docs and `releases.ts`.
+
+Then run `npm run check` and `npm run build` in `website/`. After a release, rebuild the site by
+hand (`website/README.md`).

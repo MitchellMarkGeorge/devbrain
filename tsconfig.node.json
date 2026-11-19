@@ -28,6 +28,7 @@
     "vite/router-generator.ts",
     "drizzle.config.ts",
     "scripts/setup_dev_workspace.mts",
+    "scripts/setup_showcase_workspace.mts",
     "scripts/linear_scratch.mts",
     "scripts/generate_icons.mts"
   ]

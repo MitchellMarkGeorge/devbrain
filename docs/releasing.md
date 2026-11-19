@@ -5,14 +5,12 @@ still done by hand. Nothing has been released yet: read **Before the first relea
 
 ## Before the first release
 
-- **Choose the app id.** `appId` in `electron-builder.yml` is the placeholder
-  `com.example.devbrain`. It must be a reverse-DNS name the owner controls (such as
-  `com.<your-domain>.devbrain`). macOS uses it as the bundle id (Keychain items, preferences,
-  notarization, the Developer ID profile) and Windows as the app's identity (taskbar, notifications,
-  the uninstaller's registry key). Changing it after a release makes the OS treat the new version as
-  another app, so set it once, before the first build anyone installs.
-- With it, set `desktopName` in `package.json` (`<app id>.desktop`) and `linux.syncDesktopName: true`,
-  so Linux desktops link the window to its launcher; electron-builder warns until then.
+- **The app id is chosen:** `dev.devbrainapp.app` (`appId` in `electron-builder.yml`), from
+  DevBrain's domain, `devbrainapp.dev`. macOS uses it as the bundle id (Keychain items, preferences,
+  notarization, the Developer ID profile), Windows as the app's identity (taskbar, notifications,
+  the uninstaller's registry key) and Linux to name the launcher (`desktopName` in `package.json`,
+  `<app id>.desktop`, with `linux.syncDesktopName`). Changing it after a release makes the OS treat
+  the new version as another app, so it stays as it is once anyone has installed a build.
 - Set up signing for macOS and Windows (below); unsigned builds are for testing only.
 
 ## Versions
@@ -35,6 +33,9 @@ downgraded to one without it: say so in its notes.
 Release notes are written by hand for now, from the merged pull requests since the last tag
 (`git log --merges v<last>..v<new>`), on the GitHub release (once releases are published there; see
 **Publishing and auto-update**).
+
+Then rebuild the website by hand, so its download page and changelog show the release: it reads the
+releases when it is built (`website/README.md`, **Releases on the site**).
 
 ## Building
 
