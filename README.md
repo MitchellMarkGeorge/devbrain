@@ -1,186 +1,125 @@
-# Electron + Vite + React Template
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src/renderer/assets/devbrain-logomark.svg" />
+    <img src="src/renderer/assets/devbrain-logomark-dark.svg" alt="" width="64" height="77" />
+  </picture>
 
-The modern but simple Electron template
+  <h1>DevBrain</h1>
 
-## Prerequisites
+  <p><strong>The second brain for developers.</strong><br />
+  Your tasks, projects, notes and calendar, in one desktop app that runs on your computer.</p>
 
-| Requirement                   | Minimum version             |
-| ----------------------------- | --------------------------- |
-| [Node.js](https://nodejs.org) | 24.0.0 (`.nvmrc` pins `24`) |
-| npm                           | bundled with Node.js        |
+  <p>
+    <a href="https://devbrainapp.dev">Website</a> ·
+    <a href="https://devbrainapp.dev/download/">Download</a> ·
+    <a href="https://devbrainapp.dev/docs/">Docs</a> ·
+    <a href="https://devbrainapp.dev/changelog/">Changelog</a>
+  </p>
 
-If you use nvm, run `nvm use` inside the project root to switch to the pinned version automatically.
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
+    <img src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey" alt="Platforms: macOS, Windows and Linux" />
+    <img src="https://img.shields.io/badge/local--first-no%20account%2C%20no%20server-brightgreen" alt="Local first: no account, no server" />
+  </p>
+</div>
 
-## Getting started
+<br />
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/tasks-dark.png" />
+  <img src="website/src/assets/screenshots/tasks-light.png" alt="DevBrain's task list: tasks with their status, subtasks, project, priority and due date" />
+</picture>
+
+## What it is
+
+DevBrain organises your working life around four things (**tasks, notes, projects and events**)
+and the links between them: a task to its project, a note to its meeting. So you always have a
+clear picture of what you're working on and when, and can pick your work back up after a week
+away.
+
+It's personal, not a team tool, and it stays out of your way: quick to put things in, quicker to
+find them again.
+
+## Features
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Tasks</h3>
+      <p>Lists and boards grouped by status, with priorities, dates, subtasks, and links to the projects, notes and events they belong to.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/board-dark.png" />
+        <img src="website/src/assets/screenshots/board-light.png" alt="The board: tasks in Not started, In progress and Completed columns" />
+      </picture>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Projects</h3>
+      <p>Each project's open and recently finished tasks, its notes, and its progress at a glance.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/project-dark.png" />
+        <img src="website/src/assets/screenshots/project-light.png" alt="A project's overview: status and dates, open tasks, progress and notes" />
+      </picture>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Notes</h3>
+      <p>A rich text editor that reads and writes Markdown: checklists, tables, callouts and highlighted code, saved as plain files you own.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/note-dark.png" />
+        <img src="website/src/assets/screenshots/note-light.png" alt="A note with a callout, lists, a table and a TypeScript code block" />
+      </picture>
+    </td>
+    <td width="50%" valign="top">
+      <h3>Calendar</h3>
+      <p>Your week on a time grid, with today's agenda, the tasks that are due, and the meeting up next.</p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="website/src/assets/screenshots/calendar-dark.png" />
+        <img src="website/src/assets/screenshots/calendar-light.png" alt="The week view with meetings, the month, an Up next card and the agenda" />
+      </picture>
+    </td>
+  </tr>
+</table>
+
+And around them:
+
+- **Search everything** with ⌘K (Ctrl K on Windows and Linux): tasks, projects, notes and events.
+- **Linear and Google Calendar,** mirrored in read-only: the issues assigned to you, and the events
+  of the calendars you choose, beside your own work.
+- **Import and export:** tasks as CSV or JSON, notes as Markdown.
+
+## Local first
+
+- **Your work stays on your computer.** Each workspace is a folder: a SQLite database and your
+  notes as Markdown files. Copy the folder to move it to another computer.
+- **No account and no DevBrain server.** It works offline, and sends no analytics or telemetry.
+- **Integrations talk to Linear and Google directly,** with your sign-ins encrypted in your
+  system's keychain.
+
+The [privacy policy](https://devbrainapp.dev/privacy/) has the details.
+
+## Download
+
+DevBrain is for macOS (Apple silicon and Intel), Windows and Linux. It hasn't had its first
+release yet: installers will be on the [download page](https://devbrainapp.dev/download/) and the
+[GitHub releases](https://github.com/MitchellMarkGeorge/devbrain/releases). Until then, you can
+build it from source:
 
 ```bash
-git clone <repo-url> my-electron-app
-cd my-electron-app
+git clone https://github.com/MitchellMarkGeorge/devbrain.git
+cd devbrain
 npm install
+npm run seed:dev   # a sample workspace to try it with
 npm run dev
 ```
 
-`npm run dev` starts the Vite dev server and launches Electron. The app window opens with hot-module replacement active in the renderer.
+You'll need Node.js 24. [CONTRIBUTING.md](CONTRIBUTING.md) covers the rest.
 
-`npm test` (and `npm run test:watch`) runs Vitest on Electron's Node (`scripts/vitest.mts`), so the tests use the Node version the app ships with and the build of `better-sqlite3` that `npm install` makes for Electron. Arguments go to Vitest: `npm test -- src/main/core/tests/sync`.
+## Contributing
 
-## Key dependency versions
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to get
+a development build running, how the app is built, and the rules the codebase follows.
 
-| Package                                                             | Version  |
-| ------------------------------------------------------------------- | -------- |
-| [electron](https://www.electronjs.org)                              | ^42.4.0  |
-| [vite](https://vite.dev)                                            | ^8.0.16  |
-| [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react) | ^6.0.2   |
-| [react](https://react.dev)                                          | ^18.3.1  |
-| [react-dom](https://react.dev)                                      | ^18.3.1  |
-| [typescript](https://www.typescriptlang.org)                        | ^5.6.3   |
-| [electron-builder](https://www.electron.build)                      | ^26.15.3 |
-| [eslint](https://eslint.org)                                        | ^9.39.4  |
-| [typescript-eslint](https://typescript-eslint.io)                   | ^8.61.1  |
-| [prettier](https://prettier.io)                                     | ^3.8.4   |
-| [husky](https://typicode.github.io/husky)                           | ^9.1.7   |
-| [lint-staged](https://github.com/lint-staged/lint-staged)           | ^17.0.7  |
-| [tsx](https://tsx.is)                                               | ^4.22.4  |
+## License
 
-## Project structure
-
-```
-src/
-  main/index.ts        Electron entry — app lifecycle, BrowserWindow, IPC handlers
-  preload/index.ts     contextBridge.exposeInMainWorld — explicit, hand-written bridge
-  renderer/
-    main.tsx           React entry point: makes the router (router.tsx) and renders it
-    routes/            TanStack Router file routes (generated into routeTree.gen.ts)
-    pages/             The pages the routes draw (docs/renderer/routing.md)
-    index.html         Shell HTML loaded by Electron
-    env.d.ts           Ambient types (imports Api from preload, types window.api)
-
-scripts/
-  dev.mts              Dev orchestrator: starts Vite server, watches main/preload, restarts Electron
-
-vite.renderer.config.ts   Renderer (React) build — outputs ESM to dist/renderer/
-vite.main.config.ts       Main process build — outputs ESM to dist/main/
-vite.preload.config.ts    Preload build — outputs CJS to dist/preload/ (required for sandbox: true)
-
-electron-builder.yml      Packaging config (macOS DMG, Windows NSIS, Linux AppImage)
-```
-
-## Available commands
-
-```bash
-npm run dev            # Start Vite dev server + Electron (HMR in renderer, auto-restart on main/preload changes)
-npm run build          # Build main, preload, and renderer into dist/
-npm run routes         # Regenerate src/renderer/routeTree.gen.ts from src/renderer/routes
-npm run compile        # build + package with electron-builder into release/
-npm run icons          # draw build/icon.{png,icns,ico} from the logomark
-npm run typecheck      # Type-check all source files (tsc --build; emits nothing)
-npm run lint           # Lint all TypeScript/JavaScript files
-npm run lint:fix       # Lint and auto-fix
-npm run format         # Format all files with Prettier
-npm run format:check   # Check formatting without writing
-```
-
-## Architecture
-
-### Three processes, one IPC bridge
-
-The app follows Electron's standard three-process model:
-
-- **Main process** (`src/main/index.ts`) — Node.js. Controls the app lifecycle, creates `BrowserWindow` instances, and registers `ipcMain` handlers.
-- **Preload script** (`src/preload/index.ts`) — runs in a privileged context before the renderer page loads. Uses `contextBridge.exposeInMainWorld` to expose a typed `api` object to the renderer.
-- **Renderer** (`src/renderer/`) — a plain React app. Has no direct access to Node.js APIs; it communicates with the main process exclusively through `window.api`.
-
-### Why the preload is CommonJS
-
-The preload is built to `index.cjs` (CommonJS) so Electron's `sandbox: true` can remain enabled. Sandboxed preloads cannot be ESM. The main process and renderer are still ESM; only the preload is CJS, which is a well-supported combination.
-
-If you ever need ES module imports directly in the preload, change its Vite config to `format: "es"` and set `sandbox: false` on the `BrowserWindow` — but this gives up the sandbox, so only do it for windows loading fully trusted local content.
-
-### Security defaults
-
-```
-contextIsolation: true   (renderer JS cannot access the preload's scope)
-sandbox:          true   (preload runs in a restricted environment)
-nodeIntegration:  false  (renderer has no direct access to Node.js)
-```
-
-### Dev watch behaviour
-
-| What changed  | What happens                                      |
-| ------------- | ------------------------------------------------- |
-| Renderer file | Vite HMR — instant, no reload                     |
-| Preload file  | Preload rebuilds → full renderer reload           |
-| Main file     | Main rebuilds → Electron is killed and relaunched |
-
-### Production loading
-
-In development the renderer is served from `VITE_DEV_SERVER_URL` (Vite's local server). In production, Electron calls `win.loadFile(dist/renderer/index.html)` from the packaged bundle.
-
-## Extending the IPC bridge
-
-The bridge between the renderer and main process is explicit and type-safe. To add a new method:
-
-**1. Register the handler in `src/main/index.ts`:**
-
-```ts
-ipcMain.handle('dialog:open', () => {
-  // Node.js / Electron APIs here
-});
-```
-
-**2. Expose it in `src/preload/index.ts`:**
-
-```ts
-const api = {
-  ping: (): Promise<string> => ipcRenderer.invoke('ping'),
-  getVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
-  openDialog: (): Promise<void> => ipcRenderer.invoke('dialog:open'), // add this
-};
-```
-
-**3. Use it in the renderer:**
-
-```ts
-// window.api is already typed via src/renderer/env.d.ts — no extra steps needed
-await window.api.openDialog();
-```
-
-The `Api` type is exported from the preload and imported in `env.d.ts`, so `window.api` stays fully typed without any code generation step.
-
-## Packaging and distribution
-
-`npm run compile` builds all three bundles and then runs `electron-builder` using `electron-builder.yml`, for the platform it runs on:
-
-| Platform | Output format          | Output directory |
-| -------- | ---------------------- | ---------------- |
-| macOS    | `.dmg` (arm64 and x64) | `release/`       |
-| Windows  | NSIS installer (x64)   | `release/`       |
-| Linux    | `.AppImage` (x64)      | `release/`       |
-
-The package holds the three builds, `package.json` and the only dependencies Vite leaves external (better-sqlite3, unpacked from the asar, and electron-log), with the migrations as an extra resource and the icons from `build/` (`npm run icons` draws them from the logomark). [docs/releasing.md](docs/releasing.md) covers versions, building each platform, signing and what isn't automated yet.
-
-## Logs
-
-The main process and every window log to one file through electron-log
-(`src/main/runtime/logging.ts`). Help → Show Log File opens it.
-
-| Build       | Log file                                                                                                                             |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Packaged    | `~/Library/Logs/DevBrain/main.log` (macOS), `%APPDATA%\DevBrain\logs\main.log` (Windows), `~/.config/DevBrain/logs/main.log` (Linux) |
-| Development | `.dev-logs/main.log` in the repository, apart from an installed release's; also printed to the terminal                              |
-
-At 5 MB the file moves to `main.old.log` (replacing the last one) and a new one starts. Never log
-`process.env`, credentials or auth headers.
-
-## Code quality
-
-A pre-commit hook (Husky + lint-staged) runs automatically on every commit:
-
-- `*.ts` / `*.tsx` — ESLint (with auto-fix) then Prettier
-- `*.js` / `*.mts` / `*.json` / `*.md` — Prettier
-
-To run checks manually without committing:
-
-```bash
-npm run typecheck && npm run lint && npm run format:check
-```
+[MIT](LICENSE) © Mitchell Mark-George
