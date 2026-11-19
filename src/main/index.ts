@@ -42,6 +42,7 @@ const REPO_ROOT = path.join(__dirname, '../..');
 const DEV_ICON = path.join(REPO_ROOT, 'build/icon.png');
 
 loadDevelopmentEnv();
+useMockKeychainInDevelopment();
 // before anything logs, so startup errors reach the file too (runtime/logging.ts)
 configureLogging(log, app, REPO_ROOT);
 
@@ -55,6 +56,19 @@ const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
 function loadDevelopmentEnv() {
   if (app.isPackaged) return;
   loadEnv({ path: path.join(REPO_ROOT, '.env') });
+}
+
+// In development on macOS, safeStorage keeps its key in a mock keychain rather than the login
+// keychain. The development app is the stock Electron binary, which the keychain doesn't trust
+// as the item's owner, so every launch would ask for the login password ("Electron wants to use
+// … devbrain Safe Storage") on the first encrypt or decrypt. The mock key is fixed, so credentials
+// stored this way are only obscured, as the seed script's dev cipher does. DEV_REAL_KEYCHAIN=1 in
+// .env uses the real keychain, to test it. A packaged app always uses the real one. Must run
+// before `ready`, which is when Chromium reads its switches.
+function useMockKeychainInDevelopment() {
+  if (app.isPackaged || process.platform !== 'darwin') return;
+  if (process.env.DEV_REAL_KEYCHAIN === '1') return;
+  app.commandLine.appendSwitch('use-mock-keychain');
 }
 
 // where electron-log writes: the menu's Show Log File, and app.showLogFile
