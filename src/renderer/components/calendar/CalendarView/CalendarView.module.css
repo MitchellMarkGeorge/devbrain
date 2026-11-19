@@ -173,6 +173,11 @@
 .columnEvent {
   margin: 1px;
 }
+/* an event that starts inside another sits over its right part: a ring in the page colour keeps
+   their outlines apart */
+.columnEvent .block {
+  box-shadow: 0 0 0 1px var(--background);
+}
 .view:not([data-view='month']) .rowEvent {
   margin: 0 var(--space-1) var(--space-1);
 }
@@ -265,8 +270,9 @@
 .chip {
   width: 100%;
 }
-.event:focus-visible .block,
-.selected .block {
+/* doubled, so the ring wins over an event's tinted outline (EventBlock) */
+.event:focus-visible .block.block,
+.selected .block.block {
   border-color: var(--ring);
 }
 .event:focus-visible .block,

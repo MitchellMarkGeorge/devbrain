@@ -333,7 +333,9 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         slotMaxTime={`${String(endHour).padStart(2, '0')}:00:00`}
         scrollTime={scrollTimeBefore(scrollToHour)}
         scrollTimeReset={false}
-        slotEventOverlap={false}
+        // an event that starts inside another is drawn over its right part, inset, rather than both
+        // squeezed side by side, so short overlapping meetings keep a readable title
+        slotEventOverlap
         // 16px drawn, inside its 1px margins
         eventMinHeight={18}
         eventShortHeight={COMPACT_BELOW}

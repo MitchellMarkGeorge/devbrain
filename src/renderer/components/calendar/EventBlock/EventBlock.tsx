@@ -47,8 +47,9 @@ export interface EventBlockProps
 }
 
 /**
- * A block on the day and week grid: `muted` ground, `border-strong` outline, the calendar's
- * colour bar (or a task's status icon), the title and time. The grid positions it
+ * A block on the day and week grid: an event on its calendar's colour (15% over the page, the
+ * outline at 30%) with its bar; a task or focus time on `muted` with a `border-strong` outline. Then
+ * the title and time. The grid positions it
  * (`style={{ top, height }}`): 48px per hour, 2px shorter than its slot.
  */
 export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function EventBlock(
@@ -75,6 +76,8 @@ export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function E
     props: mergeProps<'div'>(
       {
         className: eventBlockVariants({ size, kind: k, tentative: tentative ?? false }),
+        // an event's calendar colour: its bar, and the tint of its ground and outline
+        style: k === 'event' ? ({ '--event-color': cssColor(color) } as CSSProperties) : undefined,
         tabIndex: 0,
         'data-kind': k,
         children: (
@@ -82,10 +85,7 @@ export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function E
             {k === 'task' ? (
               <StatusIcon status={status} overdue={overdue} size={12} className={styles.glyph} />
             ) : (
-              <span
-                className={styles.bar}
-                style={k === 'event' ? ({ '--bar-color': cssColor(color) } as CSSProperties) : {}}
-              />
+              <span className={styles.bar} />
             )}
             <div className={styles.body}>
               <div className={styles.title}>{title}</div>

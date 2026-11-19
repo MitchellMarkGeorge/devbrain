@@ -8,9 +8,11 @@ import {
   CalendarAgendaItem,
   type AgendaEventData,
 } from '../../calendar/CalendarAgenda';
+import { CalendarUpNext } from '../../calendar/CalendarUpNext';
 import { storyDate } from '../../lib/story-dates';
 import { ToggleGroup } from '../../ui/ToggleGroup';
-import { AppFrame, PageHeader, Spacer } from './AppFrame';
+import { PageToolbar } from '../../shell/Page';
+import { ScreenFrame } from '../Shell/AppFrame';
 import { NOW } from './data';
 
 // an hour-long event on the story's day, or `day` days after it
@@ -32,7 +34,8 @@ function agendaEvent(
 
 /**
  * The calendar page around a grid: the header (title, calendar filter, view switch, date stepper,
- * New Event) and the right panel (month picker, today's and tomorrow's agenda).
+ * New Event) and the right panel (month picker, the meeting up next, today's and tomorrow's
+ * agenda).
  */
 export function CalendarScreen({
   view,
@@ -42,32 +45,55 @@ export function CalendarScreen({
   children: ReactNode;
 }) {
   return (
-    <AppFrame page="Calendar">
-      <PageHeader title="June 2026">
-        <Button variant="outline" icon={ListFilter} value="All calendars">
-          Filter
-        </Button>
-        <Spacer />
-        <ToggleGroup
-          aria-label="View"
-          style={{ alignSelf: 'center' }}
-          value={view}
-          items={[
-            { value: 'month', label: 'Month' },
-            { value: 'week', label: 'Week' },
-            { value: 'day', label: 'Day' },
-          ]}
-        />
-        <div style={{ display: 'flex', gap: 4 }}>
-          <Button variant="ghost" size="icon" icon={ChevronLeft} aria-label="Previous week" />
-          <Button variant="outline">Today</Button>
-          <Button variant="ghost" size="icon" icon={ChevronRight} aria-label="Next week" />
-        </div>
-        <Button variant="outline" icon={Plus}>
-          New Event
-        </Button>
-      </PageHeader>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+    <ScreenFrame page="Calendar" title="Calendar">
+      {/* as the page draws it: the month and the filter, then the view, ‹ Today › and New Event */}
+      <PageToolbar
+        start={
+          <>
+            <h1
+              style={{
+                margin: 0,
+                color: 'var(--foreground-strong)',
+                font: 'var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans)',
+              }}
+            >
+              June 2026
+            </h1>
+            <Button variant="outline" icon={ListFilter} value="All calendars">
+              Filter
+            </Button>
+          </>
+        }
+        end={
+          <>
+            <ToggleGroup
+              aria-label="View"
+              value={view}
+              items={[
+                { value: 'month', label: 'Month' },
+                { value: 'week', label: 'Week' },
+                { value: 'day', label: 'Day' },
+              ]}
+            />
+            <div style={{ display: 'flex', gap: 4 }}>
+              <Button variant="ghost" size="icon" icon={ChevronLeft} aria-label="Previous week" />
+              <Button variant="outline">Today</Button>
+              <Button variant="ghost" size="icon" icon={ChevronRight} aria-label="Next week" />
+            </div>
+            <Button variant="outline" icon={Plus}>
+              New Event
+            </Button>
+          </>
+        }
+      />
+      <div
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          display: 'flex',
+          borderTop: '1px solid var(--border)',
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
         <aside
           style={{
@@ -81,8 +107,15 @@ export function CalendarScreen({
           }}
         >
           <Calendar today={NOW} defaultMonth={NOW} />
+          <CalendarUpNext
+            event={{
+              ...agendaEvent('Sprint Planning', 0, 9, 0, 'green'),
+              meetingUrl: 'https://meet.example.com/sprint',
+            }}
+            onOpen={() => {}}
+            onJoin={() => {}}
+          />
           <CalendarAgenda title="Today">
-            <CalendarAgendaItem event={agendaEvent('Sprint Planning', 0, 9, 0, 'green')} />
             <CalendarAgendaItem event={agendaEvent('Daily Standup', 0, 9, 30, 'green')} />
             <CalendarAgendaItem event={agendaEvent('Mitchell / Jesse 1:1', 0, 10, 30, 'green')} />
             <CalendarAgendaItem event={agendaEvent('Design Review', 0, 13, 0, 'blue')} />
@@ -112,6 +145,6 @@ export function CalendarScreen({
           </CalendarAgenda>
         </aside>
       </div>
-    </AppFrame>
+    </ScreenFrame>
   );
 }

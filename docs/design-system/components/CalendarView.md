@@ -21,9 +21,12 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
   from the gutter's edge and centred on its `border` line. The first hour's line is the all-day
   row's, at the top of the scroller, so its label is hidden rather than cut in half. Columns are split by
   `border` lines. Only the hour lines are drawn, though a click or drag snaps to 15 minutes.
-- **Events** are placed by start and end: 3px in from the column's sides, overlapping events side
-  by side 2px apart, 1px clear of the slot above and below (2px shorter than their time), 16px at
-  the least. Under 40px (30 minutes and less) they use the compact `EventBlock` (title only).
+- **Events** are placed by start and end: 3px in from the column's sides, 1px clear of the slot
+  above and below (2px shorter than their time), 16px at the least. Overlapping events cascade
+  (FullCalendar's `slotEventOverlap`): one that starts inside another is drawn over its right part,
+  with a 1px ring in the page colour between them, and the earlier one keeps most of the column's
+  width (20px clear at its right, where a click still creates an event), so a short meeting inside
+  a long one no longer squeezes both titles to a few letters. Under 40px (30 minutes and less) they use the compact `EventBlock` (title only).
   A timed out-of-office event is drawn as focus time.
 - **Now**: the red `NowIndicator` (1px line, 8px dot at the left edge) in today's column, at `now`.
   Today's column has no tint.
@@ -58,7 +61,7 @@ Each event's look comes from its `extendedProps` (`CalendarViewEventProps`), whi
 - `declined`: the whole event at 50%.
 - `meeting`: the video icon.
 
-The colour is FullCalendar's: the event's own `color`, else its source's (one source per calendar).
+The colour is FullCalendar's: the event's own `color`, else its source's (one source per calendar); a timed event's block is tinted with it (`EventBlock`).
 A swatch name (`'green'`) or a `#rrggbb` both work. FullCalendar's own event chrome (fill, border,
 shadow) is removed; the selected event (`selectedEventId`) and a focused one get the `ring` outline.
 Events are focusable and open on Enter when `onEventClick` is set.

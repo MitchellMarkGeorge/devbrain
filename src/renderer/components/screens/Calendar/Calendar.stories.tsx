@@ -7,7 +7,8 @@ import { MONTH_EVENTS, NOW, WEEK_EVENTS, WEEK_EVENTS_MORE } from './data';
 
 const meta = {
   title: 'Screens/Calendar/Calendar',
-  parameters: { layout: 'fullscreen' },
+  // the screens' "now" (8:46 AM), so the panel's next meeting reads "In 14m"
+  parameters: { layout: 'fullscreen', now: NOW },
 } satisfies Meta;
 
 export default meta;
