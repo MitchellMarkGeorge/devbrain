@@ -1,0 +1,65 @@
+/*
+ * The docs (Starlight) in DevBrain's design: Starlight's colour, type and radius variables set from
+ * the app's tokens. tokens.css switches its theme on <html data-theme>, which Starlight's theme
+ * picker sets, so one mapping serves both themes.
+ */
+@import '../../../src/renderer/styles/tokens.css';
+
+:root {
+  /* unlayered, so these win over Starlight's own (in @layer starlight) in both themes */
+  /* Starlight's scale runs from the strongest text (white, gray-1) to the page (black) */
+  --sl-color-white: var(--foreground-strong);
+  --sl-color-gray-1: var(--foreground-strong);
+  --sl-color-gray-2: var(--foreground);
+  --sl-color-gray-3: var(--muted-foreground);
+  --sl-color-gray-4: var(--subtle-foreground);
+  --sl-color-gray-5: var(--border-strong);
+  --sl-color-gray-6: var(--secondary);
+  --sl-color-gray-7: var(--muted);
+  --sl-color-black: var(--background);
+
+  /* DevBrain has no brand hue: the accent is the primary neutral, as in the app */
+  --sl-color-accent-low: var(--accent);
+  --sl-color-accent: var(--primary);
+  --sl-color-accent-high: var(--foreground-strong);
+  --sl-color-text-accent: var(--foreground-strong);
+  --sl-color-text-invert: var(--primary-foreground);
+  --sl-color-bg-accent: var(--primary);
+
+  --sl-color-text: var(--foreground);
+  --sl-color-bg: var(--background);
+  --sl-color-bg-nav: var(--background);
+  --sl-color-bg-sidebar: var(--sidebar);
+  --sl-color-bg-inline-code: var(--secondary);
+  --sl-color-hairline-light: var(--border-strong);
+  --sl-color-hairline: var(--border);
+  --sl-color-hairline-shade: var(--border);
+  --sl-color-backdrop-overlay: var(--backdrop);
+
+  --sl-font: var(--font-sans);
+  --sl-font-mono: var(--font-mono);
+}
+
+/* The app's corners on code blocks, asides and cards */
+.expressive-code,
+.starlight-aside,
+.card {
+  --ec-brdRad: var(--radius-lg);
+  border-radius: var(--radius-lg);
+}
+
+/* The logomark at the app's sidebar size, not Starlight's full nav height */
+.site-title img {
+  height: 1.5rem;
+  width: auto;
+}
+
+/* The current page as the app's sidebar draws it: a quiet fill and outline, not a solid block */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+  outline: 1px solid var(--sidebar-border);
+  outline-offset: -1px;
+}

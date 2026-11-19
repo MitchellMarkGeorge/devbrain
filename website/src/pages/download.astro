@@ -1,0 +1,329 @@
+---
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { ArrowRight, Book, Download, Laptop, Monitor, Terminal } from '@lucide/astro';
+import GitHubMark from '../components/GitHubMark.astro';
+import {
+  formatDate,
+  formatSize,
+  getLatestRelease,
+  PLATFORMS,
+  REPOSITORY_URL,
+  type Platform,
+} from '../lib/releases';
+
+const latest = await getLatestRelease();
+const order: Platform[] = ['mac-arm64', 'mac-x64', 'windows', 'linux'];
+const installers = latest
+  ? order.flatMap((platform) => latest.installers.filter((i) => i.platform === platform))
+  : [];
+// a generic picture of each kind of computer (not the platforms' trademarked logos)
+const ICON: Record<Platform, typeof Laptop> = {
+  'mac-arm64': Laptop,
+  'mac-x64': Laptop,
+  windows: Monitor,
+  linux: Terminal,
+};
+---
+
+<Layout title="Download" description="Download DevBrain for macOS, Windows and Linux.">
+  <PageHeader
+    live={Boolean(latest)}
+    badge={latest
+      ? `v${latest.version} · Released ${formatDate(latest.publishedAt)}`
+      : 'Coming soon'}
+    title="Download DevBrain"
+    lede="For macOS, Windows and Linux. Install it, create your first workspace, and you’re planning in a minute."
+  >
+    {
+      latest && (
+        <a class="link" href={`/changelog/#v${latest.version}`}>
+          What’s new in {latest.version} <ArrowRight size={16} />
+        </a>
+      )
+    }
+  </PageHeader>
+
+  <section class="container page">
+    {
+      latest ? (
+        <>
+          <ul class="installers">
+            {installers.map((installer, i) => (
+              <li
+                class="installer spotlight"
+                data-spotlight
+                data-platform={installer.platform}
+                data-reveal
+                style={`--delay: ${i * 80}ms`}
+              >
+                <span class="platform-icon">
+                  {(() => {
+                    const PlatformIcon = ICON[installer.platform];
+                    return <PlatformIcon size={20} />;
+                  })()}
+                </span>
+                <div class="installer-text">
+                  <strong>{PLATFORMS[installer.platform].label}</strong>
+                  <span class="muted">{PLATFORMS[installer.platform].detail}</span>
+                  <span class="size">{formatSize(installer.size)}</span>
+                  <span class="for-you">Recommended for this computer</span>
+                </div>
+                <a
+                  class="button"
+                  href={installer.url}
+                  aria-label={`Download for ${PLATFORMS[installer.platform].label}, ${PLATFORMS[installer.platform].detail}`}
+                >
+                  <Download size={16} />
+                  Download
+                </a>
+              </li>
+            ))}
+          </ul>
+
+          <div class="help">
+            <article class="spotlight" data-spotlight data-reveal>
+              <Laptop size={16} />
+              <h2>Which Mac do I have?</h2>
+              <p class="muted">
+                Open the Apple menu › About This Mac. “Apple M…” is Apple silicon; “Intel” is Intel.
+              </p>
+            </article>
+            <article class="spotlight" data-spotlight data-reveal style="--delay: 80ms">
+              <Book size={16} />
+              <h2>Installing for the first time</h2>
+              <p class="muted">
+                Each platform’s steps, and where your data lives:{' '}
+                <a href="/docs/install/">Installing DevBrain</a>.
+              </p>
+            </article>
+            <article class="spotlight" data-spotlight data-reveal style="--delay: 160ms">
+              <GitHubMark size={16} />
+              <h2>Every file</h2>
+              <p class="muted">
+                Every installer is also on the{' '}
+                <a href={latest.url}>GitHub release</a>.
+              </p>
+            </article>
+          </div>
+        </>
+      ) : (
+        <div class="empty spotlight" data-spotlight data-reveal>
+          <div class="glow" />
+          <span class="platform-row" aria-hidden="true">
+            <Laptop size={20} />
+            <Monitor size={20} />
+            <Terminal size={20} />
+          </span>
+          <h2>DevBrain hasn’t been released yet</h2>
+          <p class="muted">
+            Installers for macOS, Windows and Linux will be here with the first release. Until then
+            you can build it from source.
+          </p>
+          <div class="empty-actions">
+            <a class="button primary" href={REPOSITORY_URL}>
+              <GitHubMark size={16} />
+              View on GitHub
+            </a>
+            <a class="button" href="/docs/">
+              Read the docs <ArrowRight size={16} />
+            </a>
+          </div>
+        </div>
+      )
+    }
+  </section>
+</Layout>
+
+<script>
+  // Features the visitor's platform: its installers move first and get the large card. The page
+  // works without it: every installer is listed, all the same size.
+  const ua = navigator.userAgent;
+  const platform = /Windows/.test(ua)
+    ? 'windows'
+    : /Mac OS X/.test(ua)
+      ? 'mac'
+      : /Linux/.test(ua) && !/Android/.test(ua)
+        ? 'linux'
+        : '';
+  const list = document.querySelector('.installers');
+  if (list && platform) {
+    const matches = [...list.querySelectorAll<HTMLElement>(`[data-platform^="${platform}"]`)];
+    list.prepend(...matches);
+    // a Mac can't tell the page which chip it has, so both Mac installers stay ordinary cards
+    if (matches.length === 1) matches[0].classList.add('featured');
+  }
+</script>
+
+<style>
+  .page {
+    max-width: 880px;
+    margin-top: var(--space-12);
+  }
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--foreground-strong);
+    font-size: var(--text-sm);
+    text-decoration: none;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+
+  .installers {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+  }
+  @media (min-width: 640px) {
+    .installers {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .installer {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-6);
+  }
+  .platform-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    color: var(--foreground-strong);
+  }
+  .installer-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .installer-text strong {
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-medium);
+  }
+  .installer-text .muted {
+    font-size: var(--text-sm);
+  }
+  .size {
+    color: var(--subtle-foreground);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  .for-you {
+    display: none;
+  }
+
+  /* The visitor's platform: a large card across the top, with the filled button */
+  .installer:global(.featured) {
+    grid-column: 1 / -1;
+    padding: var(--space-6);
+    background:
+      radial-gradient(ellipse 60% 120% at 0% 0%, var(--swatch-indigo-tint), transparent 70%),
+      var(--card);
+  }
+  .installer:global(.featured) .platform-icon {
+    width: 56px;
+    height: 56px;
+  }
+  .installer:global(.featured) strong {
+    font-size: var(--text-xl);
+    line-height: var(--text-xl-leading);
+  }
+  .installer:global(.featured) .for-you {
+    display: block;
+    margin-top: var(--space-2);
+    color: var(--status-completed);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  .installer:global(.featured) .button {
+    background: var(--primary);
+    border-color: transparent;
+    color: var(--primary-foreground);
+    height: 40px;
+  }
+  @media (max-width: 479px) {
+    .installer {
+      grid-template-columns: auto 1fr;
+    }
+    .installer .button {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .help {
+    display: grid;
+    gap: var(--space-3);
+    margin-top: var(--space-12);
+  }
+  @media (min-width: 720px) {
+    .help {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .help article {
+    padding: var(--space-6);
+    color: var(--muted-foreground);
+  }
+  .help h2 {
+    margin-top: var(--space-3);
+    color: var(--foreground-strong);
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+  }
+  .help p {
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm-leading);
+  }
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-12) var(--space-6);
+    text-align: center;
+  }
+  .empty .glow {
+    inset: 20% 10% auto;
+  }
+  .platform-row {
+    display: flex;
+    gap: var(--space-3);
+    color: var(--foreground-strong);
+  }
+  .platform-row :global(svg) {
+    padding: 10px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+  }
+  .empty h2 {
+    margin-top: var(--space-6);
+    color: var(--foreground-strong);
+    font-size: var(--text-2xl);
+    line-height: var(--text-2xl-leading);
+    font-weight: var(--font-weight-semibold);
+  }
+  .empty p {
+    max-width: 48ch;
+    margin-top: var(--space-3);
+  }
+  .empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+  }
+</style>

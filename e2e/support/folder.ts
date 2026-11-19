@@ -27,6 +27,9 @@ export interface SeedOptions {
   name?: string;
   // seed:dev's --seed: the shape of the dataset
   seed?: number;
+  // 'showcase': the small hand-written workspace the website's screenshots show
+  // (scripts/setup_showcase_workspace.mts) instead of seed:dev's generated one
+  dataset?: 'dev' | 'showcase';
 }
 
 /**
@@ -38,10 +41,11 @@ export async function seedDevFolder(root: string, options: SeedOptions = {}): Pr
   const args = [
     path.join(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs'),
     'scripts/run-with-vite.mts',
-    'scripts/setup_dev_workspace.mts',
+    ...(options.dataset === 'showcase'
+      ? ['scripts/setup_showcase_workspace.mts']
+      : ['scripts/setup_dev_workspace.mts', `--seed=${options.seed ?? 42}`]),
     `--path=${root}`,
     `--name=${options.name ?? 'Seeded'}`,
-    `--seed=${options.seed ?? 42}`,
   ];
   const output: string[] = [];
   const code = await new Promise<number | null>((resolve, reject) => {

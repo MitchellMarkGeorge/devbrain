@@ -29,3 +29,21 @@ updates:
           - patch
     commit-message:
       prefix: deps
+
+  # The website (website/README.md): its own package, so its updates don't mix with the app's
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: deps(website)

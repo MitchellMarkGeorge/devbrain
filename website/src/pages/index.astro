@@ -1,0 +1,1385 @@
+---
+import Layout from '../components/Layout.astro';
+import Screenshot from '../components/Screenshot.astro';
+import { Activity, ArrowRight, Calendar, ChevronsUp, Circle, CircleCheck, Download, Equal, FileText, Folder, Kanban, Search } from '@lucide/astro';
+import linearIcon from '../../../src/renderer/assets/brand/linear-icon.svg';
+// Google Calendar's logo as Google publishes it: the same paths as the app's GoogleCalendarLogo
+// (src/renderer/components/entities/ProviderLogo/marks.tsx), as a file the site can load
+import googleCalendarIcon from '../assets/brand/google-calendar.svg';
+import { getLatestRelease, PLATFORMS, type Platform } from '../lib/releases';
+
+const latest = await getLatestRelease();
+const headline = 'Your tasks, projects, notes and calendar, in one place.';
+
+// The product tour: each tab shows a screenshot of the app, from the showcase workspace
+// (website/README.md). focusX is where a phone's crop starts (Screenshot.astro).
+const tour = [
+  {
+    id: 'board',
+    icon: Kanban,
+    label: 'Tasks',
+    title: 'Plan on a list or a board',
+    body: 'Statuses, priorities, due dates and subtasks, grouped the way you work.',
+    alt: 'DevBrain’s board: tasks in Not started, In progress and Completed columns, with their project, priority and due date',
+    focusX: 0.24,
+  },
+  {
+    id: 'project',
+    icon: Folder,
+    label: 'Projects',
+    title: 'Projects with their work in one place',
+    body: 'Open tasks, what was finished recently, notes and progress at a glance.',
+    alt: 'A project in DevBrain: its status and dates, open tasks, recently completed tasks, progress and notes',
+    focusX: 0.2,
+  },
+  {
+    id: 'note',
+    icon: FileText,
+    label: 'Notes',
+    title: 'Notes in Markdown',
+    body: 'Headings, checklists and highlighted code, saved as plain files you own.',
+    alt: 'A note in DevBrain with a callout, headings, lists, a table and a TypeScript code block',
+    focusX: 0.31,
+  },
+  {
+    id: 'calendar',
+    icon: Calendar,
+    label: 'Calendar',
+    title: 'Your week, beside your work',
+    body: 'Meetings on a time grid, with today’s events and due tasks in one agenda.',
+    alt: 'DevBrain’s week view: meetings on a time grid, a month calendar, and an agenda of today’s events and due tasks',
+    focusX: 0.19,
+  },
+] as const;
+
+// Close-ups: one piece of the UI each, cropped from the same screenshots (Screenshot.astro's crop,
+// in fractions of the 1440x900 window)
+const closeups = [
+  {
+    page: 'project',
+    eyebrow: 'Projects',
+    title: 'Every project, at a glance',
+    body: 'Its status, dates and days left, the open and recently finished tasks, progress by status and its notes, all on one page.',
+    alt: 'A project’s overview: its title, status and dates, open tasks, and a progress card',
+    crop: { x: 0.14, y: 0, w: 0.82, h: 0.62 },
+  },
+  {
+    page: 'note',
+    eyebrow: 'Notes',
+    title: 'Write the way you do in your editor',
+    body: 'Headings, lists, checklists and fenced code with syntax highlighting. Each note is a Markdown file, linked to the project or task it’s about.',
+    alt: 'A note with a callout, headings, bullet lists and a table of examples',
+    crop: { x: 0.2, y: 0, w: 0.62, h: 0.66 },
+  },
+  {
+    page: 'calendar',
+    eyebrow: 'Calendar',
+    title: 'Today, in one column',
+    body: 'Up next counts down to your next meeting, and the agenda puts today’s and tomorrow’s meetings beside the tasks that are due, so the day’s plan is one glance.',
+    alt: 'The calendar: Friday’s meetings beside the month, an Up next card counting down to the next meeting, and the agenda of today’s meetings and due tasks',
+    crop: { x: 0.555, y: 0.04, w: 0.445, h: 0.7 },
+  },
+] as const;
+
+// The ⌘K dialog searching "proration", drawn like the app's (SearchDialog): its type filter with
+// counts, results grouped by type with the match in bold, a note's snippet, and the key hints
+const searchQuery = 'proration';
+const searchFilters = [
+  { label: 'All', count: 6, on: true },
+  { label: 'Tasks', icon: CircleCheck, count: 2 },
+  { label: 'Notes', icon: FileText, count: 3 },
+  { label: 'Events', icon: Calendar, count: 1 },
+] as const;
+
+const issues = [
+  {
+    key: 'ENG-142',
+    title: 'Rate limit by key, not by IP',
+    status: 'started',
+    priority: 'high',
+    due: 'Tomorrow',
+  },
+  {
+    key: 'ENG-150',
+    title: 'Generate the OpenAPI spec from the routes',
+    status: 'todo',
+    priority: 'medium',
+    due: 'In 6 days',
+  },
+  {
+    key: 'ENG-157',
+    title: 'Return 429 with a Retry-After header',
+    status: 'todo',
+    priority: 'medium',
+    due: 'In 8 days',
+  },
+] as const;
+const events = [
+  { title: 'Customer call: Northwind', time: '11:00 – 11:45 AM', color: 'var(--swatch-blue)' },
+  { title: 'Onboarding usability test', time: '3:00 – 4:00 PM', color: 'var(--swatch-green)' },
+];
+
+const platformOrder: Platform[] = ['mac-arm64', 'mac-x64', 'windows', 'linux'];
+const installers = latest
+  ? platformOrder.flatMap((p) => latest.installers.filter((i) => i.platform === p))
+  : [];
+---
+
+<Layout title="DevBrain: the second brain for developers">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="grid-backdrop"></div>
+    <div class="container hero-inner">
+      <span class="badge" data-reveal>
+        <span class="dot"></span>
+        The second brain for developers
+        <span class="badge-extra">· {latest ? `v${latest.version}` : 'Coming soon'}</span>
+      </span>
+      <h1 aria-label={headline}>
+        {
+          headline.split(' ').map((word, i) => (
+            <span class="word" style={`--i: ${i}`} aria-hidden="true">
+              {word}{' '}
+            </span>
+          ))
+        }
+      </h1>
+      <p class="lede" data-reveal style="--delay: 300ms">
+        DevBrain is the all-in-one productivity app for developers. It runs on your computer, keeps
+        your work in a folder you own, and brings in your Linear issues and Google Calendar.
+      </p>
+      <div class="actions" data-reveal style="--delay: 400ms">
+        <a class="button primary" href="/download/">
+          <Download size={16} />
+          {latest ? 'Download DevBrain' : 'Get DevBrain'}
+        </a>
+        <a class="button" href="/docs/">Read the docs <ArrowRight size={16} /></a>
+      </div>
+    </div>
+    <div class="container hero-shot-wrap" data-reveal style="--delay: 500ms">
+      <div class="glow"></div>
+      <!-- the integrations, as app icons floating at the window's edges (wide screens only) -->
+      <div class="floaters" aria-hidden="true">
+        <span class="tile linear" style="--x: 1.5%; --y: 34%; --r: -8deg; --d: 0s">
+          <img src={linearIcon.src} alt="" width="88" height="88" />
+        </span>
+        <span class="tile google" style="--x: 98.5%; --y: 12%; --r: 7deg; --d: -3s">
+          <img src={googleCalendarIcon.src} alt="" width="56" height="56" />
+        </span>
+      </div>
+      <div class="hero-shot">
+        <Screenshot
+          page="tasks"
+          eager
+          focusX={0.2}
+          alt="DevBrain’s task list: tasks with their status, subtasks, project, priority and due date"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Product tour -->
+  <section class="container section" aria-labelledby="tour-title">
+    <div class="section-head" data-reveal>
+      <span class="badge">The app</span>
+      <h2 id="tour-title">Plan, track and write without switching apps</h2>
+      <p>Everything links to everything: a task to its project, a note to its meeting.</p>
+    </div>
+    <div class="tour" data-tour data-reveal>
+      <div class="tabs" role="tablist" aria-label="Parts of DevBrain">
+        {
+          tour.map((item, i) => {
+            const TabIcon = item.icon;
+            return (
+            <button
+              class="tab"
+              role="tab"
+              type="button"
+              id={`tab-${item.id}`}
+              aria-controls={`panel-${item.id}`}
+              aria-selected={i === 0 ? 'true' : 'false'}
+              tabindex={i === 0 ? 0 : -1}
+            >
+              <span class="tab-label">
+                <TabIcon size={16} />
+                {item.label}
+              </span>
+              <span class="tab-body">{item.body}</span>
+              <span class="progress" aria-hidden="true" />
+            </button>
+            );
+          })
+        }
+      </div>
+      <div class="panels">
+        {
+          tour.map((item, i) => (
+            <div
+              class="panel"
+              role="tabpanel"
+              id={`panel-${item.id}`}
+              aria-labelledby={`tab-${item.id}`}
+              data-active={i === 0 ? '' : undefined}
+              inert={i === 0 ? undefined : true}
+            >
+              <Screenshot page={item.id} alt={item.alt} focusX={item.focusX} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Close-ups -->
+  <section class="container section closeups" aria-label="Close-ups">
+    {
+      closeups.map((item, i) => (
+        <div class:list={['closeup', { flip: i % 2 === 1 }]}>
+          <div class="closeup-text" data-reveal={i % 2 === 1 ? 'right' : 'left'}>
+            <span class="eyebrow">{item.eyebrow}</span>
+            <h3>{item.title}</h3>
+            <p class="muted">{item.body}</p>
+          </div>
+          <div
+            class:list={['closeup-shot', { narrow: item.crop.w < 0.3 }]}
+            data-reveal={i % 2 === 1 ? 'left' : 'right'}
+            style="--delay: 120ms"
+          >
+            <div class="glow" />
+            <Screenshot page={item.page} alt={item.alt} crop={item.crop} />
+          </div>
+        </div>
+      ))
+    }
+  </section>
+
+  <!-- Features -->
+  <section class="container section" aria-labelledby="features-title">
+    <div class="section-head" data-reveal>
+      <span class="badge">How it works</span>
+      <h2 id="features-title">Built around how developers already work</h2>
+      <p>Bring in what lives elsewhere, find anything in a keystroke, and keep it all on disk.</p>
+    </div>
+
+    <div class="bento">
+      <article class="spotlight card-wide" data-spotlight data-reveal>
+        <div class="card-text">
+          <h3>Linear and Google Calendar, mirrored in</h3>
+          <p class="muted">
+            Issues assigned to you and events from the calendars you choose appear in your lists
+            and calendar, read-only, every five minutes and whenever you come back.
+          </p>
+        </div>
+        <div class="viz feeds" aria-hidden="true">
+          <div class="feed">
+            <p class="feed-label">
+              <img class="rounded" src={linearIcon.src} alt="" width="14" height="14" />Tasks · from
+              Linear
+            </p>
+            <ul>
+              {
+                issues.map((issue, i) => (
+                  <li class="row" style={`--i: ${i}`}>
+                    <span class:list={['status', issue.status]}>
+                      {issue.status === 'started' ? <Activity size={16} /> : <Circle size={16} />}
+                    </span>
+                    <span class="row-title">{issue.title}</span>
+                    <span class="pill">
+                      <img class="rounded" src={linearIcon.src} alt="" width="12" height="12" />
+                      {issue.key}
+                    </span>
+                    <span class:list={['priority', issue.priority]}>
+                      {issue.priority === 'high' ? <ChevronsUp size={16} /> : <Equal size={16} />}
+                    </span>
+                    <span class="when">{issue.due}</span>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+          <div class="feed">
+            <p class="feed-label">
+              <img src={googleCalendarIcon.src} alt="" width="14" height="14" />Today · from Google
+              Calendar
+            </p>
+            <ul>
+              {
+                events.map((event, i) => (
+                  <li class="row" style={`--i: ${i + issues.length}; --c: ${event.color}`}>
+                    <span class="bar" />
+                    <span class="row-title">{event.title}</span>
+                    <span class="pill">
+                      <img src={googleCalendarIcon.src} alt="" width="12" height="12" />
+                      Google
+                    </span>
+                    <span class="when">{event.time}</span>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="spotlight" data-spotlight data-reveal style="--delay: 100ms">
+        <div class="viz palette" aria-hidden="true">
+          <div class="pal-input">
+            <Search size={16} />
+            <span class="typed">
+              {
+                searchQuery.split('').map((letter, i) => (
+                  <span class="letter" style={`--i: ${i}`}>
+                    {letter}
+                  </span>
+                ))
+              }
+            </span>
+            <kbd>Esc</kbd>
+          </div>
+          <div class="pal-filters">
+            {
+              searchFilters.map((filter) => (
+                <span class:list={['filter', { on: 'on' in filter }]}>
+                  {'icon' in filter && <filter.icon size={14} />}
+                  {filter.label}
+                  <span class="count">{filter.count}</span>
+                </span>
+              ))
+            }
+          </div>
+          <div class="pal-results">
+            <p class="group">Tasks <span>2</span></p>
+            <p class="hit selected" style="--i: 0">
+              <span class="status started"><Activity size={16} /></span>
+              <span class="row-title">Ship <strong>proration</strong> for mid-cycle plan changes</span>
+              <kbd>↵</kbd>
+            </p>
+            <p class="hit" style="--i: 1">
+              <span class="status"><Circle size={16} /></span>
+              <span class="row-title">Show the <strong>proration</strong> on the invoice preview</span>
+            </p>
+            <p class="group">Notes <span>3</span></p>
+            <p class="hit note" style="--i: 2">
+              <FileText size={16} />
+              <span class="note-text">
+                <span class="row-title"><strong>Proration</strong> rules</span>
+                <span class="snippet">
+                  …not the invoice. Show the <strong>proration</strong> on the invoice preview
+                </span>
+              </span>
+            </p>
+            <p class="group">Events <span>1</span></p>
+            <p class="hit" style="--i: 3; --c: var(--swatch-indigo)">
+              <span class="bar"></span>
+              <span class="row-title">Focus: <strong>proration</strong></span>
+            </p>
+          </div>
+          <div class="pal-footer">
+            <span><kbd>↑↓</kbd> Navigate</span>
+            <span><kbd>↵</kbd> Open</span>
+          </div>
+        </div>
+        <div class="card-text">
+          <h3>Find anything with ⌘K</h3>
+          <p class="muted">One search across tasks, projects, notes and events.</p>
+        </div>
+      </article>
+
+      <article class="spotlight" data-spotlight data-reveal>
+        <div class="viz files" aria-hidden="true">
+          <pre><code><span class="dir">~/.devbrain/workspaces/acme/</span>
+├─ db.sqlite
+├─ workspace.json
+└─ notes/
+   ├─ <span class="hl">proration-rules.md</span>
+   └─ weekly-notes.md</code></pre>
+        </div>
+        <div class="card-text">
+          <h3>A workspace is a folder</h3>
+          <p class="muted">
+            A SQLite database and your notes as Markdown files. Copy it to move it to another
+            computer.
+          </p>
+        </div>
+      </article>
+
+      <article class="spotlight" data-spotlight data-reveal style="--delay: 100ms">
+        <div class="viz local" aria-hidden="true">
+          <ul>
+            <li><CircleCheck size={16} />No account to create</li>
+            <li><CircleCheck size={16} />Works offline</li>
+            <li><CircleCheck size={16} />Sign-ins in your system’s keychain</li>
+          </ul>
+        </div>
+        <div class="card-text">
+          <h3>Local first</h3>
+          <p class="muted">
+            There’s no DevBrain server. Your work stays on your computer, and integrations talk to
+            Linear and Google directly.
+          </p>
+        </div>
+      </article>
+
+      <article class="spotlight" data-spotlight data-reveal style="--delay: 200ms">
+        <div class="viz formats" aria-hidden="true">
+          <div class="chips">
+            <span>CSV</span><span>JSON</span><span>Markdown</span>
+          </div>
+          <div class="flow"><ArrowRight size={16} /></div>
+        </div>
+        <div class="card-text">
+          <h3>Bring it in, take it out</h3>
+          <p class="muted">
+            Import tasks from CSV or JSON and notes from Markdown, and export them the same way.
+          </p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Closing download panel -->
+  <section class="container section">
+    <div class="closing spotlight" data-spotlight data-reveal>
+      <div class="grid-backdrop"></div>
+      <div class="glow"></div>
+      <div class="closing-text">
+        <h2 class="gradient-text">Start working in DevBrain</h2>
+        <p class="muted">For macOS, Windows and Linux. Your first workspace takes a minute.</p>
+        <a class="button primary" href="/download/"><Download size={16} />Download</a>
+      </div>
+      <ul class="platforms">
+        {
+          installers.length > 0
+            ? installers.map((installer) => (
+                <li>
+                  <a href={installer.url}>
+                    <Download size={16} />
+                    <span>{PLATFORMS[installer.platform].label}</span>
+                    <span class="muted">{PLATFORMS[installer.platform].detail}</span>
+                  </a>
+                </li>
+              ))
+            : (['macOS', 'Windows', 'Linux'] as const).map((name) => (
+                <li>
+                  <a href="/download/">
+                    <Download size={16} />
+                    <span>{name}</span>
+                    <span class="muted">Coming soon</span>
+                  </a>
+                </li>
+              ))
+        }
+      </ul>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  // The tour's tabs (WAI-ARIA tabs, automatic activation): arrow keys move between them. While the
+  // tour is on screen and nobody is using it, each tab's progress bar runs and moves to the next one
+  // when it ends; using the tabs stops that. With reduced motion the bar never runs, so it never
+  // advances on its own.
+  for (const tour of document.querySelectorAll<HTMLElement>('[data-tour]')) {
+    const tabs = [...tour.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls')!)!);
+
+    const select = (index: number, focus = false) => {
+      tabs.forEach((tab, i) => {
+        const active = i === index;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+        panels[i].toggleAttribute('data-active', active);
+        panels[i].inert = !active;
+      });
+      if (focus) tabs[index].focus();
+    };
+
+    const stopAutoplay = () => tour.setAttribute('data-autoplay', 'off');
+
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => {
+        stopAutoplay();
+        select(i);
+      });
+      tab.addEventListener('keydown', (event) => {
+        const next =
+          event.key === 'ArrowRight'
+            ? (i + 1) % tabs.length
+            : event.key === 'ArrowLeft'
+              ? (i - 1 + tabs.length) % tabs.length
+              : event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? tabs.length - 1
+                  : -1;
+        if (next === -1) return;
+        event.preventDefault();
+        stopAutoplay();
+        select(next, true);
+      });
+      tab.querySelector('.progress')?.addEventListener('animationend', () => {
+        if (tour.getAttribute('data-autoplay') !== 'off') select((i + 1) % tabs.length);
+      });
+    });
+
+    // the bar only runs while the tour is on screen
+    new IntersectionObserver(([entry]) => tour.toggleAttribute('data-onscreen', entry.isIntersecting), {
+      threshold: 0.4,
+    }).observe(tour);
+  }
+</script>
+
+<style>
+  /* Hero */
+  .hero {
+    position: relative;
+    isolation: isolate;
+    /* the floating tiles and their light reach past a narrow screen's edge: never scroll to them */
+    overflow-x: clip;
+    padding-top: var(--space-16);
+    text-align: center;
+  }
+  /* the hero's light: a wide soft glow from the top, in the workspace swatches' colours */
+  .hero::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -120px 0 auto;
+    height: 760px;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 45% 55% at 50% 0%, var(--swatch-indigo-tint), transparent 70%),
+      radial-gradient(ellipse 30% 40% at 30% 10%, var(--swatch-blue-tint), transparent 70%),
+      radial-gradient(ellipse 30% 40% at 70% 10%, var(--swatch-pink-tint), transparent 70%);
+    filter: blur(20px);
+  }
+  /* a phone has room for the tagline alone */
+  @media (max-width: 479px) {
+    .badge-extra {
+      display: none;
+    }
+  }
+  .hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    max-width: 16ch;
+    margin-top: var(--space-6);
+    font-size: clamp(36px, 7vw, 68px);
+    line-height: 1.05;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.035em;
+  }
+  /*
+   * Each word carries the gradient itself (.gradient-text), not the heading: Chromium leaves a
+   * child that animates a transform or filter out of its parent's background-clip: text, so a
+   * gradient on the heading hides its words as they rise in.
+   */
+  .word {
+    display: inline-block;
+    white-space: pre;
+    background: linear-gradient(180deg, var(--foreground-strong) 30%, var(--muted-foreground));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .word {
+      animation: word-in 0.8s var(--ease-out) both;
+      animation-delay: calc(var(--i) * 55ms + 100ms);
+    }
+  }
+  @keyframes word-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.4em);
+      filter: blur(8px);
+    }
+  }
+  .lede {
+    max-width: 58ch;
+    margin-top: var(--space-6);
+    color: var(--muted-foreground);
+    font-size: var(--text-lg);
+    line-height: var(--text-lg-leading);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+    margin-top: var(--space-8);
+  }
+  .hero-shot-wrap {
+    position: relative;
+    isolation: isolate;
+    margin-top: var(--space-12);
+  }
+  /*
+   * The integrations, floating at the window's edges as large app icons with a glow in their own
+   * colours (wide screens only): Linear's mark is already a tile; Google Calendar's logo sits on a
+   * white one, as on a phone's home screen. --x and --y place a tile's centre, --r tilts it.
+   */
+  .floaters {
+    display: none;
+  }
+  /* only where the margins beside the window have room for a whole tile */
+  @media (min-width: 1200px) {
+    .floaters {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+  }
+  .tile {
+    --size: 88px;
+    position: absolute;
+    left: calc(var(--x) - var(--size) / 2);
+    top: calc(var(--y) - var(--size) / 2);
+    width: var(--size);
+    height: var(--size);
+    display: grid;
+    place-items: center;
+    border-radius: 22px;
+    rotate: var(--r);
+    box-shadow:
+      0 0 0 1px var(--edge),
+      0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  }
+  @media (min-width: 1280px) {
+    .tile {
+      --size: 104px;
+      border-radius: 26px;
+    }
+  }
+  /* each tile's light, under it */
+  .tile::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -40%;
+    border-radius: 50%;
+    filter: blur(28px);
+    opacity: 0.55;
+  }
+  .tile img {
+    display: block;
+  }
+  /* the image is rounded, not the tile clipped, so the light under it isn't cut off */
+  .linear img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+  }
+  .linear::before {
+    background: radial-gradient(closest-side, #5e6ad2, transparent);
+  }
+  .google {
+    background: var(--white);
+  }
+  .google img {
+    width: 62%;
+    height: 62%;
+  }
+  .google::before {
+    background: radial-gradient(closest-side, #4285f4, transparent);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .tile {
+      animation: bob 7s ease-in-out infinite;
+      animation-delay: var(--d);
+    }
+  }
+  @keyframes bob {
+    50% {
+      translate: 0 -14px;
+    }
+  }
+
+  /* Close-ups: text and a slice of the UI, alternating sides */
+  .closeups {
+    display: grid;
+    gap: calc(var(--space-16) * 1.5);
+  }
+  .closeup {
+    display: grid;
+    gap: var(--space-8);
+    align-items: center;
+  }
+  @media (min-width: 800px) {
+    .closeup {
+      grid-template-columns: 1fr 1.8fr;
+      gap: var(--space-12);
+    }
+    .closeup.flip {
+      grid-template-columns: 1.8fr 1fr;
+    }
+    .closeup.flip .closeup-text {
+      order: 2;
+    }
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .closeup h3 {
+    margin-top: var(--space-3);
+    color: var(--foreground-strong);
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.15;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+  }
+  .closeup p {
+    margin-top: var(--space-4);
+    font-size: var(--text-lg);
+    line-height: var(--text-lg-leading);
+  }
+  .closeup-shot {
+    position: relative;
+    isolation: isolate;
+  }
+  .closeup-shot.narrow {
+    max-width: 300px;
+    justify-self: center;
+    width: 100%;
+  }
+  .closeup-shot .glow {
+    inset: 0;
+    height: auto;
+  }
+
+  /* Tilted back, it lies flat as it scrolls up the screen (where scroll-driven animation exists) */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .hero-shot {
+        transform-origin: 50% 100%;
+        animation: flatten linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+      }
+    }
+  }
+  @keyframes flatten {
+    from {
+      transform: perspective(1400px) rotateX(18deg) scale(0.92);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  .section {
+    margin-top: calc(var(--space-16) * 2);
+  }
+
+  /* Product tour */
+  .tour {
+    margin-top: var(--space-12);
+  }
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+  .tab {
+    position: relative;
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    background: none;
+    color: var(--muted-foreground);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+      background var(--duration-normal),
+      color var(--duration-normal),
+      border-color var(--duration-normal);
+  }
+  .tab:hover {
+    color: var(--foreground);
+  }
+  .tab[aria-selected='true'] {
+    background: var(--card);
+    border-color: var(--edge);
+    color: var(--foreground-strong);
+  }
+  .tab-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: var(--font-weight-medium);
+  }
+  .tab-body {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm-leading);
+    color: var(--muted-foreground);
+  }
+  .progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
+    background: var(--foreground-strong);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .tour:not([data-autoplay='off']) .tab[aria-selected='true'] .progress {
+      animation: progress 6s linear both;
+      animation-play-state: paused;
+    }
+    /* runs while on screen and not pointed at or focused */
+    .tour[data-onscreen]:not(:hover):not(:focus-within) .tab[aria-selected='true'] .progress {
+      animation-play-state: running;
+    }
+  }
+  @keyframes progress {
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .panels {
+    display: grid;
+    margin-top: var(--space-6);
+  }
+  .panel {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transform: scale(0.98) translateY(8px);
+    transition:
+      opacity 0.6s var(--ease-out),
+      transform 0.6s var(--ease-out);
+  }
+  .panel[data-active] {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .panel {
+      transition: none;
+      transform: none;
+    }
+  }
+  /* Phones: the tabs scroll sideways, by name only */
+  @media (max-width: 719px) {
+    .tabs {
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab {
+      flex: none;
+      padding: var(--space-3) var(--space-4);
+    }
+    .tab-body {
+      display: none;
+    }
+  }
+
+  /* Features */
+  .bento {
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-12);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 800px) {
+    .bento {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .card-wide {
+      grid-column: span 2;
+    }
+  }
+  .bento article {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-6);
+  }
+  .card-text h3 {
+    color: var(--foreground-strong);
+    font-size: var(--text-lg);
+    line-height: var(--text-lg-leading);
+    font-weight: var(--font-weight-medium);
+  }
+  .card-text p {
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm-leading);
+  }
+  .viz {
+    flex: 1;
+    min-height: 140px;
+    font-size: var(--text-sm);
+  }
+  .viz ul {
+    list-style: none;
+    padding: 0;
+  }
+  .row-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--foreground);
+  }
+
+  /*
+   * The sync picture: a Linear issue list and today's Google Calendar events, drawn like
+   * DevBrain's own rows (status, title, source pill, priority, date; an event's calendar colour
+   * bar and time), arriving one by one.
+   */
+  .feeds {
+    display: grid;
+    gap: var(--space-4);
+  }
+  .feed {
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    padding: var(--space-1) 0;
+  }
+  .feed-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+  }
+  .feed ul {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .feed .row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    height: 40px;
+    padding-inline: var(--space-4);
+    border-top: 1px solid var(--border);
+  }
+  .status {
+    display: grid;
+    color: var(--status-not-started);
+  }
+  .status.started {
+    color: var(--status-in-progress);
+  }
+  .pill {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--control-xs);
+    padding-inline: var(--space-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-full);
+    background: var(--pill-fill);
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+  }
+  .pill img {
+    flex: none;
+  }
+  .priority {
+    display: grid;
+    flex: none;
+  }
+  .priority.high {
+    color: var(--priority-high);
+  }
+  .priority.medium {
+    color: var(--priority-medium);
+  }
+  .when {
+    flex: none;
+    min-width: 64px;
+    text-align: right;
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+  }
+  .bar {
+    flex: none;
+    width: 3px;
+    height: 18px;
+    border-radius: var(--radius-full);
+    background: var(--c);
+  }
+  /* Phones: the source pill and priority give way to the title */
+  @media (max-width: 559px) {
+    .feed .pill,
+    .feed .priority {
+      display: none;
+    }
+  }
+  .rounded {
+    border-radius: 3px;
+  }
+
+
+  /*
+   * The search picture: the ⌘K dialog (the app's SearchDialog, drawn): a query typed letter by
+   * letter, then the type filter's counts and the grouped results with the match in bold.
+   */
+  .palette {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-xl);
+    background: var(--popover);
+    box-shadow: var(--shadow-2xl);
+    overflow: hidden;
+    font-size: var(--text-sm);
+  }
+  .pal-input {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: 44px;
+    padding-inline: var(--space-3);
+    color: var(--muted-foreground);
+  }
+  .typed {
+    flex: 1;
+    color: var(--foreground-strong);
+    font-size: var(--text-base);
+    white-space: nowrap;
+  }
+  .palette kbd {
+    flex: none;
+    padding: 0 var(--space-1-5);
+    border-radius: var(--radius-sm);
+    background: var(--secondary);
+    color: var(--muted-foreground);
+    font-family: inherit;
+    font-size: var(--text-xs);
+    line-height: 20px;
+  }
+  .pal-filters {
+    display: flex;
+    gap: var(--space-1-5);
+    padding: 0 var(--space-3) var(--space-2);
+    overflow: hidden;
+    mask-image: linear-gradient(to left, transparent, #000 var(--space-6));
+  }
+  .filter {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--control-sm);
+    padding-inline: var(--space-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    color: var(--foreground);
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-medium);
+  }
+  .filter.on {
+    background: var(--accent);
+  }
+  .filter .count {
+    color: var(--muted-foreground);
+  }
+  .pal-results {
+    padding: 0 var(--space-1-5) var(--space-1-5);
+  }
+  .group {
+    padding: var(--space-2) var(--space-1-5) var(--space-1);
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .group span {
+    margin-left: var(--space-1);
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-xs);
+    background: var(--secondary);
+  }
+  .hit {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 32px;
+    padding: var(--space-1) var(--space-1-5);
+    border-radius: var(--radius-md);
+    color: var(--muted-foreground);
+  }
+  .hit.selected {
+    background: var(--accent);
+  }
+  .hit strong {
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-semibold);
+  }
+  .hit .row-title {
+    color: var(--foreground);
+  }
+  .hit.note {
+    align-items: flex-start;
+  }
+  .hit.note > :global(svg) {
+    margin-top: 2px;
+  }
+  .note-text {
+    display: grid;
+    min-width: 0;
+  }
+  .snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-xs);
+  }
+  .hit .bar {
+    height: 16px;
+  }
+  .pal-footer {
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+  }
+
+  /* the folder picture */
+  .files pre {
+    margin: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: 1.9;
+    overflow-x: auto;
+  }
+  .files .dir {
+    color: var(--foreground-strong);
+  }
+  .files .hl {
+    color: var(--foreground-strong);
+    background: var(--accent);
+    border-radius: var(--radius-xs);
+    padding: 1px 4px;
+  }
+
+  .local ul {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .local li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--foreground);
+  }
+  .local li :global(svg) {
+    color: var(--status-completed);
+  }
+
+  .formats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+  }
+  .chips {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .chips span {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-full);
+    background: var(--background);
+    color: var(--foreground-strong);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+  .flow {
+    color: var(--muted-foreground);
+  }
+
+  /* The pictures move only once they're on screen, and only with motion allowed */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .feed .row {
+      animation: arrive 9s var(--ease-out) infinite both;
+      animation-delay: calc(var(--i) * 0.6s);
+    }
+    /* the query, a letter at a time, cleared together at the end of each round */
+    :global(.js) .typed {
+      animation: clear 6s infinite both;
+    }
+    :global(.js) .letter {
+      animation: letter 6s infinite both;
+      animation-delay: calc(var(--i) * 0.11s);
+    }
+    :global(.js) .filter .count,
+    :global(.js) .pal-results {
+      animation: result 6s var(--ease-out) infinite both;
+    }
+    :global(.js) .hit {
+      animation: result 6s var(--ease-out) infinite both;
+      animation-delay: calc(var(--i) * 0.08s);
+    }
+    :global(.js) .chips span:nth-child(2) {
+      animation: float 4s ease-in-out infinite;
+    }
+    :global(.js) .chips span:nth-child(1),
+    :global(.js) .chips span:nth-child(3) {
+      animation: float 4s ease-in-out infinite reverse;
+    }
+    :global(.js) .bento article:not(.is-visible) *,
+    :global(.js) .bento article:not(.is-visible) {
+      animation-play-state: paused;
+    }
+  }
+  @keyframes arrive {
+    0% {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    10%,
+    85% {
+      opacity: 1;
+      transform: none;
+    }
+    95%,
+    100% {
+      opacity: 0;
+    }
+  }
+  /* hidden only once the whole query has faded (clear), so it never empties from the front */
+  @keyframes letter {
+    0%,
+    1% {
+      opacity: 0;
+    }
+    2%,
+    82% {
+      opacity: 1;
+    }
+    84%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes clear {
+    0%,
+    76% {
+      opacity: 1;
+    }
+    80%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes result {
+    0%,
+    32% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    40%,
+    85% {
+      opacity: 1;
+      transform: none;
+    }
+    95%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes float {
+    50% {
+      transform: translateX(4px);
+    }
+  }
+
+  /* Closing download panel */
+  .closing {
+    display: grid;
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-6);
+    text-align: center;
+  }
+  @media (min-width: 800px) {
+    .closing {
+      grid-template-columns: 1.2fr 1fr;
+      align-items: center;
+      padding: var(--space-16) var(--space-12);
+      text-align: left;
+    }
+  }
+  .closing .glow {
+    inset: auto 0 -20%;
+  }
+  .closing h2 {
+    font-size: clamp(28px, 4.5vw, 44px);
+    line-height: 1.1;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+  }
+  .closing-text p {
+    margin-top: var(--space-3);
+    font-size: var(--text-lg);
+    line-height: var(--text-lg-leading);
+  }
+  .closing-text .button {
+    margin-top: var(--space-6);
+  }
+  .platforms {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+    text-align: left;
+  }
+  .platforms a {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 48px;
+    padding-inline: var(--space-4);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    color: var(--foreground-strong);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    transition:
+      border-color var(--duration-fast),
+      transform var(--duration-fast);
+  }
+  .platforms a:hover {
+    border-color: var(--border-strong);
+    transform: translateX(2px);
+  }
+  .platforms .muted {
+    justify-self: end;
+    font-size: var(--text-xs);
+  }
+</style>

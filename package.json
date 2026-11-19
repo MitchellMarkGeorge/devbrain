@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "The all-in-one productivity platform for developers",
   "main": "dist/main/index.js",
+  "desktopName": "dev.devbrainapp.app.desktop",
   "type": "module",
   "author": "",
   "license": "MIT",
@@ -32,6 +33,7 @@
     "test": "tsx scripts/vitest.mts run",
     "test:watch": "tsx scripts/vitest.mts",
     "e2e": "tsx scripts/e2e.mts",
+    "website:screenshots": "tsx scripts/e2e.mts --website-screenshots",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o dist/storybook"
   },

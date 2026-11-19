@@ -12,6 +12,8 @@ export interface LaunchOptions {
   migrationsPath?: string;
   // more environment for main
   env?: Record<string, string>;
+  // more switches for Electron and Chromium (`--force-device-scale-factor=2`)
+  args?: string[];
 }
 
 /** A running DevBrain: Electron's main process, and its one window. */
@@ -39,6 +41,7 @@ export async function launchApp(options: LaunchOptions): Promise<RunningApp> {
       `--user-data-dir=${options.userDataDir}`,
       // Linux without a keyring: safeStorage's fixed key, instead of waiting on a secret service
       ...(process.platform === 'linux' ? ['--password-store=basic'] : []),
+      ...(options.args ?? []),
     ],
     cwd: REPO_ROOT,
     env: {

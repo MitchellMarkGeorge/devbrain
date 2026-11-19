@@ -1,9 +1,9 @@
 # Packaging (npm run compile, after npm run build): docs/releasing.md.
 
-# A placeholder, not DevBrain's id: choose the real reverse-DNS id before the first release. It
-# names the macOS bundle and the Windows app (taskbar grouping, notifications), and changing it
-# later makes the OS treat DevBrain as a different app.
-appId: com.example.devbrain
+# DevBrain's id, from its domain (devbrainapp.dev). It names the macOS bundle, the Windows app
+# (taskbar grouping, notifications) and the Linux launcher (desktopName in package.json, which must
+# match it); never change it after a release, or the OS treats DevBrain as a different app.
+appId: dev.devbrainapp.app
 productName: DevBrain
 directories:
   output: release
@@ -85,6 +85,8 @@ linux:
     - target: AppImage
       arch: [x64]
   category: Utility
+  # names the launcher <desktopName>, so the desktop links the window to it
+  syncDesktopName: true
   synopsis: The all-in-one productivity platform for developers
 appImage:
   # electron-builder's default launches the AppImage with --no-sandbox from its desktop entry,

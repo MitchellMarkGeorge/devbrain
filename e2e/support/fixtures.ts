@@ -13,6 +13,7 @@ import {
 export interface LaunchOverrides {
   migrationsPath?: string;
   env?: Record<string, string>;
+  args?: string[];
 }
 
 /**

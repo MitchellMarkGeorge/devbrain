@@ -1,0 +1,364 @@
+---
+/**
+ * The marketing pages' frame (home, download, changelog): head, header and footer, and the motion
+ * every page shares (site.css: Motion). The docs are Starlight's own pages (astro.config.mjs).
+ */
+import '../styles/site.css';
+import logomark from '../../../src/renderer/assets/devbrain-logomark.svg?raw';
+import { REPOSITORY_URL } from '../lib/releases';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'The second brain for developers: tasks, projects, notes and your calendar in one local-first desktop app.',
+} = Astro.props;
+// a title that already names DevBrain (the home page's) is used as it is
+const pageTitle = title.startsWith('DevBrain') ? title : `${title} · DevBrain`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const nav = [
+  { href: '/docs/', label: 'Docs' },
+  { href: '/changelog/', label: 'Changelog' },
+  { href: REPOSITORY_URL, label: 'GitHub' },
+];
+const footer = [
+  {
+    title: 'Product',
+    links: [
+      { href: '/download/', label: 'Download' },
+      { href: '/changelog/', label: 'Changelog' },
+    ],
+  },
+  {
+    title: 'Docs',
+    links: [
+      { href: '/docs/', label: 'Introduction' },
+      { href: '/docs/install/', label: 'Installing' },
+      { href: '/docs/integrations/', label: 'Integrations' },
+    ],
+  },
+  {
+    title: 'Project',
+    links: [
+      { href: REPOSITORY_URL, label: 'GitHub' },
+      { href: '/privacy/', label: 'Privacy policy' },
+      { href: '/terms/', label: 'Terms of service' },
+    ],
+  },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <!-- before the first paint: the reveals start hidden only when the script can show them -->
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="container">
+        <div class="bar">
+          <a class="brand" href="/" aria-label="DevBrain home">
+            <span class="logomark" set:html={logomark} />
+            <span>DevBrain</span>
+          </a>
+          <nav aria-label="Main">
+            <ul class="links" id="site-links">
+              {
+                nav.map((item) => (
+                  <li>
+                    <a
+                      href={item.href}
+                      aria-current={path === item.href.replace(/\/$/, '') ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+            <a class="button primary" href="/download/">Download</a>
+            <button
+              class="button menu-button"
+              type="button"
+              aria-expanded="false"
+              aria-controls="site-links"
+            >
+              Menu
+            </button>
+          </nav>
+        </div>
+      </div>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="/" aria-label="DevBrain home">
+            <span class="logomark" set:html={logomark} />
+            <span>DevBrain</span>
+          </a>
+          <p class="muted">Tasks, projects, notes and your calendar, on your computer.</p>
+        </div>
+        {
+          footer.map((column) => (
+            <nav aria-label={column.title}>
+              <p class="footer-title">{column.title}</p>
+              <ul>
+                {column.links.map((link) => (
+                  <li>
+                    <a href={link.href}>{link.label}</a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))
+        }
+      </div>
+    </footer>
+  </body>
+</html>
+
+<script>
+  // The Menu button on phones (see .links in the styles): opens and closes the header's links
+  const button = document.querySelector<HTMLButtonElement>('.menu-button');
+  const links = document.getElementById('site-links');
+  if (button && links) {
+    const setOpen = (open: boolean) => {
+      button.setAttribute('aria-expanded', String(open));
+      button.textContent = open ? 'Close' : 'Menu';
+      links.classList.toggle('open', open);
+    };
+    button.addEventListener('click', () => setOpen(button.getAttribute('aria-expanded') !== 'true'));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && links.classList.contains('open')) {
+        setOpen(false);
+        button.focus();
+      }
+    });
+    // a phone turned to landscape shows the links inline again
+    matchMedia('(min-width: 560px)').addEventListener('change', () => setOpen(false));
+  }
+
+  // The header turns into a frosted bar once the page has scrolled
+  const root = document.documentElement;
+  const onScroll = () => root.toggleAttribute('data-scrolled', scrollY > 8);
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // [data-reveal] fades and rises in as it scrolls into view (site.css: Motion), once
+  const reveals = document.querySelectorAll('[data-reveal]');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      },
+      { rootMargin: '0px 0px -10% 0px' },
+    );
+    reveals.forEach((el) => observer.observe(el));
+  } else {
+    reveals.forEach((el) => el.classList.add('is-visible'));
+  }
+
+  // [data-spotlight]: a soft light that follows the pointer across a card (site.css: .spotlight)
+  for (const card of document.querySelectorAll<HTMLElement>('[data-spotlight]')) {
+    card.addEventListener('pointermove', (event) => {
+      const box = card.getBoundingClientRect();
+      card.style.setProperty('--spot-x', `${event.clientX - box.left}px`);
+      card.style.setProperty('--spot-y', `${event.clientY - box.top}px`);
+    });
+  }
+</script>
+
+<style>
+  .skip {
+    position: absolute;
+    left: var(--space-4);
+    top: -100px;
+    z-index: var(--z-overlay);
+  }
+  .skip:focus {
+    top: var(--space-4);
+  }
+
+  /* A floating bar: clear over the hero, frosted with an outline once the page scrolls */
+  .site-header {
+    position: sticky;
+    top: var(--space-3);
+    z-index: var(--z-sticky);
+    margin-top: var(--space-3);
+  }
+
+  .bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: 0 var(--space-2) 0 var(--space-4);
+    border: 1px solid transparent;
+    border-radius: var(--radius-xl);
+    transition:
+      background var(--duration-slow) var(--ease-surface),
+      border-color var(--duration-slow) var(--ease-surface),
+      box-shadow var(--duration-slow) var(--ease-surface);
+  }
+
+  :global(html[data-scrolled]) .bar {
+    background: color-mix(in srgb, var(--background) 75%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    border-color: var(--edge);
+    box-shadow: var(--shadow-md);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+
+  .logomark :global(svg) {
+    width: 20px;
+    height: 24px;
+  }
+  /* the logomark is drawn in white for dark; light draws it in the foreground */
+  .logomark :global(g) {
+    fill: var(--foreground-strong);
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  nav a:not(.button) {
+    color: var(--muted-foreground);
+    text-decoration: none;
+    transition: color var(--duration-fast);
+  }
+  nav a:not(.button):hover,
+  nav a[aria-current='page'] {
+    color: var(--foreground-strong);
+  }
+
+  .links {
+    display: flex;
+    gap: var(--space-6);
+    margin-right: var(--space-2);
+    list-style: none;
+    padding: 0;
+  }
+
+  .menu-button {
+    display: none;
+  }
+
+  /* Phones: the links fold into a panel under the bar, opened by the Menu button */
+  @media (max-width: 559px) {
+    .bar {
+      padding-left: var(--space-3);
+    }
+    .menu-button {
+      display: inline-flex;
+    }
+    .links {
+      display: none;
+      position: absolute;
+      top: calc(100% + var(--space-2));
+      left: 0;
+      right: 0;
+      margin: 0;
+      flex-direction: column;
+      gap: 0;
+      padding: var(--space-2) var(--space-4);
+      background: var(--popover);
+      border: 1px solid var(--edge);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-2xl);
+    }
+    .links.open {
+      display: flex;
+    }
+    .links a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      font-size: var(--text-base);
+    }
+    .links li + li {
+      border-top: 1px solid var(--border);
+    }
+  }
+
+  .site-footer {
+    margin-top: var(--space-16);
+    border-top: 1px solid var(--border);
+    font-size: var(--text-sm);
+  }
+  .footer-grid {
+    display: grid;
+    gap: var(--space-8);
+    padding-block: var(--space-12);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .footer-brand {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+  }
+  @media (min-width: 720px) {
+    .footer-grid {
+      grid-template-columns: 2fr repeat(3, 1fr);
+    }
+    .footer-brand {
+      grid-column: auto;
+    }
+  }
+  .footer-grid nav {
+    display: block;
+  }
+  .footer-title {
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--space-2);
+  }
+  .footer-grid ul {
+    list-style: none;
+    padding: 0;
+  }
+  /* finger-sized on phones */
+  .footer-grid li a {
+    display: inline-block;
+    padding-block: var(--space-2);
+  }
+</style>
