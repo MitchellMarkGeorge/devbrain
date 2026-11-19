@@ -3,8 +3,9 @@ title: Introduction
 description: What DevBrain is, how it works, and where to start.
 ---
 
-DevBrain is a desktop app for planning a developer's work. Your **tasks**, **projects**, **notes**
-and **calendar** live in one window, linked to each other. Your **Linear** issues and **Google
+DevBrain is a local-first, personal second brain for developers: a desktop app that gives you a
+clear picture of what you're working on and when. Your **tasks**, **projects**, **notes** and
+**calendar** live in one window, linked to each other. Your **Linear** issues and **Google
 Calendar** events appear beside them.
 
 ## How it works

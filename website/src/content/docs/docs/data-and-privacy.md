@@ -3,6 +3,9 @@ title: Data and privacy
 description: Where DevBrain keeps your data, what goes over the network, how sign-ins are protected, and how to back up.
 ---
 
+This page explains how DevBrain handles your data in practice; the
+[privacy policy](/privacy/) is the formal statement.
+
 DevBrain is **local first**: your work is stored on your computer, in files you can see, copy and
 back up, and the app works the same with or without the internet. There's no DevBrain account, no
 DevBrain server, and nothing to sign up for.
