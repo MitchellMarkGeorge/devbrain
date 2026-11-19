@@ -34,7 +34,7 @@ export function WorkspaceMenu() {
         }
         onCreate={() => void navigate({ to: '/workspaces/new' })}
         onOpenFolder={openFolder.run}
-        onShowInFinder={() => showInFolder.mutate()}
+        onShowInFolder={() => showInFolder.mutate()}
       />
     </WorkspaceButton>
   );

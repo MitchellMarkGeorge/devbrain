@@ -502,7 +502,7 @@ export class TaskService {
       throw new TaskHierarchyError(
         id,
         'inherits_context',
-        'Subtasks inherit link context from partent task',
+        'Subtasks inherit link context from parent task',
       );
     }
 

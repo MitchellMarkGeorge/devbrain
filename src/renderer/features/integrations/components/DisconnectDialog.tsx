@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { DisconnectCounts, EntityCounts, Integration } from '@common/types';
 import { AuthType } from '@common/types';
 import { ConfirmDialog, ConfirmDialogChoices } from '@renderer/components';
+import { usePlatformWords } from '@renderer/components/lib/platform';
 import { KeyScope } from '@renderer/keyboard';
 import type { ModalProps } from '@renderer/app/modals';
 import { providerEntry } from '../lib/providers';
@@ -61,13 +62,14 @@ export function DisconnectDialog({
   const [choice, setChoice] = useState<'keep' | 'remove'>('keep');
   const { name } = providerEntry(integration.provider);
   const words = disconnectChoices(preview);
+  const { computer } = usePlatformWords();
   const credential =
     integration.authType === AuthType.API_KEY ? 'its API key' : 'its Google sign-in';
   return (
     <ConfirmDialog
       {...modal}
       title={`Disconnect ${name}?`}
-      description={`DevBrain stops syncing ${integration.accountLabel} and removes ${credential} from this Mac.`}
+      description={`DevBrain stops syncing ${integration.accountLabel} and removes ${credential} from ${computer}.`}
       actionLabel="Disconnect"
       onConfirm={() => onDisconnect(choice === 'keep')}
     >

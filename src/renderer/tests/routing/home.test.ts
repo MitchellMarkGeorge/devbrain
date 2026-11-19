@@ -101,6 +101,29 @@ describe('Home', () => {
     expect(app.text()).toContain('Your day is clear');
   });
 
+  it('titles the projects section by why it shows: coming due, or changed last', async () => {
+    const due = home(
+      new FakeTasks(
+        [],
+        [fakeProject('prj_launch', 'Launch', { dueDate: today().plus({ days: 2 }).toJSDate() })],
+      ),
+    );
+    await eventually(() => expect(due.app.text()).toContain('Projects due soon'));
+    expect(due.app.text()).toContain('Launch');
+    expect(due.app.text()).not.toContain('Recent projects');
+    stopApps();
+    const recent = home(new FakeTasks([], [fakeProject('prj_someday', 'Someday')]));
+    await eventually(() => expect(recent.app.text()).toContain('Recent projects'));
+    expect(recent.app.text()).toContain('Someday');
+    expect(recent.app.text()).not.toContain('Projects due soon');
+  });
+
+  it('offers no "/ for commands" in the capture box, which has none', async () => {
+    const { app } = home(new FakeTasks(TASKS()));
+    await eventually(() => expect(field()).not.toBeNull());
+    expect(app.text()).not.toContain('for commands');
+  });
+
   it('welcomes a new workspace by its name, with Get started', async () => {
     const { app } = home(new FakeTasks([]), (main) => (main.integrations = []));
     await eventually(() => expect(app.text()).toContain('Welcome to Work'));

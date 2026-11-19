@@ -10,7 +10,6 @@ import { Calendar, CircleCheck, Clock, FileText, Flag, Folder, Timer } from 'luc
 import { cn } from '../../lib/cn';
 import { Badge, type BadgeProps } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { Kbd } from '../../ui/Kbd';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import styles from './CaptureBox.module.css';
 
@@ -118,7 +117,7 @@ export interface CaptureBoxProps extends Omit<ComponentPropsWithoutRef<'div'>, '
 }
 
 /**
- * Home's capture box: the Task / Note / Event switch and "/ for commands", a free-text field, the
+ * Home's capture box: the Task / Note / Event switch, a free-text field, the
  * kind's pickers and the Add button. It holds the slot an AI prompt will take later, at the same
  * size. Recognised words in the field are marked and fill their pickers.
  */
@@ -175,10 +174,6 @@ export const CaptureBox = forwardRef<HTMLDivElement, CaptureBoxProps>(function C
               onKindChange?.(next as CaptureKind);
             }}
           />
-          <span className={styles.hint}>
-            <Kbd variant="raised">/</Kbd>
-            for commands
-          </span>
         </div>
         <div className={styles.field}>
           {highlights && highlights.length > 0 && (

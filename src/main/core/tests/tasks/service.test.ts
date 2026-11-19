@@ -1000,7 +1000,7 @@ describe('TaskService — updateLinks', () => {
       expect.objectContaining({
         code: 'task_hierarchy',
         reason: 'inherits_context',
-        message: expect.stringContaining('Subtasks inherit link context from partent task'),
+        message: expect.stringContaining('Subtasks inherit link context from parent task'),
       }),
     );
   });

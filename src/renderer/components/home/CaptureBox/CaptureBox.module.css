@@ -39,16 +39,6 @@
 .box .kind [data-pressed] {
   background: var(--capture-switch-thumb);
 }
-.hint {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  color: var(--subtle-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-  white-space: nowrap;
-}
 
 /* the field, 52px: the text 8px from the top, 4px in from the switch's edge */
 .field {

@@ -96,6 +96,14 @@ export function useMakeSubtask(task: Pick<Task, 'id'>) {
       .catch((error: unknown) => showError(error, 'Couldn’t make it a subtask'));
 }
 
+/**
+ * Whether the task can be linked to an event or note: core refuses a local subtask, which takes
+ * its parent's (`tasks.updateLinks`); a synced subtask carries its provider's.
+ */
+export function canLinkTask(task: Pick<Task, 'parentTaskId' | 'external'>): boolean {
+  return task.parentTaskId === null || isSynced(task);
+}
+
 // the linked event or note, as a pill opening a menu: open it, change it, remove it
 function LinkPill({ task }: { task: Task }) {
   const openEntity = useOpenEntity();
@@ -295,8 +303,8 @@ export type AddingProperty = 'parent' | 'event' | 'pull-request' | null;
  * The pill rows under a task's title (`PropertyRow`): status, priority, the dates and the project,
  * then "+ Add" for what is unset (a parent, an event or note, a pull request); and on the second
  * line where it comes from (the synced badge), what it links to, its parent and its pull
- * request. A synced task shows its provider's values read-only and has no "+ Add"; its links stay
- * editable.
+ * request. A synced task shows its provider's values and its pull request read-only and has no
+ * "+ Add"; its links stay editable. A local subtask takes its parent's links, so it offers none.
  */
 export function TaskProperties({
   task,
@@ -371,7 +379,7 @@ export function TaskProperties({
   const addItems = TASK_ADD_ITEMS.filter(
     (item) =>
       (item.key === 'parent' && !parent && !synced) ||
-      (item.key === 'event' && !linked) ||
+      (item.key === 'event' && !linked && canLinkTask(task)) ||
       (item.key === 'pull-request' && !task.pullRequestUrl),
   ).map((item) => (item.key === 'event' ? { ...item, label: 'Event or note' } : item));
 
@@ -427,7 +435,7 @@ export function TaskProperties({
         <PullRequestPill
           key={task.pullRequestUrl ?? ''}
           task={task}
-          readOnly={false}
+          readOnly={synced}
           editing={adding === 'pull-request'}
           onEditingChange={(editing) => setAdding(editing ? 'pull-request' : null)}
         />

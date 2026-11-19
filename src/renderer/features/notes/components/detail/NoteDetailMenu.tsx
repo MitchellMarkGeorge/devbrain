@@ -1,6 +1,7 @@
 import { Code, Copy, FolderOpen, Trash2 } from 'lucide-react';
 import type { Note } from '@common/types';
 import { DropdownMenuItem, DropdownMenuSeparator, PageMenuButton } from '@renderer/components';
+import { usePlatformWords } from '@renderer/components/lib/platform';
 import { useCommands } from '@renderer/keyboard';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { ProjectSubmenu } from '@renderer/features/tasks/components/menus/TaskMenus';
@@ -9,7 +10,7 @@ import type { NoteActions } from '../../hooks/use-note-actions';
 
 /**
  * The note page's "…" menu (Figma `7527:51820`): Link to ›, Change project ›, Duplicate (⌘D,
- * then opens the copy), Show in Finder, Copy as Markdown, Move to trash.
+ * then opens the copy), Show in Finder (named for the platform), Copy as Markdown, Move to trash.
  */
 export function NoteDetailMenu({
   note,
@@ -21,6 +22,7 @@ export function NoteDetailMenu({
   onTrash: () => void;
 }) {
   const openEntity = useOpenEntity();
+  const { fileManager } = usePlatformWords();
   const duplicate = () =>
     actions.duplicate(note).then((copy) => {
       if (copy) openEntity(copy);
@@ -39,7 +41,7 @@ export function NoteDetailMenu({
         Duplicate
       </DropdownMenuItem>
       <DropdownMenuItem icon={FolderOpen} onClick={() => actions.showInFolder(note)}>
-        Show in Finder
+        Show in {fileManager}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem icon={Code} onClick={() => actions.copyAsMarkdown(note)}>

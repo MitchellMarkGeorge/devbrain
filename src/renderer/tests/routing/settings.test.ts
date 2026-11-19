@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import type { TaskImportSummary } from '@common/types';
 import { trpc, queryClient } from '@renderer/ipc';
+import type { Platform } from '@renderer/components/lib/platform';
 import { FakeMain, workspace } from './fake-main';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
@@ -15,7 +16,7 @@ const WORK = 'wsp_work' as WorkspaceId;
 
 afterEach(() => stopApps());
 
-function settingsPage(path = '/settings/general') {
+function settingsPage(path = '/settings/general', platform?: Platform) {
   const main = new FakeMain([workspace(WORK, 'Work'), workspace('wsp_home', 'Home')], WORK);
   main.routes.set('settings.set', (args) => {
     const keys = (args.path as string).split('.').slice(1);
@@ -30,7 +31,7 @@ function settingsPage(path = '/settings/general') {
     node[keys[keys.length - 1]] = args.value;
     return [{ ...settings, devBrainPath: '/brain' }, ['settings']];
   });
-  const app = startApp(main, { url: `/app/${WORK}${path}` });
+  const app = startApp(main, { url: `/app/${WORK}${path}`, platform });
   return { main, app };
 }
 
@@ -198,6 +199,37 @@ describe('the settings', () => {
     const { app } = settingsPage('/settings/data-storage');
     await eventually(() => expect(app.text()).toContain('Data folder'));
     expect(app.text()).toContain('/brain');
+    expect(byText(app.container, 'button', 'Show in Finder')).not.toBeNull();
+  });
+
+  it('names the file manager for the platform', async () => {
+    const { app } = settingsPage('/settings/data-storage', 'windows');
+    await eventually(() => expect(app.text()).toContain('Data folder'));
+    expect(byText(app.container, 'button', 'Show in Explorer')).not.toBeNull();
+    expect(app.text()).not.toContain('Finder');
+  });
+
+  it('offers Launch at login on macOS and Windows, not on Linux, where it does nothing', async () => {
+    const mac = settingsPage('/settings/preferences');
+    await eventually(() => expect(control('Launch at login')).toBeDefined());
+    expect(mac.app.text()).toContain('Open DevBrain when you log in.');
+    expect(mac.app.text()).not.toContain('Mac');
+    stopApps();
+    const linux = settingsPage('/settings/preferences', 'linux');
+    await eventually(() => expect(control('Reopen last page')).toBeDefined());
+    expect(control('Launch at login')).toBeUndefined();
+    expect(linux.app.text()).not.toContain('Launch at login');
+  });
+
+  it('says the workspace is deleted from this computer, as the platform names it', async () => {
+    const { app } = settingsPage('/settings/general', 'linux');
+    await eventually(() => expect(app.text()).toContain('Delete Workspace'));
+    click(byText(app.container, 'button', 'Delete Workspace'));
+    await eventually(() =>
+      expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain(
+        'Everything in Work is deleted from this computer:',
+      ),
+    );
   });
 
   it('imports tasks and shows what was left out, with View Tasks', async () => {

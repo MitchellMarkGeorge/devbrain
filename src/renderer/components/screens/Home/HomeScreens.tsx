@@ -229,7 +229,7 @@ function ProjectRow({
 function Projects({ empty = false }: { empty?: boolean }) {
   const count = (done: number, total: number) => (empty ? { done: 0, total: 0 } : { done, total });
   return (
-    <HomeSection title="Recent projects" link="All projects">
+    <HomeSection title="Projects due soon" link="All projects">
       <ProjectRow name="Auth Overhaul" color="blue" {...count(3, 12)} meta="Due Jul 1" />
       <ProjectRow name="API Gateway v2" color="amber" {...count(4, 10)} meta="Due Jun 30" />
       <ProjectRow

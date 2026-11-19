@@ -16,6 +16,7 @@ import {
   ProviderTile,
   toast,
 } from '@renderer/components';
+import { usePlatformWords } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
 import { KeyScope } from '@renderer/keyboard';
 import type { ModalProps } from '@renderer/app/modals';
@@ -57,6 +58,7 @@ export function LinearKeyDialog({ workspaceName, reconnect, ...modal }: LinearKe
   const [apiKey, setApiKey] = useState('');
   const [tasks, setTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { computer } = usePlatformWords();
   const onDone = (integration: Integration) => {
     modal.onOpenChange(false);
     toast({
@@ -110,7 +112,7 @@ export function LinearKeyDialog({ workspaceName, reconnect, ...modal }: LinearKe
           </DialogHeader>
           <Field
             label="Personal API key"
-            description="Create one in Linear under Settings › Security & access. DevBrain checks it with Linear, then stores it encrypted on this Mac. It is never shown again."
+            description={`Create one in Linear under Settings › Security & access. DevBrain checks it with Linear, then stores it encrypted on ${computer}. It is never shown again.`}
             error={error ?? undefined}
           >
             <Input

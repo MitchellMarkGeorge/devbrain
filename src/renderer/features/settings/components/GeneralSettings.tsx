@@ -12,6 +12,7 @@ import {
   SwatchPicker,
   toast,
 } from '@renderer/components';
+import { usePlatform, usePlatformWords } from '@renderer/components/lib/platform';
 import { ipc, trpc } from '@renderer/ipc';
 import { KeyScope } from '@renderer/keyboard';
 import { useModals } from '@renderer/app/modals';
@@ -112,13 +113,14 @@ function DangerZone({ workspace }: { workspace: WorkspaceInfo }) {
   const modals = useModals();
   const navigate = useNavigate();
   const showError = useMutationErrorToast();
+  const { computer } = usePlatformWords();
 
   const deleteWorkspace = () =>
     modals.open((props) => (
       <ConfirmDialog
         {...props}
         title="Delete workspace?"
-        description={`Everything in ${workspace.name} is deleted from this Mac: its tasks, projects, notes, calendars and connected accounts.`}
+        description={`Everything in ${workspace.name} is deleted from ${computer}: its tasks, projects, notes, calendars and connected accounts.`}
         irreversible
         actionLabel="Delete Workspace"
         confirmText={workspace.name}
@@ -176,6 +178,9 @@ export function PreferencesSettings() {
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const set = useSetSetting();
   const { general } = settings;
+  // Electron keeps login items on macOS and Windows only (src/main/runtime/login-item.ts)
+  const platform = usePlatform();
+  const canLaunchAtLogin = platform !== 'linux';
   return (
     <>
       <SettingsSection title="General">
@@ -217,17 +222,21 @@ export function PreferencesSettings() {
               />
             }
           />
-          <SettingsRow
-            label="Launch at login"
-            description="Open DevBrain when you log in to your Mac."
-            control={
-              <SettingSwitch
-                label="Launch at login"
-                checked={general.launchOnStartup}
-                onChange={(value) => void set({ path: 'settings.general.launchOnStartup', value })}
-              />
-            }
-          />
+          {canLaunchAtLogin && (
+            <SettingsRow
+              label="Launch at login"
+              description="Open DevBrain when you log in."
+              control={
+                <SettingSwitch
+                  label="Launch at login"
+                  checked={general.launchOnStartup}
+                  onChange={(value) =>
+                    void set({ path: 'settings.general.launchOnStartup', value })
+                  }
+                />
+              }
+            />
+          )}
           <SettingsRow
             label="Time format"
             description="Used for times across DevBrain."

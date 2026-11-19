@@ -24,6 +24,7 @@ import {
   ToggleGroup,
   useWorkspaceShell,
 } from '@renderer/components';
+import { usePlatformWords } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { monthTitle } from '../../lib/range';
@@ -198,8 +199,9 @@ export function filterGroups(calendars: readonly Calendar[]): Calendar[][] {
 
 /**
  * "Filter: All calendars" (Figma `7424:42573`): every calendar with a tick while it shows, by
- * where it comes from ("On this Mac", "Google · mitchell@acme.com"), then Show all. Core keeps
- * each calendar's visibility (`calendars.setVisible`), not the URL.
+ * where it comes from ("On this Mac", "On this PC" or "On this computer" by platform, "Google ·
+ * mitchell@acme.com"), then Show all. Core keeps each calendar's visibility
+ * (`calendars.setVisible`), not the URL.
  */
 export function CalendarFilterMenu({
   calendars,
@@ -210,6 +212,7 @@ export function CalendarFilterMenu({
   display?: 'value' | 'label' | 'icon';
 }) {
   const { size } = useWorkspaceShell();
+  const { computer } = usePlatformWords();
   const integrations = useQuery(trpc.integrations.list.queryOptions()).data;
   const showError = useMutationErrorToast('Couldn’t change the calendars shown');
   const setVisible = useMutation(
@@ -258,7 +261,7 @@ export function CalendarFilterMenu({
               <DropdownMenuGroup>
                 <DropdownMenuLabel>
                   {group[0].sourceId === null
-                    ? 'On this Mac'
+                    ? `On ${computer}`
                     : account
                       ? `Google · ${account}`
                       : 'Google Calendar'}

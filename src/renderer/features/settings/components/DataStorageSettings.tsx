@@ -9,6 +9,7 @@ import {
   SettingsRow,
   SettingsSection,
 } from '@renderer/components';
+import { usePlatformWords } from '@renderer/components/lib/platform';
 import { ipc, trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useTransfers } from '../hooks/use-transfers';
@@ -17,6 +18,7 @@ import { useTransfers } from '../hooks/use-transfers';
 export function DataStorageSettings() {
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const showError = useMutationErrorToast();
+  const { fileManager } = usePlatformWords();
   return (
     <SettingsSection title="Storage">
       <SettingsGroup>
@@ -32,7 +34,7 @@ export function DataStorageSettings() {
                   .catch((error: unknown) => showError(error, 'Couldn’t show the folder'))
               }
             >
-              Show in Finder
+              Show in {fileManager}
             </Button>
           }
         />

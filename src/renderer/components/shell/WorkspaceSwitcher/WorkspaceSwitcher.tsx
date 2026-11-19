@@ -9,6 +9,7 @@ import {
 } from '../../ui/DropdownMenu';
 import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import type { Swatch } from '../../types';
+import { usePlatformWords } from '../../lib/platform';
 
 export interface WorkspaceSummary {
   id: string;
@@ -23,14 +24,15 @@ export interface WorkspaceSwitcherProps {
   onSelect?: (id: string) => void;
   onCreate?: () => void;
   onOpenFolder?: () => void;
-  /** reveals the open workspace's folder */
-  onShowInFinder?: () => void;
+  /** reveals the open workspace's folder in the platform's file manager */
+  onShowInFolder?: () => void;
 }
 
 /**
  * The workspace menu that `WorkspaceButton` opens: "Workspaces", each one with its 16px tile
  * (the open one ticked; the others open on click), then "New workspace…" and "Open folder…",
- * then "Show in Finder" for the open workspace. Pass it as `WorkspaceButton`'s children.
+ * then "Show in Finder" for the open workspace ("Show in Explorer" on Windows, "Show in File
+ * Manager" on Linux). Pass it as `WorkspaceButton`'s children.
  */
 export function WorkspaceSwitcher({
   workspaces,
@@ -38,8 +40,9 @@ export function WorkspaceSwitcher({
   onSelect,
   onCreate,
   onOpenFolder,
-  onShowInFinder,
+  onShowInFolder,
 }: WorkspaceSwitcherProps) {
+  const { fileManager } = usePlatformWords();
   return (
     <>
       <DropdownMenuGroup>
@@ -71,8 +74,8 @@ export function WorkspaceSwitcher({
         Open folder…
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={SquareArrowOutUpRight} onClick={onShowInFinder}>
-        Show in Finder
+      <DropdownMenuItem icon={SquareArrowOutUpRight} onClick={onShowInFolder}>
+        Show in {fileManager}
       </DropdownMenuItem>
     </>
   );

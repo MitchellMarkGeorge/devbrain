@@ -101,15 +101,16 @@ Everything fits on one page without scrolling at the default window size (1200 Ã
 
 - **Meetings:** a meeting coming up, or in progress.
 - **Tasks:** a task overdue or coming up.
-- **Recent projects:** a project deadline coming up.
+- **Projects due soon:** a project deadline coming up.
 - **Recent notes:** a note you just created or edited.
+- **Recent projects:** the open projects changed last, when there is no recent note.
 
-When more than one applies, what comes due soonest wins: the next meeting, task due date or project deadline decides the section (an overdue task or a meeting in progress is due now). A recently edited note shows only when nothing is coming up. What the section leaves out can still be mentioned in the summary. "Get started" fills the slot in a new workspace with nothing to show.
+When more than one applies, what comes due soonest wins: the next meeting, task due date or project deadline decides the section (an overdue task or a meeting in progress is due now). A recently edited note shows only when nothing is coming up, and the recent projects only when there is no such note. What the section leaves out can still be mentioned in the summary. "Get started" fills the slot in a new workspace with nothing to show.
 
 - **Meetings:** `HomeMeetingRow`s, drawn from core's events: the colour bar, the title and when, at the right ("In 12m" in `date-today`, "Now", "10:30 AM", "Tue 9:30 AM"). An xs Join button shows from 5 minutes before the start until the end. The next or current meeting's row is filled with `card`; finished meetings drop off; tomorrow's first meeting is dimmed.
 - **Tasks:** `TaskRow compact`: 44px with no selection strip, with all their pills.
 - **Recent notes:** three small `NoteCard`s in a row (`size="sm"`: icon and edit time, a one-line title and a one-line preview).
-- **Recent projects:** `HomeRow`s: the folder in the project's colour, the name, a small progress bar, "3/12", then the due date or status.
+- **Projects due soon** and **Recent projects:** `HomeRow`s: the folder in the project's colour, the name, a small progress bar, "3/12", then the due date or status.
 - **Get started:** `SetupRow`s (Connect Google Calendar, Connect Linear, Start a project), each saying what it adds to Home. A row disappears once its step is done; the section has no link.
 
 Home's rows are lighter than the lists': no selection strip, 36px for meetings and projects (`HomeRow`) and 44px for tasks.
@@ -193,6 +194,7 @@ Two kinds of page, one rule each:
 
 - Write in the user's terms: tasks, projects, notes, events, workspaces.
 - Buttons and menu items are verbs. Buttons use title case ("New Task", "Show in Finder"); menu items, headings and labels use sentence case ("Turn into", "Due date").
+- Name the platform's things as the platform does, with `usePlatformWords` (`components/lib/platform.ts`), as the menu bar does: "Show in Finder", "Show in Explorer" or "Show in File Manager"; "this Mac", "this PC" or "this computer". The designs are drawn for macOS.
 - Address the user as "you", without a name: "Good morning" / "**Sprint Planning** starts in 12 minutes. You have **6 tasks** today, and 2 are overdue."
 - Dates are short and worded through `useFormat()`: due dates "Today", "Tomorrow", "In 3 days" within a week, else "Jul 1"; times "10:30 AM" (or "10:30" on a 24 hour clock); edits and countdowns "2h ago", "In 12m".
 - A destructive confirmation says what happens to linked items and how to undo it.

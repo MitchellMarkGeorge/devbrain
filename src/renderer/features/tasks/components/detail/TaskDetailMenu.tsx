@@ -26,7 +26,7 @@ import { KeyScope, useCommands } from '@renderer/keyboard';
 import { useModals } from '@renderer/app/modals';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import type { AddingProperty } from './TaskProperties';
+import { canLinkTask, type AddingProperty } from './TaskProperties';
 
 export interface TaskDetailMenuProps {
   task: Task;
@@ -37,7 +37,8 @@ export interface TaskDetailMenuProps {
 
 /**
  * The task page's "…" menu, in the README's order: Convert to project (after a confirmation, then
- * opens the project), Link to…, Make subtask of… (or Make top-level task), Duplicate (⌘D, then
+ * opens the project), Link to… (disabled on a local subtask, which takes its parent's links),
+ * Make subtask of… (or Make top-level task), Duplicate (⌘D, then
  * opens the copy), Copy as Markdown, the provider's items for a synced or detached task (Open in
  * Linear, Copy Linear URL, Detach or Reattach), then Move to trash. A synced task can't be
  * converted (its provider owns it); its copy is a local task.
@@ -117,7 +118,7 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
       <DropdownMenuItem icon={Folder} disabled={synced} onClick={convert}>
         Convert to project
       </DropdownMenuItem>
-      <DropdownMenuItem icon={Link} onClick={() => onAdd('event')}>
+      <DropdownMenuItem icon={Link} disabled={!canLinkTask(task)} onClick={() => onAdd('event')}>
         Link to event or note…
       </DropdownMenuItem>
       {task.parentTaskId ? (

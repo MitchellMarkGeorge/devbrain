@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { expect, vi } from 'vitest';
 import type { InitialLoadContext } from '@common/ipc/types';
-import { WindowFrameProvider } from '@renderer/components/lib/platform';
+import { WindowFrameProvider, type Platform } from '@renderer/components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '@renderer/ipc';
 import { seedQueryCache } from '@renderer/ipc/initial-load-context';
 import { createAppRouter, followOutsideChanges, type AppRouter } from '@renderer/app/router';
@@ -21,6 +21,8 @@ export interface StartOptions {
   initialLoadContext?: InitialLoadContext | null;
   /** the splash's minimum; 0 by default, so tests don't wait for it */
   splashMinimumMs?: number;
+  /** the window's platform, macOS by default */
+  platform?: Platform;
 }
 
 export interface App {
@@ -84,7 +86,7 @@ export function startApp(main: FakeMain, options: StartOptions): App {
   {
     root.render(
       <QueryClientProvider client={queryClient}>
-        <WindowFrameProvider value={{ platform: 'macos', controls: 'system' }}>
+        <WindowFrameProvider value={{ platform: options.platform ?? 'macos', controls: 'system' }}>
           <AppWindow
             router={router}
             devBrainAvailable={initialLoadContext?.devBrainAvailable ?? true}
