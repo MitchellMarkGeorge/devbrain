@@ -1,11 +1,12 @@
 ---
 title: Integrations
-description: Bring your Linear issues and Google Calendar events into DevBrain, how sync works, and disconnecting.
+description: How DevBrain syncs with Linear and Google Calendar, when it syncs, turning sync off, and disconnecting.
 ---
 
-import DocsScreenshot from '../../../components/DocsScreenshot.astro';
+import DocsScreenshot from '../../../../components/DocsScreenshot.astro';
 
-DevBrain can mirror **Linear** and **Google Calendar** into a workspace, so the work you track
+DevBrain can mirror [**Linear**](/docs/integrations/linear/) and
+[**Google Calendar**](/docs/integrations/google-calendar/) into a workspace, so the work you track
 elsewhere sits in the same lists, boards and calendar as your own. Connect them in **Settings ›
 Integrations** (press <kbd>G</kbd> then <kbd>I</kbd>). Each workspace has its own connections.
 
@@ -40,67 +41,18 @@ The bottom of the sidebar shows how it's going: "Synced 2 min ago", "Syncing…"
 a button to try again), "Offline", or "Paused" when a service asks DevBrain to slow down. After a
 failure DevBrain tries again by itself, waiting a little longer each time.
 
-## Linear
+## Connecting an account
 
-### Connecting
+Each service has its own page, with how to connect it and exactly what it brings in:
 
-1. In Linear, create a personal API key: **Settings › Security & access**.
-2. In DevBrain, choose **Connect** next to Linear, and paste it in **Personal API key**.
-3. Choose **Check Key and Connect**. DevBrain checks the key with Linear, then stores it encrypted.
-   It's never shown again.
+- [**Linear**](/docs/integrations/linear/): the issues assigned to you, as tasks, with their
+  projects. Connected with a personal API key.
+- [**Google Calendar**](/docs/integrations/google-calendar/): the events of the calendars you
+  choose. Connected by signing in with Google in your browser.
 
-### What syncs
-
-- The issues **assigned to you** that are open, and those completed or cancelled in the last 30
-  days. They appear as [tasks](/docs/tasks/#tasks-from-linear), with their key (such as
-  **ENG-124**).
-- Their **sub-issues**, as subtasks. A sub-issue whose parent isn't assigned to you is a task of its
-  own.
-- The **Linear projects** of those issues, as [projects](/docs/projects/#projects-from-linear).
-- Comments, attachments, labels, cycles, and issues assigned to others are not brought in.
-
-Linear's statuses map to DevBrain's: Triage, Backlog and Todo-type states become **Not started**,
-started states **In progress**, done states **Completed**, and cancelled or duplicate issues
-**Cancelled**. The state's own name (such as "In Review") is shown on the task. Urgent and High
-priority become **High**; an issue with no priority shows **No priority**.
-
-When an open issue is reassigned to someone else or deleted in Linear, it leaves DevBrain within
-half an hour, or at once with **Sync Now**. Its notes stay, and come back to it if it's assigned to
-you again.
-
-### Editing a Linear task in DevBrain
-
-**Detach from Linear** in a task's **…** menu makes it your own copy: editable, and no longer
-updated by Linear. **Reattach to Linear** brings Linear's version back, replacing your edits.
-
-## Google Calendar
-
-### Connecting
-
-1. Choose **Connect** next to Google Calendar. Google's sign-in page opens in your web browser.
-2. Sign in, and allow DevBrain to **read** your calendars. DevBrain only asks for read-only access.
-3. Back in DevBrain, the account is connected. You can close the browser tab.
-
-If you don't finish signing in within five minutes, or choose **Cancel**, nothing is connected.
-
-### Choosing calendars
-
-At first only your **primary** calendar syncs. To add others, choose **Choose Calendars** on the
-account's **Events** row, and tick the ones you want. Calendars you untick, and any new ones Google
-adds later, stay in Google. Hide a synced calendar for a while with the calendar's
-[Filter](/docs/calendar/#which-calendars-show) instead.
-
-### What syncs
-
-- Events from **30 days ago onward**, with no limit into the future. Older events load when you go
-  back to them in the calendar.
-- Regular events, focus time, out of office, and events from Gmail. Working-location and birthday
-  events are left out.
-- Events you declined, shown faded.
-
-They're [read-only in the calendar](/docs/calendar/#google-calendar-events), but you can take
-notes on them and link tasks to them. If a meeting you've written notes for is cancelled, its note
-is kept.
+You can connect more than one account of each, such as a work and a personal Google account. Each
+account card on the page shows its status (**Connected**, **Needs reconnect** or **Off**), when it
+last synced, and its sources: **Tasks** for Linear, **Events** for Google Calendar.
 
 ## Turning sync off and on
 
@@ -125,7 +77,8 @@ they sync again (replacing any changes you made to them), or to **Keep Local**.
 
 If Linear or Google rejects the saved key or sign-in (you revoked it, or it expired), the account
 shows **Needs reconnect** and stops syncing. What it already brought in stays. Choose **Update API
-Key** (Linear) or **Reconnect** (Google) to carry on.
+Key** ([Linear](/docs/integrations/linear/#updating-the-key)) or **Reconnect**
+([Google](/docs/integrations/google-calendar/#reconnecting)) to carry on.
 
 This also happens when you [move a workspace to another computer](/docs/workspaces/#moving-a-workspace-to-another-computer):
 sign-ins are encrypted with a key in your computer's own keychain, so another computer can't read

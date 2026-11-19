@@ -61,7 +61,14 @@ export default defineConfig({
         {
           label: 'Your data',
           items: [
-            { label: 'Integrations', slug: 'docs/integrations' },
+            {
+              label: 'Integrations',
+              items: [
+                { label: 'How sync works', slug: 'docs/integrations' },
+                { label: 'Linear', slug: 'docs/integrations/linear' },
+                { label: 'Google Calendar', slug: 'docs/integrations/google-calendar' },
+              ],
+            },
             { label: 'Workspaces', slug: 'docs/workspaces' },
             { label: 'Data and privacy', slug: 'docs/data-and-privacy' },
             { label: 'Import and export', slug: 'docs/import-export' },
