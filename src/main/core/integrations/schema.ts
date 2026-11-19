@@ -7,12 +7,20 @@ import { z } from 'zod';
 // a missing key reads as null, so metadata written by an older version still parses
 const nullableString = () => z.string().nullable().default(null);
 
-// Set on a task link a disconnect detached (applyDisconnect), so connecting the same account again
-// can offer to reattach those and leave alone the tasks the user detached. Read with json_extract
-// only, never through the schema below, so any write of the link's metadata (a reattach, a
-// "keep local") drops it.
+// A flag in a task link's metadata, `true` when a disconnect detached the link (applyDisconnect in
+// disconnect.ts), so connecting the same account again can offer to reattach those tasks and leave
+// alone the ones the user detached. It is left out of taskLinkMetadataSchema on purpose: read and
+// written with json_extract, json_set and json_remove only.
+//
+// Cleared:
+// - explicitly, with json_remove, by DetachService: keepKeptLocal (Keep Local), and stopOffering
+//   for tasks Reattach All refused for good (gone, or assigned to someone else);
+// - by a reattach (SyncWriter.reattachTasks): the upsert writes the link's whole metadata from
+//   taskLinkMetadataSchema, which drops it. A write that merged into the metadata instead would
+//   keep it, and the task would be offered again.
 export const KEPT_BY_DISCONNECT = 'keptByDisconnect';
 
+// Task links may also carry KEPT_BY_DISCONNECT (above), which this schema leaves out.
 export const taskLinkMetadataSchema = z.object({
   statusLabel: nullableString(),
   priorityLabel: nullableString(),

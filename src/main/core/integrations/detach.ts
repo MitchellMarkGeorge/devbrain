@@ -56,6 +56,12 @@ const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
   [ReattachRefusal.CHANGED]: 'because it changed while reattaching',
 };
 
+// refusals that a later try would meet again: the issue is gone, or someone else's
+const FINAL_REFUSALS = new Set<SyncSkipReason | ReattachRefusal>([
+  ReattachRefusal.GONE,
+  ReattachRefusal.UNASSIGNED,
+]);
+
 /**
  * Detach and reattach of external tasks. Detach turns a synced task and its subtree into local
  * copies that remember where they came from; reattach hands them back to the provider and refreshes
@@ -232,8 +238,10 @@ export class DetachService {
    *    subtasks) goes to `failed` with the reason.
    * 2. Hand the rest to TaskReconciler.reattachGroups, one call per source (an integration has one
    *    tasks source): a single provider lookup for all of them, then a write per root.
-   * 3. A root the reconciler refuses (gone, reassigned, its source switched off) stays a local
-   *    copy, still offered, and goes to `failed`; each one reattached sends `reattached`.
+   * 3. A root the reconciler refuses stays a local copy and goes to `failed`; each one reattached
+   *    sends `reattached`. One refused for good, its issue gone or assigned to someone else, is no
+   *    longer offered: its group's marker is cleared, as Keep Local would, and `kept_local` sent.
+   *    One refused for a reason that passes (its source switched off, a rate limit) stays offered.
    *
    * A provider failure throws before anything is written, so nothing is half done. Rejected
    * credentials throw IntegrationAuthError, having moved the integration to needs_reauth.
@@ -266,6 +274,7 @@ export class DetachService {
       }
     }
 
+    const refusedForGood = new Map<ExternalSourceId, string[]>();
     for (const [sourceId, sourceRoots] of bySource) {
       // 2.
       const results = await this.reconciler.reattachGroups(
@@ -273,6 +282,7 @@ export class DetachService {
         sourceRoots.map((root) => root.group),
       );
       // 3.
+      const settled: string[] = [];
       for (const { taskId, key, group } of sourceRoots) {
         const result = results.get(group.rootExternalId)!;
         if (result.ok) this.emitReattached(taskId, result.summary);
@@ -281,10 +291,18 @@ export class DetachService {
             taskId,
             message: `Task ${key} can't be reattached ${REFUSALS[result.reason]}`,
           });
+          if (FINAL_REFUSALS.has(result.reason)) {
+            settled.push(group.rootExternalId, ...group.descendantExternalIds);
+          }
         }
       }
+      if (settled.length > 0) refusedForGood.set(sourceId, settled);
     }
-    return { reattached: before - this.keptCopies(integrationId).tasks, failed };
+    const reattached = before - this.keptCopies(integrationId).tasks;
+    for (const [sourceId, externalIds] of refusedForGood) {
+      this.stopOffering(integrationId, sourceId, externalIds);
+    }
+    return { reattached, failed };
   }
 
   /**
@@ -299,6 +317,33 @@ export class DetachService {
         metadata: sql`json_remove(${externalLinks.metadata}, ${`$.${KEPT_BY_DISCONNECT}`})`,
       })
       .where(this.kept(integrationId))
+      .returning({ taskId: externalLinks.taskId })
+      .all()
+      .map((row) => row.taskId!);
+    if (taskIds.length === 0) return;
+    this.changes.emit({ type: 'kept_local', integrationId, taskIds });
+  }
+
+  // Clears the kept marker on these links of the source, so they are no longer offered; sends
+  // `kept_local` for the tasks whose marker it cleared
+  private stopOffering(
+    integrationId: IntegrationId,
+    sourceId: ExternalSourceId,
+    externalIds: string[],
+  ): void {
+    if (externalIds.length === 0) return;
+    const taskIds = this.db
+      .update(externalLinks)
+      .set({
+        metadata: sql`json_remove(${externalLinks.metadata}, ${`$.${KEPT_BY_DISCONNECT}`})`,
+      })
+      .where(
+        and(
+          this.kept(integrationId),
+          eq(externalLinks.sourceId, sourceId),
+          inArray(externalLinks.externalId, externalIds),
+        ),
+      )
       .returning({ taskId: externalLinks.taskId })
       .all()
       .map((row) => row.taskId!);

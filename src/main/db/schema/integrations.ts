@@ -110,7 +110,8 @@ export const externalLinks = sqliteTable(
     externalUrl: text().notNull(),
     externalUpdatedAt: date().notNull(), // used to skip unchanged items
     state: text().notNull().$type<LinkState>().default(LinkState.SYNCED),
-    // JSON, validated with core/integrations/schema on read
+    // JSON, validated with core/integrations/schema on read. A task link may also hold
+    // keptByDisconnect, outside its schema (KEPT_BY_DISCONNECT there says where it is cleared)
     metadata: text({ mode: 'json' }).notNull().$type<unknown>().default({}),
     // when sync last wrote or saw the item, whether or not it changed. A calendar's full pass
     // removes the synced events it leaves older than its start (SyncWriter.sweepCalendar), so every

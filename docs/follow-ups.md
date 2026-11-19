@@ -109,15 +109,14 @@ _From working through the calendar entries. Each was checked against Google's re
 
 ### Reconnecting leaves kept tasks detached
 
-_Found in feature 15. Done: a "reattach all" offer on the Integrations page, below._
+_Found in feature 15. Done: a "reattach all" offer on the Integrations page (PR #159), below._
 
-After a disconnect that keeps local copies, connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`). A project comes back synced, but a task stays detached, as it may hold edits made since. The disconnect now marks the task links it detaches (`KEPT_BY_DISCONNECT` in `src/main/core/integrations/schema.ts`), and once they are matched the account's card offers to reattach them (`integrations.reattachKept`, after a confirmation that local edits are replaced: every top-level kept task with its subtasks, from one provider lookup through `TaskReconciler.reattachGroups`) or keep them local (`integrations.keepKeptLocal`). Tasks the user detached themselves are never offered.
+After a disconnect that keeps local copies, connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`). A project comes back synced, but a task stays detached, as it may hold edits made since. The disconnect marks the task links it detaches (`KEPT_BY_DISCONNECT` in `src/main/core/integrations/schema.ts`), and once they are matched the account's card offers to reattach them (`integrations.reattachKept`, after a confirmation that local edits are replaced: every top-level kept task with its subtasks, from one provider lookup through `TaskReconciler.reattachGroups`) or keep them local (`integrations.keepKeptLocal`). Tasks the user detached themselves are never offered. A task refused for good (its issue gone, or assigned to someone else) is no longer offered once Reattach All has reported it, as if kept local; one refused for a passing reason (its source switched off, a rate limit) stays offered.
 
 Left to do:
 
-- **Copies kept before this change carry no marker**, so they are not offered; they can still be reattached one at a time.
-- **The offer waits for the first sync.** A kept copy has no source until the sync lists its item, so the count grows as that sync runs. A copy whose item is no longer assigned to the user is never matched, so it is never offered either.
-- **A refused task stays offered.** One that is gone or reassigned is reported and stays a kept copy, so the offer remains until the user picks Keep Local. Clearing the marker for a refusal that won't change (gone, reassigned) would end the offer by itself.
+- **Copies kept before the marker carry none**, so they are not offered; they can still be reattached one at a time. Nothing tells them apart from tasks the user detached, so this is left as it is.
+- **The offer waits for the first sync.** A kept copy has no source until the sync lists its item, so the count grows as that sync runs. A copy whose item is no longer assigned to the user is never matched, so it is never offered either. Offering earlier would need the disconnect to remember the account (the marker holds no account), so a reconnect of that account could match its kept copies before syncing.
 
 ### Viewing months before the synced history
 
@@ -127,9 +126,9 @@ A Google calendar is mirrored from 30 days before its first full pass (`EVENT_HI
 
 Left to do:
 
-- **Changes to fetched events rely on Google's change feed covering them.** The events.list reference says a sync token returns "only entries that have changed since then", with no time filter, so changes to events before the first pass's `timeMin` should be reported, but this is unchecked against the live API. If they are not, fetched events stay as fetched.
-- **The read waits for the whole fetch**, bounded only by `HTTP_TIMEOUT_MS` per page. A slow connection holds the view for as long.
-- Two reads of the same old range at once both fetch it. Saves match by external id, so the result is the same.
+- **Changes to fetched events rely on Google's change feed covering them.** The events.list reference says a sync token returns "only entries that have changed since then", with no time filter, so changes to events before the first pass's `timeMin` should be reported, but this is unchecked against the live API (see "To confirm against the live Google Calendar API" above). If they are not, fetched events stay as fetched.
+- **The read waits for the whole fetch**, bounded only by `HTTP_TIMEOUT_MS` per page. A slow connection holds the view for as long. Answering from the database at once and announcing the fetch afterwards (`events_fetched` already refetches every view) would end the wait, at the cost of a frame without the old events.
+- **Overlapping reads each list their range.** A fetch lists from the read's start up to what the calendar already has, so reads in flight at once overlap: opening the calendar on an old month reads that month (the loader) and, at once, the month before (`usePrefetchRanges`), and both list the months between it and the window. Saves match by external id, so the result is the same; the cost is the duplicate requests, and only for reads before the window. Sharing an in-flight fetch with a read it covers only catches the later read reaching back no further, not this case: that needs the further-back fetch to list only the part not already being fetched, then wait for the rest.
 - `historyLoadedFrom` only goes down while the calendar is selected. Nothing trims old history again.
 
 ## Editor

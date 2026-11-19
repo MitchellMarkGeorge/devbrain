@@ -430,7 +430,7 @@ describe('integrations, kept copies', () => {
     expect(data(await call('integrations.keptCopies', { id }))).toEqual({ tasks: 0 });
   });
 
-  it('lists the tasks the provider refused, which stay local', async () => {
+  it('lists the tasks the provider refused, which stay local and, once gone, are no longer offered', async () => {
     const items = [issue()];
     const { id } = await keepThenConnectAgain(items);
     // gone from Linear
@@ -442,7 +442,9 @@ describe('integrations, kept copies', () => {
       reattached: 0,
       failed: [{ message: `Task ${items[0].key} can't be reattached because it no longer exists` }],
     });
-    expect(result.changed).toEqual([]);
+    // the offer, which reads the tasks' links, changed
+    expect(result.changed).toEqual(['task']);
+    expect(data(await call('integrations.keptCopies', { id }))).toEqual({ tasks: 0 });
   });
 
   it('keeps them local, so they are no longer offered', async () => {
