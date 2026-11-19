@@ -1,0 +1,255 @@
+---
+/**
+ * The page every missing address gets, docs included (Starlight's own 404 is off:
+ * astro.config.mjs). It draws the app's ⌘K search dialog with the address typed in, finding
+ * nothing, as the app says it ("No results for …"), then its "Go to" list of the site's pages.
+ * Hosts serve it as dist/404.html with a 404 status.
+ */
+import Layout from '../components/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import {
+  ArrowRight,
+  BookOpen,
+  CornerDownLeft,
+  Download,
+  History,
+  House,
+  Search,
+} from '@lucide/astro';
+
+const goTo = [
+  { href: '/', label: 'Home', icon: House },
+  { href: '/docs/', label: 'Docs', icon: BookOpen },
+  { href: '/download/', label: 'Download', icon: Download },
+  { href: '/changelog/', label: 'Changelog', icon: History },
+];
+---
+
+<Layout
+  title="Page not found"
+  description="There's no page at this address on the DevBrain website."
+  noindex
+>
+  <PageHeader
+    badge="404"
+    live={false}
+    title="This page isn't here"
+    lede="It may have moved, or the link may have a typo. Try one of these instead."
+  />
+
+  <section class="container page">
+    <div class="palette" data-reveal>
+      <div class="pal-input">
+        <Search size={16} />
+        <!-- filled with the address that was asked for, by the script below -->
+        <span class="query" data-path>this page</span>
+        <kbd>Esc</kbd>
+      </div>
+
+      <div class="empty">
+        <span class="empty-icon"><Search size={20} /></span>
+        <p class="empty-title">No results for “<span data-path>this page</span>”</p>
+        <p class="empty-text">Try fewer words, or check the spelling.</p>
+      </div>
+
+      <nav class="pal-results" aria-label="Go to">
+        <p class="group">Go to</p>
+        <ul>
+          {
+            goTo.map((item, i) => (
+              <li>
+                <a class:list={['hit', { selected: i === 0 }]} href={item.href}>
+                  <item.icon size={16} />
+                  <span class="row-title">{item.label}</span>
+                  {i === 0 && (
+                    <kbd aria-hidden="true">
+                      <CornerDownLeft size={12} />
+                    </kbd>
+                  )}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+
+      <div class="pal-footer" aria-hidden="true">
+        <span><kbd>↑↓</kbd> Navigate</span>
+        <span><kbd>↵</kbd> Open</span>
+      </div>
+    </div>
+
+    <p class="report muted">
+      Followed a link on this site to get here? <a
+        href="https://github.com/MitchellMarkGeorge/devbrain/issues/new">Tell us on GitHub</a
+      >
+      <ArrowRight size={14} />
+    </p>
+  </section>
+</Layout>
+
+<script>
+  // The address that was asked for, in the dialog's search field and its empty state. The page is
+  // static (one 404.html for every missing address), so it learns the address in the browser.
+  const path = decodeURIComponent(location.pathname).replace(/\/$/, '') || '/';
+  for (const el of document.querySelectorAll('[data-path]')) el.textContent = path;
+
+  // ↑ and ↓ move the dialog's highlight between the Go to links, and ↵ opens it, as in the app
+  const hits = [...document.querySelectorAll<HTMLAnchorElement>('.hit')];
+  let selected = 0;
+  const select = (index: number) => {
+    hits[selected].classList.remove('selected');
+    selected = (index + hits.length) % hits.length;
+    hits[selected].classList.add('selected');
+  };
+  hits.forEach((hit, i) => hit.addEventListener('pointerenter', () => select(i)));
+  document.addEventListener('keydown', (event) => {
+    if (event.target instanceof HTMLElement && event.target.closest('input, textarea')) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      select(selected + 1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      select(selected - 1);
+    } else if (event.key === 'Enter' && !(document.activeElement instanceof HTMLAnchorElement)) {
+      hits[selected].click();
+    }
+  });
+</script>
+
+<style>
+  .page {
+    max-width: 560px;
+    margin-top: var(--space-12);
+  }
+
+  /* The app's ⌘K dialog (SearchDialog), drawn: popover surface, edge outline, its parts below */
+  .palette {
+    border: 1px solid var(--edge);
+    border-radius: var(--radius-xl);
+    background: var(--popover);
+    box-shadow: var(--shadow-2xl);
+    overflow: hidden;
+    font-size: var(--text-sm);
+  }
+  .pal-input {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: 48px;
+    padding-inline: var(--space-4);
+    border-bottom: 1px solid var(--border);
+    color: var(--muted-foreground);
+  }
+  .query {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--foreground-strong);
+    font-size: var(--text-base);
+  }
+  kbd {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-1-5);
+    border-radius: var(--radius-sm);
+    background: var(--secondary);
+    color: var(--muted-foreground);
+    font-family: inherit;
+    font-size: var(--text-xs);
+    line-height: 20px;
+  }
+
+  /* the app's EmptyState, inline: an icon in a tile, a title and a line under it */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-8) var(--space-6) var(--space-6);
+    text-align: center;
+  }
+  .empty-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: var(--space-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    color: var(--muted-foreground);
+  }
+  .empty-title {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    color: var(--foreground-strong);
+    font-weight: var(--font-weight-medium);
+  }
+  .empty-text {
+    color: var(--muted-foreground);
+  }
+
+  .pal-results {
+    padding: 0 var(--space-2) var(--space-2);
+  }
+  .pal-results ul {
+    list-style: none;
+    padding: 0;
+  }
+  .group {
+    padding: var(--space-2) var(--space-2) var(--space-1);
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .hit {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-md);
+    color: var(--muted-foreground);
+    text-decoration: none;
+  }
+  .hit .row-title {
+    flex: 1;
+    color: var(--foreground);
+  }
+  .hit.selected,
+  .hit:focus-visible {
+    background: var(--accent);
+    outline: none;
+  }
+  .hit.selected .row-title,
+  .hit:focus-visible .row-title {
+    color: var(--foreground-strong);
+  }
+  .pal-footer {
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+  }
+
+  .report {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    margin-top: var(--space-6);
+    font-size: var(--text-sm);
+  }
+  .report a {
+    color: var(--foreground-strong);
+  }
+</style>

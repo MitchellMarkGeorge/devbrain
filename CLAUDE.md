@@ -217,7 +217,7 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
 
 ## Website
 
-`website/` is the public site (home, download, changelog, user docs, privacy policy, terms): Astro
+`website/` is the public site (home, download, changelog, user docs, privacy policy, terms, 404): Astro
 with Starlight, its own npm package and lockfile, hosted as a static site. `website/README.md`
 covers building, hosting and how releases reach it.
 

@@ -29,6 +29,7 @@ step with the app**.
 | `src/pages/index.astro`       | The home page                                                         |
 | `src/pages/download.astro`    | The installers of the latest release, read from GitHub Releases       |
 | `src/pages/changelog.astro`   | Every release's notes, from GitHub Releases                           |
+| `src/pages/404.astro`         | Every missing address, docs included (Starlight's own 404 is off)     |
 | `src/content/docs/docs/*.md*` | The docs, served under `/docs/`; the sidebar is in `astro.config.mjs` |
 | `src/components/Layout.astro` | The frame of the home, download and changelog pages                   |
 | `src/lib/releases.ts`         | Reads the releases and sorts their files by platform                  |

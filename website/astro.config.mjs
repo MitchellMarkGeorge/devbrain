@@ -15,6 +15,8 @@ export default defineConfig({
     starlight({
       title: 'DevBrain',
       description: 'The second brain for developers.',
+      // the site's own 404 page (src/pages/404.astro) serves every missing address, docs too
+      disable404Route: true,
       // the app's logomark, read from the app (website/README.md: what the site shares with it)
       logo: {
         dark: '../src/renderer/assets/devbrain-logomark.svg',
