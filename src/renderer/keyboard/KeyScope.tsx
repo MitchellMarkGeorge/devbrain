@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { MODAL_ATTRIBUTE, SCOPE_ATTRIBUTE, type Scope } from './scopes';
@@ -17,12 +17,19 @@ const CONTENTS: CSSProperties = { display: 'contents' };
  * `display: contents` div; with one, it marks that element instead:
  * `<KeyScope name="list" render={<div className={styles.list} />}>`.
  *
+ * Its ref goes to that element, so a key scope can itself be a `render` target:
+ * `<ContextMenuTrigger render={<KeyScope name="list" />}>`.
+ *
  * Put a dialog's scope inside its popup (`DialogContent`), as the popup portals out of the page.
  */
-export function KeyScope({ name, modal = name === 'dialog', render, ...props }: KeyScopeProps) {
+export const KeyScope = forwardRef<HTMLDivElement, KeyScopeProps>(function KeyScope(
+  { name, modal = name === 'dialog', render, ...props },
+  ref,
+) {
   return useRender({
     defaultTagName: 'div',
     render,
+    ref,
     props: mergeProps<'div'>(
       {
         [SCOPE_ATTRIBUTE]: name,
@@ -32,4 +39,4 @@ export function KeyScope({ name, modal = name === 'dialog', render, ...props }: 
       props,
     ),
   });
-}
+});

@@ -96,6 +96,7 @@ export function NoteTasksSection({
       >
         <ContextMenu>
           <ContextMenuTrigger
+            render={<KeyScope name="list" />}
             onContextMenu={(event) => {
               const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
               const found = row ? (byId.get(row.dataset.taskId ?? '') ?? null) : null;
@@ -103,19 +104,17 @@ export function NoteTasksSection({
               if (!found) event.preventDefault();
             }}
           >
-            <KeyScope name="list">
-              <TaskList
-                ref={list}
-                tasks={tasks}
-                selectionBar={false}
-                onEndReached={() => {
-                  if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
-                }}
-                onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
-                onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
-                onOpen={(row) => onOpenTask(row.id as TaskId)}
-              />
-            </KeyScope>
+            <TaskList
+              ref={list}
+              tasks={tasks}
+              selectionBar={false}
+              onEndReached={() => {
+                if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
+              }}
+              onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
+              onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
+              onOpen={(row) => onOpenTask(row.id as TaskId)}
+            />
           </ContextMenuTrigger>
           <ContextMenuContent>
             {menuTask && (

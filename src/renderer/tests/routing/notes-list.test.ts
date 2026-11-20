@@ -3,7 +3,7 @@ import type { EventId, WorkspaceId } from '@common/ids';
 import { TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
 
 // The notes page (/app/$workspaceId/notes): rows and cards from notes.list, the toolbar in the
 // URL, the states, the row menu, and creating a note.
@@ -128,6 +128,23 @@ describe('the notes list', () => {
     );
     click(app.container.querySelector('[data-note-id="nte_pkce"]'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/nte_pkce`));
+  });
+
+  it('opens a card’s menu on a right-click', async () => {
+    const { main } = notesPage('?view=card');
+    const selector = '[role="grid"] [data-note-id="nte_plan"]';
+    await eventually(() => expect(document.querySelector(selector)).not.toBeNull());
+    rightClick(document.querySelector(selector));
+    const favorite = await menuItem('Favorite');
+    // the trigger is the grid's own scroller (its viewport's parent), not a wrapper around it
+    const grid = document.querySelector('[role="grid"]')!;
+    expect(document.querySelector('[data-popup-open]')).toBe(grid.parentElement!.parentElement);
+    click(favorite);
+    await eventually(() =>
+      expect(main.callsTo('notes.setFavorite').map((call) => call.input)).toEqual([
+        { id: 'nte_plan', favorite: true },
+      ]),
+    );
   });
 
   it('says "Empty note" on a card with no text', async () => {

@@ -96,6 +96,7 @@ export function OverviewTaskSection({
         <>
           <ContextMenu>
             <ContextMenuTrigger
+              render={<KeyScope name="list" />}
               onContextMenu={(event) => {
                 const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
                 const found = row ? (byId.get(row.dataset.taskId ?? '') ?? null) : null;
@@ -103,17 +104,15 @@ export function OverviewTaskSection({
                 if (!found) event.preventDefault();
               }}
             >
-              <KeyScope name="list">
-                <TaskList
-                  compact
-                  ref={list}
-                  tasks={tasks}
-                  selectionBar={false}
-                  onStatusChange={(row, next) => actions.setStatus(full([row]), next)}
-                  onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
-                  onOpen={(row) => openEntity({ id: row.id })}
-                />
-              </KeyScope>
+              <TaskList
+                compact
+                ref={list}
+                tasks={tasks}
+                selectionBar={false}
+                onStatusChange={(row, next) => actions.setStatus(full([row]), next)}
+                onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
+                onOpen={(row) => openEntity({ id: row.id })}
+              />
             </ContextMenuTrigger>
             <ContextMenuContent>
               {menuTask && (

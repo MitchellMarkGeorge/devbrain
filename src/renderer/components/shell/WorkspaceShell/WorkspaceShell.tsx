@@ -17,6 +17,7 @@ import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { useFormatKeys } from '../../lib/platform';
+import { Inert } from '../../layout/Inert';
 import { Kbd } from '../../ui/Kbd';
 import { CaptionButtons, HistoryControls, WindowBar } from '../WindowBar';
 import { WorkspaceShellContext, type WorkspaceShellContextValue, type WindowSize } from './context';
@@ -287,9 +288,9 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
              * the sidebar's column: the sidebar's width while docked, sliding shut as it hides; the
              * hidden sidebar is inert while it slides out, then unmounted (the drawer has it)
              */}
-            <div className={styles.sidebar} {...(hidden ? { inert: '' } : {})}>
+            <Inert when={hidden} render={<div className={styles.sidebar} />}>
               {docked && sidebar}
-            </div>
+            </Inert>
             {/* the card: the page, which draws its own header and scrolls, and the docked sheet */}
             <div className={styles.body}>
               <main className={styles.main}>{children}</main>

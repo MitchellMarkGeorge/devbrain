@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
   EditorTitle,
   Icon,
+  Inert,
   PageFavoriteButton,
   ProjectHeader,
   resolveColor,
@@ -148,17 +149,13 @@ function ProjectPageContent({ project }: { project: Project }) {
         </div>
       )}
       {/* inert while trashed: the tabs still switch, and what they show can't be changed */}
-      <div
-        {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
-        data-trashed={trashed ? '' : undefined}
-        style={{ display: 'contents' }}
-      >
+      <Inert when={trashed} data-trashed={trashed ? '' : undefined}>
         {tab === 'overview' && (
           <ProjectOverview project={project} header={<ProjectPageHeader project={project} />} />
         )}
         {tab === 'tasks' && <ProjectTasksTab project={project} />}
         {tab === 'notes' && <ProjectNotesTab project={project} />}
-      </div>
+      </Inert>
     </Page>
   );
 }

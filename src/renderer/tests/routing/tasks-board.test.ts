@@ -3,7 +3,7 @@ import type { WorkspaceId } from '@common/ids';
 import { TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeTask, FakeTasks } from './fake-tasks';
-import { eventually, startApp, stopApps } from './harness';
+import { click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
 
 // The tasks board (?view=board): a column per status, and the task sheet at ?open=tsk_….
 
@@ -93,6 +93,23 @@ async function pickedUp(title: string) {
 }
 
 describe('the board', () => {
+  it('opens a card’s menu on a right-click, the board itself being the right-click area', async () => {
+    const { main } = board();
+    await eventually(() => expect(card('Build the page')).toBeDefined());
+    rightClick(card('Build the page')!);
+    const favorite = await menuItem('Favorite');
+    // one element is the board, its key scope and the right-click area: the columns are its own
+    const trigger = document.querySelector('[data-popup-open]')!;
+    expect(trigger.getAttribute('data-key-scope')).toBe('board');
+    expect(trigger.querySelectorAll(':scope > section[aria-label]')).toHaveLength(2);
+    click(favorite);
+    await eventually(() =>
+      expect(main.callsTo('tasks.setFavorite').map((call) => call.input)).toEqual([
+        { id: 'tsk_build', favorite: true },
+      ]),
+    );
+  });
+
   it('shows the open statuses as columns, each with its tasks', async () => {
     const { app } = board();
     await eventually(() => expect(app.text()).toContain('Build the page'));

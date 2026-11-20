@@ -193,6 +193,24 @@ export function expectSplashThenPage(log: { what: string }[], page: string): voi
 }
 
 /** Clicks an element as a user would, in act. */
+/** A right-click on `element`, as a context menu trigger hears it. */
+export function rightClick(element: Element | null): void {
+  if (!element) throw new Error('Nothing to right-click');
+  element.dispatchEvent(
+    new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+  );
+}
+
+/** The menu item named `name`, once the open menu shows it. */
+export async function menuItem(name: string): Promise<HTMLElement> {
+  let item: HTMLElement | null = null;
+  await eventually(() => {
+    item = byText(document.body, '[role="menuitem"]', name);
+    expect(item).not.toBeNull();
+  });
+  return item!;
+}
+
 export function click(element: Element | null): void {
   if (!element) throw new Error('Nothing to click');
   element.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));

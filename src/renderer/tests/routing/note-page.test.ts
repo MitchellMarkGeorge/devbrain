@@ -5,7 +5,7 @@ import { TaskStatus, type NoteListItem } from '@common/types';
 import { queryClient } from '@renderer/ipc';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
 
 // The note page (/app/$workspaceId/notes/$noteId) over a fake main's notes: the title, pills,
 // the body saved as it's typed, its tasks, and the "…" menu.
@@ -299,6 +299,25 @@ describe('the note page', () => {
     );
     expect(pill()).toBe(true);
     expect(section()).toBe(true);
+  });
+
+  it('opens a task’s menu on a right-click of its row, the list itself being the right-click area', async () => {
+    const { main, app } = notePage();
+    const selector = '[data-testid="note-tasks"] [data-task-id="tsk_pkce"]';
+    await eventually(() => expect(app.container.querySelector(selector)).not.toBeNull());
+    const row = app.container.querySelector(selector)!;
+    rightClick(row);
+    const favorite = await menuItem('Favorite');
+    // the trigger is the list's key scope, not a wrapper of its own around it
+    expect(document.querySelector('[data-popup-open]')).toBe(
+      row.closest('[data-key-scope="list"]'),
+    );
+    click(favorite);
+    await eventually(() =>
+      expect(main.callsTo('tasks.setFavorite').map((call) => call.input)).toEqual([
+        { id: 'tsk_pkce', favorite: true },
+      ]),
+    );
   });
 
   it('opens a task made from it in the sheet beside the page, and Back closes it', async () => {

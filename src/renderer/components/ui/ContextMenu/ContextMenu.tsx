@@ -17,23 +17,23 @@ import {
   menuStyles,
   type DropdownMenuContentProps,
 } from '../DropdownMenu';
-import styles from './ContextMenu.module.css';
 
 export const ContextMenu = BaseContextMenu.Root;
 
+export interface ContextMenuTriggerProps extends BaseContextMenu.Trigger.Props {
+  /**
+   * The element that is the area, keeping its own layout: a list's region, a board, a row. It
+   * must take a ref and spread its props onto its element.
+   */
+  render: NonNullable<BaseContextMenu.Trigger.Props['render']>;
+}
+
 /**
- * The area that opens the menu on right-click (or long press): a list, a board, a row. Without
- * `render` it draws a `display: contents` div around its children; with one, that element is the
- * area and keeps its own layout: `<ContextMenuTrigger render={<TaskRow … />} />`.
+ * The area that opens the menu on right-click (or long press): a list, a board, a row. It draws no
+ * element of its own: `render` is the area, `<ContextMenuTrigger render={<TaskRow … />} />`.
  */
-export function ContextMenuTrigger({ className, render, ...props }: BaseContextMenu.Trigger.Props) {
-  return (
-    <BaseContextMenu.Trigger
-      render={render}
-      className={render ? className : mergeClassName(styles.trigger, className)}
-      {...props}
-    />
-  );
+export function ContextMenuTrigger(props: ContextMenuTriggerProps) {
+  return <BaseContextMenu.Trigger {...props} />;
 }
 
 export type ContextMenuContentProps = Omit<DropdownMenuContentProps, 'side' | 'sideOffset'>;
