@@ -3,7 +3,14 @@ import type { NoteId } from '@common/ids';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import type { TaskListItem, TaskSummary } from '@common/types';
-import { EditorTitle, PageContent, PageFavoriteButton, Stack, Page } from '@renderer/components';
+import {
+  EditorTitle,
+  Inert,
+  PageContent,
+  PageFavoriteButton,
+  Stack,
+  Page,
+} from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
@@ -135,12 +142,8 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
               }
             />
           )}
-          {/* inert while trashed: shown, not editable (React 18 passes `inert` through as is) */}
-          <Stack
-            gap="8"
-            {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
-            data-trashed={trashed ? '' : undefined}
-          >
+          {/* inert while trashed: shown, not editable; the notice above stays live */}
+          <Inert when={trashed} render={<Stack gap="8" />} data-trashed={trashed ? '' : undefined}>
             <EditorTitle
               // keyed on the title, so a rename elsewhere (or a sync) shows here
               key={task.title}
@@ -164,7 +167,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
             <TaskDescription task={task} />
             <TaskSubtasksSection task={task} />
             <TaskNoteSection task={task} onOpenNote={openNote} />
-          </Stack>
+          </Inert>
         </Stack>
       </PageContent>
       {sheetNote && (

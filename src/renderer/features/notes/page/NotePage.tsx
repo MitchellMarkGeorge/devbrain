@@ -6,6 +6,7 @@ import type { TaskId } from '@common/ids';
 import type { NoteListItem } from '@common/types';
 import {
   EditorTitle,
+  Inert,
   PageContent,
   PageFavoriteButton,
   Text,
@@ -145,12 +146,8 @@ function NotePageContent({ note }: { note: NoteListItem }) {
             />
           </div>
         )}
-        {/* inert while trashed: shown, not editable (React 18 passes `inert` through as is) */}
-        <div
-          {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
-          data-trashed={trashed ? '' : undefined}
-          style={{ display: 'contents' }}
-        >
+        {/* inert while trashed: shown, not editable; the notice above stays live */}
+        <Inert when={trashed} data-trashed={trashed ? '' : undefined}>
           <div className={styles.head}>
             <EditorTitle
               // keyed on the title, so a rename elsewhere shows here
@@ -189,7 +186,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
             onLinkTask={linkTask}
             onOpenTask={openTask}
           />
-        </div>
+        </Inert>
       </PageContent>
       {sheetTask && (
         <TaskSheet
