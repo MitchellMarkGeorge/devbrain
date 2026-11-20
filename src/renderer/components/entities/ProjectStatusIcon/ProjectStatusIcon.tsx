@@ -38,7 +38,7 @@ export interface ProjectStatusIconProps {
 
 /**
  * A project's status (core's `ProjectStatus`) as a glyph in a task status's colour: `not-started` circle, `active`
- * circle with a solid core (in-progress orange), `on-hold` paused circle (grey), `completed` filled check.
+ * circle with a solid core (in-progress amber), `on-hold` paused circle (grey), `completed` filled check.
  * It carries the status's name for screen readers. Shown in the status pill on project cards,
  * rows and headers; health is not shown for now (`HealthIcon`).
  */
