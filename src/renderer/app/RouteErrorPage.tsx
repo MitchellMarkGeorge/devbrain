@@ -19,7 +19,7 @@ export function RouteErrorPage({ error, reset }: ErrorComponentProps) {
               size="sm"
               onClick={() => {
                 reset();
-                void router.invalidate();
+                router.invalidate();
               }}
             >
               Retry

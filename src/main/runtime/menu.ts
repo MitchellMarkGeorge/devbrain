@@ -87,7 +87,7 @@ export function buildMenuTemplate({
   const hasWorkspace = state.devBrainLoaded && state.workspaceName !== null;
   const fileManager = fileManagerName(platform);
   // a command's promise never rejects (MenuActions); this only drops it
-  const run = (action: () => Promise<void>) => () => void action();
+  const run = (action: () => Promise<void>) => () => action();
 
   // An item that runs one of the window's commands. `keys` is the default keymap's binding, shown
   // only: the window's keyboard layer handles it (see the top of this file). macOS shows none:

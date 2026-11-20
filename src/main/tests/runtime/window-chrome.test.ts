@@ -47,7 +47,7 @@ describe('keepTrafficLights', () => {
     const listeners = new Map<string, () => void>();
     return {
       listeners,
-      on: vi.fn((event: string, listener: () => void) => void listeners.set(event, listener)),
+      on: vi.fn((event: string, listener: () => void) => listeners.set(event, listener)),
       setWindowButtonPosition: vi.fn(),
     };
   }

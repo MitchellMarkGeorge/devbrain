@@ -67,7 +67,7 @@ export function usePrefetchRanges(calendars: readonly Calendar[], ranges: readon
   const key = `${ids.join()}|${ranges.map((r) => `${r.start.getTime()}-${r.end.getTime()}`).join()}`;
   useEffect(() => {
     for (const range of ranges) {
-      for (const id of ids) void queryClient.prefetchQuery(calendarEventsQuery(id, range));
+      for (const id of ids) queryClient.prefetchQuery(calendarEventsQuery(id, range));
     }
     // `key` names the calendars and ranges
     // eslint-disable-next-line react-hooks/exhaustive-deps

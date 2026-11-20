@@ -109,9 +109,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
 
   if (columns.every((column) => column.query.isPending)) return <TasksLoading />;
   if (columns.some((column) => column.query.isError)) {
-    return (
-      <TasksErrorState onRetry={() => columns.forEach((column) => void column.query.refetch())} />
-    );
+    return <TasksErrorState onRetry={() => columns.forEach((column) => column.query.refetch())} />;
   }
   if (columns.every((column) => !column.query.isPending && column.tasks.length === 0)) {
     return (
@@ -164,7 +162,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
                   if (full) actions.setDueDate([full], date);
                 }}
                 onEndReached={() => {
-                  if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+                  if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
                 }}
                 renderCard={(card, task) => (
                   <DraggableCard

@@ -213,7 +213,7 @@ function EventSheetBody({
   const actions = useEventActions();
 
   const edit = (patch: EventPatch, summary?: string) =>
-    void actions.edit(target, patch, {
+    actions.edit(target, patch, {
       summary,
       onSaved: (saved, scope) => {
         if (saved.id !== event.id) {
@@ -375,7 +375,7 @@ function EventSheetBody({
             size="sm"
             variant="ghost"
             icon={Trash2}
-            onClick={() => void actions.remove(target, onDeleted)}
+            onClick={() => actions.remove(target, onDeleted)}
           >
             Delete event
           </Button>

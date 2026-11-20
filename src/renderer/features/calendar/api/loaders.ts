@@ -34,6 +34,6 @@ export async function loadCalendar(
   const resolved = resolveCalendarSearch(search, settings, today());
   const range = visibleRange(resolved.view, resolved.date, rangeOptionsOf(settings, resolved.view));
   for (const calendar of calendars.filter((c) => c.visible)) {
-    void queryClient.query(calendarEventsQuery(calendar.id, range)).catch(() => {});
+    queryClient.query(calendarEventsQuery(calendar.id, range)).catch(() => {});
   }
 }

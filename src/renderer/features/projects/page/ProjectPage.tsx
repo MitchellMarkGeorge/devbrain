@@ -91,13 +91,13 @@ function ProjectPageContent({ project }: { project: Project }) {
 
   // a tab is a section of the page: switching replaces the entry, and leaves the other tab's params
   const setTab = (next: ProjectTab) =>
-    void navigate({ search: { tab: next === 'overview' ? undefined : next }, replace: true });
+    navigate({ search: { tab: next === 'overview' ? undefined : next }, replace: true });
 
   async function trash() {
     if (!(await actions.trash(project))) return;
     if (canGoBack) router.history.back();
     else
-      void appNavigate({
+      appNavigate({
         to: '/app/$workspaceId/projects',
         params: { workspaceId },
         replace: true,
@@ -114,7 +114,7 @@ function ProjectPageContent({ project }: { project: Project }) {
               favorite={project.favoritedAt !== null}
               onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
             />
-            <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
+            <ProjectMenu project={project} actions={actions} onTrash={() => trash()} />
           </>
         )
       }
@@ -140,7 +140,7 @@ function ProjectPageContent({ project }: { project: Project }) {
           <TrashedNotice
             noun="project"
             onRestore={() =>
-              void ipc.archive.restoreProject
+              ipc.archive.restoreProject
                 .mutate({ id: project.id })
                 .catch((error: unknown) => showError(error, 'Couldn’t restore the project'))
             }

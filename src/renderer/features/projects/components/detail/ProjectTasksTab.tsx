@@ -25,7 +25,7 @@ export function ProjectTasksTab({ project }: { project: Project }) {
     (patch: Partial<TasksSearch>, options: SetTasksSearchOptions = {}) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { project: _fixed, ...rest } = patch;
-      void navigate({
+      navigate({
         search: (previous) => ({ ...previous, ...rest }),
         replace: !options.push,
         ...(options.openedSheet && {

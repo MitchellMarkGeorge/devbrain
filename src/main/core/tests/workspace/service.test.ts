@@ -40,7 +40,7 @@ const makeInfo = (overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo => ({
 // an IntegrationService with these integrations, recording each disconnect in `calls`
 const fakeIntegrations = (ids: string[], calls: string[] = []) => ({
   list: vi.fn(() => ids.map((id) => ({ id }))),
-  disconnect: vi.fn(async (id: string) => void calls.push(`disconnect ${id}`)),
+  disconnect: vi.fn(async (id: string) => calls.push(`disconnect ${id}`)),
 });
 
 // a registry from before manifests, with each workspace's details in its entry (the last page was
@@ -996,7 +996,7 @@ describe('WorkspaceService — onChange', () => {
     const log: string[] = [];
     const workspaces = infos.map((info) => ({
       info,
-      close: vi.fn(async () => void log.push(`close ${info.id}`)),
+      close: vi.fn(async () => log.push(`close ${info.id}`)),
       sync: { start: vi.fn() },
       integrations: fakeIntegrations([]),
     }));

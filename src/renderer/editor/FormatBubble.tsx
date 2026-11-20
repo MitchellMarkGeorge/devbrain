@@ -175,7 +175,7 @@ export function FormatBubble({
           onTurnIntoTask={() => {
             if (creatingTask.current) return;
             creatingTask.current = true;
-            void turnSelectionIntoTask(editor).finally(() => {
+            turnSelectionIntoTask(editor).finally(() => {
               creatingTask.current = false;
             });
           }}

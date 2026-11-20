@@ -193,7 +193,7 @@ export function PreferencesSettings() {
                 label="Appearance"
                 value={settings.theme}
                 options={THEMES}
-                onChange={(value) => void set({ path: 'settings.theme', value })}
+                onChange={(value) => set({ path: 'settings.theme', value })}
               />
             }
           />
@@ -205,9 +205,7 @@ export function PreferencesSettings() {
                 label="Start page"
                 value={general.defaultLandingPage}
                 options={START_PAGES}
-                onChange={(value) =>
-                  void set({ path: 'settings.general.defaultLandingPage', value })
-                }
+                onChange={(value) => set({ path: 'settings.general.defaultLandingPage', value })}
               />
             }
           />
@@ -218,7 +216,7 @@ export function PreferencesSettings() {
               <SettingSwitch
                 label="Reopen last page"
                 checked={general.openToLastPage}
-                onChange={(value) => void set({ path: 'settings.general.openToLastPage', value })}
+                onChange={(value) => set({ path: 'settings.general.openToLastPage', value })}
               />
             }
           />
@@ -230,9 +228,7 @@ export function PreferencesSettings() {
                 <SettingSwitch
                   label="Launch at login"
                   checked={general.launchOnStartup}
-                  onChange={(value) =>
-                    void set({ path: 'settings.general.launchOnStartup', value })
-                  }
+                  onChange={(value) => set({ path: 'settings.general.launchOnStartup', value })}
                 />
               }
             />
@@ -245,7 +241,7 @@ export function PreferencesSettings() {
                 label="Time format"
                 value={general.timeFormat}
                 options={TIME_FORMATS}
-                onChange={(value) => void set({ path: 'settings.general.timeFormat', value })}
+                onChange={(value) => set({ path: 'settings.general.timeFormat', value })}
               />
             }
           />
@@ -261,7 +257,7 @@ export function PreferencesSettings() {
                 label="Ask before moving to trash"
                 checked={general.confirmBeforeArchiving}
                 onChange={(value) =>
-                  void set({ path: 'settings.general.confirmBeforeArchiving', value })
+                  set({ path: 'settings.general.confirmBeforeArchiving', value })
                 }
               />
             }
@@ -273,9 +269,7 @@ export function PreferencesSettings() {
               <SettingSwitch
                 label="Ask before deleting permanently"
                 checked={general.confirmBeforeDeleting}
-                onChange={(value) =>
-                  void set({ path: 'settings.general.confirmBeforeDeleting', value })
-                }
+                onChange={(value) => set({ path: 'settings.general.confirmBeforeDeleting', value })}
               />
             }
           />

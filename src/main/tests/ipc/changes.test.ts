@@ -168,7 +168,7 @@ describe('a mutation', () => {
 
     // like a connect whose sync run outlives it: the work inherits the mutation's async context
     const result = await act((ws) => {
-      void started.then(() => ws.tasks.createTask({ title: 'Synced', dueDate: DUE }));
+      started.then(() => ws.tasks.createTask({ title: 'Synced', dueDate: DUE }));
       return null;
     });
     startLater();

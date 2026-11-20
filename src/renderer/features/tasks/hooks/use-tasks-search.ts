@@ -63,7 +63,7 @@ export function useTasksRouteSearch(): TasksSearchState {
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const setSearch = useCallback(
     (patch: Partial<TasksSearch>, options: SetTasksSearchOptions = {}) =>
-      void navigate({
+      navigate({
         search: (previous) => ({ ...previous, ...patch }),
         replace: !options.push,
         ...(options.openedSheet && {

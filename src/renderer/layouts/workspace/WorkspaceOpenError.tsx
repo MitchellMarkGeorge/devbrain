@@ -34,7 +34,7 @@ export function WorkspaceOpenError({ error }: ErrorComponentProps) {
 
   const goBack = () => {
     if (canGoBack) router.history.back();
-    else if (openId) void navigate({ to: '/app/$workspaceId', params: { workspaceId: openId } });
+    else if (openId) navigate({ to: '/app/$workspaceId', params: { workspaceId: openId } });
   };
 
   return (
@@ -51,7 +51,7 @@ export function WorkspaceOpenError({ error }: ErrorComponentProps) {
             {openName ? `Back to ${openName}` : 'Go Back'}
           </Button>
         ) : (
-          <Button icon={LayoutList} onClick={() => void navigate({ to: '/onboarding' })}>
+          <Button icon={LayoutList} onClick={() => navigate({ to: '/onboarding' })}>
             Choose a Workspace
           </Button>
         )}
@@ -61,7 +61,7 @@ export function WorkspaceOpenError({ error }: ErrorComponentProps) {
           </Button>
         ) : (
           code !== 'not_found' && (
-            <Button icon={RotateCw} variant="ghost" onClick={() => void router.invalidate()}>
+            <Button icon={RotateCw} variant="ghost" onClick={() => router.invalidate()}>
               Try Again
             </Button>
           )

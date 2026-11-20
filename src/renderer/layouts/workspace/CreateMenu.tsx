@@ -40,7 +40,7 @@ export function CreateMenu() {
   const createEvent = useCreateEvent(
     useCallback(
       (event: Event) =>
-        void navigate({
+        navigate({
           to: '/app/$workspaceId/calendar',
           params: { workspaceId },
           search: { ...openEventSearch(event.id), date: dateParam(event.startAt) },
@@ -55,7 +55,7 @@ export function CreateMenu() {
         <DropdownMenuItem icon={CircleCheck} shortcut="C" onClick={() => createTask()}>
           New task
         </DropdownMenuItem>
-        <DropdownMenuItem icon={FileText} shortcut="N" onClick={() => void createNote()}>
+        <DropdownMenuItem icon={FileText} shortcut="N" onClick={() => createNote()}>
           New note
         </DropdownMenuItem>
         <DropdownMenuItem icon={Folder} onClick={() => createProject()}>

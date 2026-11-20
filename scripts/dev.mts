@@ -64,7 +64,7 @@ function startElectron() {
       if (electronProcess !== child) return;
       // the user quit the app: tear everything down
       electronProcess = null;
-      void shutDown(code ?? 0);
+      shutDown(code ?? 0);
     });
   });
 }
@@ -116,5 +116,5 @@ await build({
 
 // Ctrl+C reaches Electron too, as it is in the terminal's process group; either way this waits
 // for it to have quit before stopping
-process.on('SIGINT', () => void shutDown(0));
-process.on('SIGTERM', () => void shutDown(0));
+process.on('SIGINT', () => shutDown(0));
+process.on('SIGTERM', () => shutDown(0));

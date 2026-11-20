@@ -14,7 +14,7 @@ export function NotesPage() {
   const { search, resolved, setSearch } = useNotesSearch();
   const createNote = useCreateNote();
   const newNote = () =>
-    void createNote({
+    createNote({
       projectId: resolved.project && resolved.project !== 'none' ? resolved.project : undefined,
     });
   return (

@@ -26,9 +26,7 @@ export function WorkspaceRow({ workspace }: { workspace: WorkspaceInfo }) {
       color={swatchOf(workspace.color)}
       detail={lastOpened(workspace)}
       meta={`Created ${DateTime.fromMillis(workspace.createdAt).toFormat('LLL yyyy')}`}
-      onClick={() =>
-        void navigate({ to: '/app/$workspaceId', params: { workspaceId: workspace.id } })
-      }
+      onClick={() => navigate({ to: '/app/$workspaceId', params: { workspaceId: workspace.id } })}
     />
   );
 }

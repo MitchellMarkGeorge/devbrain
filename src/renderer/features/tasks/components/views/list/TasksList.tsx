@@ -27,7 +27,7 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
   const tasks = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
   if (query.isPending) return <TasksLoading />;
-  if (query.isError) return <TasksErrorState onRetry={() => void query.refetch()} />;
+  if (query.isError) return <TasksErrorState onRetry={() => query.refetch()} />;
   if (tasks.length === 0)
     return <TasksEmptyState filtered={hasFilters(search)} onClearFilters={onClearFilters} />;
   return (
@@ -35,7 +35,7 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
       loaded={tasks}
       tasks={withoutProjectPill(tasks, resolved.project)}
       onEndReached={() => {
-        if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+        if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
       }}
     />
   );

@@ -36,7 +36,7 @@ export function TrashSelectionBar({ items, actions, onClear }: TrashSelectionBar
               variant="ghost"
               size="sm"
               icon={RotateCcw}
-              onClick={() => void actions.restoreAll(items).then(done)}
+              onClick={() => actions.restoreAll(items).then(done)}
             >
               Restore
             </Button>
@@ -44,7 +44,7 @@ export function TrashSelectionBar({ items, actions, onClear }: TrashSelectionBar
               variant="ghost"
               size="sm"
               icon={Trash2}
-              onClick={() => void actions.removeAll(items).then(done)}
+              onClick={() => actions.removeAll(items).then(done)}
             >
               Delete permanently
             </Button>

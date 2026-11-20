@@ -121,7 +121,7 @@ export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBar
               shortcut="⌘⌫"
               variant="destructive"
               onClick={() => {
-                void actions.trash(tasks).then((moved) => {
+                actions.trash(tasks).then((moved) => {
                   if (moved) onClear();
                 });
               }}

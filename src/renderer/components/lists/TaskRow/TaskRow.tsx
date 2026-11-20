@@ -290,7 +290,7 @@ function useAutoStack(
     if (!enabled || !row) return;
     const observer = new ResizeObserver(() => fit());
     observer.observe(row);
-    void document.fonts?.ready.then(() => fit());
+    document.fonts?.ready.then(() => fit());
     return () => observer.disconnect();
   }, [enabled, rowRef, fit]);
 

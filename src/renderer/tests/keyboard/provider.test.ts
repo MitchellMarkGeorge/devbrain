@@ -79,7 +79,7 @@ describe('the default keymap', () => {
         createElement(Commands, { commands: createAppCommands(app) }),
       ),
     );
-    for (const key of keys) act(() => void press(document.body, key, options));
+    for (const key of keys) act(() => press(document.body, key, options));
     expect(app[action]).toHaveBeenCalledTimes(1);
     if (arg) expect(app.goTo).toHaveBeenCalledWith(arg);
   });
@@ -93,7 +93,7 @@ describe('the default keymap', () => {
         createElement(Commands, { commands: createAppCommands(app) }),
       ),
     );
-    act(() => void press(document.body, 'k', { ctrl: true }));
+    act(() => press(document.body, 'k', { ctrl: true }));
     expect(app.openSearch).toHaveBeenCalledTimes(1);
   });
 
@@ -122,8 +122,8 @@ describe('createAppCommands', () => {
     );
     expect(press(document.body, 'c').defaultPrevented).toBe(false);
     expect(press(document.body, 'k', { meta: true }).defaultPrevented).toBe(false);
-    act(() => void press(document.body, 'g'));
-    act(() => void press(document.body, 't'));
+    act(() => press(document.body, 'g'));
+    act(() => press(document.body, 't'));
     expect(goTo).toHaveBeenCalledWith('tasks');
     const titles = createAppCommands({ goTo }).map((c) => c.title);
     expect(titles).toEqual([
@@ -174,11 +174,11 @@ describe('useCommands', () => {
         createElement(Commands, { commands: [command] }),
       ),
     );
-    act(() => void press(document.body, 'x'));
+    act(() => press(document.body, 'x'));
     expect(run).toHaveBeenCalledTimes(1);
 
     render(createElement(KeyboardProvider, { keymap: map }));
-    act(() => void press(document.body, 'x'));
+    act(() => press(document.body, 'x'));
     expect(run).toHaveBeenCalledTimes(1);
   });
 
@@ -191,13 +191,20 @@ describe('useCommands', () => {
         { keymap: map },
         createElement(Commands, {
           commands: [
-            { id: 'demo', title: 'Demo', scope: 'global', run: () => void seen.push(value) },
+            {
+              id: 'demo',
+              title: 'Demo',
+              scope: 'global',
+              run: () => {
+                seen.push(value);
+              },
+            },
           ],
         }),
       );
     render(tree(1));
     render(tree(2));
-    act(() => void press(document.body, 'x'));
+    act(() => press(document.body, 'x'));
     expect(seen).toEqual([2]);
   });
 });
@@ -229,12 +236,12 @@ describe('KeyScope', () => {
     render(tree(false));
     const row = document.getElementById('row')!;
     expect(row.parentElement?.getAttribute('data-key-scope')).toBe('list');
-    act(() => void press(row, 'j'));
+    act(() => press(row, 'j'));
     expect(down).toHaveBeenCalledTimes(1);
 
     render(tree(true));
-    act(() => void press(row, 'j'));
-    act(() => void press(document.getElementById('ok')!, 'c'));
+    act(() => press(row, 'j'));
+    act(() => press(document.getElementById('ok')!, 'c'));
     expect(down).toHaveBeenCalledTimes(1);
     expect(newTask).not.toHaveBeenCalled();
   });
@@ -258,9 +265,9 @@ describe('useKeyboardState', () => {
         createElement(Status),
       ),
     );
-    act(() => void press(document.body, 'g'));
+    act(() => press(document.body, 'g'));
     expect(states[states.length - 1].pending).toEqual(['g']);
-    act(() => void press(document.body, 't'));
+    act(() => press(document.body, 't'));
     expect(states[states.length - 1].pending).toEqual([]);
   });
 });
@@ -273,7 +280,9 @@ describe('ShortcutsDialog', () => {
     function Mounted(props: ModalProps) {
       useEffect(() => {
         mounted = true;
-        return () => void (mounted = false);
+        return () => {
+          mounted = false;
+        };
       }, []);
       return createElement(ShortcutsDialog, props);
     }
@@ -296,20 +305,20 @@ describe('ShortcutsDialog', () => {
       ),
     );
 
-    act(() => void press(document.body, '?', { shift: true }));
+    act(() => press(document.body, '?', { shift: true }));
     const title = () => document.body.querySelector('h2');
     await vi.waitFor(() => expect(title()?.textContent).toBe('Keyboard shortcuts'));
     expect(mounted).toBe(true);
     expect(document.body.textContent).toContain('Go to Tasks');
 
     // the dialog is modal: C doesn't reach the global scope under it
-    act(() => void press(document.activeElement ?? document.body, 'c'));
+    act(() => press(document.activeElement ?? document.body, 'c'));
     expect(app.newTask).not.toHaveBeenCalled();
 
-    act(() => void press(document.activeElement ?? document.body, 'Escape'));
+    act(() => press(document.activeElement ?? document.body, 'Escape'));
     await vi.waitFor(() => expect(title()).toBeNull());
     await vi.waitFor(() => expect(mounted).toBe(false));
-    act(() => void press(document.body, 'c'));
+    act(() => press(document.body, 'c'));
     expect(app.newTask).toHaveBeenCalledTimes(1);
   });
 });

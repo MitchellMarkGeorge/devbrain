@@ -135,7 +135,7 @@ function HomeFooter() {
             size="xs"
             icon={RotateCw}
             onClick={() =>
-              void navigate({
+              navigate({
                 to: '/app/$workspaceId/settings/integrations',
                 params: { workspaceId },
               })

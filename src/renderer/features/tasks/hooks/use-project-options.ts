@@ -20,7 +20,7 @@ export function useOpenProjects(): ProjectListItem[] {
   const query = useInfiniteQuery(openProjectsQuery());
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   return useMemo(() => (query.data?.pages ?? []).flatMap((page) => page.items), [query.data]);
 }

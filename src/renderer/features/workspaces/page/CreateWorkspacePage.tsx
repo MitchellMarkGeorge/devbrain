@@ -34,7 +34,7 @@ export function CreateWorkspacePage() {
   const create = useMutation(
     trpc.workspaces.create.mutationOptions({
       onSuccess: (workspace) =>
-        void navigate({
+        navigate({
           to: '/app/$workspaceId',
           params: { workspaceId: workspace.id },
           replace: true,
@@ -44,8 +44,8 @@ export function CreateWorkspacePage() {
 
   const back = () => {
     if (canGoBack) router.history.back();
-    else if (open) void navigate({ to: '/app/$workspaceId', params: { workspaceId: open.id } });
-    else void navigate({ to: '/onboarding' });
+    else if (open) navigate({ to: '/app/$workspaceId', params: { workspaceId: open.id } });
+    else navigate({ to: '/onboarding' });
   };
   const pending = create.isPending;
   useEffect(() => {

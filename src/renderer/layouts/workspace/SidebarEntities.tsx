@@ -124,7 +124,7 @@ export function SidebarSync() {
   const status = useQuery(trpc.sync.status.queryOptions());
   const syncNow = useMutation(trpc.sync.now.mutationOptions());
   const openIntegrations = () =>
-    void navigate({ to: '/app/$workspaceId/settings/integrations', params: { workspaceId } });
+    navigate({ to: '/app/$workspaceId/settings/integrations', params: { workspaceId } });
   // nothing until the first answer, so a workspace that syncs never flashes "Set up sync"
   if (!status.data) return null;
   const summary = summarizeSync(status.data, online, format.now);

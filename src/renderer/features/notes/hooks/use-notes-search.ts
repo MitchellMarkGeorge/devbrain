@@ -16,7 +16,7 @@ export function useNotesSearch(): {
   const navigate = notesRoute.useNavigate();
   const setSearch = useCallback(
     (patch: Partial<NotesSearch>) =>
-      void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true }),
+      navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true }),
     [navigate],
   );
   return { search, resolved: resolveNotesSearch(search), setSearch };

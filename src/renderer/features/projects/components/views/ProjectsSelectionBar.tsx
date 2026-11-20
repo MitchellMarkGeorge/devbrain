@@ -81,7 +81,7 @@ export function ProjectsSelectionBar({ projects, actions, onClear }: ProjectsSel
             shortcut="⌘⌫"
             variant="destructive"
             onClick={() => {
-              void actions.trashAll(projects).then((moved) => {
+              actions.trashAll(projects).then((moved) => {
                 if (moved) onClear();
               });
             }}
