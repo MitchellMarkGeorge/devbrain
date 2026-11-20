@@ -55,8 +55,12 @@ export function AppLayout() {
     <WorkspaceShell
       controlsRef={shell}
       sidebar={inSettings ? <SettingsSidebar onBack={backToApp} /> : <AppSidebar />}
-      onBack={() => router.history.back()}
-      onForward={() => router.history.forward()}
+      onBack={() => {
+        if (position.canGoBack) router.history.back();
+      }}
+      onForward={() => {
+        if (position.canGoForward) router.history.forward();
+      }}
       canGoBack={position.canGoBack}
       canGoForward={position.canGoForward}
       workspace={<WorkspaceMenu />}
