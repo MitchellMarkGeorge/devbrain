@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, noop } from '@tanstack/react-query';
 import type { EventSourceInput } from '@fullcalendar/react';
 import type { Calendar } from '@common/types';
 import type { CalendarViewHandle } from '@renderer/components';
@@ -67,7 +67,7 @@ export function usePrefetchRanges(calendars: readonly Calendar[], ranges: readon
   const key = `${ids.join()}|${ranges.map((r) => `${r.start.getTime()}-${r.end.getTime()}`).join()}`;
   useEffect(() => {
     for (const range of ranges) {
-      for (const id of ids) queryClient.prefetchQuery(calendarEventsQuery(id, range));
+      for (const id of ids) queryClient.query(calendarEventsQuery(id, range)).catch(noop);
     }
     // `key` names the calendars and ranges
     // eslint-disable-next-line react-hooks/exhaustive-deps

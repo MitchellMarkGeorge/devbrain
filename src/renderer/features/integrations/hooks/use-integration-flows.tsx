@@ -124,7 +124,7 @@ export function useIntegrationFlows(): IntegrationFlows {
         const { name } = providerEntry(integration.provider);
         let preview;
         try {
-          preview = await queryClient.fetchQuery({
+          preview = await queryClient.query({
             ...trpc.integrations.previewDisconnect.queryOptions({ id: integration.id }),
             staleTime: 0,
           });
