@@ -4,7 +4,7 @@ import { mergeProps } from '@base-ui/react/merge-props';
 import { cva } from 'class-variance-authority';
 import { Badge } from '../../ui/Badge';
 import { EntityPill } from '../../entities/EntityPill';
-import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
+import { linkTarget, PillHoverCard, subtasksTarget } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
@@ -17,7 +17,15 @@ import styles from './BoardCard.module.css';
 /** The fields of core's `TaskListItem` a board card reads; pass the row as it is. */
 export type BoardCardData = Pick<
   TaskListItem,
-  'title' | 'status' | 'priority' | 'dueDate' | 'subtaskProgress' | 'project' | 'link' | 'external'
+  | 'id'
+  | 'title'
+  | 'status'
+  | 'priority'
+  | 'dueDate'
+  | 'subtaskProgress'
+  | 'project'
+  | 'link'
+  | 'external'
 >;
 
 export const boardCardVariants = cva(styles.card, {
@@ -65,13 +73,14 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
       </PillHoverCard>
     ),
     subtasks && (
-      <Badge
-        key="subtasks"
-        muted
-        icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
-      >
-        {subtasks.completed}/{subtasks.total}
-      </Badge>
+      <PillHoverCard key="subtasks" target={subtasksTarget(task.id, subtasks)}>
+        <Badge
+          muted
+          icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
+        >
+          {subtasks.completed}/{subtasks.total}
+        </Badge>
+      </PillHoverCard>
     ),
     task.link && (
       <PillHoverCard key="link" target={linkTarget(task.link)}>

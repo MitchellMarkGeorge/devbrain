@@ -155,6 +155,13 @@ height from the token (generated into `src/common/theme.ts`), so the system's co
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
   has no start (no traffic lights, no menu button); a docked sheet is a card under it, as on macOS.
 
+**Text is selected only where it is the user's.** As in a native app, the chrome (the sidebar,
+rows, cards, pills, buttons, headings, menus) can't be selected and keeps the arrow pointer over its
+labels; fields (`input`, `textarea`) and the editor (anything `contenteditable`, its read-only form
+included) can, with the text cursor. Links and images can't be dragged out of the window. Both are set once in `src/renderer/styles/base.css`; a component doesn't set
+`user-select` unless it is a control inside a selectable area (the editor's callout and code block
+headers).
+
 Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
 name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).
 

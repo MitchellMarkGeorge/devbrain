@@ -18,7 +18,7 @@ import { cn } from '../../lib/cn';
 import { Badge } from '../../ui/Badge';
 import { Checkbox } from '../../ui/Checkbox';
 import { EntityPill } from '../../entities/EntityPill';
-import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
+import { linkTarget, PillHoverCard, subtasksTarget } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
@@ -112,13 +112,17 @@ function spreadWidth(deck: HTMLElement): number {
  * The pills on one side of the title, stacked like a deck when the row runs out of room: the last
  * in full, the ones behind showing their edge and icon. Pointing at the stack or focusing it
  * spreads it out on top of the row, over the end of the title, without moving anything: the
- * pills behind grow to full width and their labels fade in. Leaving folds them back the same way.
+ * pills behind grow to full width and their labels fade in. Leaving folds them back the same way,
+ * once the hover card a pill opened has closed (the pointer may have gone on to it).
  */
 function PillStack({ stacked, children }: { stacked: boolean; children: ReactNode }) {
   const pills = Children.toArray(children);
   const ref = useRef<HTMLSpanElement>(null);
   const deckRef = useRef<HTMLSpanElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // while a pill's hover card is open after the pointer left the stack: folds the deck once it
+  // closes
+  const cardWatch = useRef<MutationObserver | null>(null);
   // the stacked width, kept while the deck is spread (and while it folds back) so the row does
   // not reflow
   const [spreadFrom, setSpreadFrom] = useState<number | null>(null);
@@ -156,18 +160,44 @@ function PillStack({ stacked, children }: { stacked: boolean; children: ReactNod
     setCover({ shift, pad });
   }, [open]);
 
-  useLayoutEffect(() => () => clearTimeout(closeTimer.current), []);
+  useLayoutEffect(
+    () => () => {
+      clearTimeout(closeTimer.current);
+      cardWatch.current?.disconnect();
+    },
+    [],
+  );
 
   if (pills.length === 0) return null;
 
   function spread() {
     if (!isStacked || !ref.current) return;
+    cardWatch.current?.disconnect();
+    cardWatch.current = null;
     clearTimeout(closeTimer.current);
     setClosing(false);
     if (spreadFrom == null) setSpreadFrom(ref.current.offsetWidth);
   }
   function close() {
     if (spreadFrom == null) return;
+    // the pointer went on to a pill's hover card (portalled outside the stack), or focus opened
+    // one: the deck stays spread, so the card stays by its pill, and folds once the card closes
+    const deck = deckRef.current;
+    if (deck?.querySelector('[data-popup-open]')) {
+      if (cardWatch.current) return;
+      const watch = new MutationObserver(() => {
+        if (deck.querySelector('[data-popup-open]')) return;
+        watch.disconnect();
+        cardWatch.current = null;
+        fold();
+      });
+      watch.observe(deck, { subtree: true, attributeFilter: ['data-popup-open'] });
+      cardWatch.current = watch;
+      return;
+    }
+    fold();
+  }
+  function fold() {
     setClosing(true);
     clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => {
@@ -456,12 +486,14 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             </PillHoverCard>
           )}
           {subtasks && (
-            <Badge
-              muted
-              icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
-            >
-              {subtasks.completed}/{subtasks.total}
-            </Badge>
+            <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
+              <Badge
+                muted
+                icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
+              >
+                {subtasks.completed}/{subtasks.total}
+              </Badge>
+            </PillHoverCard>
           )}
         </PillStack>
       </div>

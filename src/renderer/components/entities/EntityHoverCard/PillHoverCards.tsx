@@ -1,4 +1,5 @@
 import {
+  cloneElement,
   createContext,
   useContext,
   useMemo,
@@ -8,7 +9,8 @@ import {
 } from 'react';
 import { PreviewCard } from '@base-ui/react/preview-card';
 import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
-import type { ExternalRef } from '@common/types';
+import type { ExternalRef, SubtaskProgress } from '@common/types';
+import { subtasksDoneLabel } from '../../types';
 import { Skeleton } from '../../ui/Skeleton';
 import styles from './EntityHoverCard.module.css';
 
@@ -22,7 +24,14 @@ export type PillTarget =
   | { type: 'event'; id: EventId; title: string }
   | { type: 'note'; id: NoteId; title: string }
   | { type: 'task'; id: TaskId; title: string }
-  | { type: 'source'; title: string; external: ExternalRef };
+  | { type: 'source'; title: string; external: ExternalRef }
+  /** a task's subtask count: the task's id, and the count as the card's name ("3 of 4 subtasks done") */
+  | { type: 'subtasks'; id: TaskId; title: string };
+
+/** The target of a task's subtask count pill. */
+export function subtasksTarget(id: TaskId, progress: SubtaskProgress): PillTarget {
+  return { type: 'subtasks', id, title: subtasksDoneLabel(progress) };
+}
 
 /** A link as core's summaries give it (`task.link`, `note.link`): its type, id and title. */
 type LinkSummary =
@@ -119,7 +128,8 @@ export interface PillHoverCardProps {
 
 /**
  * A row's pill with its hover card, from the `PillHoverCardsProvider` around it; the pill alone
- * without one. Pointing at it for about 400ms (or focusing it) opens the card 4px below it.
+ * without one. Pointing at it for about 400ms (or focusing it) opens the card 4px below it. With a
+ * card, the pill drops the browser's tooltip of its label, which would show over the card.
  */
 export function PillHoverCard({ target, children }: PillHoverCardProps) {
   const cards = useContext(PillHoverCardsContext);
@@ -133,7 +143,8 @@ export function PillHoverCard({ target, children }: PillHoverCardProps) {
       closeDelay={cards.closeDelay}
       onPointerEnter={prepare}
       onFocus={prepare}
-      render={children}
+      // without the browser's tooltip of its label (a Badge's `title`): the card names it in full
+      render={cloneElement(children, { title: undefined })}
     />
   );
 }

@@ -11,6 +11,7 @@ export {
 export {
   EntityHoverCardPlaceholder,
   linkTarget,
+  subtasksTarget,
   PillHoverCard,
   PillHoverCardsProvider,
   type EntityHoverCardPlaceholderProps,
