@@ -69,7 +69,14 @@
   max-width: 100%;
 }
 
-/* priority, then the date on the right */
+/* the priority: its gauge alone in a round 24px pill */
+.priority {
+  justify-content: center;
+  width: var(--control-xs);
+  padding: 0;
+}
+
+/* the date (or "Set due date") on the right */
 .meta {
   display: flex;
   align-items: center;
