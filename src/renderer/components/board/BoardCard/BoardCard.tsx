@@ -93,10 +93,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
       <div className={styles.title}>{task.title}</div>
       {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
       <div className={styles.meta}>
-        <EntityPill
-          interactive={false}
-          glyph={<PriorityIcon priority={task.priority} size={12} />}
-        >
+        <EntityPill interactive={false} glyph={<PriorityIcon priority={task.priority} size={12} />}>
           {external?.priorityLabel ?? PRIORITY_LABELS[task.priority]}
         </EntityPill>
         {task.dueDate ? (
