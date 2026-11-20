@@ -21,7 +21,8 @@ import styles from '@renderer/features/onboarding/page/Onboarding.module.css';
 export function WorkspaceOpenError({ error }: ErrorComponentProps) {
   const router = useRouter();
   const navigate = useNavigate();
-  const { canGoBack } = useHistoryPosition();
+  // Back to the workspace still open, which is another workspace than the one the URL names
+  const { canGoBack } = useHistoryPosition({ acrossWorkspaces: true });
   const { workspaceId } = useParams({ strict: false });
   const list = useQuery(trpc.workspaces.list.queryOptions());
   const showLogFile = useMutation(trpc.app.showLogFile.mutationOptions());

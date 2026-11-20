@@ -26,8 +26,16 @@ to open it when it isn't open.
   (`landingHref`, `src/renderer/shared/lib/workspace/landing.ts`).
 - **Switching is navigating** to the workspace's link: the sidebar's workspace menu, onboarding's
   lists, Create workspace (create, then navigate, replacing the form in the history), Open
-  Existing Folder (add, then navigate). Back and Forward
-  to another workspace's page just open that workspace again.
+  Existing Folder (add, then navigate).
+- **Back and Forward stay within a workspace.** On a workspace's page the window bar's arrows, and
+  a detail page's Back, count only the history entries of the workspace shown
+  (`useHistoryPosition`, from which workspace each entry shows, recorded by its
+  `HistoryPositionProvider` around the router in `AppWindow`). So after a switch Back is off until
+  you move within the new workspace, and it never reopens the old one. The history itself can't be
+  cleared, so the entries before the switch are still there: a traversal that reaches one anyway
+  opens that workspace again, as any navigation to its link does. A failed open's "Back to ‹name›"
+  leaves the workspace on purpose and counts every entry (`acrossWorkspaces`). After a reload the
+  entries before it aren't known, and don't count.
 - **One router**, made once in `main.tsx` with hash history and never made again: not at startup,
   during a switch, or on onboarding. Hash history because the page loads from `file://`, and
   because main reads the page from the window's URL.
@@ -195,7 +203,7 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | The URL moves before the target's `beforeLoad` runs                                                                      | No                                | Main keeping the last page per workspace                                     |
 | `redirect({ href })` to an in-app path keeps its search params                                                           | Yes                               | The index route's redirect to the last page                                  |
 | A slow sibling's `pendingComponent` shows after `pendingMs`, React hiding the old page under it                          | Partly                            | Pending UI for slow pages (`PagePending`, `defaultPendingMs: 150`)           |
-| Each history entry has its index (`__TSR_index`); `history.length` counts the entries after it until a new navigation    | Typed, not described              | `useHistoryPosition`: the window bar's arrows, Back on a failed open         |
+| Each history entry has its index (`__TSR_index`); `history.length` counts the entries after it until a new navigation    | Typed, not described              | `useHistoryPosition`: the window bar's arrows, a detail page's Back          |
 | A preload's location has no history index (`__TSR_index`)                                                                | No                                | Nothing yet: don't read the history index in a preload                       |
 | Memory history runs no blockers on Back and Forward                                                                      | No                                | Nothing yet: test a navigation blocker with hash history, not memory history |
 

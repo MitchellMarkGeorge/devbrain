@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { trpc } from '@renderer/ipc';
 import { defaultKeymap, KeyboardProvider } from '@renderer/keyboard';
 import { applyThemeSetting } from './theme';
+import { HistoryPositionProvider } from '@renderer/shared/hooks/use-history-position';
 
 /**
  * What the window draws, inside its providers (main.tsx, and the routing tests' harness): the
@@ -32,7 +33,9 @@ export function AppWindow({
 
   return devBrainAvailable ? (
     <KeyboardProvider keymap={defaultKeymap}>
-      <RouterProvider router={router} />
+      <HistoryPositionProvider history={router.history}>
+        <RouterProvider router={router} />
+      </HistoryPositionProvider>
     </KeyboardProvider>
   ) : (
     <DevBrainUnavailable />
