@@ -70,6 +70,7 @@
 }
 
 /* priority, then the date on the right */
+
 .meta {
   display: flex;
   align-items: center;

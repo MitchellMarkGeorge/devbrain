@@ -26,6 +26,23 @@ describe('formatDue', () => {
   });
 });
 
+describe('formatDate', () => {
+  it('is always the date, with the year only outside this one', () => {
+    expect(format.formatDate(day(0))).toBe('Jun 22');
+    expect(format.formatDate(day(1))).toBe('Jun 23');
+    expect(format.formatDate(new Date(2027, 0, 3))).toBe('Jan 3, 2027');
+    expect(format.formatDate(new Date(2025, 11, 30))).toBe('Dec 30, 2025');
+  });
+});
+
+describe('formatListDate', () => {
+  it('is the date this year, and the month and year in another', () => {
+    expect(format.formatListDate(day(1))).toBe('Jun 23');
+    expect(format.formatListDate(new Date(2027, 0, 3))).toBe('Jan 2027');
+    expect(format.formatListDate(new Date(2025, 11, 30))).toBe('Dec 2025');
+  });
+});
+
 describe('formatTime', () => {
   it('follows the time format', () => {
     expect(createFormat(NOW, '12').formatTime(day(0, 13, 5))).toBe('1:05 PM');

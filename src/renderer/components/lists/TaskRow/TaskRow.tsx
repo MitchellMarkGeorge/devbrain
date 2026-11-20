@@ -315,7 +315,8 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
  * One task in a strokeless list, drawn from core's `TaskListItem`: the status button (opening the
  * `StatusMenu`; the flag while the task is overdue and not started), the title, its key, parent
  * and subtask pills, then the linked event or note and the project, priority and the due date
- * ("Today", "Jul 1", from `useFormat()`) on the right. Use it inside `TaskList`, which handles
+ * (always the date, "Jul 1" or "Dec 2025", from `useFormat()`'s `formatListDate`; colour
+ * says when it is today or overdue) on the right. Use it inside `TaskList`, which handles
  * selection and focus.
  *
  * It binds no keys: the app's keymap opens its status menu (`menuOpen`), selects it (`onSelect`)
@@ -354,7 +355,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     },
     [ref],
   );
-  const { now, formatDue } = useFormat();
+  const { now, formatListDate } = useFormat();
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
   const leftPills = [key, task.parentTask, subtasks].filter(Boolean).length;
@@ -486,7 +487,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           )}
         >
           {task.dueDate
-            ? formatDue(task.dueDate)
+            ? formatListDate(task.dueDate)
             : onDueDateChange &&
               !isClosed(status) &&
               task.external?.state !== LinkState.SYNCED && (

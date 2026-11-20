@@ -247,9 +247,10 @@
   place-items: center;
   width: 20px;
 }
+/* 60px: the widest date, "May 2027", so every row's date, priority and pills line up */
 .date {
   position: relative;
-  min-width: 44px;
+  min-width: 60px;
   color: var(--subtle-foreground);
   font-size: var(--text-xs);
   line-height: var(--text-xs-leading);

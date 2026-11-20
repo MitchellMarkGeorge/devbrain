@@ -11,7 +11,7 @@ import { SourcePill } from '../../entities/SourcePill';
 import { LinkState, TaskStatus, type TaskListItem } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import { dueTone, isClosed, providerOf } from '../../types';
+import { dueTone, isClosed, PRIORITY_LABELS, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
 /** The fields of core's `TaskListItem` a board card reads; pass the row as it is. */
@@ -47,15 +47,15 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 
 /**
  * A task on the board, drawn from core's `TaskListItem`: the title, then its relations as the pills
- * a task row uses (the key, its subtasks, the linked event or note, the project), then priority and
- * the due date (worded and coloured from `useFormat()`, which moves once a day).
+ * a task row uses (the key, its subtasks, the linked event or note, the project), then priority (a pill
+ * with its gauge and name, "High", as the task page shows it) and the due date ("Jul 1" from `useFormat()`'s `formatListDate`, coloured when due today or overdue,, which moves once a day).
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
   { task, state, render, onClick, onDueDateChange, ...props },
   ref,
 ) {
-  const { now, formatDue } = useFormat();
+  const { now, formatListDate } = useFormat();
   const done = task.status === TaskStatus.COMPLETED;
   const { external, subtaskProgress: subtasks } = task;
   const pills = [
@@ -93,10 +93,12 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
       <div className={styles.title}>{task.title}</div>
       {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
       <div className={styles.meta}>
-        <PriorityIcon priority={task.priority} />
+        <EntityPill interactive={false} glyph={<PriorityIcon priority={task.priority} size={12} />}>
+          {external?.priorityLabel ?? PRIORITY_LABELS[task.priority]}
+        </EntityPill>
         {task.dueDate ? (
           <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
-            {formatDue(task.dueDate)}
+            {formatListDate(task.dueDate)}
           </span>
         ) : (
           settable &&

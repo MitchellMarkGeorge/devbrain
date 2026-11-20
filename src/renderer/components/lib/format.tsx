@@ -32,8 +32,13 @@ export interface Format {
   formatRelative: (date: Date) => string;
   /** A time of day in the time format: "9:30 AM" or "09:30" */
   formatTime: (date: Date) => string;
-  /** A short date: "Jul 1" */
+  /** A short date: "Jul 1", with the year when it is not this year's ("Jan 3, 2027") */
   formatDate: (date: Date) => string;
+  /**
+   * A date in a list's date column (task rows, board cards): "Jul 1", or the month and year when it
+   * is not this year's ("Dec 2025"), so it stays short enough to line up down the list
+   */
+  formatListDate: (date: Date) => string;
 }
 
 const MINUTE = 60_000;
@@ -73,8 +78,14 @@ function capitalize(text: string): string {
 export function createFormat(now: Date, timeFormat: TimeFormat = '12'): Format {
   const base = DateTime.fromJSDate(now);
   const today = base.startOf('day');
-  const formatDate = (date: Date) =>
-    DateTime.fromJSDate(date).toLocaleString({ month: 'short', day: 'numeric' });
+  const formatDate = (date: Date) => {
+    const day = DateTime.fromJSDate(date);
+    return day.toLocaleString(
+      day.year === base.year
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short', day: 'numeric', year: 'numeric' },
+    );
+  };
   return {
     now,
     timeFormat,
@@ -95,6 +106,14 @@ export function createFormat(now: Date, timeFormat: TimeFormat = '12'): Format {
       });
     },
     formatDate,
+    formatListDate(date) {
+      const day = DateTime.fromJSDate(date);
+      return day.toLocaleString(
+        day.year === base.year
+          ? { month: 'short', day: 'numeric' }
+          : { month: 'short', year: 'numeric' },
+      );
+    },
   };
 }
 
