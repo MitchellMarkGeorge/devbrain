@@ -32,13 +32,13 @@ export interface LinkedTaskRowProps extends Omit<ComponentPropsWithoutRef<'div'>
 /**
  * The compact 36px task row of a sheet's Subtasks and Linked tasks and a note's Linked tasks
  * panel: the status button (the flag while overdue and not started), the title, then the due date
- * ("Jun 24", "Today", coloured when due today or overdue). No checkbox and no pills.
+ * ("Jun 24", always the date, coloured when due today or overdue). No checkbox and no pills.
  */
 export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(function LinkedTaskRow(
   { task, onStatusChange, onOpen, state, className, onKeyDown, ...props },
   ref,
 ) {
-  const { now, formatDue } = useFormat();
+  const { now, formatDate } = useFormat();
   // controlled when the owner listens for changes; otherwise the row keeps its own pick
   const [picked, setPicked] = useState<TaskStatus>(task.status);
   const shown = onStatusChange ? task.status : picked;
@@ -81,7 +81,7 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
       <span className={styles.title}>{task.title}</span>
       {task.dueDate && (
         <span className={styles.date} data-tone={dueTone(shown, task.dueDate, now)}>
-          {formatDue(task.dueDate)}
+          {formatDate(task.dueDate)}
         </span>
       )}
     </div>

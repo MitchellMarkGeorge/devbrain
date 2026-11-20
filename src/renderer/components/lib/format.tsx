@@ -32,7 +32,7 @@ export interface Format {
   formatRelative: (date: Date) => string;
   /** A time of day in the time format: "9:30 AM" or "09:30" */
   formatTime: (date: Date) => string;
-  /** A short date: "Jul 1" */
+  /** A short date: "Jul 1", with the year when it is not this year's ("Jan 3, 2027") */
   formatDate: (date: Date) => string;
 }
 
@@ -73,8 +73,14 @@ function capitalize(text: string): string {
 export function createFormat(now: Date, timeFormat: TimeFormat = '12'): Format {
   const base = DateTime.fromJSDate(now);
   const today = base.startOf('day');
-  const formatDate = (date: Date) =>
-    DateTime.fromJSDate(date).toLocaleString({ month: 'short', day: 'numeric' });
+  const formatDate = (date: Date) => {
+    const day = DateTime.fromJSDate(date);
+    return day.toLocaleString(
+      day.year === base.year
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short', day: 'numeric', year: 'numeric' },
+    );
+  };
   return {
     now,
     timeFormat,

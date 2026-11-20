@@ -196,7 +196,7 @@ Two kinds of page, one rule each:
 - Buttons and menu items are verbs. Buttons use title case ("New Task", "Show in Finder"); menu items, headings and labels use sentence case ("Turn into", "Due date").
 - Name the platform's things as the platform does, with `usePlatformWords` (`components/lib/platform.ts`), as the menu bar does: "Show in Finder", "Show in Explorer" or "Show in File Manager"; "this Mac", "this PC" or "this computer". The designs are drawn for macOS.
 - Address the user as "you", without a name: "Good morning" / "**Sprint Planning** starts in 12 minutes. You have **6 tasks** today, and 2 are overdue."
-- Dates are short and worded through `useFormat()`: due dates "Today", "Tomorrow", "In 3 days" within a week, else "Jul 1"; times "10:30 AM" (or "10:30" on a 24 hour clock); edits and countdowns "2h ago", "In 12m".
+- Dates are short and worded through `useFormat()`: a task's due date in a list or on the board is always the date ("Jul 1", "Jan 3, 2027" in another year), with today and overdue in its colour; elsewhere (hover cards, pickers, Home) due dates read "Today", "Tomorrow", "In 3 days" within a week, else "Jul 1"; times "10:30 AM" (or "10:30" on a 24 hour clock); edits and countdowns "2h ago", "In 12m".
 - A destructive confirmation says what happens to linked items and how to undo it.
 - Empty values are invitations: "Add description…", "+ Add start date". No emoji.
 
