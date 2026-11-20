@@ -45,9 +45,17 @@ The links show as pills under the title. Click one to open the project, task or 
 
 ### Tasks from a note
 
-Any number of tasks can point back at a note, such as the follow-ups from a meeting. Under the
-title, **+ Add task** creates a **New task linked to this note**, or links an existing one. Once a
-note has tasks, the pill says how many and how they're going ("3 tasks · 2 in progress"), and a
+Any number of tasks can point back at a note, such as the follow-ups from a meeting. To make one:
+
+- **+ Add task**, under the title, creates a **New task linked to this note**, or links an existing
+  one.
+- **<kbd>/</kbd>task**, typed in the text, opens **New task** linked to the note and in its project.
+  Type it at the end of a line, such as `Send Ana the proration rules /task`, and the line becomes
+  the task's title. Only the `/task` is removed: the line stays as you wrote it.
+- **Turn into task**, in the [format toolbar](#formatting-text), creates a task from the text you
+  selected, linked to the note and in its project, and puts a link to the task in place of the text.
+
+Once a note has tasks, the pill says how many and how they're going ("3 tasks · 2 in progress"), and a
 **Tasks** section at the end of the note lists them.
 
 ### Mentions
@@ -100,14 +108,21 @@ Type <kbd>/</kbd> at the start of a line for the block menu, or type the Markdow
   title to change its kind.
 - **To-do items** are checkboxes in the note, saved as `- [ ]` and `- [x]`. They aren't DevBrain
   tasks; use **+ Add task** for those.
-- The block menu's **DevBrain** section links a note, a task or an event, like <kbd>@</kbd>.
+- The block menu's **DevBrain** section links a note, a task or an event, like <kbd>@</kbd>. Its
+  **Task** opens **New task** (see [Tasks from a note](#tasks-from-a-note)); in a project's or task's
+  description, the task goes in that project.
 
 ### Formatting text
 
 Select text for the format toolbar: **Turn into** another block, **Bold** (<kbd>⌘B</kbd>),
 **Italic** (<kbd>⌘I</kbd>), **Underline** (<kbd>⌘U</kbd>), **Strikethrough** (<kbd>⌘⇧X</kbd>),
-**Code** (<kbd>⌘E</kbd>) and **Link** (<kbd>⌘K</kbd>). Markdown typed inline works too:
-`**bold**`, `*italic*`, `~~strike~~` and `` `code` ``.
+**Code** (<kbd>⌘E</kbd>), **Link** (<kbd>⌘K</kbd>) and **Turn into task**. Markdown typed inline
+works too: `**bold**`, `*italic*`, `~~strike~~` and `` `code` ``.
+
+**Turn into task** creates a task titled with the selected text, with your default priority and due
+date, and replaces the text with a link to it. In a note, the task is linked to the note and in its
+project; in a project's or task's description, it's in that project. It's there when the selection
+is within one paragraph, heading or list item, outside a code block.
 
 To open a link in your browser, <kbd>⌘</kbd>-click it (<kbd>Ctrl</kbd>-click on Windows and
 Linux).
