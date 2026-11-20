@@ -47,8 +47,8 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 
 /**
  * A task on the board, drawn from core's `TaskListItem`: the title, then its relations as the pills
- * a task row uses (the key, its subtasks, the linked event or note, the project), then priority (its gauge
- * and name, "High") and the due date ("Jul 1" from `useFormat()`'s `formatListDate`, coloured when due today or overdue,, which moves once a day).
+ * a task row uses (the key, its subtasks, the linked event or note, the project), then priority (a pill
+ * with its gauge and name, "High", as the task page shows it) and the due date ("Jul 1" from `useFormat()`'s `formatListDate`, coloured when due today or overdue,, which moves once a day).
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
@@ -93,10 +93,12 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
       <div className={styles.title}>{task.title}</div>
       {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
       <div className={styles.meta}>
-        <span className={styles.priority}>
-          <PriorityIcon priority={task.priority} size={14} />
-          <span aria-hidden>{PRIORITY_LABELS[task.priority]}</span>
-        </span>
+        <EntityPill
+          interactive={false}
+          glyph={<PriorityIcon priority={task.priority} size={12} />}
+        >
+          {external?.priorityLabel ?? PRIORITY_LABELS[task.priority]}
+        </EntityPill>
         {task.dueDate ? (
           <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
             {formatListDate(task.dueDate)}
