@@ -72,14 +72,13 @@ textarea,
  * Links and images are the app's controls (sidebar items, cards, rows), not things to drag out of
  * the window. The browser drags a link's URL natively, and while it does the page hears no pointer
  * events, so whatever was pointed at stays highlighted (a sidebar item, a row, a pill's hover card)
- * until the pointer moves again after the drop. The editor keeps its own: ProseMirror drags them.
+ * until the pointer moves again after the drop. The editor needs no exception: its images are
+ * pills, and the browser never drags a link out of an editable area (ProseMirror drags selections
+ * itself).
  */
 a,
 img {
   -webkit-user-drag: none;
-}
-[contenteditable='true'] :is(a, img) {
-  -webkit-user-drag: auto;
 }
 
 p,
