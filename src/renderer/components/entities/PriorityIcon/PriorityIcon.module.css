@@ -1,4 +1,9 @@
-/* A task's priority. See docs/design-system/components/PriorityIcon.md */
+/* A task's priority: a gauge of three bars. See docs/design-system/components/PriorityIcon.md */
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
 .high {
   color: var(--priority-high);
 }
@@ -10,4 +15,13 @@
 }
 .none {
   color: var(--muted-foreground);
+}
+
+.filled {
+  fill: currentColor;
+}
+/* the bars above the level: the icon's colour, faint */
+.track {
+  fill: currentColor;
+  fill-opacity: 0.3;
 }

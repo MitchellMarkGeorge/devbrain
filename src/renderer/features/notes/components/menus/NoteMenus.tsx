@@ -299,7 +299,7 @@ export function NoteMenuItems({
         icon={Trash2}
         shortcut={TRASH}
         variant="destructive"
-        onClick={() => void actions.trash([note])}
+        onClick={() => actions.trash([note])}
       >
         Move to trash
       </DropdownMenuItem>

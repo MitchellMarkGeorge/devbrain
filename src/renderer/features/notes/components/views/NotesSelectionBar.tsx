@@ -68,7 +68,7 @@ export function NotesSelectionBar({ notes, actions, onClear }: NotesSelectionBar
             shortcut="⌘⌫"
             variant="destructive"
             onClick={() => {
-              void actions.trash(notes).then((moved) => {
+              actions.trash(notes).then((moved) => {
                 if (moved) onClear();
               });
             }}

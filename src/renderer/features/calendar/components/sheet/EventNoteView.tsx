@@ -195,7 +195,7 @@ function NoNote({ event, onStarted }: { event: Event; onStarted: () => void }) {
         description="Take notes while the meeting happens. The note stays linked to this event, and you can open it in the full editor any time."
         action={
           <div className={styles.noNoteActions}>
-            <Button size="sm" icon={FileText} disabled={starting} onClick={() => void start()}>
+            <Button size="sm" icon={FileText} disabled={starting} onClick={() => start()}>
               Start Note
             </Button>
             <LinkNotePicker event={event} />

@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Outlet, useRouter } from '@tanstack/react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, FormatProvider, Logomark, AppShell, ToastProvider } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ModalProvider } from './modals';
-import { defaultKeymap, KeyboardProvider, useUndoStack } from '@renderer/keyboard';
+import { useUndoStack } from '@renderer/keyboard';
 import { useSwitchingWorkspace } from './hooks/use-switching-workspace';
 
 // The root route's pieces (src/renderer/routes/__root.tsx).
@@ -20,28 +20,30 @@ const RouterDevtools = import.meta.env.DEV
   : () => null;
 
 /**
- * The window: toasts, the date formats (`FormatProvider`, in the settings' time format), the
- * keyboard layer, dialogs (`useModals`) and the page. The formats are here rather than in the
- * workspace layout as dialogs render here, outside the page. Dialogs and the undo
- * stack belong to the workspace open, so they're dropped as soon as a switch to another starts
- * (`useSwitchingWorkspace`); the splash is `/app/$workspaceId`'s pending component. The keyboard
- * layer is around the dialogs, as the shortcuts dialog reads it and dialogs register commands.
+ * The window: toasts, the date formats (`FormatProvider`, in the settings' time format), dialogs
+ * (`useModals`) and the page. The formats are here rather than in the workspace layout as dialogs
+ * render here, outside the page. Dialogs and the undo stack belong to the workspace open, so
+ * they're dropped as soon as a switch to another starts (`useSwitchingWorkspace`); the splash is
+ * `/app/$workspaceId`'s pending component. The keyboard layer is around all of it (`AppWindow`),
+ * as the shortcuts dialog reads it, dialogs register commands and this clears its undo stack.
  */
 export function RootLayout() {
   const router = useRouter();
   const switching = useSwitchingWorkspace();
   // the settings are seeded before the first render, and belong to no workspace
   const timeFormat = useQuery(trpc.settings.get.queryOptions()).data?.general.timeFormat;
+
+  const undoStack = useUndoStack();
+  useEffect(() => {
+    if (switching) undoStack.clear();
+  }, [switching, undoStack]);
+
   return (
     <ToastProvider>
       <FormatProvider timeFormat={timeFormat}>
-        <KeyboardProvider keymap={defaultKeymap}>
-          <ClearUndoOnSwitch switching={switching}>
-            <ModalProvider closed={switching}>
-              <Outlet />
-            </ModalProvider>
-          </ClearUndoOnSwitch>
-        </KeyboardProvider>
+        <ModalProvider closed={switching}>
+          <Outlet />
+        </ModalProvider>
       </FormatProvider>
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (
         <Suspense>
@@ -50,15 +52,6 @@ export function RootLayout() {
       )}
     </ToastProvider>
   );
-}
-
-// an undo entry would take back a change in the workspace being closed
-function ClearUndoOnSwitch({ switching, children }: { switching: boolean; children: ReactNode }) {
-  const undoStack = useUndoStack();
-  useEffect(() => {
-    if (switching) undoStack.clear();
-  }, [switching, undoStack]);
-  return children;
 }
 
 export function RootError() {

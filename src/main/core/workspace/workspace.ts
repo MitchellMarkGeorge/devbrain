@@ -178,7 +178,7 @@ export class Workspace {
     this.calendars.onChange((change) => {
       const { sourceId } = change.calendar;
       if (change.type !== 'selection_changed' || sourceId === null) return;
-      void this.sync.trigger('connected', sourceId);
+      this.sync.trigger('connected', sourceId);
     });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }

@@ -56,7 +56,9 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
     open: (row) => openEntity({ id: row.id }),
     setStatus: (rows, status) => actions.setStatus(full(rows), status),
     toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
-    trash: (rows) => void actions.trash(full(rows)),
+    trash: (rows) => {
+      actions.trash(full(rows));
+    },
   });
 
   const done = subtasks.filter((s) => s.status === TaskStatus.COMPLETED).length;
@@ -114,7 +116,7 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
                 // the rows' selection strip hangs into the page margin, so the status icons
                 // line up with the column, as Figma's page draws them
                 onEndReached={() => {
-                  if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+                  if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
                 }}
                 onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
                 onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}

@@ -116,9 +116,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
     const formatKeys = useFormatKeys();
     const drawerPopup = useRef<HTMLDivElement>(null);
 
-    const [measured, setMeasured] = useState<WindowSize>(() =>
-      typeof window === 'undefined' ? 'wide' : windowSizeFor(window.innerWidth),
-    );
+    const [measured, setMeasured] = useState<WindowSize>(() => windowSizeFor(window.innerWidth));
     useLayoutEffect(() => {
       if (sizeProp || !root.current) return;
       const el = root.current;

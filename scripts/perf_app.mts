@@ -490,6 +490,6 @@ async function main() {
 
 main().catch((error) => {
   console.error(error);
-  if (JSON_OUT) void fs.writeFile(JSON_OUT, JSON.stringify(results, null, 1));
+  if (JSON_OUT) fs.writeFile(JSON_OUT, JSON.stringify(results, null, 1));
   process.exit(1);
 });

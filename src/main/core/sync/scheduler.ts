@@ -162,7 +162,7 @@ export class SyncScheduler {
     // deferred to the next turn of the event loop; see above
     this.pendingOpenPass = this.timers.setImmediate(() => {
       this.pendingOpenPass = null;
-      this.forEachSyncableSource((sourceId) => void this.requestRun(sourceId, true));
+      this.forEachSyncableSource((sourceId) => this.requestRun(sourceId, true));
     });
     // One timer for both: the tick that reaches the reconcile interval adds the reconcile pass to
     // its incremental run, so a shared mark never runs the incremental sync twice.
@@ -282,7 +282,7 @@ export class SyncScheduler {
       // the run in flight is this tick's incremental sync; a reconcile still follows it
       if (run && !run.controller.signal.aborted && !reconcile) return;
       if (!this.isDueForAutomaticRun(sourceId)) return;
-      void this.requestRun(sourceId, reconcile);
+      this.requestRun(sourceId, reconcile);
     });
   }
 
@@ -370,11 +370,11 @@ export class SyncScheduler {
     switch (change.type) {
       case 'connected':
         for (const source of change.sources) {
-          if (source.enabled) void this.applyTrigger('connected', source.sourceId);
+          if (source.enabled) this.applyTrigger('connected', source.sourceId);
         }
         return;
       case 'source_changed':
-        if (change.enabled) void this.applyTrigger('connected', change.sourceId);
+        if (change.enabled) this.applyTrigger('connected', change.sourceId);
         else this.abortRun(change.sourceId);
         return;
       case 'status_changed':
@@ -383,7 +383,7 @@ export class SyncScheduler {
           // anything else is a reconnect, which sends nothing more
           if (change.previous !== IntegrationStatus.DISABLED) {
             this.forEachSyncableSource(
-              (sourceId) => void this.applyTrigger('reconnected', sourceId),
+              (sourceId) => this.applyTrigger('reconnected', sourceId),
               change.integrationId,
             );
           }

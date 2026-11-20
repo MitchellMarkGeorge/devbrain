@@ -62,7 +62,9 @@ export function NoteTasksSection({
     open: (row) => onOpenTask(row.id as TaskId),
     setStatus: (rows, status) => actions.setStatus(full(rows), status),
     toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
-    trash: (rows) => void actions.trash(full(rows)),
+    trash: (rows) => {
+      actions.trash(full(rows));
+    },
   });
 
   if (tasks.length === 0) return null;
@@ -107,7 +109,7 @@ export function NoteTasksSection({
               tasks={tasks}
               selectionBar={false}
               onEndReached={() => {
-                if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+                if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
               }}
               onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
               onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}

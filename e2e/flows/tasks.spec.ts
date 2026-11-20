@@ -14,7 +14,11 @@ test('tasks: create, change status, edit, add a subtask, trash, undo, restore', 
   const main = window.getByRole('main');
   const row = taskRow(main, 'Write release notes');
   await expect(row).toContainText('Launch');
-  await expect(row).toContainText('Tomorrow');
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  await expect(row).toContainText(
+    tomorrow.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+  );
 
   // change its status from the list
   await row.getByRole('button', { name: 'Status: Not started' }).click();

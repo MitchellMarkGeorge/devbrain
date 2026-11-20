@@ -70,9 +70,9 @@ export function followOutsideChanges(router: AppRouter, events: typeof appEvents
     if (opening !== null || router.state.isLoading) return;
     const shown = workspaceIdOfPage(router.latestLocation.pathname);
     if (id === null) {
-      if (shown !== null) void router.navigate({ to: '/onboarding', replace: true });
+      if (shown !== null) router.navigate({ to: '/onboarding', replace: true });
     } else if (shown !== id) {
-      void router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
+      router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
     }
   });
 }

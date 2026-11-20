@@ -50,7 +50,7 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
   const [menuNote, setMenuNote] = useState<NoteListItem | null>(null);
   const open = (note: { id: string }) => openEntity({ id: note.id });
   const more = () => {
-    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+    if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
   };
 
   // the selected notes, by id; on the list view only
@@ -61,14 +61,15 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
   useListCommands(list, {
     open,
     toggleFavorite: (rows) => actions.toggleFavorite(rows),
-    trash: (rows) =>
-      void actions.trash(rows).then((moved) => {
+    trash: (rows) => {
+      actions.trash(rows).then((moved) => {
         if (moved) setSelected([]);
-      }),
+      });
+    },
   });
 
   if (query.isPending) return <NotesLoading view={resolved.view} />;
-  if (query.isError) return <NotesErrorState onRetry={() => void query.refetch()} />;
+  if (query.isError) return <NotesErrorState onRetry={() => query.refetch()} />;
   if (notes.length === 0)
     return (
       <NotesEmptyState

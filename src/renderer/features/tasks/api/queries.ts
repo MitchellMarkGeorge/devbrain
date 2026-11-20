@@ -1,13 +1,6 @@
-import { queryOptions, type InfiniteData, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, noop, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import type { ProjectId, TaskId } from '@common/ids';
-import {
-  LinkState,
-  type Event,
-  type ExternalRef,
-  type NoteListItem,
-  type Page,
-  type TaskListItem,
-} from '@common/types';
+import { type Event, type NoteListItem, type Page, type TaskListItem } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import type { TaskListInput } from './search';
 
@@ -107,8 +100,8 @@ export function listedEvent(queryClient: QueryClient, id: string): Event | undef
 export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
   // not again while what was loaded is a few seconds old: a change to it refetches it anyway
   const staleTime = 10_000;
-  void queryClient.prefetchQuery({ ...trpc.tasks.get.queryOptions({ id }), staleTime });
-  void queryClient.prefetchInfiniteQuery({ ...subtasksQuery(id), staleTime });
+  queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime }).catch(noop);
+  queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime }).catch(noop);
 }
 
 /**
@@ -123,10 +116,7 @@ export function withoutProjectPill<T extends Pick<TaskListItem, 'project'>>(
   return tasks.map((task) => (task.project?.id === project ? { ...task, project: null } : task));
 }
 
-/** A synced task: its provider owns its fields (status, priority, dates, project, title). */
-export function isSynced(task: { external?: Pick<ExternalRef, 'state'> | null }): boolean {
-  return task.external?.state === LinkState.SYNCED;
-}
+export { isSynced } from '@renderer/components/types';
 
 /** What an optimistic write changes on a task, as every cached read shows it. */
 export type TaskPatch = Partial<

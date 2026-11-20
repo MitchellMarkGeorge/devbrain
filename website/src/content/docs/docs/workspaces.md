@@ -10,7 +10,8 @@ Nothing is shared between them, not even search.
 ## Switching, creating and opening
 
 The workspace menu, at the top left of the window, lists your workspaces. Click one to switch to it:
-DevBrain opens it on the page you last had open there. The menu also has:
+DevBrain opens it on the page you last had open there. **Back** and **Forward** stay within the
+workspace you switched to: they never take you back to the one before. The menu also has:
 
 - **New workspace…**: a name and a colour, then **Create Workspace**.
 - **Open folder…**: add a workspace from a folder, such as one copied from another computer (also

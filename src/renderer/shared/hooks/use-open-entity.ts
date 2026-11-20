@@ -13,7 +13,7 @@ export function useOpenEntity(): (entity: EntityRef) => void {
   return useCallback(
     (entity) => {
       const href = entityPath(workspaceId, entity);
-      if (href) void navigate({ href });
+      if (href) navigate({ href });
     },
     [workspaceId, navigate],
   );

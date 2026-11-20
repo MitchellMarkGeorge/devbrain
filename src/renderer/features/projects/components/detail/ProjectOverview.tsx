@@ -43,7 +43,7 @@ export function ProjectOverview({ project, header }: { project: Project; header:
   const empty = stats !== undefined && stats.totalTasks + stats.numOfCancelled === 0;
   // the Tasks tab, filtered: where a section's "N more" and the progress rows go
   const showTasks = (search: { status?: StatusFilter; due?: DueFilter; view?: 'list' }) =>
-    void navigate({ search: { tab: 'tasks', ...search }, replace: true });
+    navigate({ search: { tab: 'tasks', ...search }, replace: true });
 
   return (
     <div className={styles.overview} data-testid="project-overview">
@@ -80,7 +80,7 @@ export function ProjectOverview({ project, header }: { project: Project; header:
           <ProgressSection stats={stats} onShow={showTasks} />
           <NotesSection
             project={project}
-            onShowAll={() => void navigate({ search: { tab: 'notes' }, replace: true })}
+            onShowAll={() => navigate({ search: { tab: 'notes' }, replace: true })}
           />
         </aside>
       </div>
@@ -98,7 +98,7 @@ function MoveTasksHere() {
       variant="ghost"
       className={styles.moveHere}
       onClick={() =>
-        void navigate({
+        navigate({
           to: '/app/$workspaceId/tasks',
           params: { workspaceId },
           search: { project: 'none' },
@@ -244,7 +244,7 @@ function NotesSection({ project, onShowAll }: { project: Project; onShowAll: () 
           variant="ghost"
           icon={Plus}
           aria-label="New note"
-          onClick={() => void createNote({ projectId: project.id })}
+          onClick={() => createNote({ projectId: project.id })}
         />
       }
     >

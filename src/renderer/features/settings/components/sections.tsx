@@ -45,7 +45,7 @@ export function TasksSettings() {
                 label="Default sort"
                 value={tasks.defaultSort}
                 options={SORTS}
-                onChange={(value) => void set({ path: 'settings.tasks.defaultSort', value })}
+                onChange={(value) => set({ path: 'settings.tasks.defaultSort', value })}
               />
             }
           />
@@ -58,7 +58,7 @@ export function TasksSettings() {
                 value={`${tasks.defaultPriority}`}
                 options={PRIORITIES}
                 onChange={(value) =>
-                  void set({
+                  set({
                     path: 'settings.tasks.defaultPriority',
                     value: Number(value) as SettablePriority,
                   })
@@ -74,7 +74,7 @@ export function TasksSettings() {
                 label="Default due date"
                 value={tasks.defaultDueDate}
                 options={DUE_DATES}
-                onChange={(value) => void set({ path: 'settings.tasks.defaultDueDate', value })}
+                onChange={(value) => set({ path: 'settings.tasks.defaultDueDate', value })}
               />
             }
           />
@@ -86,7 +86,7 @@ export function TasksSettings() {
                 label="Default view"
                 value={tasks.defaultView}
                 options={VIEWS}
-                onChange={(value) => void set({ path: 'settings.tasks.defaultView', value })}
+                onChange={(value) => set({ path: 'settings.tasks.defaultView', value })}
               />
             }
           />
@@ -101,7 +101,7 @@ export function TasksSettings() {
               <SettingSwitch
                 label="Show completed tasks"
                 checked={tasks.showCompletedTasks}
-                onChange={(value) => void set({ path: 'settings.tasks.showCompletedTasks', value })}
+                onChange={(value) => set({ path: 'settings.tasks.showCompletedTasks', value })}
               />
             }
           />
@@ -141,7 +141,7 @@ export function CalendarSettingsSection() {
                 label="Week starts on"
                 value={calendar.firstDayOfWeek}
                 options={WEEK_STARTS}
-                onChange={(value) => void set({ path: 'settings.calendar.firstDayOfWeek', value })}
+                onChange={(value) => set({ path: 'settings.calendar.firstDayOfWeek', value })}
               />
             }
           />
@@ -153,9 +153,7 @@ export function CalendarSettingsSection() {
                 label="Default event length"
                 value={calendar.defaultEventDuration}
                 options={EVENT_LENGTHS}
-                onChange={(value) =>
-                  void set({ path: 'settings.calendar.defaultEventDuration', value })
-                }
+                onChange={(value) => set({ path: 'settings.calendar.defaultEventDuration', value })}
               />
             }
           />
@@ -171,7 +169,7 @@ export function CalendarSettingsSection() {
                 label="Default calendar view"
                 value={calendar.defaultView}
                 options={CALENDAR_VIEWS}
-                onChange={(value) => void set({ path: 'settings.calendar.defaultView', value })}
+                onChange={(value) => set({ path: 'settings.calendar.defaultView', value })}
               />
             }
           />
@@ -182,7 +180,7 @@ export function CalendarSettingsSection() {
               <SettingSwitch
                 label="Hide weekends"
                 checked={calendar.hideWeekends}
-                onChange={(value) => void set({ path: 'settings.calendar.hideWeekends', value })}
+                onChange={(value) => set({ path: 'settings.calendar.hideWeekends', value })}
               />
             }
           />

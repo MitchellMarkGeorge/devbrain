@@ -64,7 +64,10 @@ import { WorkspaceService } from '../../workspace/service';
 let rootPath: string;
 
 beforeEach(async () => {
-  rootPath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-registry-')), 'brain');
+  // the real path: atomically renames onto the target's real path, and macOS's temp folder is
+  // behind a symlink (/var -> /private/var), so a fault matching the path would otherwise miss
+  const tempDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-registry-')));
+  rootPath = path.join(tempDir, 'brain');
   await scaffoldDevBrain(rootPath);
 });
 

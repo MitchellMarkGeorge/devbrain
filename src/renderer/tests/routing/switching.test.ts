@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { SPLASH_MINIMUM_MS } from '@renderer/app/router';
@@ -36,6 +35,16 @@ async function onWorkTasks(main = main3(), options: { splashMinimumMs?: number }
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+/** The window bar's Back or Forward. */
+const arrow = (app: { container: HTMLElement }, label: 'Back' | 'Forward') =>
+  app.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+
+/** Whether the window bar's Back and Forward are enabled. */
+const arrows = (app: { container: HTMLElement }) => ({
+  back: arrow(app, 'Back')?.disabled === false,
+  forward: arrow(app, 'Forward')?.disabled === false,
+});
 
 afterEach(() => stopApps());
 
@@ -164,6 +173,45 @@ describe('a switch', () => {
       { id: WORK },
       { id: HOME },
     ]);
+  });
+
+  it("the window bar's Back and Forward stay within the workspace shown", async () => {
+    const main = main3();
+    const app = await onWorkTasks(main);
+    await app.router.navigate({ to: '/app/$workspaceId/notes', params: { workspaceId: WORK } });
+    await eventually(() => expect(app.text()).toContain('Work notes.list'));
+    expect(arrows(app)).toEqual({ back: true, forward: false });
+
+    await app.router.navigate({ to: '/app/$workspaceId/notes', params: { workspaceId: HOME } });
+    await eventually(() => expect(app.text()).toContain('Home notes.list'));
+    // the entry before is Work's: Back would switch
+    expect(arrows(app)).toEqual({ back: false, forward: false });
+    click(arrow(app, 'Back'));
+    await tick();
+    expect(app.path()).toBe(`/app/${HOME}/notes`);
+
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: HOME } });
+    await eventually(() => expect(app.text()).toContain('Home tasks.list'));
+    click(arrow(app, 'Back'));
+    await eventually(() => expect(app.path()).toBe(`/app/${HOME}/notes`));
+    expect(arrows(app)).toEqual({ back: false, forward: true });
+    click(arrow(app, 'Forward'));
+    await eventually(() => expect(app.path()).toBe(`/app/${HOME}/tasks`));
+    expect(main.callsTo('workspaces.open').map((call) => call.input)).toEqual([{ id: HOME }]);
+  });
+
+  it('Back stays in a workspace opened after deleting another, from onboarding', async () => {
+    const main = main3();
+    const app = await onWorkTasks(main);
+    await app.router.navigate({ to: '/app/$workspaceId/notes', params: { workspaceId: SIDE } });
+    await eventually(() => expect(app.text()).toContain('Side notes.list'));
+    await (await import('@renderer/ipc')).ipc.workspaces.delete.mutate({ id: SIDE });
+    await eventually(() => expect(app.text()).toContain('Welcome to DevBrain'));
+    click(byText(app.container, 'button', 'Work'));
+    await eventually(() => expect(app.text()).toContain('Work'));
+    await eventually(() => expect(app.path()).toMatch(new RegExp(`^/app/${WORK}/`)));
+    await eventually(() => expect(arrow(app, 'Back')).not.toBeNull());
+    expect(arrows(app)).toEqual({ back: false, forward: false });
   });
 
   it('rapid Back and Forward ends with the last navigation’s workspace open, on its page', async () => {

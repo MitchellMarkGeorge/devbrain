@@ -10,17 +10,17 @@ assigned to you, in the same lists.
 
 ## What a task has
 
-| Field             | Values                                                                               |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| **Status**        | Not started, In progress, Completed, Cancelled                                       |
-| **Priority**      | High, Medium, Low (Linear issues with no priority show **No priority**)              |
-| **Start date**    | Optional: when you mean to start                                                     |
-| **Due date**      | Optional. Today's are highlighted; open tasks past their date are marked **Overdue** |
-| **Project**       | The [project](/docs/projects/) it belongs to, if any                                 |
-| **Description**   | Rich text, written in the same [editor](/docs/notes/#the-editor) as notes            |
-| **Subtasks**      | Tasks inside the task, with their own status and dates                               |
-| **Event or note** | One [calendar event](/docs/calendar/) or one [note](/docs/notes/) it's linked to     |
-| **Pull request**  | A link to the task's pull request                                                    |
+| Field             | Values                                                                           |
+| ----------------- | -------------------------------------------------------------------------------- |
+| **Status**        | Not started, In progress, Completed, Cancelled                                   |
+| **Priority**      | High, Medium, Low (Linear issues with no priority show **No priority**)          |
+| **Start date**    | Optional: when you mean to start                                                 |
+| **Due date**      | Optional. Today's are highlighted; an open task's date turns red once it's past  |
+| **Project**       | The [project](/docs/projects/) it belongs to, if any                             |
+| **Description**   | Rich text, written in the same [editor](/docs/notes/#the-editor) as notes        |
+| **Subtasks**      | Tasks inside the task, with their own status and dates                           |
+| **Event or note** | One [calendar event](/docs/calendar/) or one [note](/docs/notes/) it's linked to |
+| **Pull request**  | A link to the task's pull request                                                |
 
 Cancelled closes a task without completing it: it doesn't count toward a project's progress.
 
@@ -32,6 +32,9 @@ Cancelled closes a task without completing it: it doesn't count toward a project
 #Website`.
 - The **+** on a group's heading or a board column, which fills in that group's status, priority or
   project for you.
+- From what you're writing in a note or a description: type **<kbd>/</kbd>task** to open **New
+  task**, or select text and choose **Turn into task**. A task made in a note is linked to that note
+  (see [Tasks from a note](/docs/notes/#tasks-from-a-note)).
 
 The **New task** dialog has the **Title**, a description, and buttons for the status, priority, due
 date and project. Its **…** button adds a start date, or a list of subtasks to create with it.

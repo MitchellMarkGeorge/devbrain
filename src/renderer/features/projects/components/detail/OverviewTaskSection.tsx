@@ -81,7 +81,9 @@ export function OverviewTaskSection({
     open: (row) => openEntity({ id: row.id }),
     setStatus: (rows, next) => actions.setStatus(full(rows), next),
     toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
-    trash: (rows) => void actions.trash(full(rows)),
+    trash: (rows) => {
+      actions.trash(full(rows));
+    },
   });
 
   return (
@@ -128,7 +130,7 @@ export function OverviewTaskSection({
         <QuickAddRow
           className={styles.quickAdd}
           onCreate={(title) =>
-            void ipc.tasks.create
+            ipc.tasks.create
               .mutate({ title, projectId: project.id, status: addStatus })
               .catch((error: unknown) => showError(error))
           }

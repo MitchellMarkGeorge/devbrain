@@ -1,5 +1,11 @@
 import { useCallback, type ReactNode } from 'react';
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  noop,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { Copy, SquareArrowOutUpRight, Video } from 'lucide-react';
 import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 import type { ExternalRef } from '@common/types';
@@ -17,46 +23,57 @@ import { trpc } from '@renderer/ipc';
 
 // The hover cards of the pills in rows and cards (TaskRow, NoteRow, BoardCard, NoteCard): each
 // loads its item through the route that reads one (`projects.get` and `projects.stats`,
-// `tasks.get`, `notes.get`, `events.get`) once a pill is pointed at, so a card opened 400ms later
+// `tasks.get`, `notes.get`, `events.get`; a subtask count `tasks.get` and `tasks.subtasks`) once a pill is pointed at, so a card opened 400ms later
 // is drawn. The query invalidator refetches them when core reports a change.
 
 // not again while what was loaded is a few seconds old: a change to it refetches it anyway
 const PREFETCH_STALE_MS = 10_000;
 
+/**
+ * Starts the reads a pill's card makes, as the pill is pointed at; the card is drawn from them. A
+ * failed read is the card's to show (its own query reads again), not the prefetch's.
+ */
 function prefetch(queryClient: QueryClient, target: PillTarget) {
   const staleTime = PREFETCH_STALE_MS;
   switch (target.type) {
     case 'project':
-      void queryClient.prefetchQuery({
-        ...trpc.projects.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
-      void queryClient.prefetchQuery({
-        ...trpc.projects.stats.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.projects.get.queryOptions({ id: target.id }), staleTime })
+        .catch(noop);
+      queryClient
+        .query({ ...trpc.projects.stats.queryOptions({ id: target.id }), staleTime })
+        .catch(noop);
       return;
     case 'task':
-      void queryClient.prefetchQuery({
-        ...trpc.tasks.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
+        .catch(noop);
+      return;
+    // the task's count, from tasks.get, over its subtasks
+    case 'subtasks':
+      queryClient
+        .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
+        .catch(noop);
+      queryClient.query({ ...subtasksCardQuery(target.id), staleTime }).catch(noop);
       return;
     case 'note':
-      void queryClient.prefetchQuery({
-        ...trpc.notes.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.notes.get.queryOptions({ id: target.id }), staleTime })
+        .catch(noop);
       return;
     case 'event':
-      void queryClient.prefetchQuery({
-        ...trpc.events.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.events.get.queryOptions({ id: target.id }), staleTime })
+        .catch(noop);
       return;
     case 'source':
       return;
   }
+}
+
+// a subtask card's subtasks: one page of `tasks.subtasks`, as many as a task usually has
+function subtasksCardQuery(id: TaskId) {
+  return trpc.tasks.subtasks.queryOptions({ id, limit: 100 });
 }
 
 // a card whose item could not be read (deleted since the list loaded): its name and why
@@ -131,7 +148,7 @@ function SourceCard({ title, external }: { title: string; external: ExternalRef 
             variant="ghost"
             icon={Copy}
             onClick={() =>
-              void navigator.clipboard
+              navigator.clipboard
                 .writeText(external.url)
                 .then(() => toast({ tone: 'success', title: 'URL copied' }))
             }
@@ -140,6 +157,21 @@ function SourceCard({ title, external }: { title: string; external: ExternalRef 
           </Button>
         </>
       }
+    />
+  );
+}
+
+function SubtasksCard({ id, title }: { id: TaskId; title: string }) {
+  const task = useQuery(trpc.tasks.get.queryOptions({ id }));
+  const subtasks = useQuery(subtasksCardQuery(id));
+  if (task.isError || subtasks.isError) {
+    return <EntityHoverCardPlaceholder title={title} message={GONE} />;
+  }
+  const progress = task.data?.subtaskProgress;
+  if (!progress || !subtasks.data) return <EntityHoverCardPlaceholder title={title} />;
+  return (
+    <EntityHoverCardContent
+      entity={{ type: 'subtasks', subtaskProgress: progress, subtasks: subtasks.data.items }}
     />
   );
 }
@@ -154,6 +186,8 @@ function PillCard({ target }: { target: PillTarget }) {
       return <NoteCard id={target.id} title={target.title || 'Untitled'} />;
     case 'event':
       return <EventCard id={target.id} title={target.title} />;
+    case 'subtasks':
+      return <SubtasksCard id={target.id} title={target.title} />;
     case 'source':
       return <SourceCard title={target.title} external={target.external} />;
   }

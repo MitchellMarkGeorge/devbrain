@@ -23,7 +23,6 @@ export function platformFromNode(nodePlatform: string): Platform {
  * macOS, which the designs are drawn for; stories pick another with `WindowFrameProvider`.
  */
 export function detectPlatform(): Platform {
-  if (typeof window === 'undefined') return 'macos';
   const nodePlatform = window.ipcBridge?.platform;
   return nodePlatform ? platformFromNode(nodePlatform) : 'macos';
 }

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { createElement, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -435,7 +434,7 @@ describe('@tanstack/react-router, as the app relies on it', () => {
     const resolved: string[] = [];
     router.subscribe('onResolved', (event) => resolved.push(event.toLocation.href));
 
-    void router.navigate({ to: '/slow' });
+    router.navigate({ to: '/slow' });
     await wait();
     await router.navigate({ to: '/go' });
     gate.resolve();

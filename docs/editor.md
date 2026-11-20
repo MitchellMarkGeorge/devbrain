@@ -58,11 +58,24 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
 - Selecting text shows the `FormatToolbar` above it (`FormatBubble.tsx`): the block type opens the
   `TurnIntoMenu`; Bold, Italic, Underline, Strikethrough and Code toggle; Link (⌘K) swaps in the
   `LinkToolbar`, which takes a bare address as https and refuses one `safeExternalUrl` won't open.
-  ⌘K with no selection and no link under the caret is left to the app's search. The colour button
-  and Turn into task are left out: text colours are not in the note format, and the editor can't
-  make tasks yet.
+  ⌘K with no selection and no link under the caret is left to the app's search. Turn into task
+  (`turn-into-task.ts`) makes a task titled with the selected text and puts a link to it, its
+  pill, where the text was: `[Ship the notes](devbrain://task/tsk_…)`. It shows for a selection
+  within one block, outside code, when the host can make tasks (`EditorHost.createTask`). The host
+  makes it with the settings' default priority and due date, as New task does; a note's editor
+  links it to the note (`linkedNoteId`) in the note's project, and a project's or task's
+  description puts it in that project. If the note changes while the task is being made, the
+  task is kept but the text is left as it is (its place may have moved); if making it fails (a
+  toast says so) the text stays. The colour button is left out: text colours are not in the
+  note format.
 - `/` opens the `SlashMenu`; "Link to note", "Link to task" and "Mention event" open the `@` menu
-  for that kind, and "Task" is left out until tasks can be made from the editor. `@` searches
+  for that kind. "Task" opens the New task dialog
+  (`EditorHost.openNewTask`), connected to what the editor is for: a note's task is linked to the
+  note in its project, a project's or task's description puts it in that project. The rest of the
+  line's text, if any, is its title; the `/task` is removed and the text left as it is: nothing is
+  linked in the note. A page passes the dialog to its editor
+  (`WorkspaceRichTextEditor`'s `openNewTaskDialog`, the tasks feature's `useCreateTask()`, which
+  `shared` doesn't import); without it the menu has no Task. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
 

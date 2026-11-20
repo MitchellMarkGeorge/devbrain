@@ -33,8 +33,8 @@ export function AppLayout() {
     if (!inSettings) lastPage.current = shown.href;
   }, [inSettings, shown.href]);
   const backToApp = () => {
-    if (lastPage.current) void router.navigate({ href: lastPage.current });
-    else void router.navigate({ to: '/app/$workspaceId/home', params: { workspaceId } });
+    if (lastPage.current) router.navigate({ href: lastPage.current });
+    else router.navigate({ to: '/app/$workspaceId/home', params: { workspaceId } });
   };
   const position = useHistoryPosition();
   const openSearch = useOpenSearch();
@@ -55,8 +55,12 @@ export function AppLayout() {
     <WorkspaceShell
       controlsRef={shell}
       sidebar={inSettings ? <SettingsSidebar onBack={backToApp} /> : <AppSidebar />}
-      onBack={() => router.history.back()}
-      onForward={() => router.history.forward()}
+      onBack={() => {
+        if (position.canGoBack) router.history.back();
+      }}
+      onForward={() => {
+        if (position.canGoForward) router.history.forward();
+      }}
       canGoBack={position.canGoBack}
       canGoForward={position.canGoForward}
       workspace={<WorkspaceMenu />}

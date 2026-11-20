@@ -50,7 +50,7 @@ export class FakeAuthServer {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     const fake = new FakeAuthServer(server, `http://127.0.0.1:${port}`, client);
-    server.on('request', (req, res) => void fake.handle(req, res));
+    server.on('request', (req, res) => fake.handle(req, res));
     return fake;
   }
 
@@ -120,7 +120,10 @@ export class FakeAuthServer {
 
   private token(recorded: RecordedPost, res: ServerResponse): void {
     this.tokenRequests.push(recorded);
-    if (this.tokenStatus !== null) return void res.writeHead(this.tokenStatus).end();
+    if (this.tokenStatus !== null) {
+      res.writeHead(this.tokenStatus).end();
+      return;
+    }
     if (!this.clientIsValid(recorded)) return json(res, 401, { error: 'invalid_client' });
 
     const { params } = recorded;
@@ -234,6 +237,6 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
-  if (body === null) return void res.writeHead(status).end();
-  res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
+  if (body === null) res.writeHead(status).end();
+  else res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
 }

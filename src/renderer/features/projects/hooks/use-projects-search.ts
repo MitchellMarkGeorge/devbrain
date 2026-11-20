@@ -20,7 +20,7 @@ export function useProjectsSearch(): {
   const navigate = projectsRoute.useNavigate();
   const setSearch = useCallback(
     (patch: Partial<ProjectsSearch>) =>
-      void navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true }),
+      navigate({ search: (previous) => ({ ...previous, ...patch }), replace: true }),
     [navigate],
   );
   return { search, resolved: resolveProjectsSearch(search), setSearch };

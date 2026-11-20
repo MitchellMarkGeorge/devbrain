@@ -105,8 +105,8 @@ export function TrashList({
                 joinNext={isSelectedAt(virtual.index) && isSelectedAt(virtual.index + 1)}
                 onSelect={onToggle && (() => onToggle(item))}
                 onOpen={() => actions.open(item)}
-                onRestore={() => void actions.restore(item)}
-                onDelete={() => void actions.remove(item)}
+                onRestore={() => actions.restore(item)}
+                onDelete={() => actions.remove(item)}
               >
                 {pills}
               </TrashRow>
@@ -125,14 +125,14 @@ export function TrashList({
             >
               Open
             </ContextMenuItem>
-            <ContextMenuItem icon={RotateCcw} onClick={() => void actions.restore(menuItem)}>
+            <ContextMenuItem icon={RotateCcw} onClick={() => actions.restore(menuItem)}>
               Restore
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               icon={Trash2}
               variant="destructive"
-              onClick={() => void actions.remove(menuItem)}
+              onClick={() => actions.remove(menuItem)}
             >
               Delete permanently
             </ContextMenuItem>

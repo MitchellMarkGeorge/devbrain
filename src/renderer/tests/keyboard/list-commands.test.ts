@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TaskStatus } from '@common/types';
 import { defaultKeymap } from '@renderer/keyboard/default-keymap';

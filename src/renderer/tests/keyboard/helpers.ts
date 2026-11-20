@@ -36,7 +36,14 @@ export function press(target: EventTarget, key: string, options: PressOptions = 
 /** a command that records each run's args */
 export function recorder(id: string, scope: Command['scope'] = 'global') {
   const calls: CommandArgs[] = [];
-  const command: Command = { id, title: id, scope, run: (_ctx, args) => void calls.push(args) };
+  const command: Command = {
+    id,
+    title: id,
+    scope,
+    run: (_ctx, args) => {
+      calls.push(args);
+    },
+  };
   return { command, calls };
 }
 

@@ -126,7 +126,7 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
           icon={CornerUpLeft}
           disabled={synced}
           onClick={() =>
-            void ipc.tasks.promote
+            ipc.tasks.promote
               .mutate({ id: task.id })
               .catch((error: unknown) => showError(error, 'Couldn’t make it a top-level task'))
           }
@@ -138,11 +138,11 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
           Make subtask of…
         </DropdownMenuItem>
       )}
-      <DropdownMenuItem icon={Copy} shortcut="⌘D" onClick={() => void duplicate()}>
+      <DropdownMenuItem icon={Copy} shortcut="⌘D" onClick={() => duplicate()}>
         Duplicate
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={Code} onClick={() => void copyAsMarkdown()}>
+      <DropdownMenuItem icon={Code} onClick={() => copyAsMarkdown()}>
         Copy as Markdown
       </DropdownMenuItem>
       {external && (
@@ -157,7 +157,7 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
           <DropdownMenuItem
             icon={Copy}
             onClick={() =>
-              void navigator.clipboard
+              navigator.clipboard
                 .writeText(external.url)
                 .then(() => toast({ tone: 'success', title: `${provider} URL copied` }))
             }
@@ -170,7 +170,7 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
             </DropdownMenuItem>
           )}
           {detached && (
-            <DropdownMenuItem icon={RotateCcw} onClick={() => void reattach()}>
+            <DropdownMenuItem icon={RotateCcw} onClick={() => reattach()}>
               Reattach to {provider}
             </DropdownMenuItem>
           )}

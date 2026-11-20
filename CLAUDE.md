@@ -274,7 +274,9 @@ go through this list:
 - **An integration's logo or the app's brand assets:** two of the site's marks are copies of the
   app's in `src/renderer/components/entities/ProviderLogo/marks.tsx`: Google Calendar's logo
   (`website/src/assets/brand/google-calendar.svg`) and GitHub's mark
-  (`website/src/components/GitHubMark.astro`); change both. The logomark and Linear's mark are read
+  (`website/src/components/GitHubMark.astro`); change both. The home page's drawn rows also copy two app glyphs: the in-progress circle
+  (`website/src/components/InProgressIcon.astro`, from `CoreCircle`) and the priority gauge
+  (`website/src/components/PriorityIcon.astro`, from `PriorityIcon`); change those with the app's too. The logomark and Linear's mark are read
   from the app. Other icons are Lucide's, from `@lucide/astro` at the app's `lucide-react` version:
   upgrade the two together.
 - **Platforms, installers or how DevBrain is installed and updated:** update the download page, the

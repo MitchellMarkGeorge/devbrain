@@ -108,7 +108,7 @@ export function useIntegrationFlows(): IntegrationFlows {
         if (provider === Provider.LINEAR) {
           modals.open((props) => <LinearKeyDialog {...props} workspaceName={workspaceName} />);
         } else {
-          void signIn();
+          signIn();
         }
       },
       reconnect(integration) {
@@ -117,14 +117,14 @@ export function useIntegrationFlows(): IntegrationFlows {
             <LinearKeyDialog {...props} workspaceName={workspaceName} reconnect={integration} />
           ));
         } else {
-          void signIn(integration);
+          signIn(integration);
         }
       },
       async disconnect(integration) {
         const { name } = providerEntry(integration.provider);
         let preview;
         try {
-          preview = await queryClient.fetchQuery({
+          preview = await queryClient.query({
             ...trpc.integrations.previewDisconnect.queryOptions({ id: integration.id }),
             staleTime: 0,
           });

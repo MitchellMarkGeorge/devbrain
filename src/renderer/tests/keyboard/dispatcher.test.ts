@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { button, keymap, press, recorder, scoped, setUp } from './helpers';
 
@@ -250,7 +249,14 @@ describe('scopes', () => {
     const { registry } = start(keymap([{ scope: 'list', keys: 'j', command: 'list.down' }]));
     let scopes: readonly string[] = [];
     registry.register([
-      { id: 'list.down', title: 'Down', scope: 'list', run: (ctx) => void (scopes = ctx.scopes) },
+      {
+        id: 'list.down',
+        title: 'Down',
+        scope: 'list',
+        run: (ctx) => {
+          scopes = ctx.scopes;
+        },
+      },
     ]);
     const page = scoped(document.body, 'page');
     press(button(scoped(page, 'list')), 'j');

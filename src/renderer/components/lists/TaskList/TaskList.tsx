@@ -17,6 +17,7 @@ import { SIZE, SPACING } from '@renderer/styles/tokens';
 import { SelectionBar } from '../SelectionBar';
 import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';
+import { isSynced } from '../../types';
 import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
 import styles from './TaskList.module.css';
 
@@ -122,7 +123,7 @@ export interface TaskListHandle {
   toggleSelected(): void;
   /** selects nothing */
   clearSelection(): void;
-  /** opens the focused row's status menu */
+  /** opens the focused row's status menu; a synced task's status has none */
   openStatusMenu(): void;
 }
 
@@ -338,7 +339,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       },
       clearSelection: () => setSelected(new Set()),
       openStatusMenu: () => {
-        if (focusedId) setMenuOpenId(focusedId);
+        const task = focusedId ? taskAt(indexOfId(focusedId)) : undefined;
+        if (focusedId && task && !isSynced(task)) setMenuOpenId(focusedId);
       },
     };
   });

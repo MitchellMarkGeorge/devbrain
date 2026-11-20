@@ -58,7 +58,7 @@ export function ImportExportSettings() {
           label="Import tasks"
           description="From a CSV or JSON file."
           control={
-            <Button disabled={disabled} onClick={() => void transfers.importTasks()}>
+            <Button disabled={disabled} onClick={() => transfers.importTasks()}>
               Choose File
             </Button>
           }
@@ -67,7 +67,7 @@ export function ImportExportSettings() {
           label="Import notes"
           description="From Markdown files."
           control={
-            <Button disabled={disabled} onClick={() => void transfers.importNotes()}>
+            <Button disabled={disabled} onClick={() => transfers.importNotes()}>
               Choose Files
             </Button>
           }
@@ -79,10 +79,10 @@ export function ImportExportSettings() {
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button disabled={disabled}>Export</Button>} />
               <DropdownMenuContent width="sm" align="end">
-                <DropdownMenuItem onClick={() => void transfers.exportTasks('csv')}>
+                <DropdownMenuItem onClick={() => transfers.exportTasks('csv')}>
                   CSV
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void transfers.exportTasks('json')}>
+                <DropdownMenuItem onClick={() => transfers.exportTasks('json')}>
                   JSON
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -93,7 +93,7 @@ export function ImportExportSettings() {
           label="Export notes"
           description="Download as Markdown files."
           control={
-            <Button disabled={disabled} onClick={() => void transfers.exportNotes()}>
+            <Button disabled={disabled} onClick={() => transfers.exportNotes()}>
               Export
             </Button>
           }

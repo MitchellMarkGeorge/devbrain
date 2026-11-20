@@ -85,7 +85,7 @@ export function TrashPage() {
             onValueChange={(value) => {
               // a selection belongs to the rows it was made on
               setSelected(new Set());
-              void navigate({
+              navigate({
                 search: (previous) => ({
                   ...previous,
                   tab: value === 'all' ? undefined : (value as TrashTab),
@@ -117,7 +117,7 @@ export function TrashPage() {
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button icon={Trash2} disabled={!trashHasItems} onClick={() => void actions.empty()}>
+            <Button icon={Trash2} disabled={!trashHasItems} onClick={() => actions.empty()}>
               Empty Trash
             </Button>
           </>
@@ -131,7 +131,7 @@ export function TrashPage() {
             title="The trash couldn’t be loaded"
             description="Something went wrong reading this workspace’s trash."
             action={
-              <Button size="sm" onClick={() => void list.refetch()}>
+              <Button size="sm" onClick={() => list.refetch()}>
                 Retry
               </Button>
             }
@@ -146,7 +146,7 @@ export function TrashPage() {
               selected={listedSelection}
               onToggle={(item) => toggle(item.id)}
               onEndReached={() => {
-                if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();
+                if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
               }}
               footer={
                 items.length > 0 && (

@@ -1,8 +1,8 @@
-import { Activity, Circle, CirclePause, type LucideIcon } from 'lucide-react';
+import { Circle, CirclePause, type LucideIcon } from 'lucide-react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { Icon } from '../../ui/Icon';
-import { FilledCheck } from '../StatusIcon';
+import { CoreCircle, FilledCheck } from '../StatusIcon';
 import { ProjectStatus } from '@common/types';
 import { PROJECT_STATUS_LABELS } from '../../types';
 import styles from './ProjectStatusIcon.module.css';
@@ -21,9 +21,11 @@ export const projectStatusIconVariants = cva(styles.icon, {
   defaultVariants: { status: ProjectStatus.NOT_STARTED },
 });
 
-const ICONS: Record<Exclude<ProjectStatus, ProjectStatus.COMPLETED>, LucideIcon> = {
+const ICONS: Record<
+  Exclude<ProjectStatus, ProjectStatus.COMPLETED | ProjectStatus.ACTIVE>,
+  LucideIcon
+> = {
   [ProjectStatus.NOT_STARTED]: Circle,
-  [ProjectStatus.ACTIVE]: Activity,
   [ProjectStatus.ON_HOLD]: CirclePause,
 };
 
@@ -36,7 +38,7 @@ export interface ProjectStatusIconProps {
 
 /**
  * A project's status (core's `ProjectStatus`) as a glyph in a task status's colour: `not-started` circle, `active`
- * activity line (in-progress orange), `on-hold` paused circle (grey), `completed` filled check.
+ * circle with a solid core (in-progress amber), `on-hold` paused circle (grey), `completed` filled check.
  * It carries the status's name for screen readers. Shown in the status pill on project cards,
  * rows and headers; health is not shown for now (`HealthIcon`).
  */
@@ -45,5 +47,7 @@ export function ProjectStatusIcon({ status, size = 16, className }: ProjectStatu
   const classes = cn(projectStatusIconVariants({ status }), className);
   if (status === ProjectStatus.COMPLETED)
     return <FilledCheck size={size} label={label} className={classes} />;
+  if (status === ProjectStatus.ACTIVE)
+    return <CoreCircle size={size} label={label} className={classes} />;
   return <Icon icon={ICONS[status]} size={size} label={label} className={classes} />;
 }

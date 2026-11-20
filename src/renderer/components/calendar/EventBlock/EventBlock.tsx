@@ -39,8 +39,6 @@ export interface EventBlockProps
   color?: Swatch | string;
   /** a scheduled task's status (`task` only) */
   status?: TaskStatus;
-  /** a scheduled task past its due date and not started: the flag (`task` only) */
-  overdue?: boolean;
   /** shows the video icon: the event has a meeting link */
   meeting?: boolean;
   tentative?: boolean;
@@ -58,7 +56,6 @@ export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function E
     time,
     color,
     status = TaskStatus.NOT_STARTED,
-    overdue,
     meeting,
     size,
     kind,
@@ -82,8 +79,9 @@ export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function E
         'data-kind': k,
         children: (
           <>
+            {/* think about this */}
             {k === 'task' ? (
-              <StatusIcon status={status} overdue={overdue} size={12} className={styles.glyph} />
+              <StatusIcon status={status} size={12} className={styles.glyph} />
             ) : (
               <span className={styles.bar} />
             )}

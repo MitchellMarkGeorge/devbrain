@@ -1,3 +1,4 @@
+import { noop } from '@tanstack/react-query';
 import { notFound } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
 import type { TaskId } from '@common/ids';
@@ -83,6 +84,6 @@ export async function loadTask(context: RouterContext, id: TaskId) {
     if (ipcErrorCode(error) === 'not_found') throw notFound();
     throw error;
   }
-  void queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime: 'static' }).catch(() => {});
+  queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime: 'static' }).catch(noop);
   await primeLinks(context, task);
 }

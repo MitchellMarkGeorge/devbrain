@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
-import { TaskPriority, TaskStatus } from '@common/types';
+import { LinkState, TaskPriority, TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
-import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS, sampleTask } from './fixtures';
+import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS, sampleLinear, sampleTask } from './fixtures';
 import { TaskRow } from './TaskRow';
 
 const meta = {
@@ -37,9 +37,10 @@ const Label = ({ children }: { children: string }) => (
 );
 
 /**
- * Rest, hover, selected, keyboard focus, completed, overdue and subtask. Overdue is worked out
- * from the status and due date: a task not started shows the flag; one in progress keeps its icon,
- * with its date in red.
+ * Rest, hover, selected, keyboard focus, completed, overdue, synced and subtask. Overdue is worked
+ * out from the status and due date: the task keeps its status icon, with its date in red. A synced
+ * task's status is its provider's: the icon is not a button (pointing at it shows no tint) and opens
+ * no menu. A detached task is a local copy, and its icon opens the menu again.
  */
 export const States: Story = {
   render: () => (
@@ -70,6 +71,24 @@ export const States: Story = {
           title: 'Prototype a menu bar app',
           status: TaskStatus.CANCELLED,
           dueDate: storyDate(-5),
+        })}
+      />
+      <Label>Synced: no status menu</Label>
+      <TaskRow
+        task={sampleTask({
+          title: 'Rotate the webhook signing secret',
+          status: TaskStatus.IN_PROGRESS,
+          external: sampleLinear('ENG-150'),
+          dueDate: storyDate(3),
+        })}
+      />
+      <Label>Detached: a local copy, with its menu</Label>
+      <TaskRow
+        task={sampleTask({
+          title: 'Move the cron jobs to the queue',
+          status: TaskStatus.NOT_STARTED,
+          external: { ...sampleLinear('ENG-151'), state: LinkState.DETACHED },
+          dueDate: storyDate(4),
         })}
       />
       <Label>Subtask</Label>

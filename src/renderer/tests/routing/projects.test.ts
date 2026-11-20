@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { ProjectStatus, TaskStatus } from '@common/types';

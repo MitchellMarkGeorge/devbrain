@@ -7,15 +7,16 @@ import {
 } from 'react';
 import { PreviewCard } from '@base-ui/react/preview-card';
 import { Clock, FileText, Folder, MapPin, Repeat } from 'lucide-react';
-import type {
-  Event,
-  ExternalRef,
-  NoteListItem,
-  Project,
-  ProjectStats,
-  ProjectSummary,
-  SubtaskProgress,
-  Task,
+import {
+  TaskStatus,
+  type Event,
+  type ExternalRef,
+  type NoteListItem,
+  type Project,
+  type ProjectStats,
+  type ProjectSummary,
+  type SubtaskProgress,
+  type Task,
 } from '@common/types';
 import { cn, mergeClassName } from '../../lib/cn';
 import { dueText, useFormat } from '../../lib/format';
@@ -31,18 +32,18 @@ import { SourcePill } from '../SourcePill';
 import { StatusIcon } from '../StatusIcon';
 import { eventTimeRange, repeatLabel } from '../../event-text';
 import {
-  isOverdue,
   percentOf,
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
   PROVIDER_LABELS,
   providerOf,
   resolveColor,
-  showsOverdueFlag,
+  subtasksDoneLabel,
+  isClosed,
 } from '../../types';
 import styles from './EntityHoverCard.module.css';
 
-export type EntityHoverCardType = 'project' | 'event' | 'note' | 'task' | 'source';
+export type EntityHoverCardType = 'project' | 'event' | 'note' | 'task' | 'source' | 'subtasks';
 
 /**
  * What a hover card previews: core's row for it, with its `type`. Each picks the fields it shows;
@@ -70,7 +71,16 @@ export type HoverCardEntity =
   /** a synced task's key: its status in the provider and when it last synced */
   | ({ type: 'source' } & Pick<Task, 'title'> & {
         external: Pick<ExternalRef, 'provider' | 'key' | 'statusLabel' | 'lastSyncedAt'>;
-      });
+      })
+  /**
+   * a task's subtask count: how many are done, then its subtasks (`tasks.subtasks`, cancelled ones
+   * left out as the count leaves them out), open ones first
+   */
+  | {
+      type: 'subtasks';
+      subtaskProgress: SubtaskProgress;
+      subtasks: Pick<Task, 'id' | 'title' | 'status'>[];
+    };
 
 export interface EntityHoverCardContentProps extends Omit<
   ComponentPropsWithoutRef<'div'>,
@@ -86,7 +96,7 @@ function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-function HeaderGlyph({ entity, now }: { entity: HoverCardEntity; now: Date }) {
+function HeaderGlyph({ entity }: { entity: HoverCardEntity }) {
   switch (entity.type) {
     case 'event':
       return (
@@ -95,13 +105,20 @@ function HeaderGlyph({ entity, now }: { entity: HoverCardEntity; now: Date }) {
     case 'note':
       return <Icon icon={FileText} size={16} className={styles.mutedGlyph} />;
     case 'task': {
-      const flag = showsOverdueFlag(entity.status, isOverdue(entity.status, entity.dueDate, now));
-      return <StatusIcon status={entity.status} overdue={flag} size={16} />;
+      return <StatusIcon status={entity.status} size={16} />;
     }
     case 'source':
       return <ProviderLogo provider={providerOf(entity.external)} size={16} />;
     case 'project':
       return <Icon icon={Folder} size={16} className={styles.projectGlyph} />;
+    case 'subtasks':
+      return (
+        <ProgressRing
+          value={entity.subtaskProgress.completed}
+          total={entity.subtaskProgress.total}
+          size={16}
+        />
+      );
   }
 }
 
@@ -110,14 +127,51 @@ function titleOf(entity: HoverCardEntity): string {
   if (entity.type === 'source' && entity.external.key) {
     return `${entity.external.key} · ${entity.title}`;
   }
+  if (entity.type === 'subtasks') return subtasksDoneLabel(entity.subtaskProgress);
   return entity.title;
 }
 
 interface Parts {
   pills?: ReactNode;
+  list?: ReactNode;
   meta?: ReactNode[];
   preview?: ReactNode;
   progress?: { value: number; label: ReactNode };
+}
+
+// a subtask card lists this many, then says how many more there are
+const SUBTASKS_SHOWN = 5;
+
+/** A subtask card's list: each with its status icon, open ones first, then "2 more". */
+function SubtaskList({ subtasks }: { subtasks: Pick<Task, 'id' | 'title' | 'status'>[] }) {
+  const listed = subtasks.filter((subtask) => subtask.status !== TaskStatus.CANCELLED);
+  const ordered = [
+    ...listed.filter((subtask) => !isClosed(subtask.status)),
+    ...listed.filter((subtask) => isClosed(subtask.status)),
+  ];
+  const shown = ordered.slice(0, SUBTASKS_SHOWN);
+  const more = ordered.length - shown.length;
+  return (
+    <>
+      <ul className={styles.subtasks}>
+        {shown.map((subtask) => (
+          <li
+            key={subtask.id}
+            className={styles.subtask}
+            data-closed={isClosed(subtask.status) ? '' : undefined}
+          >
+            <StatusIcon status={subtask.status} size={12} />
+            <span className={styles.metaText}>{subtask.title || 'Untitled'}</span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 && (
+        <div className={styles.meta}>
+          <span className={styles.metaText}>{more} more</span>
+        </div>
+      )}
+    </>
+  );
 }
 
 /** What the card shows below its header, worded from the entity. */
@@ -158,7 +212,7 @@ function usePartsOf(entity: HoverCardEntity): Parts {
             {progress && (
               <EntityPill
                 glyph={<ProgressRing value={progress.completed} total={progress.total} size={12} />}
-                title={`${progress.completed} of ${progress.total} subtasks done`}
+                aria-label={subtasksDoneLabel(progress)}
               >
                 {progress.completed}/{progress.total}
               </EntityPill>
@@ -170,6 +224,8 @@ function usePartsOf(entity: HoverCardEntity): Parts {
         ),
       };
     }
+    case 'subtasks':
+      return { list: <SubtaskList subtasks={entity.subtasks} /> };
     case 'note': {
       const edited = `Edited ${lowerFirst(format.formatRelative(entity.updatedAt))}`;
       return {
@@ -219,8 +275,7 @@ function usePartsOf(entity: HoverCardEntity): Parts {
  */
 export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCardContentProps>(
   function EntityHoverCardContent({ entity, actions, className, style, children, ...props }, ref) {
-    const { now } = useFormat();
-    const { pills, meta, preview, progress } = usePartsOf(entity);
+    const { pills, list, meta, preview, progress } = usePartsOf(entity);
     const color =
       entity.type === 'project' || entity.type === 'event' ? resolveColor(entity.color) : undefined;
     const vars = color ? ({ '--entity-color': color } as CSSProperties) : undefined;
@@ -234,10 +289,11 @@ export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCard
         {...props}
       >
         <div className={styles.head}>
-          <HeaderGlyph entity={entity} now={now} />
+          <HeaderGlyph entity={entity} />
           <span className={styles.title}>{title}</span>
         </div>
         {pills != null && <div className={styles.pills}>{pills}</div>}
+        {list}
         {meta?.map((line, i) => (
           <div key={i} className={styles.meta}>
             {line}

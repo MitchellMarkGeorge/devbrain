@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { applyBlockType, currentBlockType } from '@renderer/editor/block-types';

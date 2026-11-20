@@ -77,7 +77,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   const [sheetTask, setSheetTask] = useState(open);
   if (open && open !== sheetTask) setSheetTask(open);
   const openTask = (id: TaskId) =>
-    void navigateHere({
+    navigateHere({
       search: (previous) => ({ ...previous, open: id }),
       state: (previous) => ({ ...previous, openedSheet: true }),
     });
@@ -109,12 +109,12 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   async function trash() {
     if (!(await actions.trash([note]))) return;
     if (canGoBack) router.history.back();
-    else void navigate({ to: '/app/$workspaceId/notes', params: { workspaceId }, replace: true });
+    else navigate({ to: '/app/$workspaceId/notes', params: { workspaceId }, replace: true });
   }
 
   const newTask = () => createTask({ defaults: { linkedNoteId: note.id } });
   const linkTask = (id: TaskId) =>
-    void ipc.tasks.updateLinks
+    ipc.tasks.updateLinks
       .mutate({ id, linkedNoteId: note.id })
       .catch((error: unknown) => showError(error, 'Couldn’t link the task'));
 
@@ -128,7 +128,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
               favorite={note.favoritedAt !== null}
               onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
             />
-            <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
+            <NoteDetailMenu note={note} actions={actions} onTrash={() => trash()} />
           </>
         )
       }
@@ -139,7 +139,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
             <TrashedNotice
               noun="note"
               onRestore={() =>
-                void ipc.archive.restoreNote
+                ipc.archive.restoreNote
                   .mutate({ id: note.id })
                   .catch((error: unknown) => showError(error, 'Couldn’t restore the note'))
               }
@@ -192,9 +192,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
         <TaskSheet
           taskId={sheetTask}
           open={open !== undefined}
-          onClose={() =>
-            void navigateHere({ search: (previous) => ({ ...previous, open: undefined }) })
-          }
+          onClose={() => navigateHere({ search: (previous) => ({ ...previous, open: undefined }) })}
           onClosed={() => setSheetTask(undefined)}
         />
       )}

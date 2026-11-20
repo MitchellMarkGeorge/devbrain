@@ -37,7 +37,7 @@ export function ChooseWorkspace() {
             size="sm"
             className={styles.more}
             disabled={isFetchingNextPage}
-            onClick={() => void fetchNextPage()}
+            onClick={() => fetchNextPage()}
           >
             Show More
           </Button>

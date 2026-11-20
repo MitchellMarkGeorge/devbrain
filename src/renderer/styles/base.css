@@ -50,6 +50,37 @@ select {
   font: inherit;
 }
 
+/*
+ * Text is selected only where the user writes or reads their own words, as in a native app: the
+ * page's chrome (the sidebar, rows, cards, pills, buttons, headings) isn't, so a click or a drag
+ * across it never highlights its labels. Fields and the editor are (its read-only form in Trash,
+ * and a synced task's title, too: `contenteditable="false"`), with the text cursor over their
+ * text; elsewhere the pointer stays an arrow over text.
+ */
+body {
+  cursor: default;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable] {
+  cursor: auto;
+  user-select: text;
+}
+
+/*
+ * Links and images are the app's controls (sidebar items, cards, rows), not things to drag out of
+ * the window. The browser drags a link's URL natively, and while it does the page hears no pointer
+ * events, so whatever was pointed at stays highlighted (a sidebar item, a row, a pill's hover card)
+ * until the pointer moves again after the drop. The editor needs no exception: its images are
+ * pills, and the browser never drags a link out of an editable area (ProseMirror drags selections
+ * itself).
+ */
+a,
+img {
+  -webkit-user-drag: none;
+}
+
 p,
 h1,
 h2,

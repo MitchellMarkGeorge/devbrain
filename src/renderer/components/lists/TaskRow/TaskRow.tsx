@@ -18,7 +18,7 @@ import { cn } from '../../lib/cn';
 import { Badge } from '../../ui/Badge';
 import { Checkbox } from '../../ui/Checkbox';
 import { EntityPill } from '../../entities/EntityPill';
-import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
+import { linkTarget, PillHoverCard, subtasksTarget } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
@@ -27,15 +27,7 @@ import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
 import { LinkState, TaskStatus } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import {
-  dueTone,
-  isClosed,
-  isOverdue,
-  OVERDUE_LABEL,
-  providerOf,
-  showsOverdueFlag,
-  TASK_STATUS_LABELS,
-} from '../../types';
+import { dueTone, isClosed, isSynced, providerOf, TASK_STATUS_LABELS } from '../../types';
 import type { TaskRowData } from './types';
 import styles from './TaskRow.module.css';
 
@@ -120,13 +112,17 @@ function spreadWidth(deck: HTMLElement): number {
  * The pills on one side of the title, stacked like a deck when the row runs out of room: the last
  * in full, the ones behind showing their edge and icon. Pointing at the stack or focusing it
  * spreads it out on top of the row, over the end of the title, without moving anything: the
- * pills behind grow to full width and their labels fade in. Leaving folds them back the same way.
+ * pills behind grow to full width and their labels fade in. Leaving folds them back the same way,
+ * once the hover card a pill opened has closed (the pointer may have gone on to it).
  */
 function PillStack({ stacked, children }: { stacked: boolean; children: ReactNode }) {
   const pills = Children.toArray(children);
   const ref = useRef<HTMLSpanElement>(null);
   const deckRef = useRef<HTMLSpanElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // while a pill's hover card is open after the pointer left the stack: folds the deck once it
+  // closes
+  const cardWatch = useRef<MutationObserver | null>(null);
   // the stacked width, kept while the deck is spread (and while it folds back) so the row does
   // not reflow
   const [spreadFrom, setSpreadFrom] = useState<number | null>(null);
@@ -164,18 +160,44 @@ function PillStack({ stacked, children }: { stacked: boolean; children: ReactNod
     setCover({ shift, pad });
   }, [open]);
 
-  useLayoutEffect(() => () => clearTimeout(closeTimer.current), []);
+  useLayoutEffect(
+    () => () => {
+      clearTimeout(closeTimer.current);
+      cardWatch.current?.disconnect();
+    },
+    [],
+  );
 
   if (pills.length === 0) return null;
 
   function spread() {
     if (!isStacked || !ref.current) return;
+    cardWatch.current?.disconnect();
+    cardWatch.current = null;
     clearTimeout(closeTimer.current);
     setClosing(false);
     if (spreadFrom == null) setSpreadFrom(ref.current.offsetWidth);
   }
   function close() {
     if (spreadFrom == null) return;
+    // the pointer went on to a pill's hover card (portalled outside the stack), or focus opened
+    // one: the deck stays spread, so the card stays by its pill, and folds once the card closes
+    const deck = deckRef.current;
+    if (deck?.querySelector('[data-popup-open]')) {
+      if (cardWatch.current) return;
+      const watch = new MutationObserver(() => {
+        if (deck.querySelector('[data-popup-open]')) return;
+        watch.disconnect();
+        cardWatch.current = null;
+        fold();
+      });
+      watch.observe(deck, { subtree: true, attributeFilter: ['data-popup-open'] });
+      cardWatch.current = watch;
+      return;
+    }
+    fold();
+  }
+  function fold() {
     setClosing(true);
     clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => {
@@ -290,7 +312,7 @@ function useAutoStack(
     if (!enabled || !row) return;
     const observer = new ResizeObserver(() => fit());
     observer.observe(row);
-    void document.fonts?.ready.then(() => fit());
+    document.fonts?.ready.then(() => fit());
     return () => observer.disconnect();
   }, [enabled, rowRef, fit]);
 
@@ -313,9 +335,10 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 
 /**
  * One task in a strokeless list, drawn from core's `TaskListItem`: the status button (opening the
- * `StatusMenu`; the flag while the task is overdue and not started), the title, its key, parent
+ * `StatusMenu`), the title, its key, parent
  * and subtask pills, then the linked event or note and the project, priority and the due date
- * ("Today", "Jul 1", from `useFormat()`) on the right. Use it inside `TaskList`, which handles
+ * (always the date, "Jul 1" or "Dec 2025", from `useFormat()`'s `formatListDate`; colour
+ * says when it is today or overdue) on the right. Use it inside `TaskList`, which handles
  * selection and focus.
  *
  * It binds no keys: the app's keymap opens its status menu (`menuOpen`), selects it (`onSelect`)
@@ -354,7 +377,8 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     },
     [ref],
   );
-  const { now, formatDue } = useFormat();
+  const { now, formatListDate } = useFormat();
+  const synced = isSynced(task);
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
   const leftPills = [key, task.parentTask, subtasks].filter(Boolean).length;
@@ -378,8 +402,6 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   const menuOpen = menuOpenProp ?? menuOpenState;
   const selected = !!selectedProp;
   const completed = status === TaskStatus.COMPLETED;
-  const overdue = isOverdue(status, task.dueDate, now);
-  const flag = showsOverdueFlag(status, overdue);
   const tone = dueTone(status, task.dueDate, now);
 
   function setMenuOpen(open: boolean) {
@@ -391,6 +413,35 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     onClick?.(event);
     if (!event.defaultPrevented && onOpen && !fromControl(event)) onOpen();
   }
+
+  const statusIcon = <StatusIcon status={status} />;
+
+  // a synced task's status is its provider's: the icon alone, in the button's place
+  const taskStatus = synced ? (
+    <span className={styles.status} data-readonly="">
+      {statusIcon}
+    </span>
+  ) : (
+    <StatusMenu
+      status={status}
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      onStatusChange={(next) => {
+        setPicked({ from: task.status, to: next });
+        onStatusChange?.(next);
+      }}
+      trigger={
+        <button
+          type="button"
+          className={styles.status}
+          tabIndex={-1}
+          aria-label={`Status: ${TASK_STATUS_LABELS[status]}`}
+        >
+          {statusIcon}
+        </button>
+      }
+    />
+  );
 
   return (
     <div
@@ -404,7 +455,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-join-next={joinNext ? '' : undefined}
       data-state={state}
       data-completed={completed ? '' : undefined}
-      data-menu-open={menuOpen ? '' : undefined}
+      data-menu-open={menuOpen && !synced ? '' : undefined}
       className={cn(taskRowVariants({ subtask, compact }), className)}
       onClick={handleClick}
       {...props}
@@ -418,25 +469,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           aria-label={`Select ${task.title}`}
         />
       )}
-      <StatusMenu
-        status={status}
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onStatusChange={(next) => {
-          setPicked({ from: task.status, to: next });
-          onStatusChange?.(next);
-        }}
-        trigger={
-          <button
-            type="button"
-            className={styles.status}
-            tabIndex={-1}
-            aria-label={`Status: ${flag ? OVERDUE_LABEL : TASK_STATUS_LABELS[status]}`}
-          >
-            <StatusIcon status={status} overdue={flag} />
-          </button>
-        }
-      />
+      {taskStatus}
       <div className={styles.title} data-title="">
         <span className={styles.name} data-name="">
           {task.title}
@@ -453,12 +486,14 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             </PillHoverCard>
           )}
           {subtasks && (
-            <Badge
-              muted
-              icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
-            >
-              {subtasks.completed}/{subtasks.total}
-            </Badge>
+            <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
+              <Badge
+                muted
+                icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
+              >
+                {subtasks.completed}/{subtasks.total}
+              </Badge>
+            </PillHoverCard>
           )}
         </PillStack>
       </div>
@@ -486,7 +521,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           )}
         >
           {task.dueDate
-            ? formatDue(task.dueDate)
+            ? formatListDate(task.dueDate)
             : onDueDateChange &&
               !isClosed(status) &&
               task.external?.state !== LinkState.SYNCED && (

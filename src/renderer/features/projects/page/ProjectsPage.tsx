@@ -56,7 +56,7 @@ export function ProjectsPage() {
     [query.data],
   );
   const onEndReached = () => {
-    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+    if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
   };
   // the project whose row or card was right-clicked: the menu is drawn for it
   const [menuProject, setMenuProject] = useState<ProjectListItem | null>(null);
@@ -69,15 +69,16 @@ export function ProjectsPage() {
   useListCommands(list, {
     open: (project) => openEntity({ id: project.id }),
     toggleFavorite: (rows) => actions.toggleFavorite(rows),
-    trash: (rows) =>
-      void actions.trashAll(rows).then((moved) => {
+    trash: (rows) => {
+      actions.trashAll(rows).then((moved) => {
         if (moved) setSelected([]);
-      }),
+      });
+    },
   });
 
   let content;
   if (query.isPending) content = <ProjectsLoading />;
-  else if (query.isError) content = <ProjectsErrorState onRetry={() => void query.refetch()} />;
+  else if (query.isError) content = <ProjectsErrorState onRetry={() => query.refetch()} />;
   else if (projects.length === 0) {
     content = (
       <ProjectsEmptyState
@@ -197,7 +198,7 @@ export function ProjectsPage() {
                 icon={Trash2}
                 variant="destructive"
                 disabled={isSynced(menuProject)}
-                onClick={() => void actions.trash(menuProject)}
+                onClick={() => actions.trash(menuProject)}
               >
                 Move to trash
               </ContextMenuItem>

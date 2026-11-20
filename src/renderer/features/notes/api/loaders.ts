@@ -1,3 +1,4 @@
+import { noop } from '@tanstack/react-query';
 import { notFound } from '@tanstack/react-router';
 import { isId, type NoteId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
@@ -36,7 +37,7 @@ export async function loadNote(context: RouterContext, id: NoteId) {
   const { queryClient, trpc } = context;
   const tasks = queryClient
     .infiniteQuery({ ...noteTasksQuery(id), staleTime: 'static' })
-    .catch(() => {});
+    .catch(noop);
   let note;
   try {
     [note] = await Promise.all([

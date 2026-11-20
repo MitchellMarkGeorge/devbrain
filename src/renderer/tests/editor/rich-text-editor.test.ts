@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -165,6 +164,30 @@ describe('RichTextEditor', () => {
     expect(labels).not.toContain('Task');
   });
 
+  it('offers Task in the slash menu where the host opens New task, with the line as its title', async () => {
+    const options = () =>
+      [...document.querySelectorAll('[aria-label="Insert block"] [role="option"]')].map(
+        (item) => item.textContent,
+      );
+    const openNewTask = vi.fn();
+    render({ value: '', openNewTask });
+    await act(async () => {
+      editor.commands.setContent('- [ ] Call Ana about the launch', {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+      editor.chain().focus('end').insertContent(' /task').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    expect(options()).toEqual(['Task', 'Link to task']);
+    await act(async () => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(openNewTask).toHaveBeenCalledWith('Call Ana about the launch');
+    // nothing is linked in the text: only the "/task" goes
+    expect(editor.getMarkdown()).toBe('- [ ] Call Ana about the launch');
+  });
+
   it('searches tasks, notes and events on "@" and inserts the pick as an entity link', async () => {
     const searchEntities = vi.fn(async () => [
       { type: 'task' as const, id: 'tsk_1', title: 'Fix login', status: TaskStatus.IN_PROGRESS },
@@ -280,7 +303,9 @@ describe('RichTextEditor', () => {
     render({ value: 'Some text to link' });
     await act(async () => {
       editor.chain().focus().setTextSelection({ from: 6, to: 10 }).run();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      // TipTap focuses on the next animation frame: wait for it, or that focus arriving after the
+      // link editor opens is taken for a click back in the text, and closes it
+      await vi.waitFor(() => expect(editor.isFocused).toBe(true));
       // ⌘K, or the toolbar's Link, with the text focused
       setLinkEditing(editor, true);
       await new Promise((resolve) => setTimeout(resolve, 0));

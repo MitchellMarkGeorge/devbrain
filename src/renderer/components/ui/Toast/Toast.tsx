@@ -24,7 +24,7 @@ export const toastManager = BaseToast.createToastManager();
 export interface ToastOptions {
   title: ReactNode;
   description?: ReactNode;
-  /** `success` (status-completed), `warning` (priority-medium), `error` (destructive) */
+  /** `success` (status-completed), `warning` (warning), `error` (destructive) */
   tone?: ToastTone;
   /** a 24px default button: offer Undo for reversible actions, Retry for a failed sync */
   action?: { label: ReactNode; onClick: () => void };

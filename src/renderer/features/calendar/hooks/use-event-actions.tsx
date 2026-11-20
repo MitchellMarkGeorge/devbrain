@@ -62,7 +62,7 @@ export function useEventActions() {
     async (target: EventTarget, seriesId: Event['id']) =>
       target.event.id === seriesId
         ? target.event
-        : queryClient.fetchQuery(trpc.events.get.queryOptions({ id: seriesId })),
+        : queryClient.query(trpc.events.get.queryOptions({ id: seriesId })),
     [queryClient],
   );
 
@@ -99,7 +99,7 @@ export function useEventActions() {
                 : `Every ${series.title} in the series.`
           }
           actionLabel="Save"
-          onChoose={(scope) => void save(scope, series)}
+          onChoose={(scope) => save(scope, series)}
         />
       ));
     },
@@ -149,7 +149,7 @@ export function useEventActions() {
           }
           actionLabel="Delete Event"
           destructive
-          onChoose={(scope) => void del(scope)}
+          onChoose={(scope) => del(scope)}
         />
       ));
     },

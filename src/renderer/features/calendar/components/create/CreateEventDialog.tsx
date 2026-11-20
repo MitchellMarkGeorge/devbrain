@@ -200,13 +200,13 @@ export function CreateEventDialog({ range, onOpenEvent, ...modal }: CreateEventD
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    void create();
+    create();
   }
 
   function onKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      void create();
+      create();
     }
   }
 

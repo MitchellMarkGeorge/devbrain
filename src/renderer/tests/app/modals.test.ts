@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { createElement as h, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';

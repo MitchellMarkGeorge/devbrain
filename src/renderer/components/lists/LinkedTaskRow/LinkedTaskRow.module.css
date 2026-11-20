@@ -34,7 +34,10 @@
   background: none;
   cursor: pointer;
 }
-.status:hover,
+.status[data-readonly] {
+  cursor: default;
+}
+.status:not([data-readonly]):hover,
 .status[data-popup-open] {
   background: var(--accent);
 }

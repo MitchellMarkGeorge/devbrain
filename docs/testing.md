@@ -12,7 +12,10 @@ lowest layer that can see it; the end-to-end tests cover only what needs every p
 | End to end   | `e2e/flows`                                                  | Playwright, the built app under Electron  | `npm run e2e` |
 
 `npm test` runs Vitest on Electron's Node (`scripts/vitest.mts`), so core's tests load the same
-better-sqlite3 build as the app. The renderer's route tests (`src/renderer/tests/routing`) run the
+better-sqlite3 build as the app. Each test runs in the environment its code runs in, as two Vitest
+projects (`vitest.config.ts`): `node` for `src/main` and `src/common`, and `renderer` for
+`src/renderer`, in happy-dom (a DOM in Node, so nothing needs a browser). `npm test -- --project
+renderer` runs one. The renderer's route tests (`src/renderer/tests/routing`) run the
 real route tree over a fake main; [routing.md](renderer/routing.md) says what they cover.
 
 ## End to end

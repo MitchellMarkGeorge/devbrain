@@ -4,6 +4,7 @@ import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRi
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '../../api/queries';
+import { useCreateTask } from '../../hooks/use-create-task';
 
 /**
  * A task's description in the rich text editor, saved 500ms after typing stops and at once when it
@@ -13,6 +14,7 @@ import { isSynced } from '../../api/queries';
  */
 export function TaskDescription({ task, className }: { task: Task; className?: string }) {
   const showError = useMutationErrorToast();
+  const createTask = useCreateTask();
   const synced = isSynced(task);
   const description = useEditorAutosave(task.description ?? '', (markdown) => {
     const blank = markdown.trim() === '';
@@ -31,6 +33,8 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
       editable={!synced}
       placeholder="Add a description…"
       onChange={description.onChange}
+      newTaskOptions={{ projectId: task.projectId }}
+      openNewTaskDialog={createTask}
     />
   );
 }

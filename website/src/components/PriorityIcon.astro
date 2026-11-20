@@ -1,0 +1,33 @@
+---
+/**
+ * The app's priority gauge (`PriorityIcon` in src/renderer/components/entities/PriorityIcon):
+ * three rising bars filled up to the level, the rest a faint track, in currentColor. A copy:
+ * change both together.
+ */
+interface Props {
+  level: 0 | 1 | 2 | 3;
+  size?: number;
+}
+const { level, size = 16 } = Astro.props;
+const bars = [
+  { x: 4, height: 7 },
+  { x: 10.25, height: 11.5 },
+  { x: 16.5, height: 16 },
+];
+---
+
+<svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+  {
+    bars.map((bar, i) => (
+      <rect
+        x={bar.x}
+        y={20 - bar.height}
+        width="3.5"
+        height={bar.height}
+        rx="1.25"
+        fill="currentColor"
+        fill-opacity={i < level ? 1 : 0.3}
+      />
+    ))
+  }
+</svg>

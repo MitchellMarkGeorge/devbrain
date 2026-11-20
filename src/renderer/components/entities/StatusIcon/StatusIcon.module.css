@@ -13,9 +13,6 @@
 .completed {
   color: var(--status-completed);
 }
-.overdue {
-  color: var(--status-overdue);
-}
 .cancelled {
   color: var(--status-cancelled);
 }

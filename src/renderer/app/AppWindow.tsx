@@ -4,13 +4,17 @@ import { DevBrainUnavailable } from './Root';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { trpc } from '@renderer/ipc';
+import { defaultKeymap, KeyboardProvider } from '@renderer/keyboard';
 import { applyThemeSetting } from './theme';
+import { HistoryPositionProvider } from '@renderer/shared/hooks/use-history-position';
 
 /**
  * What the window draws, inside its providers (main.tsx, and the routing tests' harness): the
- * router, or, when DevBrain couldn't open its data folder (InitialLoadContext.devBrainAvailable),
- * the screen saying so. That is known before anything renders and holds until DevBrain is
- * reopened, so the router isn't mounted at all: no route's beforeLoad or loader runs.
+ * keyboard layer around the router, or, when DevBrain couldn't open its data folder
+ * (InitialLoadContext.devBrainAvailable), the screen saying so. That is known before anything
+ * renders and holds until DevBrain is reopened, so the router isn't mounted at all: no route's
+ * beforeLoad or loader runs. The keyboard layer is here, above the root layout, so the root can
+ * clear the undo stack.
  */
 export function AppWindow({
   router,
@@ -27,5 +31,13 @@ export function AppWindow({
     if (theme) applyThemeSetting(theme);
   }, [theme]);
 
-  return devBrainAvailable ? <RouterProvider router={router} /> : <DevBrainUnavailable />;
+  return devBrainAvailable ? (
+    <KeyboardProvider keymap={defaultKeymap}>
+      <HistoryPositionProvider history={router.history}>
+        <RouterProvider router={router} />
+      </HistoryPositionProvider>
+    </KeyboardProvider>
+  ) : (
+    <DevBrainUnavailable />
+  );
 }

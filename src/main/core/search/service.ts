@@ -437,7 +437,7 @@ export class SearchService {
       () => undefined,
     );
     this.pending.add(settled);
-    void settled.then(() => this.pending.delete(settled));
+    settled.then(() => this.pending.delete(settled));
     return running;
   }
 
