@@ -15,8 +15,8 @@ const markPaths = readFileSync(svgPath, 'utf8')
 // The icon, drawn on a 48-unit tile. The mark is polished chrome: a fill that reflects a soft,
 // even light, gently bevelled edges from a light above, and a
 // contact shadow. It sits on a dark tile with a faint cool glow behind it, a soft light from
-// above and a hairline rim. The mark's viewBox is 40 by 48: 0.7 of the
-// tile high, its circle spans about 58% of it.
+// above and a hairline rim. The mark's viewBox is 40 by 48: 0.8 of the
+// tile high, its circle spans two thirds of it.
 const tile = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="100%" height="100%">
   <defs>
     <clipPath id="tile"><rect width="48" height="48" rx="10.8"/></clipPath>
@@ -82,7 +82,7 @@ const tile = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width=
     <g clip-path="url(#tile)">
       <rect width="48" height="48" fill="url(#base)"/>
       <rect width="48" height="48" fill="url(#glow)"/>
-      <svg x="10" y="7.2" width="28" height="33.6" viewBox="0 0 40 48" overflow="visible">
+      <svg x="8" y="4.8" width="32" height="38.4" viewBox="0 0 40 48" overflow="visible">
         <g fill="url(#chrome)" filter="url(#metal)">${markPaths}</g>
       </svg>
       <rect width="48" height="48" fill="url(#gloss)"/>
