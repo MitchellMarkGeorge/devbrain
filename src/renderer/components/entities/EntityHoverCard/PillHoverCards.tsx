@@ -1,4 +1,5 @@
 import {
+  cloneElement,
   createContext,
   useContext,
   useMemo,
@@ -127,7 +128,8 @@ export interface PillHoverCardProps {
 
 /**
  * A row's pill with its hover card, from the `PillHoverCardsProvider` around it; the pill alone
- * without one. Pointing at it for about 400ms (or focusing it) opens the card 4px below it.
+ * without one. Pointing at it for about 400ms (or focusing it) opens the card 4px below it. With a
+ * card, the pill drops the browser's tooltip of its label, which would show over the card.
  */
 export function PillHoverCard({ target, children }: PillHoverCardProps) {
   const cards = useContext(PillHoverCardsContext);
@@ -141,7 +143,8 @@ export function PillHoverCard({ target, children }: PillHoverCardProps) {
       closeDelay={cards.closeDelay}
       onPointerEnter={prepare}
       onFocus={prepare}
-      render={children}
+      // without the browser's tooltip of its label (a Badge's `title`): the card names it in full
+      render={cloneElement(children, { title: undefined })}
     />
   );
 }

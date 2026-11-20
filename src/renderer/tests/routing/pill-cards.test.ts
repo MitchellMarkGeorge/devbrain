@@ -69,6 +69,8 @@ describe('a pill’s hover card', () => {
     // loaded as the pill is pointed at, before the card opens
     await eventually(() => expect(main.callsTo('projects.get')).not.toHaveLength(0));
     await eventually(() => expect(card('Launch')?.textContent).toContain('1 of 2 tasks done'));
+    // the card names it: no browser tooltip of the pill's label over it
+    expect(pill('Launch')!.hasAttribute('title')).toBe(false);
   });
 
   it('shows a synced task’s state at its provider from the row', async () => {

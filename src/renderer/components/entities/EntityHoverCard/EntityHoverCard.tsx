@@ -212,7 +212,7 @@ function usePartsOf(entity: HoverCardEntity): Parts {
             {progress && (
               <EntityPill
                 glyph={<ProgressRing value={progress.completed} total={progress.total} size={12} />}
-                title={subtasksDoneLabel(progress)}
+                aria-label={subtasksDoneLabel(progress)}
               >
                 {progress.completed}/{progress.total}
               </EntityPill>
