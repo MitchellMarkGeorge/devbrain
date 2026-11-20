@@ -24,6 +24,20 @@ export default defineConfig({
         alt: 'DevBrain',
       },
       favicon: '/favicon.svg',
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/MitchellMarkGeorge/devbrain' },
+      ],
+      editLink: {
+        baseUrl: 'https://github.com/MitchellMarkGeorge/devbrain/edit/main/website/',
+      },
+      // Inter and Geist Mono, as in the app, then the app's tokens and the theme built on them
+      customCss: [
+        '@fontsource/inter/400.css',
+        '@fontsource/inter/500.css',
+        '@fontsource/inter/600.css',
+        '@fontsource/geist-mono/400.css',
+        './src/styles/starlight.css',
+      ],
       // titles as the marketing pages write them: "Tasks · DevBrain"
       titleDelimiter: '·',
       // the share image every page shows when linked (src/lib/share-image.ts); Starlight writes
