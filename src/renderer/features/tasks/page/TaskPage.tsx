@@ -136,37 +136,35 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
             />
           )}
           {/* inert while trashed: shown, not editable (React 18 passes `inert` through as is) */}
-          <div
+          <Stack
+            gap="8"
             {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
             data-trashed={trashed ? '' : undefined}
-            style={{ display: 'contents' }}
           >
-            <Stack gap="8">
-              <EditorTitle
-                // keyed on the title, so a rename elsewhere (or a sync) shows here
-                key={task.title}
-                placeholder="Task title"
-                contentEditable={!synced}
-                suppressContentEditableWarning
-                spellCheck={false}
-                aria-label="Title"
-                onBlur={saveTitle}
-                onKeyDown={onTitleKey}
-              >
-                {task.title}
-              </EditorTitle>
-              <TaskProperties
-                task={task}
-                parent={parent}
-                actions={actions}
-                adding={adding}
-                onAddingChange={setAdding}
-              />
-              <TaskDescription task={task} />
-              <TaskSubtasksSection task={task} />
-              <TaskNoteSection task={task} onOpenNote={openNote} />
-            </Stack>
-          </div>
+            <EditorTitle
+              // keyed on the title, so a rename elsewhere (or a sync) shows here
+              key={task.title}
+              placeholder="Task title"
+              contentEditable={!synced}
+              suppressContentEditableWarning
+              spellCheck={false}
+              aria-label="Title"
+              onBlur={saveTitle}
+              onKeyDown={onTitleKey}
+            >
+              {task.title}
+            </EditorTitle>
+            <TaskProperties
+              task={task}
+              parent={parent}
+              actions={actions}
+              adding={adding}
+              onAddingChange={setAdding}
+            />
+            <TaskDescription task={task} />
+            <TaskSubtasksSection task={task} />
+            <TaskNoteSection task={task} onOpenNote={openNote} />
+          </Stack>
         </Stack>
       </PageContent>
       {sheetNote && (

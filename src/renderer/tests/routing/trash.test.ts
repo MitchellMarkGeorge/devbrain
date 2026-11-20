@@ -175,6 +175,25 @@ describe('the trash page', () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/tsk_summary`));
   });
 
+  it('restores a row from its right-click menu', async () => {
+    const { main } = trashPage();
+    await eventually(() => expect(row('Summarise sprint feedback')).toBeDefined());
+    row('Summarise sprint feedback')!.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    );
+    let item: HTMLElement | null = null;
+    await eventually(() => {
+      item = byText(document.body, '[role="menuitem"]', 'Restore');
+      expect(item).not.toBeNull();
+    });
+    click(item);
+    await eventually(() =>
+      expect(main.callsTo('archive.restoreTask').map((call) => call.input)).toEqual([
+        { id: 'tsk_summary' },
+      ]),
+    );
+  });
+
   it('asks before deleting for good, saying what happens to what links to it', async () => {
     const { main } = trashPage();
     await eventually(() => expect(row('AI Action Items')).toBeDefined());

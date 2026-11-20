@@ -39,9 +39,6 @@
 }
 
 /* a mark that follows the theme: the white one on dark, the neutral-950 one on light */
-.themed {
-  display: contents;
-}
 .onLight {
   display: none;
 }

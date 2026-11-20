@@ -21,10 +21,18 @@ import styles from './ContextMenu.module.css';
 
 export const ContextMenu = BaseContextMenu.Root;
 
-/** The area that opens the menu on right-click (or long press): a note row, a board card. */
-export function ContextMenuTrigger({ className, ...props }: BaseContextMenu.Trigger.Props) {
+/**
+ * The area that opens the menu on right-click (or long press): a list, a board, a row. Without
+ * `render` it draws a `display: contents` div around its children; with one, that element is the
+ * area and keeps its own layout: `<ContextMenuTrigger render={<TaskRow … />} />`.
+ */
+export function ContextMenuTrigger({ className, render, ...props }: BaseContextMenu.Trigger.Props) {
   return (
-    <BaseContextMenu.Trigger className={mergeClassName(styles.trigger, className)} {...props} />
+    <BaseContextMenu.Trigger
+      render={render}
+      className={render ? className : mergeClassName(styles.trigger, className)}
+      {...props}
+    />
   );
 }
 

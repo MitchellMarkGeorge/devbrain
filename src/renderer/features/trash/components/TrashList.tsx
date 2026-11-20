@@ -67,7 +67,14 @@ export function TrashList({
   return (
     <ContextMenu>
       <ContextMenuTrigger
-        style={{ display: 'contents' }}
+        render={
+          <ScrollArea
+            className={styles.list}
+            viewportRef={scroller}
+            viewportClassName={styles.viewport}
+            viewportProps={{ role: 'grid', 'aria-label': 'Trash', 'aria-rowcount': items.length }}
+          />
+        }
         onContextMenu={(event) => {
           const row = (event.target as Element).closest<HTMLElement>('[data-trash-id]');
           const item = row ? (byId.get(row.dataset.trashId ?? '') ?? null) : null;
@@ -75,45 +82,38 @@ export function TrashList({
           if (!item) event.preventDefault();
         }}
       >
-        <ScrollArea
-          className={styles.list}
-          viewportRef={scroller}
-          viewportClassName={styles.viewport}
-          viewportProps={{ role: 'grid', 'aria-label': 'Trash', 'aria-rowcount': items.length }}
+        <div
+          className={styles.rows}
+          style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(drawn) }}
         >
-          <div
-            className={styles.rows}
-            style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(drawn) }}
-          >
-            {drawn.map((virtual) => {
-              const item = items[virtual.index];
-              if (!item) return null;
-              const { data, titlePills, pills } = rowOf(item);
-              return (
-                <TrashRow
-                  key={virtual.key}
-                  ref={virtualizer.measureElement}
-                  data-index={virtual.index}
-                  data-trash-id={item.id}
-                  aria-rowindex={virtual.index + 1}
-                  item={data}
-                  titlePills={titlePills}
-                  selected={isSelectedAt(virtual.index)}
-                  selecting={selected.size > 0}
-                  joinPrev={isSelectedAt(virtual.index) && isSelectedAt(virtual.index - 1)}
-                  joinNext={isSelectedAt(virtual.index) && isSelectedAt(virtual.index + 1)}
-                  onSelect={onToggle && (() => onToggle(item))}
-                  onOpen={() => actions.open(item)}
-                  onRestore={() => void actions.restore(item)}
-                  onDelete={() => void actions.remove(item)}
-                >
-                  {pills}
-                </TrashRow>
-              );
-            })}
-          </div>
-          {footer}
-        </ScrollArea>
+          {drawn.map((virtual) => {
+            const item = items[virtual.index];
+            if (!item) return null;
+            const { data, titlePills, pills } = rowOf(item);
+            return (
+              <TrashRow
+                key={virtual.key}
+                ref={virtualizer.measureElement}
+                data-index={virtual.index}
+                data-trash-id={item.id}
+                aria-rowindex={virtual.index + 1}
+                item={data}
+                titlePills={titlePills}
+                selected={isSelectedAt(virtual.index)}
+                selecting={selected.size > 0}
+                joinPrev={isSelectedAt(virtual.index) && isSelectedAt(virtual.index - 1)}
+                joinNext={isSelectedAt(virtual.index) && isSelectedAt(virtual.index + 1)}
+                onSelect={onToggle && (() => onToggle(item))}
+                onOpen={() => actions.open(item)}
+                onRestore={() => void actions.restore(item)}
+                onDelete={() => void actions.remove(item)}
+              >
+                {pills}
+              </TrashRow>
+            );
+          })}
+        </div>
+        {footer}
       </ContextMenuTrigger>
       <ContextMenuContent width="sm">
         {menuItem && (

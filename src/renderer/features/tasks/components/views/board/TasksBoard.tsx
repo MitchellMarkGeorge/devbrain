@@ -126,7 +126,6 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger
-        className={styles.trigger}
         onContextMenu={(event) => {
           const card = (event.target as Element).closest<HTMLElement>('[data-task-id]');
           const task = card ? (byId.get(card.dataset.taskId ?? '') ?? null) : null;
