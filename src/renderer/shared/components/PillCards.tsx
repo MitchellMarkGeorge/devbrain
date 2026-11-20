@@ -23,40 +23,38 @@ import { trpc } from '@renderer/ipc';
 // not again while what was loaded is a few seconds old: a change to it refetches it anyway
 const PREFETCH_STALE_MS = 10_000;
 
+// a failed read is the card's to show (its own query reads again), not the prefetch's
+const ignore = () => {};
+
 function prefetch(queryClient: QueryClient, target: PillTarget) {
   const staleTime = PREFETCH_STALE_MS;
   switch (target.type) {
     case 'project':
-      queryClient.prefetchQuery({
-        ...trpc.projects.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
-      queryClient.prefetchQuery({
-        ...trpc.projects.stats.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.projects.get.queryOptions({ id: target.id }), staleTime })
+        .catch(ignore);
+      queryClient
+        .query({ ...trpc.projects.stats.queryOptions({ id: target.id }), staleTime })
+        .catch(ignore);
       return;
     case 'task':
     case 'subtasks':
-      queryClient.prefetchQuery({
-        ...trpc.tasks.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
+        .catch(ignore);
       if (target.type === 'subtasks') {
-        queryClient.prefetchQuery({ ...subtasksCardQuery(target.id), staleTime });
+        queryClient.query({ ...subtasksCardQuery(target.id), staleTime }).catch(ignore);
       }
       return;
     case 'note':
-      queryClient.prefetchQuery({
-        ...trpc.notes.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.notes.get.queryOptions({ id: target.id }), staleTime })
+        .catch(ignore);
       return;
     case 'event':
-      queryClient.prefetchQuery({
-        ...trpc.events.get.queryOptions({ id: target.id }),
-        staleTime,
-      });
+      queryClient
+        .query({ ...trpc.events.get.queryOptions({ id: target.id }), staleTime })
+        .catch(ignore);
       return;
     case 'source':
       return;
