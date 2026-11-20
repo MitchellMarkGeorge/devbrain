@@ -60,6 +60,13 @@ export const ListPage: Story = {
   ),
 };
 
+/** The list page in dark: the toolbar's buttons draw as `outline` (page fill, `border` line). */
+export const ListPageDark: Story = {
+  ...ListPage,
+  name: 'List page — dark',
+  globals: { theme: 'dark' },
+};
+
 /** A detail page: the star and the "…" menu as its actions, its content in the document column. */
 export const DetailPage: Story = {
   render: () => (
