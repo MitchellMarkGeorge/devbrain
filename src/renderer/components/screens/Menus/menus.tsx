@@ -8,7 +8,7 @@ import { TaskPriority, TaskStatus } from '@common/types';
 import {
   ArrowUpDown,
   Calendar,
-  ChevronsUp,
+  ChartNoAxesColumnIncreasing,
   Circle,
   CircleAlert,
   CircleSlash,
@@ -174,7 +174,7 @@ export function TaskContextMenu({
         <StatusMenuContent submenu status={TaskStatus.IN_PROGRESS} />
       </DropdownMenuSub>
       <DropdownMenuSub open={open === 'priority' || undefined}>
-        <DropdownMenuSubTrigger icon={ChevronsUp}>Priority</DropdownMenuSubTrigger>
+        <DropdownMenuSubTrigger icon={ChartNoAxesColumnIncreasing}>Priority</DropdownMenuSubTrigger>
         <PriorityMenuContent submenu priority={TaskPriority.HIGH} />
       </DropdownMenuSub>
       <Submenu icon={Calendar} label="Start date">
@@ -280,7 +280,7 @@ export function SortMenu(props: ContentProps) {
       <DropdownMenuGroup>
         <DropdownMenuLabel>Sort by</DropdownMenuLabel>
         <DropdownMenuRadioGroup defaultValue="priority">
-          <DropdownMenuRadioItem value="priority" icon={ChevronsUp}>
+          <DropdownMenuRadioItem value="priority" icon={ChartNoAxesColumnIncreasing}>
             Priority
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="due" icon={Calendar}>
@@ -329,7 +329,7 @@ export function GroupByMenu(props: ContentProps) {
           <DropdownMenuRadioItem value="status" icon={Circle}>
             Status
           </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="priority" icon={ChevronsUp}>
+          <DropdownMenuRadioItem value="priority" icon={ChartNoAxesColumnIncreasing}>
             Priority
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="linked" icon={Link}>
@@ -414,7 +414,9 @@ export function FilterMenu({
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub open={open === 'priority' || undefined}>
-          <DropdownMenuSubTrigger icon={ChevronsUp}>Priority</DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger icon={ChartNoAxesColumnIncreasing}>
+            Priority
+          </DropdownMenuSubTrigger>
           <DropdownMenuSubContent width="sm">
             <FilterPriorityItems />
           </DropdownMenuSubContent>

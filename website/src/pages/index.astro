@@ -2,7 +2,9 @@
 import Layout from '../components/Layout.astro';
 import { SHARE_IMAGE } from '../lib/share-image';
 import Screenshot from '../components/Screenshot.astro';
-import { Activity, ArrowRight, Calendar, ChevronsUp, Circle, CircleCheck, Download, Equal, FileText, Folder, Kanban, Search } from '@lucide/astro';
+import { ArrowRight, Calendar, Circle, CircleCheck, Download, FileText, Folder, Kanban, Search } from '@lucide/astro';
+import InProgressIcon from '../components/InProgressIcon.astro';
+import PriorityIcon from '../components/PriorityIcon.astro';
 import linearIcon from '../../../src/renderer/assets/brand/linear-icon.svg';
 // Google Calendar's logo as Google publishes it: the same paths as the app's GoogleCalendarLogo
 // (src/renderer/components/entities/ProviderLogo/marks.tsx), as a file the site can load
@@ -299,7 +301,7 @@ const softwareApplication = {
                 issues.map((issue, i) => (
                   <li class="row" style={`--i: ${i}`}>
                     <span class:list={['status', issue.status]}>
-                      {issue.status === 'started' ? <Activity size={16} /> : <Circle size={16} />}
+                      {issue.status === 'started' ? <InProgressIcon /> : <Circle size={16} />}
                     </span>
                     <span class="row-title">{issue.title}</span>
                     <span class="pill">
@@ -307,7 +309,7 @@ const softwareApplication = {
                       {issue.key}
                     </span>
                     <span class:list={['priority', issue.priority]}>
-                      {issue.priority === 'high' ? <ChevronsUp size={16} /> : <Equal size={16} />}
+                      <PriorityIcon level={issue.priority === 'high' ? 3 : 2} />
                     </span>
                     <span class="when">{issue.due}</span>
                   </li>
@@ -368,7 +370,7 @@ const softwareApplication = {
           <div class="pal-results">
             <p class="group">Tasks <span>2</span></p>
             <p class="hit selected" style="--i: 0">
-              <span class="status started"><Activity size={16} /></span>
+              <span class="status started"><InProgressIcon /></span>
               <span class="row-title">Ship <strong>proration</strong> for mid-cycle plan changes</span>
               <kbd>↵</kbd>
             </p>

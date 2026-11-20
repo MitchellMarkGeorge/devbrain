@@ -1,7 +1,7 @@
 import {
   ArrowUpDown,
   Calendar,
-  ChevronsUp,
+  ChartNoAxesColumnIncreasing,
   Circle,
   CircleAlert,
   CircleSlash,
@@ -104,7 +104,7 @@ export const SORT_LABELS: Record<SortParam, string> = {
   created_at: 'Created',
 };
 const SORT_ICONS: Record<SortParam, LucideIcon> = {
-  priority: ChevronsUp,
+  priority: ChartNoAxesColumnIncreasing,
   due_date: Calendar,
   status: Circle,
   updated_at: Clock,
@@ -119,7 +119,7 @@ export const GROUP_BY_LABELS: Record<GroupBy, string> = {
 const GROUP_BY_ICONS: Record<GroupBy, LucideIcon> = {
   project: Folder,
   status: Circle,
-  priority: ChevronsUp,
+  priority: ChartNoAxesColumnIncreasing,
   due: Calendar,
 };
 
@@ -253,7 +253,7 @@ export function FilterMenu({
             onChange={(status) => setSearch({ status })}
           />
           <FilterSubmenu
-            icon={ChevronsUp}
+            icon={ChartNoAxesColumnIncreasing}
             label="Priority"
             value={resolved.priority}
             options={(Object.keys(PRIORITY_FILTER_LABELS) as PriorityFilter[]).map((priority) => ({

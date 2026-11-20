@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import {
   Calendar,
   ChevronsDownUp,
-  ChevronsUp,
+  ChartNoAxesColumnIncreasing,
   ChevronsUpDown,
   Circle,
   CircleSlash,
@@ -71,7 +71,7 @@ export function PrioritySubmenu({
 }) {
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger icon={ChevronsUp} disabled={disabled}>
+      <DropdownMenuSubTrigger icon={ChartNoAxesColumnIncreasing} disabled={disabled}>
         Priority
       </DropdownMenuSubTrigger>
       <PriorityMenuContent submenu priority={priority} onPick={onPick} />

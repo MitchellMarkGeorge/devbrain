@@ -1,7 +1,7 @@
 import { Children, forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import {
   CalendarClock,
-  ChevronsUp,
+  ChartNoAxesColumnIncreasing,
   CornerDownRight,
   Folder,
   GitPullRequest,
@@ -24,7 +24,7 @@ export interface PropertyRowAddItem {
 
 /** What a task can add, in menu order. Pass only the unset ones as `addItems`. */
 export const TASK_ADD_ITEMS: PropertyRowAddItem[] = [
-  { key: 'priority', label: 'Priority', icon: ChevronsUp },
+  { key: 'priority', label: 'Priority', icon: ChartNoAxesColumnIncreasing },
   { key: 'project', label: 'Project', icon: Folder },
   { key: 'parent', label: 'Parent task', icon: CornerDownRight },
   { key: 'event', label: 'Event', icon: CalendarClock },
