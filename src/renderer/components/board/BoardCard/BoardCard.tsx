@@ -48,14 +48,14 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 /**
  * A task on the board, drawn from core's `TaskListItem`: the title, then its relations as the pills
  * a task row uses (the key, its subtasks, the linked event or note, the project), then priority and
- * the due date ("Jul 1" from `useFormat()`'s `formatDate`, coloured when due today or overdue,, which moves once a day).
+ * the due date ("Jul 1" from `useFormat()`'s `formatListDate`, coloured when due today or overdue,, which moves once a day).
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
   { task, state, render, onClick, onDueDateChange, ...props },
   ref,
 ) {
-  const { now, formatDate } = useFormat();
+  const { now, formatListDate } = useFormat();
   const done = task.status === TaskStatus.COMPLETED;
   const { external, subtaskProgress: subtasks } = task;
   const pills = [
@@ -96,7 +96,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         <PriorityIcon priority={task.priority} />
         {task.dueDate ? (
           <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
-            {formatDate(task.dueDate)}
+            {formatListDate(task.dueDate)}
           </span>
         ) : (
           settable &&

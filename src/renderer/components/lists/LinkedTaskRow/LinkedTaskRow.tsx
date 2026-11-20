@@ -38,7 +38,7 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
   { task, onStatusChange, onOpen, state, className, onKeyDown, ...props },
   ref,
 ) {
-  const { now, formatDate } = useFormat();
+  const { now, formatListDate } = useFormat();
   // controlled when the owner listens for changes; otherwise the row keeps its own pick
   const [picked, setPicked] = useState<TaskStatus>(task.status);
   const shown = onStatusChange ? task.status : picked;
@@ -81,7 +81,7 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
       <span className={styles.title}>{task.title}</span>
       {task.dueDate && (
         <span className={styles.date} data-tone={dueTone(shown, task.dueDate, now)}>
-          {formatDate(task.dueDate)}
+          {formatListDate(task.dueDate)}
         </span>
       )}
     </div>

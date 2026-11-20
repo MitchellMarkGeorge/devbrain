@@ -35,6 +35,14 @@ describe('formatDate', () => {
   });
 });
 
+describe('formatListDate', () => {
+  it('is the date this year, and the month and year in another', () => {
+    expect(format.formatListDate(day(1))).toBe('Jun 23');
+    expect(format.formatListDate(new Date(2027, 0, 3))).toBe('Jan 2027');
+    expect(format.formatListDate(new Date(2025, 11, 30))).toBe('Dec 2025');
+  });
+});
+
 describe('formatTime', () => {
   it('follows the time format', () => {
     expect(createFormat(NOW, '12').formatTime(day(0, 13, 5))).toBe('1:05 PM');
