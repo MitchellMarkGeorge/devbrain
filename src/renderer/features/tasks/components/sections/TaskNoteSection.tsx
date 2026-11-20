@@ -16,7 +16,7 @@ import { tasksSummary } from '@renderer/features/notes/api/queries';
 
 export interface TaskNoteSectionProps {
   /** the task, as `tasks.get` returns it */
-  task: Pick<Task, 'id' | 'title'>;
+  task: Task;
   /** the board's task sheet: the card's pills under its title, and the sheet's spacing */
   compact?: boolean;
   /** opens the note somewhere other than its page: the task page's note sheet */
@@ -48,10 +48,14 @@ export function TaskNoteSection({ task, compact = false, onOpenNote }: TaskNoteS
   async function create() {
     setCreating(true);
     try {
-      const created = await ipc.notes.create.mutate({ title: task.title, linkedTaskId: task.id });
+      const created = await ipc.notes.create.mutate({
+        title: task.title,
+        linkedTaskId: task.id,
+        projectId: task.projectId,
+      });
       open(created.id);
     } catch (error) {
-      showError(error, 'Couldn’t add a task note');
+      showError(error, 'Unable to add a task note');
     } finally {
       setCreating(false);
     }

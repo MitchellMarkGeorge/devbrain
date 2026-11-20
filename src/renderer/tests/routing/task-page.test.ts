@@ -243,11 +243,30 @@ describe('the task page', () => {
     click(byText(app.container, 'button', 'Add a task note'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/${lone.id}?note=nte_new1`));
     expect(main.callsTo('notes.create').map((call) => call.input)).toEqual([
-      { title: 'Lone task', linkedTaskId: lone.id },
+      { title: 'Lone task', linkedTaskId: lone.id, projectId: null },
     ]);
     await eventually(() =>
       expect(document.querySelector('[data-testid="note-sheet"]')).not.toBeNull(),
     );
+  });
+
+  it("files a new task note under the task's project", async () => {
+    const filed = fakeTask('tsk_filed', 'Filed task', {
+      projectId: 'prj_filed' as never,
+      project: { id: 'prj_filed' as never, title: 'Filed project', color: '#123456' },
+    });
+    const main = mainWith(new FakeTasks([filed]));
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${filed.id}` });
+    await eventually(() =>
+      expect(byText(app.container, 'button', 'Add a task note')).not.toBeNull(),
+    );
+    click(byText(app.container, 'button', 'Add a task note'));
+    await eventually(() => expect(main.callsTo('notes.create')).toHaveLength(1));
+    expect(main.callsTo('notes.create')[0].input).toEqual({
+      title: 'Filed task',
+      linkedTaskId: filed.id,
+      projectId: 'prj_filed',
+    });
   });
 
   describe('its "…" menu', () => {
