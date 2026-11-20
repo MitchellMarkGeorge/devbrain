@@ -100,8 +100,8 @@ export function listedEvent(queryClient: QueryClient, id: string): Event | undef
 export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
   // not again while what was loaded is a few seconds old: a change to it refetches it anyway
   const staleTime = 10_000;
-  queryClient.prefetchQuery({ ...trpc.tasks.get.queryOptions({ id }), staleTime });
-  queryClient.prefetchInfiniteQuery({ ...subtasksQuery(id), staleTime });
+  queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime }).catch(() => {});
+  queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime }).catch(() => {});
 }
 
 /**

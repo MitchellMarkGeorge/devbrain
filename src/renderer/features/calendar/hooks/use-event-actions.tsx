@@ -62,7 +62,7 @@ export function useEventActions() {
     async (target: EventTarget, seriesId: Event['id']) =>
       target.event.id === seriesId
         ? target.event
-        : queryClient.fetchQuery(trpc.events.get.queryOptions({ id: seriesId })),
+        : queryClient.query(trpc.events.get.queryOptions({ id: seriesId })),
     [queryClient],
   );
 
