@@ -6,6 +6,7 @@ A long `CardGrid`: the Notes and Projects card views over all of a workspace's n
 - **Virtualized by rows of cards** (`@tanstack/react-virtual`): each row is a `CardGrid` of that many cards, one virtual row, measured as it draws (`estimateRowHeight`, 172 for a Notes card row by default), so a workspace with thousands of notes draws a few rows. The column count comes from the window size, as for `CardGrid`: three by default, two in compact windows. The rows flow in order, not positioned, padded at the top by the space the rows above them would take.
 - **Loading more.** `onEndReached` fires near the last loaded rows (`endReachedThreshold`, 7 rows).
 - **Accessibility.** `role="grid"` (named with `aria-label`) with `aria-rowcount` (rows of cards, from `itemCount` when a count gives the total) and `aria-colcount`; each row is a `row` with `aria-rowindex`, each card a `gridcell`.
+- **Its ref and other props** (`data-*`, event handlers, `className`) go to its outer element, the scroller, so it can be another component's `render` target: `<ContextMenuTrigger render={<VirtualCardGrid … />} />`.
 - Story: `1,000 cards`.
 
 **Base UI:** No Base UI part: a CSS grid per row.

@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@common/ids';
 import { LinkState, Provider, TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
 
 // The task page (/app/$workspaceId/tasks/$taskId) over a fake main's tasks.
 
@@ -127,6 +127,26 @@ describe('the task page', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}`);
+  });
+
+  it('opens a subtask’s menu on a right-click of its row', async () => {
+    const main = mainWith(store());
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const selector = `[data-key-scope="list"] [data-task-id="${subtask.id}"]`;
+    await eventually(() => expect(app.container.querySelector(selector)).not.toBeNull());
+    const row = app.container.querySelector(selector)!;
+    rightClick(row);
+    const favorite = await menuItem('Favorite');
+    // the trigger is the list's key scope
+    expect(document.querySelector('[data-popup-open]')).toBe(
+      row.closest('[data-key-scope="list"]'),
+    );
+    click(favorite);
+    await eventually(() =>
+      expect(main.callsTo('tasks.setFavorite').map((call) => call.input)).toEqual([
+        { id: subtask.id, favorite: true },
+      ]),
+    );
   });
 
   it('shows a synced task’s fields read-only, with its provider’s labels', async () => {

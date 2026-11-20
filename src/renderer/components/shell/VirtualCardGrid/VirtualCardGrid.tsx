@@ -1,4 +1,12 @@
-import { useRef, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useRef,
+  type ComponentPropsWithoutRef,
+  type ForwardedRef,
+  type ReactElement,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { SPACING } from '@renderer/styles/tokens';
@@ -10,7 +18,10 @@ import styles from './VirtualCardGrid.module.css';
 // the space under each row of cards: CardGrid's gap between them, space-3 or space-4
 const GAPS = { sm: SPACING['space-3'], md: SPACING['space-4'] } as const;
 
-export interface VirtualCardGridProps<T> {
+export interface VirtualCardGridProps<T> extends Omit<
+  ComponentPropsWithoutRef<'div'>,
+  'children' | 'role'
+> {
   /** core's notes or projects, as they are */
   items: T[];
   renderItem: (item: T, index: number) => ReactNode;
@@ -28,7 +39,7 @@ export interface VirtualCardGridProps<T> {
   onEndReached?: () => void;
   /** default 7 rows (about 20 cards at three across) */
   endReachedThreshold?: number;
-  className?: string;
+  /** the grid's name (on its `role="grid"`) */
   'aria-label'?: string;
 }
 
@@ -36,20 +47,26 @@ export interface VirtualCardGridProps<T> {
  * A long `CardGrid`: the Notes and Projects card views over all of a workspace's notes or projects.
  * It is its own scroller, filling the height its container gives it, and draws only the rows of
  * cards in view: each row is a `CardGrid` of that many cards, one virtual row, measured as it draws.
+ * Its ref and other props go to its outer element (the scroller), so it can be a `render` target:
+ * `<ContextMenuTrigger render={<VirtualCardGrid … />} />`.
  */
-export function VirtualCardGrid<T>({
-  items,
-  renderItem,
-  getKey,
-  columns = 3,
-  gap = 'sm',
-  estimateRowHeight = 172,
-  itemCount,
-  onEndReached,
-  endReachedThreshold = 7,
-  className,
-  'aria-label': ariaLabel,
-}: VirtualCardGridProps<T>) {
+function VirtualCardGridInner<T>(
+  {
+    items,
+    renderItem,
+    getKey,
+    columns = 3,
+    gap = 'sm',
+    estimateRowHeight = 172,
+    itemCount,
+    onEndReached,
+    endReachedThreshold = 7,
+    className,
+    'aria-label': ariaLabel,
+    ...props
+  }: VirtualCardGridProps<T>,
+  ref: ForwardedRef<HTMLDivElement>,
+) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   // the columns shown, as CardGrid works them out: two in compact windows
   const { size } = useWorkspaceShell();
@@ -71,6 +88,8 @@ export function VirtualCardGrid<T>({
   return (
     // a ScrollArea: the scrollbar is drawn over the grid's edge, taking no width
     <ScrollArea
+      {...props}
+      ref={ref}
       className={cn(styles.scroller, className)}
       viewportRef={scrollerRef}
       viewportClassName={styles.viewport}
@@ -105,3 +124,7 @@ export function VirtualCardGrid<T>({
     </ScrollArea>
   );
 }
+
+export const VirtualCardGrid = forwardRef(VirtualCardGridInner) as <T>(
+  props: VirtualCardGridProps<T> & { ref?: Ref<HTMLDivElement> },
+) => ReactElement;

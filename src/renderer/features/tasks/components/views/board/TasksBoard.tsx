@@ -124,74 +124,72 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
 
   const projectId = resolved.project && resolved.project !== 'none' ? resolved.project : undefined;
   return (
-    <ContextMenu>
-      <ContextMenuTrigger
-        onContextMenu={(event) => {
-          const card = (event.target as Element).closest<HTMLElement>('[data-task-id]');
-          const task = card ? (byId.get(card.dataset.taskId ?? '') ?? null) : null;
-          setMenuTask(task);
-          if (!task) event.preventDefault();
-        }}
-      >
-        <DndContext
-          sensors={sensors}
-          collisionDetection={boardCollisions}
-          accessibility={{
-            announcements: boardAnnouncements,
-            screenReaderInstructions: boardInstructions,
-          }}
-          onDragStart={({ active }) => setDragging(dragTask(active.data.current) ?? null)}
-          onDragCancel={() => setDragging(null)}
-          onDragEnd={({ active, over }) => {
-            setDragging(null);
-            const task = dragTask(active.data.current);
-            const status = over?.id as TaskStatus | undefined;
-            if (task && status && task.status !== status) actions.setStatus([task], status);
+    // DndContext draws no element: the board itself is the right-click area and the key scope
+    <DndContext
+      sensors={sensors}
+      collisionDetection={boardCollisions}
+      accessibility={{
+        announcements: boardAnnouncements,
+        screenReaderInstructions: boardInstructions,
+      }}
+      onDragStart={({ active }) => setDragging(dragTask(active.data.current) ?? null)}
+      onDragCancel={() => setDragging(null)}
+      onDragEnd={({ active, over }) => {
+        setDragging(null);
+        const task = dragTask(active.data.current);
+        const status = over?.id as TaskStatus | undefined;
+        if (task && status && task.status !== status) actions.setStatus([task], status);
+      }}
+    >
+      <ContextMenu>
+        <ContextMenuTrigger
+          render={<KeyScope name="board" render={<Board />} />}
+          onContextMenu={(event) => {
+            const card = (event.target as Element).closest<HTMLElement>('[data-task-id]');
+            const task = card ? (byId.get(card.dataset.taskId ?? '') ?? null) : null;
+            setMenuTask(task);
+            if (!task) event.preventDefault();
           }}
         >
-          <KeyScope name="board" render={<Board />}>
-            {placed.map(({ status, query, tasks }) => (
-              <DroppableColumn
-                key={status}
-                status={status}
-                tasks={withoutProjectPill(tasks, resolved.project)}
-                className={styles.column}
-                add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
-                onAdd={() => createTask({ defaults: { status, projectId } })}
-                onOpen={(task) => onOpen(task.id as TaskId)}
-                onDueDateChange={(task, date) => {
-                  const full = byId.get(task.id);
-                  if (full) actions.setDueDate([full], date);
-                }}
-                onEndReached={() => {
-                  if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
-                }}
-                renderCard={(card, task) => (
-                  <DraggableCard
-                    {...card}
-                    // the sheet's task and subtasks start loading before the click
-                    onPointerEnter={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
-                    onFocus={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
-                  />
-                )}
-              />
-            ))}
-          </KeyScope>
-          {/* the card under the pointer: drawn over everything, so a column's scroll can't clip it */}
-          <DragOverlay dropAnimation={null}>
-            {dragging && <DragPreview task={dragging} />}
-          </DragOverlay>
-        </DndContext>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        {menuTask && (
-          <TaskMenuItems
-            task={byId.get(menuTask.id) ?? menuTask}
-            actions={actions}
-            onOpen={() => openEntity({ id: menuTask.id })}
-          />
-        )}
-      </ContextMenuContent>
-    </ContextMenu>
+          {placed.map(({ status, query, tasks }) => (
+            <DroppableColumn
+              key={status}
+              status={status}
+              tasks={withoutProjectPill(tasks, resolved.project)}
+              className={styles.column}
+              add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
+              onAdd={() => createTask({ defaults: { status, projectId } })}
+              onOpen={(task) => onOpen(task.id as TaskId)}
+              onDueDateChange={(task, date) => {
+                const full = byId.get(task.id);
+                if (full) actions.setDueDate([full], date);
+              }}
+              onEndReached={() => {
+                if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+              }}
+              renderCard={(card, task) => (
+                <DraggableCard
+                  {...card}
+                  // the sheet's task and subtasks start loading before the click
+                  onPointerEnter={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
+                  onFocus={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
+                />
+              )}
+            />
+          ))}
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {menuTask && (
+            <TaskMenuItems
+              task={byId.get(menuTask.id) ?? menuTask}
+              actions={actions}
+              onOpen={() => openEntity({ id: menuTask.id })}
+            />
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+      {/* the card under the pointer: drawn over everything, so a column's scroll can't clip it */}
+      <DragOverlay dropAnimation={null}>{dragging && <DragPreview task={dragging} />}</DragOverlay>
+    </DndContext>
   );
 }

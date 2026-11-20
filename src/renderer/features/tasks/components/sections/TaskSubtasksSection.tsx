@@ -92,6 +92,7 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
         subtasks.length > 0 && (
           <ContextMenu>
             <ContextMenuTrigger
+              render={<KeyScope name="list" />}
               onContextMenu={(event) => {
                 const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
                 const found = row ? (byId.get(row.dataset.taskId ?? '') ?? null) : null;
@@ -99,28 +100,26 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
                 if (!found) event.preventDefault();
               }}
             >
-              <KeyScope name="list">
-                <TaskList
-                  compact={compact}
-                  ref={list}
-                  // in the sheet's narrow column a subtask shows its title, priority and date:
-                  // its project and link are mostly the parent's
-                  tasks={
-                    compact
-                      ? subtasks.map((row) => ({ ...row, project: null, link: null }))
-                      : subtasks
-                  }
-                  selectionBar={false}
-                  // the rows' selection strip hangs into the page margin, so the status icons
-                  // line up with the column, as Figma's page draws them
-                  onEndReached={() => {
-                    if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
-                  }}
-                  onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
-                  onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
-                  onOpen={(row) => openEntity({ id: row.id })}
-                />
-              </KeyScope>
+              <TaskList
+                compact={compact}
+                ref={list}
+                // in the sheet's narrow column a subtask shows its title, priority and date:
+                // its project and link are mostly the parent's
+                tasks={
+                  compact
+                    ? subtasks.map((row) => ({ ...row, project: null, link: null }))
+                    : subtasks
+                }
+                selectionBar={false}
+                // the rows' selection strip hangs into the page margin, so the status icons
+                // line up with the column, as Figma's page draws them
+                onEndReached={() => {
+                  if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+                }}
+                onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
+                onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
+                onOpen={(row) => openEntity({ id: row.id })}
+              />
             </ContextMenuTrigger>
             <ContextMenuContent>
               {menuTask && (

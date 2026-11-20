@@ -4,7 +4,7 @@ import type { WorkspaceId } from '@common/ids';
 import { ProjectStatus, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
 
 // The projects page (/app/$workspaceId/projects) and a project's page, over a fake main's projects.
 
@@ -162,6 +162,25 @@ describe('a project’s page', () => {
     click(byText(openTasks, 'button', '2 more in Tasks'));
     await eventually(() =>
       expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=open`),
+    );
+  });
+
+  it('opens a task’s menu on a right-click of its row in the overview', async () => {
+    const { main, app } = open(`/projects/${auth.id}`);
+    const selector = '[data-testid="overview-open"] [data-task-id="tsk_audit"]';
+    await eventually(() => expect(app.container.querySelector(selector)).not.toBeNull());
+    const row = app.container.querySelector(selector)!;
+    rightClick(row);
+    const favorite = await menuItem('Favorite');
+    // the trigger is the list's key scope
+    expect(document.querySelector('[data-popup-open]')).toBe(
+      row.closest('[data-key-scope="list"]'),
+    );
+    click(favorite);
+    await eventually(() =>
+      expect(main.callsTo('tasks.setFavorite').map((call) => call.input)).toEqual([
+        { id: 'tsk_audit', favorite: true },
+      ]),
     );
   });
 

@@ -1,5 +1,0 @@
-/* The right-click area, when it draws its own element: no part in layout, so the list or board it
-   wraps stays its parent's flex item. The menu itself uses DropdownMenu's styles */
-.trigger {
-  display: contents;
-}

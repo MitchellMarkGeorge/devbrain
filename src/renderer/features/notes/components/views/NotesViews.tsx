@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { NoteListItem } from '@common/types';
 import {
@@ -78,63 +78,70 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
       />
     );
 
+  // the menu is for the row or card under the pointer; elsewhere, the browser's own is kept off
+  const onContextMenu = (event: MouseEvent) => {
+    const row = (event.target as Element).closest<HTMLElement>('[data-note-id]');
+    const note = row ? (byId.get(row.dataset.noteId ?? '') ?? null) : null;
+    setMenuNote(note);
+    if (!note) event.preventDefault();
+  };
+
   return (
     <ContextMenu>
-      <ContextMenuTrigger
-        onContextMenu={(event) => {
-          const row = (event.target as Element).closest<HTMLElement>('[data-note-id]');
-          const note = row ? (byId.get(row.dataset.noteId ?? '') ?? null) : null;
-          setMenuNote(note);
-          if (!note) event.preventDefault();
-        }}
-      >
-        {resolved.view === 'card' ? (
-          <VirtualCardGrid
-            items={notes}
-            getKey={(note) => note.id}
-            gap="md"
-            estimateRowHeight={156 + 16}
-            aria-label="Notes"
-            onEndReached={more}
-            renderItem={(note) => (
-              <NoteCard
-                note={note}
-                data-note-id={note.id}
-                role="link"
-                aria-label={note.title || 'Untitled'}
-                onClick={() => open(note)}
-                onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-                  if (event.key === 'Enter') open(note);
-                }}
-              />
-            )}
-          />
-        ) : (
-          // the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs
-          <div className={styles.region}>
-            <KeyScope name="list" render={<div className={styles.region} />}>
-              <NoteList
-                ref={list}
-                notes={notes}
-                aria-label="Notes"
-                selected={selected}
-                onSelectedChange={setSelected}
-                onOpen={open}
-                onEndReached={more}
-              />
-            </KeyScope>
-            <NotesSelectionBar
-              notes={selectedNotes}
-              actions={actions}
-              onClear={() => {
-                setSelected([]);
-                // the bar is going: focus back to the list's focused row
-                list.current?.moveFocus(0);
-              }}
+      {resolved.view === 'card' ? (
+        <ContextMenuTrigger
+          render={
+            <VirtualCardGrid
+              items={notes}
+              getKey={(note) => note.id}
+              gap="md"
+              estimateRowHeight={156 + 16}
+              aria-label="Notes"
+              onEndReached={more}
+              renderItem={(note) => (
+                <NoteCard
+                  note={note}
+                  data-note-id={note.id}
+                  role="link"
+                  aria-label={note.title || 'Untitled'}
+                  onClick={() => open(note)}
+                  onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+                    if (event.key === 'Enter') open(note);
+                  }}
+                />
+              )}
             />
-          </div>
-        )}
-      </ContextMenuTrigger>
+          }
+          onContextMenu={onContextMenu}
+        />
+      ) : (
+        <ContextMenuTrigger
+          render={<div className={styles.region} />}
+          onContextMenu={onContextMenu}
+        >
+          {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
+          <KeyScope name="list" render={<div className={styles.region} />}>
+            <NoteList
+              ref={list}
+              notes={notes}
+              aria-label="Notes"
+              selected={selected}
+              onSelectedChange={setSelected}
+              onOpen={open}
+              onEndReached={more}
+            />
+          </KeyScope>
+          <NotesSelectionBar
+            notes={selectedNotes}
+            actions={actions}
+            onClear={() => {
+              setSelected([]);
+              // the bar is going: focus back to the list's focused row
+              list.current?.moveFocus(0);
+            }}
+          />
+        </ContextMenuTrigger>
+      )}
       <ContextMenuContent>
         {menuNote && (
           <NoteMenuItems
