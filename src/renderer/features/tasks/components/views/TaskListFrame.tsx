@@ -120,7 +120,6 @@ export function TaskListFrame({
 
   return (
     <ContextMenu>
-      {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
       <ContextMenuTrigger
         render={<div className={styles.region} />}
         onContextMenu={(event) => {
@@ -130,6 +129,7 @@ export function TaskListFrame({
           if (!task) event.preventDefault();
         }}
       >
+        {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
         <KeyScope name="list" render={<div className={styles.region} />}>
           {groups ? (
             <TaskList {...common} groups={grouped ?? []} selecting={selected.length > 0} />
