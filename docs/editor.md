@@ -64,8 +64,9 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   within one block, outside code, when the host can make tasks (`EditorHost.createTask`). The host
   makes it with the settings' default priority and due date, as New task does; a note's editor
   links it to the note (`linkedNoteId`) in the note's project, and a project's or task's
-  description puts it in that project. Text typed while it is made is kept, and if it fails
-  (a toast says so) the text stays. The colour button is left out: text colours are not in the
+  description puts it in that project. If the note changes while the task is being made, the
+  task is kept but the text is left as it is (its place may have moved); if making it fails (a
+  toast says so) the text stays. The colour button is left out: text colours are not in the
   note format.
 - `/` opens the `SlashMenu`; "Link to note", "Link to task" and "Mention event" open the `@` menu
   for that kind. "Task" opens the New task dialog

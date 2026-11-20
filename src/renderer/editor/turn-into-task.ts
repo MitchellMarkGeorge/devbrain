@@ -1,6 +1,4 @@
 import type { Editor, Range } from '@tiptap/core';
-import { Mapping } from '@tiptap/pm/transform';
-import type { Transaction } from '@tiptap/pm/state';
 
 // The text between two positions as a task's title: its entity links read as their labels and its
 // spaces collapsed; null when there is none.
@@ -49,8 +47,8 @@ export function blockTaskTitle(editor: Editor, skip: Range): string | null {
 
 /**
  * Makes a task titled with the text from `from` to `to` through the host's `createTask`, then puts
- * a link to it (its pill) in place of that text. Typing while the task is made moves the range with
- * it; if the text was deleted meanwhile, the task is made but nothing is replaced. A host that
+ * a link to it (its pill) in place of that text. If the note changed while the task was made, the
+ * positions may no longer be that text, so the task is kept but nothing is replaced. A host that
  * fails (and says so to the user) leaves the text as it was. Returns whether the link went in.
  */
 async function turnRangeIntoTask(editor: Editor, from: number, to: number): Promise<boolean> {
@@ -58,28 +56,16 @@ async function turnRangeIntoTask(editor: Editor, from: number, to: number): Prom
   const title = rangeTitle(editor, from, to);
   if (!createTask || title === null) return false;
 
-  // follows the edits made while the task is being created
-  const mapping = new Mapping();
-  const follow = ({ transaction }: { transaction: Transaction }) => {
-    mapping.appendMapping(transaction.mapping);
-  };
-  editor.on('transaction', follow);
-  let task;
-  try {
-    task = await createTask(title);
-  } finally {
-    editor.off('transaction', follow);
-  }
-  if (!task || editor.isDestroyed) return false;
+  // the note as it was: any edit makes a new doc, a move of the caret doesn't
+  const before = editor.state.doc;
+  const task = await createTask(title);
+  if (!task || editor.isDestroyed || editor.state.doc !== before) return false;
 
-  const start = mapping.map(from, 1);
-  const end = mapping.map(to, -1);
-  if (end <= start) return false;
   return editor
     .chain()
     .focus()
     .insertContentAt(
-      { from: start, to: end },
+      { from, to },
       { type: 'entityLink', attrs: { type: 'task', id: task.id, label: task.title } },
     )
     .run();

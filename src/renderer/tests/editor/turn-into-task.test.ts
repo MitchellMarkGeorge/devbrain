@@ -88,7 +88,19 @@ describe('turning a selection into a task', () => {
     );
   });
 
-  it('replaces the text where it is once the task is made, after typing before it', async () => {
+  it('still links the task when only the caret moved while it was made', async () => {
+    load('Ship it');
+    const host = taskHost();
+    host.hold();
+    select('Ship it');
+    const done = turnSelectionIntoTask(editor);
+    editor.commands.setTextSelection(1);
+    host.release();
+    expect(await done).toBe(true);
+    expect(editor.getMarkdown()).toBe('[Ship it](devbrain://task/tsk_new)');
+  });
+
+  it('makes the task but leaves the text when the note changed while it was made', async () => {
     load('Ship it');
     const host = taskHost();
     host.hold();
@@ -96,8 +108,9 @@ describe('turning a selection into a task', () => {
     const done = turnSelectionIntoTask(editor);
     editor.commands.insertContentAt(1, 'Todo: ');
     host.release();
-    expect(await done).toBe(true);
-    expect(editor.getMarkdown()).toBe('Todo: [Ship it](devbrain://task/tsk_new)');
+    expect(await done).toBe(false);
+    expect(host.titles).toEqual(['Ship it']);
+    expect(editor.getMarkdown()).toBe('Todo: Ship it');
   });
 
   it('leaves the text when the host could not make the task, or the text went meanwhile', async () => {
