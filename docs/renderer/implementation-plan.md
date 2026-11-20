@@ -445,7 +445,7 @@ frame needs, from `context.queryClient`, and translates core's `not_found` into 
 ```ts
 loader: async ({ context: { queryClient, trpc }, params }) => {
   const task = await ensureOrNotFound(queryClient, trpc.tasks.get.queryOptions({ id: params.taskId }));
-  void queryClient.query(trpc.tasks.subtasks.queryOptions({ id: task.id })).catch(() => {});
+  void queryClient.query(trpc.tasks.subtasks.queryOptions({ id: task.id })).catch(noop);
 },
 ```
 

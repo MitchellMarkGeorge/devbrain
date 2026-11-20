@@ -1,4 +1,4 @@
-import { queryOptions, type InfiniteData, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, noop, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import type { ProjectId, TaskId } from '@common/ids';
 import { type Event, type NoteListItem, type Page, type TaskListItem } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
@@ -100,8 +100,8 @@ export function listedEvent(queryClient: QueryClient, id: string): Event | undef
 export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
   // not again while what was loaded is a few seconds old: a change to it refetches it anyway
   const staleTime = 10_000;
-  queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime }).catch(() => {});
-  queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime }).catch(() => {});
+  queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime }).catch(noop);
+  queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime }).catch(noop);
 }
 
 /**

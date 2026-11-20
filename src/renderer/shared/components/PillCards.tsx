@@ -1,5 +1,11 @@
 import { useCallback, type ReactNode } from 'react';
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  noop,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { Copy, SquareArrowOutUpRight, Video } from 'lucide-react';
 import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 import type { ExternalRef } from '@common/types';
@@ -23,42 +29,42 @@ import { trpc } from '@renderer/ipc';
 // not again while what was loaded is a few seconds old: a change to it refetches it anyway
 const PREFETCH_STALE_MS = 10_000;
 
-// a failed read is the card's to show (its own query reads again), not the prefetch's
-const ignore = () => {};
-
-/** Starts the reads a pill's card makes, as the pill is pointed at; the card is drawn from them. */
+/**
+ * Starts the reads a pill's card makes, as the pill is pointed at; the card is drawn from them. A
+ * failed read is the card's to show (its own query reads again), not the prefetch's.
+ */
 function prefetch(queryClient: QueryClient, target: PillTarget) {
   const staleTime = PREFETCH_STALE_MS;
   switch (target.type) {
     case 'project':
       queryClient
         .query({ ...trpc.projects.get.queryOptions({ id: target.id }), staleTime })
-        .catch(ignore);
+        .catch(noop);
       queryClient
         .query({ ...trpc.projects.stats.queryOptions({ id: target.id }), staleTime })
-        .catch(ignore);
+        .catch(noop);
       return;
     case 'task':
       queryClient
         .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
-        .catch(ignore);
+        .catch(noop);
       return;
     // the task's count, from tasks.get, over its subtasks
     case 'subtasks':
       queryClient
         .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
-        .catch(ignore);
-      queryClient.query({ ...subtasksCardQuery(target.id), staleTime }).catch(ignore);
+        .catch(noop);
+      queryClient.query({ ...subtasksCardQuery(target.id), staleTime }).catch(noop);
       return;
     case 'note':
       queryClient
         .query({ ...trpc.notes.get.queryOptions({ id: target.id }), staleTime })
-        .catch(ignore);
+        .catch(noop);
       return;
     case 'event':
       queryClient
         .query({ ...trpc.events.get.queryOptions({ id: target.id }), staleTime })
-        .catch(ignore);
+        .catch(noop);
       return;
     case 'source':
       return;

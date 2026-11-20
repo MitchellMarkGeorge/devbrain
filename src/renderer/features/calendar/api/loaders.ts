@@ -1,3 +1,4 @@
+import { noop } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import type { RouterContext } from '@renderer/app/router';
 import { calendarEventsQuery } from './queries';
@@ -34,6 +35,6 @@ export async function loadCalendar(
   const resolved = resolveCalendarSearch(search, settings, today());
   const range = visibleRange(resolved.view, resolved.date, rangeOptionsOf(settings, resolved.view));
   for (const calendar of calendars.filter((c) => c.visible)) {
-    queryClient.query(calendarEventsQuery(calendar.id, range)).catch(() => {});
+    queryClient.query(calendarEventsQuery(calendar.id, range)).catch(noop);
   }
 }

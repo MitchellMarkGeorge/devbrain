@@ -1,3 +1,4 @@
+import { noop } from '@tanstack/react-query';
 import { notFound } from '@tanstack/react-router';
 import type { ProjectId } from '@common/ids';
 import { isId } from '@common/ids';
@@ -59,7 +60,7 @@ export async function loadProject(context: RouterContext, id: ProjectId, search:
   }
   queryClient
     .query({ ...trpc.projects.stats.queryOptions({ id }), staleTime: 'static' })
-    .catch(() => {});
+    .catch(noop);
   const tab = search.tab ?? 'overview';
   if (tab === 'notes') {
     await queryClient.infiniteQuery({ ...projectNotesQuery(id), staleTime: 'static' });
