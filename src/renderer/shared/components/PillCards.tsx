@@ -26,6 +26,7 @@ const PREFETCH_STALE_MS = 10_000;
 // a failed read is the card's to show (its own query reads again), not the prefetch's
 const ignore = () => {};
 
+/** Starts the reads a pill's card makes, as the pill is pointed at; the card is drawn from them. */
 function prefetch(queryClient: QueryClient, target: PillTarget) {
   const staleTime = PREFETCH_STALE_MS;
   switch (target.type) {
@@ -38,13 +39,16 @@ function prefetch(queryClient: QueryClient, target: PillTarget) {
         .catch(ignore);
       return;
     case 'task':
+      queryClient
+        .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
+        .catch(ignore);
+      return;
+    // the task's count, from tasks.get, over its subtasks
     case 'subtasks':
       queryClient
         .query({ ...trpc.tasks.get.queryOptions({ id: target.id }), staleTime })
         .catch(ignore);
-      if (target.type === 'subtasks') {
-        queryClient.query({ ...subtasksCardQuery(target.id), staleTime }).catch(ignore);
-      }
+      queryClient.query({ ...subtasksCardQuery(target.id), staleTime }).catch(ignore);
       return;
     case 'note':
       queryClient
