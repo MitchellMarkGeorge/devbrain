@@ -69,14 +69,14 @@
   max-width: 100%;
 }
 
-/* the priority: its gauge alone in a round 24px pill */
+/* priority, then the date on the right */
+/* the gauge and its name ("High"); the icon names itself to screen readers, the word is for sight */
 .priority {
-  justify-content: center;
-  width: var(--control-xs);
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  white-space: nowrap;
 }
-
-/* the date (or "Set due date") on the right */
 .meta {
   display: flex;
   align-items: center;

@@ -11,7 +11,7 @@ import { SourcePill } from '../../entities/SourcePill';
 import { LinkState, TaskStatus, type TaskListItem } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import { dueTone, isClosed, providerOf } from '../../types';
+import { dueTone, isClosed, PRIORITY_LABELS, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
 /** The fields of core's `TaskListItem` a board card reads; pass the row as it is. */
@@ -46,9 +46,9 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 }
 
 /**
- * A task on the board, drawn from core's `TaskListItem`: the title, then its priority as a round
- * icon pill and its relations as the pills a task row uses (the key, its subtasks, the linked event
- * or note, the project), then the due date ("Jul 1" from `useFormat()`'s `formatListDate`, coloured when due today or overdue,, which moves once a day).
+ * A task on the board, drawn from core's `TaskListItem`: the title, then its relations as the pills
+ * a task row uses (the key, its subtasks, the linked event or note, the project), then priority (its gauge
+ * and name, "High") and the due date ("Jul 1" from `useFormat()`'s `formatListDate`, coloured when due today or overdue,, which moves once a day).
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
@@ -59,13 +59,6 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   const done = task.status === TaskStatus.COMPLETED;
   const { external, subtaskProgress: subtasks } = task;
   const pills = [
-    // first, as Linear's board does: the gauge alone in a round pill (it names itself to screen
-    // readers)
-    <Badge
-      key="priority"
-      className={styles.priority}
-      icon={<PriorityIcon priority={task.priority} size={12} />}
-    />,
     external?.key && (
       <PillHoverCard key="source" target={{ type: 'source', title: task.title, external }}>
         <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>
@@ -98,20 +91,23 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   const children = (
     <>
       <div className={styles.title}>{task.title}</div>
-      <div className={styles.pills}>{pills}</div>
-      {(task.dueDate || settable) && (
-        <div className={styles.meta}>
-          {task.dueDate ? (
-            <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
-              {formatListDate(task.dueDate)}
-            </span>
-          ) : (
-            onDueDateChange && (
-              <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
-            )
-          )}
-        </div>
-      )}
+      {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
+      <div className={styles.meta}>
+        <span className={styles.priority}>
+          <PriorityIcon priority={task.priority} size={14} />
+          <span aria-hidden>{PRIORITY_LABELS[task.priority]}</span>
+        </span>
+        {task.dueDate ? (
+          <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
+            {formatListDate(task.dueDate)}
+          </span>
+        ) : (
+          settable &&
+          onDueDateChange && (
+            <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
+          )
+        )}
+      </div>
     </>
   );
 
