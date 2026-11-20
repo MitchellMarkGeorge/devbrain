@@ -23,17 +23,18 @@ in Storybook mounts it with a demo keymap.
 
 ## Mounting it
 
-As built: the provider is in the root layout (`app/Root.tsx`), which clears the undo stack
-as a switch of workspace starts; the app-wide commands are `useAppCommands` (`layouts/workspace/hooks/use-app-commands.ts`), called by the
+As built: the provider is in `AppWindow` (`app/AppWindow.tsx`), around the router, so the root
+layout (`app/Root.tsx`) can clear the undo stack as a switch of workspace starts; the app-wide commands are `useAppCommands` (`layouts/workspace/hooks/use-app-commands.ts`), called by the
 workspace layout, whose ⌘\ runs the `WorkspaceShell`'s toggle through its `controlsRef` (the shell
 binds no keys itself).
 
-The provider goes in the root layout, around `ModalProvider`, as dialogs shown with `useModals`
-render there and the shortcuts dialog reads the keyboard's context:
+The provider goes around the router, and so around the root layout's `ModalProvider`, as dialogs
+shown with `useModals` render there, the shortcuts dialog reads the keyboard's context, and the root
+layout clears the undo stack:
 
 ```tsx
 <KeyboardProvider keymap={defaultKeymap}>
-  <ModalProvider closed={switching}>…</ModalProvider>
+  <RouterProvider router={router} />
 </KeyboardProvider>
 ```
 

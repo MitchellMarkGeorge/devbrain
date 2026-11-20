@@ -177,3 +177,56 @@ describe('Create task', () => {
     await eventually(() => expect(app.text()).toContain('Write the docs'));
   });
 });
+
+describe('the undo stack', () => {
+  const HOME = 'wsp_home' as WorkspaceId;
+
+  /** Work's tasks page, with "Plan the launch" moved to the trash: one entry on the undo stack */
+  async function trashedOne() {
+    const main = new FakeMain([workspace(WORK, 'Work'), workspace(HOME, 'Home')], WORK);
+    main.taskStores.set(WORK, new FakeTasks(SAMPLE.map((task) => ({ ...task }))));
+    const app = startApp(main, { url: `/app/${WORK}/tasks` });
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    row('Plan the launch')!.focus();
+    key(row('Plan the launch')!, 'x');
+    await eventually(() => expect(app.text()).toContain('1 selected'));
+    key(document.activeElement!, 'Backspace', { metaKey: true });
+    await eventually(() => expect(main.callsTo('archive.archiveTask')).toHaveLength(1));
+    return { main, app };
+  }
+
+  const undo = () => key(document.body, 'z', { metaKey: true });
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+  it('keeps its entries on going to Create workspace and coming back', async () => {
+    const { main, app } = await trashedOne();
+    await app.router.navigate({ to: '/workspaces/new' });
+    await eventually(() => expect(app.path()).toBe('/workspaces/new'));
+    app.router.history.back();
+    await eventually(() => expect(app.text()).toContain('Build the page'));
+    undo();
+    await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
+  });
+
+  it('drops its entries on going from Create workspace into another workspace', async () => {
+    const { main, app } = await trashedOne();
+    await app.router.navigate({ to: '/workspaces/new' });
+    await eventually(() => expect(app.path()).toBe('/workspaces/new'));
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: HOME } });
+    await eventually(() => expect(main.open).toBe(HOME));
+    await eventually(() => expect(app.path()).toBe(`/app/${HOME}/tasks`));
+    undo();
+    await tick();
+    expect(main.callsTo('archive.restoreTask')).toHaveLength(0);
+  });
+
+  it('drops its entries on a switch to another workspace', async () => {
+    const { main, app } = await trashedOne();
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: HOME } });
+    await eventually(() => expect(main.open).toBe(HOME));
+    await eventually(() => expect(app.path()).toBe(`/app/${HOME}/tasks`));
+    undo();
+    await tick();
+    expect(main.callsTo('archive.restoreTask')).toHaveLength(0);
+  });
+});
