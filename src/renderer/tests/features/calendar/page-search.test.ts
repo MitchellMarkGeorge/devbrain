@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, createElement, createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';

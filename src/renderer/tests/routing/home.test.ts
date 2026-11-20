@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
 import type { IntegrationId, WorkspaceId } from '@common/ids';

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { EditorHostExtension, setEditorHost } from '@renderer/editor/extensions/editor-host';

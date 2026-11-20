@@ -1,3 +1,5 @@
+// @vitest-environment node
+// (it reads the renderer's files from disk, by file: URL, and draws nothing)
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 

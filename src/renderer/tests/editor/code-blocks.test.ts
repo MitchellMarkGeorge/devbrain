@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { CODE_LANGUAGES, languageLabel, languageValue } from '@renderer/editor/code-languages';

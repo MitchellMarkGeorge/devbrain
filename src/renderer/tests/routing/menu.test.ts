@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 import type { MenuCommandId, MenuPage } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
