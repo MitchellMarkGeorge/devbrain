@@ -56,7 +56,12 @@ async function turnRangeIntoTask(editor: Editor, from: number, to: number): Prom
   const title = rangeTitle(editor, from, to);
   if (!createTask || title === null) return false;
 
-  // the note as it was: any edit makes a new doc, a move of the caret doesn't
+  // The note as it was, compared by reference once the task is made: if it changed, `from` and `to`
+  // may no longer be the text. This is safe because ProseMirror documents are immutable: every step
+  // (typing, deleting, setContent, undo) builds a new doc, and a transaction with no steps (a caret
+  // move, a meta-only transaction such as the toolbar's) keeps the same one. So a different doc
+  // always means a change; the only false alarm is an edit that ends with the same content, which
+  // just skips the pill.
   const before = editor.state.doc;
   const task = await createTask(title);
   if (!task || editor.isDestroyed || editor.state.doc !== before) return false;
