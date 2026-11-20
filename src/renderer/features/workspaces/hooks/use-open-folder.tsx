@@ -15,7 +15,7 @@ export function useOpenFolder(): { run: () => void; pending: boolean } {
   const navigate = useNavigate();
   const modals = useModals();
   const goTo = (workspaceId: WorkspaceId) =>
-    void navigate({ to: '/app/$workspaceId', params: { workspaceId } });
+    navigate({ to: '/app/$workspaceId', params: { workspaceId } });
   const importFolder = useMutation(
     trpc.workspaces.importFolder.mutationOptions({
       onSuccess: (workspace) => {

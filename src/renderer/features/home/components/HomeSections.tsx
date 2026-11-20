@@ -57,7 +57,7 @@ function useGoTo() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const navigate = useNavigate();
   return (page: 'tasks' | 'projects' | 'notes' | 'calendar' | 'integrations') =>
-    void navigate({
+    navigate({
       // Integrations is a section of the settings
       to:
         page === 'integrations'

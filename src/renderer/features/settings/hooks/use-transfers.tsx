@@ -201,7 +201,7 @@ export function useTransfers(): Transfers {
         summary={summary}
         workspaceName={workspace?.name ?? 'the workspace'}
         onView={() =>
-          void navigate({
+          navigate({
             to: kind === 'tasks' ? '/app/$workspaceId/tasks' : '/app/$workspaceId/notes',
             params: { workspaceId },
           })
@@ -216,7 +216,7 @@ export function useTransfers(): Transfers {
       action: {
         label: `Show in ${fileManager}`,
         onClick: () =>
-          void ipc.app.showFile
+          ipc.app.showFile
             .mutate({ path })
             .catch((error: unknown) => showError(error, 'Couldn’t show the export')),
       },

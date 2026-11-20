@@ -75,11 +75,7 @@ export function TaskNoteSection({ task, compact = false, onOpenNote }: TaskNoteS
         />
       ) : (
         notes.isSuccess && (
-          <AddSlot
-            size={compact ? 'default' : 'lg'}
-            disabled={creating}
-            onClick={() => void create()}
-          >
+          <AddSlot size={compact ? 'default' : 'lg'} disabled={creating} onClick={() => create()}>
             Add a task note
           </AddSlot>
         )

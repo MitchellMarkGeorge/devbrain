@@ -934,10 +934,10 @@ describe('Workspace — search of archived and restored rows', () => {
     const calls: [string, boolean][] = [];
     const removed = vi
       .spyOn(workspace.search, 'removeFromIndex')
-      .mockImplementation(() => void calls.push(['remove', sqlite.inTransaction]));
+      .mockImplementation(() => calls.push(['remove', sqlite.inTransaction]));
     const indexed = vi
       .spyOn(workspace.search, 'indexTasks')
-      .mockImplementation(() => void calls.push(['index', sqlite.inTransaction]));
+      .mockImplementation(() => calls.push(['index', sqlite.inTransaction]));
     try {
       const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
       calls.length = 0;

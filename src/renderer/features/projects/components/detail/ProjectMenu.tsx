@@ -52,7 +52,7 @@ export function ProjectMenu({ project, actions, onTrash }: ProjectMenuProps) {
       >
         New task
       </DropdownMenuItem>
-      <DropdownMenuItem icon={SquarePen} onClick={() => void newNote()}>
+      <DropdownMenuItem icon={SquarePen} onClick={() => newNote()}>
         New note
       </DropdownMenuItem>
       <DropdownMenuSub>
@@ -67,7 +67,7 @@ export function ProjectMenu({ project, actions, onTrash }: ProjectMenuProps) {
         </DropdownMenuSubContent>
       </DropdownMenuSub>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={Code} onClick={() => void copyAsMarkdown()}>
+      <DropdownMenuItem icon={Code} onClick={() => copyAsMarkdown()}>
         Copy as Markdown
       </DropdownMenuItem>
       <DropdownMenuSeparator />

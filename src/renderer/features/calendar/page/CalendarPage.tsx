@@ -124,7 +124,7 @@ export function CalendarPage() {
   const closeSheet = () => setSearch({ open: undefined, occurrence: undefined, sheet: undefined });
   // the event's note in the sheet: an entry of its own, so Back (and "‹ Event") return to the event
   const openEventNote = () =>
-    void navigate({
+    navigate({
       search: (previous) => ({ ...previous, sheet: 'note' as const }),
       state: (previous) => ({ ...previous, openedEventNote: true }),
     });

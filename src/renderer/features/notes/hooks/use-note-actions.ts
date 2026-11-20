@@ -51,14 +51,14 @@ export function useNoteActions(): NoteActions {
   const moveToTrash = useMoveToTrash();
   return useMemo(() => {
     const run = (call: Promise<unknown>, action: string) =>
-      void call.catch((error: unknown) => showError(error, action));
+      call.catch((error: unknown) => showError(error, action));
     // one call per note, in order; a failure stops the rest and says how far it got
     const each = (
       notes: readonly NoteRef[],
       action: string,
       call: (note: NoteRef) => Promise<unknown>,
     ) =>
-      void (async () => {
+      (async () => {
         for (const [index, note] of notes.entries()) {
           try {
             await call(note);

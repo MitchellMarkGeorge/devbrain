@@ -6,8 +6,18 @@ describe('UndoStack', () => {
   it('undoes the newest entry first', async () => {
     const stack = new UndoStack();
     const undone: string[] = [];
-    stack.push({ label: 'a', undo: () => void undone.push('a') });
-    stack.push({ label: 'b', undo: () => void undone.push('b') });
+    stack.push({
+      label: 'a',
+      undo: () => {
+        undone.push('a');
+      },
+    });
+    stack.push({
+      label: 'b',
+      undo: () => {
+        undone.push('b');
+      },
+    });
     expect(stack.peek()?.label).toBe('b');
 
     expect((await stack.undo())?.label).toBe('b');
@@ -54,9 +64,19 @@ describe('UndoStack', () => {
   it('takes back one entry wherever it is (a toast’s Undo), once', async () => {
     const stack = new UndoStack();
     const undone: string[] = [];
-    const a = { label: 'a', undo: () => void undone.push('a') };
+    const a = {
+      label: 'a',
+      undo: () => {
+        undone.push('a');
+      },
+    };
     stack.push(a);
-    stack.push({ label: 'b', undo: () => void undone.push('b') });
+    stack.push({
+      label: 'b',
+      undo: () => {
+        undone.push('b');
+      },
+    });
     expect((await stack.take(a))?.label).toBe('a');
     expect(await stack.take(a)).toBeUndefined();
     expect(undone).toEqual(['a']);
@@ -94,19 +114,31 @@ describe('undoable commands', () => {
         id: 'row.trash',
         title: 'Move to trash',
         scope: 'global',
-        run: () => ({ label: 'Moved to trash', undo: () => void restored.push('trash') }),
+        run: () => ({
+          label: 'Moved to trash',
+          undo: () => {
+            restored.push('trash');
+          },
+        }),
       },
       {
         id: 'row.archive',
         title: 'Archive',
         scope: 'global',
-        run: async () => ({ label: 'Archived', undo: () => void restored.push('archive') }),
+        run: async () => ({
+          label: 'Archived',
+          undo: () => {
+            restored.push('archive');
+          },
+        }),
       },
       {
         id: 'undo',
         title: 'Undo',
         scope: 'global',
-        run: (c) => void c.undoStack.undo(),
+        run: (c) => {
+          c.undoStack.undo();
+        },
         enabled: (c) => c.undoStack.size > 0,
       },
     ]);

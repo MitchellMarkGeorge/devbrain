@@ -74,14 +74,14 @@ export function CreateProjectDialog({ onCreated, ...modal }: CreateProjectDialog
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    void create();
+    create();
   }
 
   // ⌘↵ anywhere in the dialog creates
   function onKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      void create();
+      create();
     }
   }
 

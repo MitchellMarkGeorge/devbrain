@@ -25,7 +25,7 @@ export function useCalendarSearch(): {
   const { now } = useFormat();
   const setSearch = useCallback(
     (patch: Partial<CalendarSearch>, options: { push?: boolean } = {}) =>
-      void navigate({
+      navigate({
         search: (previous) => ({ ...previous, ...patch }),
         replace: !options.push,
         state: options.push ? (previous) => ({ ...previous, openedSheet: true }) : undefined,

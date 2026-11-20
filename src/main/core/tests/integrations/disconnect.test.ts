@@ -713,7 +713,7 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
   it('revokes an OAuth grant at the provider once the rows are gone and sync has stopped', async () => {
     const { id } = await connectCalendar();
     const order: string[] = [];
-    service.onChange((change) => void order.push(change.type));
+    service.onChange((change) => order.push(change.type));
     let integrationsAtRevoke: number | null = null;
     oauth.revoke.mockImplementationOnce(async () => {
       order.push('revoked');

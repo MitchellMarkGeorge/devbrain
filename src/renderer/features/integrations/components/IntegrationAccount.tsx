@@ -144,7 +144,7 @@ export function IntegrationAccount({
             aria-label={`${entry.name} on`}
             onCheckedChange={(enabled) => setEnabled.mutate({ id: integration.id, enabled })}
           />
-          <Button variant="outline" size="sm" onClick={() => void flows.disconnect(integration)}>
+          <Button variant="outline" size="sm" onClick={() => flows.disconnect(integration)}>
             Disconnect…
           </Button>
         </>

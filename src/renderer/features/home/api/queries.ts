@@ -98,6 +98,8 @@ export function useHomeData(today: Date, now: Date) {
   return {
     data,
     isError: !data && all.some((query) => query.isError),
-    retry: () => all.forEach((query) => query.isError && void query.refetch()),
+    retry: () => {
+      for (const query of all) if (query.isError) query.refetch();
+    },
   };
 }

@@ -368,7 +368,7 @@ describe('SyncScheduler — triggers', () => {
     expect(engine.runs()).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(MIN_TRIGGER_GAP_MS);
-    void scheduler.trigger('resume');
+    scheduler.trigger('resume');
     await vi.advanceTimersByTimeAsync(0);
     expect(engine.runs()).toHaveLength(2);
   });

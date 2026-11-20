@@ -76,7 +76,7 @@ export function useTaskActions(): TaskActions {
     const ids = (tasks: readonly TaskRef[]) => tasks.map((task) => task.id);
 
     const setFavorite = (tasks: readonly TaskRef[], favorite: boolean) =>
-      void write(
+      write(
         tasks,
         { favoritedAt: favorite ? new Date() : null },
         `Couldn’t ${favorite ? 'favorite' : 'unfavorite'} ${noun(tasks)}`,
@@ -86,7 +86,7 @@ export function useTaskActions(): TaskActions {
     return {
       setStatus(tasks, status) {
         if (!editable(tasks)) return;
-        void write(tasks, { status }, `Couldn’t change the status of ${noun(tasks)}`, () =>
+        write(tasks, { status }, `Couldn’t change the status of ${noun(tasks)}`, () =>
           tasks.length === 1
             ? ipc.tasks.updateStatus.mutate({ id: tasks[0].id, status })
             : ipc.tasks.updateMany.mutate({ ids: ids(tasks), patch: { status } }),
@@ -94,7 +94,7 @@ export function useTaskActions(): TaskActions {
       },
       setPriority(tasks, priority) {
         if (!editable(tasks)) return;
-        void write(tasks, { priority }, `Couldn’t change the priority of ${noun(tasks)}`, () =>
+        write(tasks, { priority }, `Couldn’t change the priority of ${noun(tasks)}`, () =>
           tasks.length === 1
             ? ipc.tasks.update.mutate({ id: tasks[0].id, priority })
             : ipc.tasks.updateMany.mutate({ ids: ids(tasks), patch: { priority } }),
@@ -102,7 +102,7 @@ export function useTaskActions(): TaskActions {
       },
       setDueDate(tasks, dueDate) {
         if (!editable(tasks)) return;
-        void write(tasks, { dueDate }, `Couldn’t change the due date of ${noun(tasks)}`, () =>
+        write(tasks, { dueDate }, `Couldn’t change the due date of ${noun(tasks)}`, () =>
           tasks.length === 1
             ? ipc.tasks.update.mutate({ id: tasks[0].id, dueDate })
             : ipc.tasks.updateMany.mutate({ ids: ids(tasks), patch: { dueDate } }),
@@ -110,14 +110,14 @@ export function useTaskActions(): TaskActions {
       },
       setStartDate(task, startDate) {
         if (!editable([task])) return;
-        void write([task], { startDate }, 'Couldn’t change the start date', () =>
+        write([task], { startDate }, 'Couldn’t change the start date', () =>
           ipc.tasks.update.mutate({ id: task.id, startDate }),
         );
       },
       setProject(tasks, projectId) {
         if (!editable(tasks)) return;
         // not optimistic: the row's project pill needs the project's name and colour
-        void write(
+        write(
           tasks,
           {},
           `Couldn’t move ${noun(tasks)}`,

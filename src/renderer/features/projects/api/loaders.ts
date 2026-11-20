@@ -57,7 +57,7 @@ export async function loadProject(context: RouterContext, id: ProjectId, search:
     if (ipcErrorCode(error) === 'not_found') throw notFound();
     throw error;
   }
-  void queryClient
+  queryClient
     .query({ ...trpc.projects.stats.queryOptions({ id }), staleTime: 'static' })
     .catch(() => {});
   const tab = search.tab ?? 'overview';

@@ -74,7 +74,9 @@ export function TaskListFrame({
     open: (task) => openEntity({ id: task.id }),
     setStatus: (rows, status) => actions.setStatus(full(rows), status),
     toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
-    trash: (rows) => void actions.trash(full(rows)).then(clearAfter),
+    trash: (rows) => {
+      actions.trash(full(rows)).then(clearAfter);
+    },
   });
 
   // → shows the focused row's subtasks under it, ← hides them

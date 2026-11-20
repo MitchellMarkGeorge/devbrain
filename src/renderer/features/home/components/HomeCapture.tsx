@@ -164,7 +164,7 @@ export function HomeCapture({ firstRun }: { firstRun: boolean }) {
       }}
       kind={kind}
       onKindChange={setKind}
-      onSubmit={(value) => void create(value)}
+      onSubmit={(value) => create(value)}
       highlights={parsed.highlights}
       pickers={pickers}
       tip={

@@ -27,29 +27,29 @@ function prefetch(queryClient: QueryClient, target: PillTarget) {
   const staleTime = PREFETCH_STALE_MS;
   switch (target.type) {
     case 'project':
-      void queryClient.prefetchQuery({
+      queryClient.prefetchQuery({
         ...trpc.projects.get.queryOptions({ id: target.id }),
         staleTime,
       });
-      void queryClient.prefetchQuery({
+      queryClient.prefetchQuery({
         ...trpc.projects.stats.queryOptions({ id: target.id }),
         staleTime,
       });
       return;
     case 'task':
-      void queryClient.prefetchQuery({
+      queryClient.prefetchQuery({
         ...trpc.tasks.get.queryOptions({ id: target.id }),
         staleTime,
       });
       return;
     case 'note':
-      void queryClient.prefetchQuery({
+      queryClient.prefetchQuery({
         ...trpc.notes.get.queryOptions({ id: target.id }),
         staleTime,
       });
       return;
     case 'event':
-      void queryClient.prefetchQuery({
+      queryClient.prefetchQuery({
         ...trpc.events.get.queryOptions({ id: target.id }),
         staleTime,
       });
@@ -131,7 +131,7 @@ function SourceCard({ title, external }: { title: string; external: ExternalRef 
             variant="ghost"
             icon={Copy}
             onClick={() =>
-              void navigator.clipboard
+              navigator.clipboard
                 .writeText(external.url)
                 .then(() => toast({ tone: 'success', title: 'URL copied' }))
             }

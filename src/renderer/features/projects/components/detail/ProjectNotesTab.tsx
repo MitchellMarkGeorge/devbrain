@@ -45,7 +45,7 @@ export function ProjectNotesTab({ project }: { project: Project }) {
         title="Notes couldn’t be loaded"
         description="Something went wrong reading this project’s notes."
         action={
-          <Button size="sm" onClick={() => void query.refetch()}>
+          <Button size="sm" onClick={() => query.refetch()}>
             Retry
           </Button>
         }
@@ -58,7 +58,7 @@ export function ProjectNotesTab({ project }: { project: Project }) {
         title="No notes in this project yet"
         description="Notes you file in this project show up here."
         action={
-          <Button size="sm" icon={Plus} onClick={() => void newNote()}>
+          <Button size="sm" icon={Plus} onClick={() => newNote()}>
             New Note
           </Button>
         }
@@ -73,7 +73,7 @@ export function ProjectNotesTab({ project }: { project: Project }) {
         estimateRowHeight={NOTE_ROW_HEIGHT}
         aria-label="Notes"
         onEndReached={() => {
-          if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+          if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
         }}
         renderItem={(note) => (
           <NoteCard
@@ -94,7 +94,7 @@ export function ProjectNotesTab({ project }: { project: Project }) {
     <>
       <PageToolbar
         end={
-          <Button icon={Plus} onClick={() => void newNote()}>
+          <Button icon={Plus} onClick={() => newNote()}>
             New Note
           </Button>
         }

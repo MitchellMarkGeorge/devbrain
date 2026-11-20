@@ -108,7 +108,7 @@ export function useIntegrationFlows(): IntegrationFlows {
         if (provider === Provider.LINEAR) {
           modals.open((props) => <LinearKeyDialog {...props} workspaceName={workspaceName} />);
         } else {
-          void signIn();
+          signIn();
         }
       },
       reconnect(integration) {
@@ -117,7 +117,7 @@ export function useIntegrationFlows(): IntegrationFlows {
             <LinearKeyDialog {...props} workspaceName={workspaceName} reconnect={integration} />
           ));
         } else {
-          void signIn(integration);
+          signIn(integration);
         }
       },
       async disconnect(integration) {

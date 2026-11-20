@@ -246,7 +246,7 @@ export function TaskMenuItems({ task, actions, onOpen, subtasks }: TaskMenuItems
         shortcut={TRASH}
         variant="destructive"
         disabled={synced}
-        onClick={() => void actions.trash(tasks)}
+        onClick={() => actions.trash(tasks)}
       >
         Move to trash
       </DropdownMenuItem>

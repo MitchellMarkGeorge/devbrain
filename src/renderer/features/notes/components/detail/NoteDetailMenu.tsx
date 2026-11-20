@@ -37,7 +37,7 @@ export function NoteDetailMenu({
         label="Change project"
         onPick={(projectId) => actions.setProject([note], projectId)}
       />
-      <DropdownMenuItem icon={Copy} shortcut="⌘D" onClick={() => void duplicate()}>
+      <DropdownMenuItem icon={Copy} shortcut="⌘D" onClick={() => duplicate()}>
         Duplicate
       </DropdownMenuItem>
       <DropdownMenuItem icon={FolderOpen} onClick={() => actions.showInFolder(note)}>

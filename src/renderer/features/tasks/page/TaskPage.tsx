@@ -67,7 +67,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   const [sheetNote, setSheetNote] = useState(note);
   if (note && note !== sheetNote) setSheetNote(note);
   const openNote = (id: NoteId) =>
-    void navigateHere({
+    navigateHere({
       search: (previous) => ({ ...previous, note: id }),
       state: (previous) => ({ ...previous, openedNoteSheet: true }),
     });
@@ -105,7 +105,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   async function trash() {
     if (!(await actions.trash([task]))) return;
     if (canGoBack) router.history.back();
-    else void navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId }, replace: true });
+    else navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId }, replace: true });
   }
 
   return (
@@ -118,7 +118,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
               favorite={task.favoritedAt !== null}
               onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
             />
-            <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
+            <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => trash()} />
           </>
         )
       }
@@ -129,7 +129,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
             <TrashedNotice
               noun="task"
               onRestore={() =>
-                void ipc.archive.restoreTask
+                ipc.archive.restoreTask
                   .mutate({ id: task.id })
                   .catch((error: unknown) => showError(error, 'Couldn’t restore the task'))
               }
@@ -171,9 +171,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
         <NoteSheet
           noteId={sheetNote}
           open={note !== undefined}
-          onClose={() =>
-            void navigateHere({ search: (previous) => ({ ...previous, note: undefined }) })
-          }
+          onClose={() => navigateHere({ search: (previous) => ({ ...previous, note: undefined }) })}
           onClosed={() => setSheetNote(undefined)}
         />
       )}

@@ -296,7 +296,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     return <TasksLoading />;
   }
   if (resolved.groupBy === 'project' && projects.isError) {
-    return <TasksErrorState onRetry={() => void projects.refetch()} />;
+    return <TasksErrorState onRetry={() => projects.refetch()} />;
   }
   const everyLoadedEmpty =
     defs.length > 0 &&
@@ -308,7 +308,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
   if (defs.length > 0 && defs.every((def) => states[def.id]?.error)) {
     return (
       <TasksErrorState
-        onRetry={() => void queryClient.refetchQueries({ queryKey: trpc.tasks.list.pathKey() })}
+        onRetry={() => queryClient.refetchQueries({ queryKey: trpc.tasks.list.pathKey() })}
       />
     );
   }

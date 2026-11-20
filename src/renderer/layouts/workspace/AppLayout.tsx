@@ -33,8 +33,8 @@ export function AppLayout() {
     if (!inSettings) lastPage.current = shown.href;
   }, [inSettings, shown.href]);
   const backToApp = () => {
-    if (lastPage.current) void router.navigate({ href: lastPage.current });
-    else void router.navigate({ to: '/app/$workspaceId/home', params: { workspaceId } });
+    if (lastPage.current) router.navigate({ href: lastPage.current });
+    else router.navigate({ to: '/app/$workspaceId/home', params: { workspaceId } });
   };
   const position = useHistoryPosition();
   const openSearch = useOpenSearch();

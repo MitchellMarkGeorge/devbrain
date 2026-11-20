@@ -30,9 +30,9 @@ export function WorkspaceMenu() {
         }))}
         current={workspaceId}
         onSelect={(id) =>
-          void navigate({ to: '/app/$workspaceId', params: { workspaceId: id as WorkspaceId } })
+          navigate({ to: '/app/$workspaceId', params: { workspaceId: id as WorkspaceId } })
         }
-        onCreate={() => void navigate({ to: '/workspaces/new' })}
+        onCreate={() => navigate({ to: '/workspaces/new' })}
         onOpenFolder={openFolder.run}
         onShowInFolder={() => showInFolder.mutate()}
       />

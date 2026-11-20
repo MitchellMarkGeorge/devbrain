@@ -162,7 +162,7 @@ function LinkPill({ task }: { task: Task }) {
         onPick={(link) => {
           setChanging(false);
           setPicked(link);
-          void setLink(link).finally(() => setPicked(undefined));
+          setLink(link).finally(() => setPicked(undefined));
         }}
       />
     );
@@ -224,7 +224,7 @@ function PullRequestPill({
     const submit = () => {
       const url = text.trim();
       if (url === '') {
-        if (task.pullRequestUrl) void save(null);
+        if (task.pullRequestUrl) save(null);
         onEditingChange(false);
         return;
       }
@@ -232,7 +232,7 @@ function PullRequestPill({
         setInvalid(true);
         return;
       }
-      void save(url);
+      save(url);
       onEditingChange(false);
     };
     return (
@@ -275,7 +275,7 @@ function PullRequestPill({
               Edit link…
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem icon={X} onClick={() => void save(null)}>
+            <DropdownMenuItem icon={X} onClick={() => save(null)}>
               Remove pull request
             </DropdownMenuItem>
           </>
@@ -427,7 +427,7 @@ export function TaskProperties({
           }
           onPick={(parentId) => {
             setAdding(null);
-            void makeSubtask(parentId);
+            makeSubtask(parentId);
           }}
         />
       )}
