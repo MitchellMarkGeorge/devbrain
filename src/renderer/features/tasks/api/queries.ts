@@ -1,13 +1,6 @@
 import { queryOptions, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import type { ProjectId, TaskId } from '@common/ids';
-import {
-  LinkState,
-  type Event,
-  type ExternalRef,
-  type NoteListItem,
-  type Page,
-  type TaskListItem,
-} from '@common/types';
+import { type Event, type NoteListItem, type Page, type TaskListItem } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import type { TaskListInput } from './search';
 
@@ -123,10 +116,7 @@ export function withoutProjectPill<T extends Pick<TaskListItem, 'project'>>(
   return tasks.map((task) => (task.project?.id === project ? { ...task, project: null } : task));
 }
 
-/** A synced task: its provider owns its fields (status, priority, dates, project, title). */
-export function isSynced(task: { external?: Pick<ExternalRef, 'state'> | null }): boolean {
-  return task.external?.state === LinkState.SYNCED;
-}
+export { isSynced } from '@renderer/components/types';
 
 /** What an optimistic write changes on a task, as every cached read shows it. */
 export type TaskPatch = Partial<

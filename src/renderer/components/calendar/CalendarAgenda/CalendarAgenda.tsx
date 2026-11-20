@@ -4,7 +4,7 @@ import { ColourBar } from '../../ui/ColourBar';
 import { StatusIcon } from '../../entities/StatusIcon';
 import type { Event, Task } from '@common/types';
 import { useFormat } from '../../lib/format';
-import { isOverdue, resolveColor, showsOverdueFlag } from '../../types';
+import { resolveColor } from '../../types';
 import styles from './CalendarAgenda.module.css';
 
 export interface CalendarAgendaProps extends Omit<ComponentPropsWithoutRef<'section'>, 'title'> {
@@ -61,8 +61,7 @@ export const CalendarAgendaItem = forwardRef<HTMLLIElement, CalendarAgendaItemPr
     let glyph: ReactNode;
     let time: string;
     if (task) {
-      const flag = showsOverdueFlag(task.status, isOverdue(task.status, task.dueDate, format.now));
-      glyph = <StatusIcon status={task.status} overdue={flag} size={16} />;
+      glyph = <StatusIcon status={task.status} size={16} />;
       time = 'Due';
     } else {
       const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');

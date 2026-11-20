@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { TaskStatus } from '@common/types';
-import { OVERDUE_LABEL, TASK_STATUS_LABELS } from '../../types';
+import { TASK_STATUS_LABELS } from '../../types';
 import { StatusIcon } from './StatusIcon';
 
 const STATUSES = [
@@ -15,7 +15,7 @@ const STATUSES = [
 const meta = {
   title: 'Entities/StatusIcon',
   component: StatusIcon,
-  args: { status: TaskStatus.IN_PROGRESS, overdue: false, size: 16 },
+  args: { status: TaskStatus.IN_PROGRESS, size: 16 },
   argTypes: {
     status: { control: { type: 'select', labels: TASK_STATUS_LABELS }, options: STATUSES },
     size: { control: 'inline-radio', options: [12, 16, 24] },
@@ -27,7 +27,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/** Core's four statuses, then the flag a not-started task shows once it is overdue (`overdue`). */
+/** Core's four statuses */
 export const AllStatuses: Story = {
   render: () => (
     <Stack gap="3">
@@ -37,10 +37,6 @@ export const AllStatuses: Story = {
           <Text>{TASK_STATUS_LABELS[status]}</Text>
         </Flex>
       ))}
-      <Flex gap="2" align="center">
-        <StatusIcon status={TaskStatus.NOT_STARTED} overdue />
-        <Text>{OVERDUE_LABEL}</Text>
-      </Flex>
     </Stack>
   ),
 };
@@ -52,7 +48,6 @@ export const Small: Story = {
       {STATUSES.map((status) => (
         <StatusIcon key={status} status={status} size={12} />
       ))}
-      <StatusIcon status={TaskStatus.NOT_STARTED} overdue size={12} />
     </Flex>
   ),
 };

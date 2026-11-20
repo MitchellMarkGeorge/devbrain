@@ -27,15 +27,7 @@ import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
 import { LinkState, TaskStatus } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import {
-  dueTone,
-  isClosed,
-  isOverdue,
-  OVERDUE_LABEL,
-  providerOf,
-  showsOverdueFlag,
-  TASK_STATUS_LABELS,
-} from '../../types';
+import { dueTone, isClosed, isSynced, providerOf, TASK_STATUS_LABELS } from '../../types';
 import type { TaskRowData } from './types';
 import styles from './TaskRow.module.css';
 
@@ -313,7 +305,7 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 
 /**
  * One task in a strokeless list, drawn from core's `TaskListItem`: the status button (opening the
- * `StatusMenu`; the flag while the task is overdue and not started), the title, its key, parent
+ * `StatusMenu`), the title, its key, parent
  * and subtask pills, then the linked event or note and the project, priority and the due date
  * (always the date, "Jul 1" or "Dec 2025", from `useFormat()`'s `formatListDate`; colour
  * says when it is today or overdue) on the right. Use it inside `TaskList`, which handles
@@ -356,6 +348,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     [ref],
   );
   const { now, formatListDate } = useFormat();
+  const synced = isSynced(task);
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
   const leftPills = [key, task.parentTask, subtasks].filter(Boolean).length;
@@ -379,8 +372,6 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   const menuOpen = menuOpenProp ?? menuOpenState;
   const selected = !!selectedProp;
   const completed = status === TaskStatus.COMPLETED;
-  const overdue = isOverdue(status, task.dueDate, now);
-  const flag = showsOverdueFlag(status, overdue);
   const tone = dueTone(status, task.dueDate, now);
 
   function setMenuOpen(open: boolean) {
@@ -392,6 +383,35 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     onClick?.(event);
     if (!event.defaultPrevented && onOpen && !fromControl(event)) onOpen();
   }
+
+  const statusIcon = <StatusIcon status={status} />;
+
+  // a synced task's status is its provider's: the icon alone, in the button's place
+  const taskStatus = synced ? (
+    <span className={styles.status} data-readonly="">
+      {statusIcon}
+    </span>
+  ) : (
+    <StatusMenu
+      status={status}
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      onStatusChange={(next) => {
+        setPicked({ from: task.status, to: next });
+        onStatusChange?.(next);
+      }}
+      trigger={
+        <button
+          type="button"
+          className={styles.status}
+          tabIndex={-1}
+          aria-label={`Status: ${TASK_STATUS_LABELS[status]}`}
+        >
+          {statusIcon}
+        </button>
+      }
+    />
+  );
 
   return (
     <div
@@ -405,7 +425,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-join-next={joinNext ? '' : undefined}
       data-state={state}
       data-completed={completed ? '' : undefined}
-      data-menu-open={menuOpen ? '' : undefined}
+      data-menu-open={menuOpen && !synced ? '' : undefined}
       className={cn(taskRowVariants({ subtask, compact }), className)}
       onClick={handleClick}
       {...props}
@@ -419,25 +439,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           aria-label={`Select ${task.title}`}
         />
       )}
-      <StatusMenu
-        status={status}
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onStatusChange={(next) => {
-          setPicked({ from: task.status, to: next });
-          onStatusChange?.(next);
-        }}
-        trigger={
-          <button
-            type="button"
-            className={styles.status}
-            tabIndex={-1}
-            aria-label={`Status: ${flag ? OVERDUE_LABEL : TASK_STATUS_LABELS[status]}`}
-          >
-            <StatusIcon status={status} overdue={flag} />
-          </button>
-        }
-      />
+      {taskStatus}
       <div className={styles.title} data-title="">
         <span className={styles.name} data-name="">
           {task.title}
