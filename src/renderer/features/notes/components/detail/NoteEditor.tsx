@@ -5,6 +5,7 @@ import { ipc, trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
+import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 
 /**
  * A note's body in the rich text editor: its markdown from `notes.readContent` (primed by the
@@ -47,6 +48,9 @@ function NoteEditorLoaded({
   editable: boolean;
 }) {
   const showError = useMutationErrorToast();
+  const createTask = useCreateTask();
+  // a task made from the note's text is linked to the note, in its project (the page has read it)
+  const projectId = useQuery(trpc.notes.get.queryOptions({ id: noteId })).data?.projectId;
   const body = useEditorAutosave(content, (markdown) => {
     ipc.notes.updateContent
       .mutate({ id: noteId, content: markdown })
@@ -59,6 +63,8 @@ function NoteEditorLoaded({
       onChange={body.onChange}
       onReady={onReady}
       editable={editable}
+      newTaskOptions={{ projectId, linkedNoteId: noteId }}
+      openNewTaskDialog={createTask}
     />
   );
 }

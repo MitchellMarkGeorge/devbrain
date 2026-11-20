@@ -162,6 +162,33 @@ describe('the note page', () => {
     await eventually(() => expect(main.callsTo('notes.updateContent')).toHaveLength(1));
   });
 
+  it('opens New task on "/task", connected to the note and its project', async () => {
+    const { main, app } = notePage('Draft');
+    await eventually(() => expect(app.text()).toContain('Draft'));
+    const editor = editorOf(app.container);
+    editor.chain().focus('end').insertContent(' /task').run();
+    await eventually(() => expect(byText(document.body, '[role="option"]', 'Task')).not.toBeNull());
+    editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    // the line's text is the title; the note keeps its text, less the "/task"
+    const title = () => document.querySelector<HTMLInputElement>('input[aria-label="Title"]');
+    await eventually(() => expect(title()?.value).toBe('Draft'));
+    expect(editor.getMarkdown()).toBe('Draft');
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    setValue.call(title()!, 'Write the docs');
+    title()!.dispatchEvent(new Event('input', { bubbles: true }));
+    click(byText(document.body, 'button', 'Create Task'));
+    await eventually(() => expect(main.callsTo('tasks.create')).toHaveLength(1));
+    expect(main.callsTo('tasks.create')[0].input).toMatchObject({
+      title: 'Write the docs',
+      projectId: PROJECT.id,
+      linkedNoteId: NOTE,
+    });
+    // made, not linked in the text
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Draft');
+  });
+
   it('shows the current title of a task its pills link to', async () => {
     const { app } = notePage(`See [Old title](devbrain://task/${OTHER.id})`);
     await eventually(() => expect(app.text()).toContain('Audit token storage'));

@@ -140,7 +140,13 @@ export function RichTextEditor({
       <EditorContent className={className} data-readonly={editable ? undefined : ''}>
         <TiptapEditorContent editor={editor} />
       </EditorContent>
-      {editable && <FormatBubble editor={editor} onOpenUrl={host.onOpenUrl} />}
+      {editable && (
+        <FormatBubble
+          editor={editor}
+          onOpenUrl={host.onOpenUrl}
+          canCreateTask={host.createTask !== undefined}
+        />
+      )}
     </EditorHostContext.Provider>
   );
 }

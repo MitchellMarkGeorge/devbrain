@@ -9,20 +9,29 @@ import {
   type SlashItem,
 } from '@renderer/components';
 import { applyBlockType } from '../block-types';
+import { inTextBlock, openNewTaskFromLine } from '../turn-into-task';
 import { openMention } from './entity-menu';
 import { createSuggestionMenu } from './suggestion';
 
 /**
  * The slash menu: "/" at the start of a word opens the design system's SlashMenu, and picking an
  * item turns the block into it or inserts it. "Link to note", "Link to task" and "Mention event"
- * open the "@" menu for that kind. "Task" (making a task from the editor) waits for task creation,
- * so it is left out of the menu for now.
+ * open the "@" menu for that kind. "Task" opens the host's New task dialog, connected to what the
+ * editor is for (a note, a project), with the rest of the line's text as its title; the "/task" is
+ * removed and the text left as it is (turn-into-task.ts). It is offered when the host can open the
+ * dialog.
  */
 
-const GROUPS = SLASH_GROUPS.map((group) => ({
+const WITHOUT_TASK = SLASH_GROUPS.map((group) => ({
   ...group,
   items: group.items.filter((item) => item.value !== 'task'),
 }));
+
+// the menu's groups: Task only where the host can open New task
+function groupsFor(editor: Editor) {
+  const canOpen = editor.storage.editorHost.host.openNewTask !== undefined && inTextBlock(editor);
+  return canOpen ? SLASH_GROUPS : WITHOUT_TASK;
+}
 
 type Chain = ReturnType<Editor['chain']>;
 
@@ -44,7 +53,10 @@ const isBlockType = (command: SlashCommand): command is BlockType =>
   BLOCK_TYPES.some((type) => type.value === command);
 
 export function runSlashCommand(editor: Editor, range: Range, command: SlashCommand): void {
-  if (command === 'task') return;
+  if (command === 'task') {
+    openNewTaskFromLine(editor, range);
+    return;
+  }
   const chain = editor.chain().focus().deleteRange(range);
   if (isBlockType(command)) applyBlockType(chain, command);
   else COMMANDS[command](chain, editor);
@@ -53,13 +65,14 @@ export function runSlashCommand(editor: Editor, range: Range, command: SlashComm
 export const SlashMenu = createSuggestionMenu<SlashItem>({
   name: 'slashMenu',
   char: '/',
-  items: (query) => filterSlashGroups(GROUPS, query).flatMap((group) => group.items),
+  items: (query, editor) =>
+    filterSlashGroups(groupsFor(editor), query).flatMap((group) => group.items),
   select: (editor, range, item) => runSlashCommand(editor, range, item.value),
-  render: ({ query, onSelect, handleRef, id, onActiveDescendantChange }) => (
+  render: ({ editor, query, onSelect, handleRef, id, onActiveDescendantChange }) => (
     <SlashMenuView
       id={id}
       query={query}
-      groups={GROUPS}
+      groups={groupsFor(editor)}
       onSelect={onSelect}
       handleRef={handleRef}
       onActiveDescendantChange={onActiveDescendantChange}

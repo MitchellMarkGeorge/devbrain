@@ -7,7 +7,7 @@ import { CaptureBox, toast, useFormat, type CaptureKind } from '@renderer/compon
 import { ipc, trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { defaultDueDate } from '@renderer/features/tasks/components/create/CreateTaskDialog';
+import { defaultDueDate } from '@renderer/shared/lib/task-defaults';
 import { useProjectOptions } from '@renderer/features/tasks/hooks/use-project-options';
 import { eventMinutes, eventStart, parseCapture } from '../lib/capture';
 import {

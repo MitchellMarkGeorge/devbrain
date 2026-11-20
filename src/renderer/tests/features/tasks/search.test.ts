@@ -9,7 +9,7 @@ import {
   tasksSearchSchema,
 } from '@renderer/features/tasks/api/search';
 import { groupDefs, statusesFor } from '@renderer/features/tasks/lib/groups';
-import { defaultDueDate } from '@renderer/features/tasks/components/create/CreateTaskDialog';
+import { defaultDueDate } from '@renderer/shared/lib/task-defaults';
 
 // The tasks page's search params: parsed per field, every bad value dropped on its own, and
 // missing ones filled from the settings at render.

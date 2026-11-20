@@ -54,4 +54,12 @@ export interface EditorHost {
   // a click on a link or image that safeExternalUrl accepted; the app passes it to
   // Workspace.openUrl, which checks again (docs/security/untrusted-content.md)
   onOpenUrl?: (url: string) => void;
+  // Turn into task, from the format toolbar: makes a task with this title and gives it back to be
+  // linked in place of the selected text; null when it couldn't (the host says why). Without it
+  // the toolbar has no Turn into task.
+  createTask?: (title: string) => Promise<EditorEntity | null>;
+  // the slash menu's Task: opens the app's New task dialog, its title filled in with the line's
+  // text when there is some. The task is only made, not linked in the text. Without it the slash
+  // menu has no Task.
+  openNewTask?: (title?: string) => void;
 }
