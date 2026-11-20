@@ -45,14 +45,14 @@ export const NotesLoading: Story = {
     <ScreenFrame page="Notes" title="Notes">
       <PageToolbar
         start={
-          <Button icon={ListFilter} value="All">
+          <Button variant="outline" icon={ListFilter} value="All">
             Filter
           </Button>
         }
         end={
           <>
             <Skeleton shape="circle" width={44} height={12} />
-            <Button icon={ArrowUpDown} value="Last edited">
+            <Button variant="outline" icon={ArrowUpDown} value="Last edited">
               Sort
             </Button>
             <ToggleGroup
@@ -63,7 +63,9 @@ export const NotesLoading: Story = {
                 { value: 'cards', icon: LayoutGrid },
               ]}
             />
-            <Button icon={Plus}>New Note</Button>
+            <Button variant="outline" icon={Plus}>
+              New Note
+            </Button>
           </>
         }
       />

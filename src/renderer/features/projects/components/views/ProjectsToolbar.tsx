@@ -91,6 +91,7 @@ export function ProjectsFilterMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={ListFilter}
             value={filterValue(resolved)}
             hideValue={size === 'compact'}
@@ -174,6 +175,7 @@ export function ProjectsSortMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={ArrowUpDown}
             value={PROJECT_SORT_LABELS[resolved.sort]}
             hideValue={size === 'compact'}
@@ -247,7 +249,7 @@ export function ProjectsToolbarEnd({
           />
         ))}
       </ToggleGroup>
-      <Button icon={Plus} onClick={() => createProject()}>
+      <Button variant="outline" icon={Plus} onClick={() => createProject()}>
         New Project
       </Button>
     </>

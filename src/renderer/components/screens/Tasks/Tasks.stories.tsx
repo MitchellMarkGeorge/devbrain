@@ -27,7 +27,7 @@ const VIEW_ICON = { list: List, group: Group, board: Kanban };
 function ToolbarEnd({ view }: { view: View }) {
   return (
     <>
-      <Button icon={ArrowUpDown} value="Priority">
+      <Button variant="outline" icon={ArrowUpDown} value="Priority">
         Sort
       </Button>
       <ToggleGroup defaultValue={view} aria-label="View">
@@ -35,7 +35,9 @@ function ToolbarEnd({ view }: { view: View }) {
           <ToggleGroupItem key={v} value={v} icon={VIEW_ICON[v]} aria-label={VIEW_LABEL[v]} />
         ))}
       </ToggleGroup>
-      <Button icon={Plus}>New Task</Button>
+      <Button variant="outline" icon={Plus}>
+        New Task
+      </Button>
     </>
   );
 }
@@ -59,11 +61,11 @@ function TasksFrame({
       breadcrumb={['Tasks', { label: VIEW_LABEL[view], icon: VIEW_ICON[view] }]}
       toolbarStart={
         <>
-          <Button icon={ListFilter} value={filter}>
+          <Button variant="outline" icon={ListFilter} value={filter}>
             Filter
           </Button>
           {groupBy && (
-            <Button icon={Group} value={groupBy}>
+            <Button variant="outline" icon={Group} value={groupBy}>
               Group by
             </Button>
           )}

@@ -96,6 +96,7 @@ export function NotesFilterMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={ListFilter}
             value={filterValue(resolved, projectName)}
             hideValue={size === 'compact'}
@@ -176,6 +177,7 @@ export function NotesSortMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={ArrowUpDown}
             value={SORT_LABELS[resolved.sort]}
             hideValue={size === 'compact'}
@@ -250,7 +252,7 @@ export function NotesToolbarEnd({
           />
         ))}
       </ToggleGroup>
-      <Button icon={Plus} onClick={onNewNote}>
+      <Button variant="outline" icon={Plus} onClick={onNewNote}>
         New Note
       </Button>
     </>

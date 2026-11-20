@@ -36,13 +36,13 @@ export const ListPage: Story = {
     <Page title="Tasks" style={outline}>
       <PageToolbar
         start={
-          <Button icon={ListFilter} value="Open">
+          <Button variant="outline" icon={ListFilter} value="Open">
             Filter
           </Button>
         }
         end={
           <>
-            <Button icon={ArrowUpDown} value="Priority">
+            <Button variant="outline" icon={ArrowUpDown} value="Priority">
               Sort
             </Button>
             <ToggleGroup
@@ -52,12 +52,21 @@ export const ListPage: Story = {
                 { value: 'board', icon: CircleCheck },
               ]}
             />
-            <Button icon={Plus}>New Task</Button>
+            <Button variant="outline" icon={Plus}>
+              New Task
+            </Button>
           </>
         }
       />
     </Page>
   ),
+};
+
+/** The list page in dark: the toolbar's `outline` buttons, the page's colour in a `border` line. */
+export const ListPageDark: Story = {
+  ...ListPage,
+  name: 'List page — dark',
+  globals: { theme: 'dark' },
 };
 
 /** A detail page: the star and the "…" menu as its actions, its content in the document column. */
@@ -92,12 +101,12 @@ export const CompactToolbar: Story = {
     <Page style={outline}>
       <PageToolbar
         start={
-          <Button icon={ListFilter} value="Open" hideValue>
+          <Button variant="outline" icon={ListFilter} value="Open" hideValue>
             Filter
           </Button>
         }
         end={
-          <Button icon={ArrowUpDown} value="Priority" hideValue>
+          <Button variant="outline" icon={ArrowUpDown} value="Priority" hideValue>
             Sort
           </Button>
         }

@@ -28,7 +28,7 @@ export function TasksPage({
         breadcrumb={['Tasks', { label: 'List', icon: List }]}
         toolbarStart={
           filter ?? (
-            <Button icon={ListFilter} value="Open">
+            <Button variant="outline" icon={ListFilter} value="Open">
               Filter
             </Button>
           )
@@ -36,7 +36,7 @@ export function TasksPage({
         toolbarEnd={
           <>
             {sort ?? (
-              <Button icon={ArrowUpDown} value="Priority">
+              <Button variant="outline" icon={ArrowUpDown} value="Priority">
                 Sort
               </Button>
             )}
@@ -45,7 +45,9 @@ export function TasksPage({
               <ToggleGroupItem value="group" icon={Group} aria-label="Grouped" />
               <ToggleGroupItem value="board" icon={Kanban} aria-label="Board" />
             </ToggleGroup>
-            <Button icon={Plus}>New Task</Button>
+            <Button variant="outline" icon={Plus}>
+              New Task
+            </Button>
           </>
         }
       >

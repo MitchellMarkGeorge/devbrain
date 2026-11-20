@@ -94,7 +94,7 @@ export function ProjectNotesTab({ project }: { project: Project }) {
     <>
       <PageToolbar
         end={
-          <Button icon={Plus} onClick={() => newNote()}>
+          <Button variant="outline" icon={Plus} onClick={() => newNote()}>
             New Note
           </Button>
         }

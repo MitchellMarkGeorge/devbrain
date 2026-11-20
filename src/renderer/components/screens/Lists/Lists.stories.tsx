@@ -33,17 +33,19 @@ export const NotesList: Story = {
       active="Notes"
       breadcrumb={['Notes', { label: 'List', icon: List }]}
       toolbarStart={
-        <Button icon={ListFilter} value="All">
+        <Button variant="outline" icon={ListFilter} value="All">
           Filter
         </Button>
       }
       toolbarEnd={
         <>
-          <Button icon={ArrowUpDown} value="Last edited">
+          <Button variant="outline" icon={ArrowUpDown} value="Last edited">
             Sort
           </Button>
           <ViewToggle />
-          <Button icon={Plus}>New Note</Button>
+          <Button variant="outline" icon={Plus}>
+            New Note
+          </Button>
         </>
       }
     >
@@ -69,17 +71,19 @@ export const ProjectsList: Story = {
       active="Projects"
       breadcrumb={['Projects', { label: 'List', icon: List }]}
       toolbarStart={
-        <Button icon={ListFilter} value="Active">
+        <Button variant="outline" icon={ListFilter} value="Active">
           Filter
         </Button>
       }
       toolbarEnd={
         <>
-          <Button icon={ArrowUpDown} value="Due date">
+          <Button variant="outline" icon={ArrowUpDown} value="Due date">
             Sort
           </Button>
           <ViewToggle />
-          <Button icon={Plus}>New Project</Button>
+          <Button variant="outline" icon={Plus}>
+            New Project
+          </Button>
         </>
       }
     >

@@ -44,7 +44,7 @@ export const Trash: Story = {
         />
       }
       toolbarEnd={
-        <Button icon={ArrowUpDown} value="Date trashed">
+        <Button variant="outline" icon={ArrowUpDown} value="Date trashed">
           Sort
         </Button>
       }
