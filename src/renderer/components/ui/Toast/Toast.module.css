@@ -142,7 +142,7 @@
 }
 
 .warning {
-  color: var(--priority-medium);
+  color: var(--warning);
 }
 .error {
   color: var(--destructive);

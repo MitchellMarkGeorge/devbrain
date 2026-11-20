@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
-import { type SettablePriority, TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
+import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
 import {
   Button,
   GroupHeading,
@@ -101,10 +101,8 @@ function groupColor(def: TaskGroupDef): string | undefined {
         ? statusVar(look.status)
         : undefined;
     case 'priority':
-      // No priority stays neutral
-      return look.priority !== undefined && look.priority !== TaskPriority.NONE
-        ? `var(--priority-${PRIORITY_SLUGS[look.priority]})`
-        : undefined;
+      // only high priority has a colour; medium, low and no priority stay neutral
+      return look.priority === TaskPriority.HIGH ? 'var(--priority-high)' : undefined;
     case 'due':
       return look.tone === 'overdue'
         ? 'var(--status-overdue)'
@@ -115,12 +113,6 @@ function groupColor(def: TaskGroupDef): string | undefined {
       return undefined;
   }
 }
-
-const PRIORITY_SLUGS: Record<SettablePriority, string> = {
-  [TaskPriority.HIGH]: 'high',
-  [TaskPriority.MEDIUM]: 'medium',
-  [TaskPriority.LOW]: 'low',
-};
 
 /**
  * A group's band. Drawn once it scrolls into the virtualized list's range, it marks its group seen,

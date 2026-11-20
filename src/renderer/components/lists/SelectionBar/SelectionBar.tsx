@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Calendar, ChevronsUp, Circle, Ellipsis, Folder, X } from 'lucide-react';
+import { Calendar, ChartNoAxesColumnIncreasing, Circle, Ellipsis, Folder, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { IconButton } from '../../ui/IconButton';
@@ -175,7 +175,7 @@ const SelectionBarContent = forwardRef<HTMLDivElement, Omit<SelectionBarProps, '
             <Button
               variant="ghost"
               size="sm"
-              icon={ChevronsUp}
+              icon={ChartNoAxesColumnIncreasing}
               className={styles.action}
               onClick={onPriority}
             >

@@ -1,4 +1,4 @@
-import { Calendar, ChevronsUp, Circle, Folder, Star, Trash2 } from 'lucide-react';
+import { Calendar, ChartNoAxesColumnIncreasing, Circle, Folder, Star, Trash2 } from 'lucide-react';
 import type { TaskListItem, TaskStatus } from '@common/types';
 import {
   Button,
@@ -75,7 +75,7 @@ export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBar
               }
             />
             <MenuAction
-              icon={ChevronsUp}
+              icon={ChartNoAxesColumnIncreasing}
               label="Priority"
               menu={
                 <PriorityMenuContent

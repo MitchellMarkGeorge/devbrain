@@ -171,7 +171,7 @@ export function dateTone(
 
 /**
  * The flag an overdue task's icon shows instead of its status: while it is overdue and not yet
- * started (an overdue task in progress keeps its activity line, with its date in red).
+ * started (an overdue task in progress keeps its in-progress circle, with its date in red).
  */
 export function showsOverdueFlag(status: TaskStatus, overdue: boolean): boolean {
   return overdue && status === TaskStatus.NOT_STARTED;
