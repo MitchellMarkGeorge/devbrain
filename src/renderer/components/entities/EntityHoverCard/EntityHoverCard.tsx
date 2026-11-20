@@ -31,14 +31,12 @@ import { SourcePill } from '../SourcePill';
 import { StatusIcon } from '../StatusIcon';
 import { eventTimeRange, repeatLabel } from '../../event-text';
 import {
-  isOverdue,
   percentOf,
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
   PROVIDER_LABELS,
   providerOf,
   resolveColor,
-  showsOverdueFlag,
 } from '../../types';
 import styles from './EntityHoverCard.module.css';
 
@@ -86,7 +84,7 @@ function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-function HeaderGlyph({ entity, now }: { entity: HoverCardEntity; now: Date }) {
+function HeaderGlyph({ entity }: { entity: HoverCardEntity }) {
   switch (entity.type) {
     case 'event':
       return (
@@ -95,8 +93,7 @@ function HeaderGlyph({ entity, now }: { entity: HoverCardEntity; now: Date }) {
     case 'note':
       return <Icon icon={FileText} size={16} className={styles.mutedGlyph} />;
     case 'task': {
-      const flag = showsOverdueFlag(entity.status, isOverdue(entity.status, entity.dueDate, now));
-      return <StatusIcon status={entity.status} overdue={flag} size={16} />;
+      return <StatusIcon status={entity.status} size={16} />;
     }
     case 'source':
       return <ProviderLogo provider={providerOf(entity.external)} size={16} />;
@@ -219,7 +216,6 @@ function usePartsOf(entity: HoverCardEntity): Parts {
  */
 export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCardContentProps>(
   function EntityHoverCardContent({ entity, actions, className, style, children, ...props }, ref) {
-    const { now } = useFormat();
     const { pills, meta, preview, progress } = usePartsOf(entity);
     const color =
       entity.type === 'project' || entity.type === 'event' ? resolveColor(entity.color) : undefined;
@@ -234,7 +230,7 @@ export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCard
         {...props}
       >
         <div className={styles.head}>
-          <HeaderGlyph entity={entity} now={now} />
+          <HeaderGlyph entity={entity} />
           <span className={styles.title}>{title}</span>
         </div>
         {pills != null && <div className={styles.pills}>{pills}</div>}

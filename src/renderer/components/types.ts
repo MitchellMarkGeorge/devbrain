@@ -1,5 +1,6 @@
 import { hexColorSchema } from '@common/color';
 import {
+  LinkState,
   ProjectHealth,
   ProjectStatus,
   Provider as CoreProvider,
@@ -115,25 +116,9 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   [TaskStatus.CANCELLED]: 'Cancelled',
 };
 
-/** The name of the flag a row shows for an overdue task. */
-export const OVERDUE_LABEL = 'Overdue';
-
 /** The statuses that close a task: never overdue, and drawn without a priority. */
 export function isClosed(status: TaskStatus): boolean {
   return status === TaskStatus.COMPLETED || status === TaskStatus.CANCELLED;
-}
-
-/**
- * Whether a task is overdue: open, with a due date before today's start (as core counts it in
- * `projects.stats`). A task due today is not.
- */
-export function isOverdue(
-  status: TaskStatus,
-  dueDate: Date | null | undefined,
-  now: Date,
-): boolean {
-  if (dueDate == null || isClosed(status)) return false;
-  return dueDate.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 }
 
 /** Whether a date falls on `now`'s day. */
@@ -146,7 +131,7 @@ export function isToday(date: Date, now: Date): boolean {
 }
 
 /**
- * How a due date is coloured: `overdue` (`date-overdue`) for an overdue task, `today`
+ * How a due date is coloured: `overdue` (`date-overdue`) for an open task due before today, `today`
  * (`date-today`) for an open task due today, else none. A closed task's date is never coloured.
  */
 export function dueTone(
@@ -169,14 +154,6 @@ export function dateTone(
   return isToday(dueDate, now) ? 'today' : undefined;
 }
 
-/**
- * The flag an overdue task's icon shows instead of its status: while it is overdue and not yet
- * started (an overdue task in progress keeps its in-progress circle, with its date in red).
- */
-export function showsOverdueFlag(status: TaskStatus, overdue: boolean): boolean {
-  return overdue && status === TaskStatus.NOT_STARTED;
-}
-
 const STATUS_SLUGS: Record<TaskStatus, string> = {
   [TaskStatus.NOT_STARTED]: 'not-started',
   [TaskStatus.IN_PROGRESS]: 'in-progress',
@@ -184,14 +161,14 @@ const STATUS_SLUGS: Record<TaskStatus, string> = {
   [TaskStatus.CANCELLED]: 'cancelled',
 };
 
-/** A status's token name, `overdue` for the flag: `statusSlug(TaskStatus.IN_PROGRESS)` → `in-progress` */
-export function statusSlug(status: TaskStatus, overdue = false): string {
-  return overdue ? 'overdue' : STATUS_SLUGS[status];
+/** A status's token name: `statusSlug(TaskStatus.IN_PROGRESS)` → `in-progress` */
+export function statusSlug(status: TaskStatus): string {
+  return STATUS_SLUGS[status];
 }
 
 /** A task status's colour token: `statusVar(TaskStatus.IN_PROGRESS)` → `var(--status-in-progress)` */
-export function statusVar(status: TaskStatus, overdue = false): string {
-  return `var(--status-${statusSlug(status, overdue)})`;
+export function statusVar(status: TaskStatus): string {
+  return `var(--status-${statusSlug(status)})`;
 }
 
 /**
@@ -234,6 +211,14 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   [ProjectStatus.ON_HOLD]: 'On hold',
   [ProjectStatus.COMPLETED]: 'Completed',
 };
+
+/**
+ * A synced entity: its provider owns its fields (status, priority, dates, project, title), so its
+ * status icon opens no menu. A detached task is a local copy and is not synced.
+ */
+export function isSynced(entity: { external?: Pick<ExternalRef, 'state'> | null }): boolean {
+  return entity.external?.state === LinkState.SYNCED;
+}
 
 /** The logo a synced item's key shows, from its link; undefined for a provider with no logo. */
 export function providerOf(external: Pick<ExternalRef, 'provider'>): Provider | undefined {

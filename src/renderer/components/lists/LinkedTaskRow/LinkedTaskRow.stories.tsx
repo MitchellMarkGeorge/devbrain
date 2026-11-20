@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
+import { sampleLinear } from '../TaskRow/fixtures';
 import { LinkedTaskRow } from './LinkedTaskRow';
 
 const meta = {
@@ -31,7 +32,10 @@ export const Default: Story = {};
 export const Hover: Story = { args: { state: 'hover' } };
 export const Focus: Story = { args: { state: 'focus' } };
 
-/** A sheet's Linked tasks: later, due today, overdue (the flag), completed */
+/**
+ * A sheet's Linked tasks: later, due today, overdue (its date in red), synced (its status icon
+ * opens no menu), completed
+ */
 export const Panel: Story = {
   decorators: [
     (Story) => (
@@ -61,6 +65,14 @@ export const Panel: Story = {
           title: 'Audit token storage',
           status: TaskStatus.NOT_STARTED,
           dueDate: storyDate(-3),
+        }}
+      />
+      <LinkedTaskRow
+        task={{
+          title: 'Rotate the webhook signing secret',
+          status: TaskStatus.IN_PROGRESS,
+          dueDate: storyDate(3),
+          external: sampleLinear('ENG-150'),
         }}
       />
       <LinkedTaskRow

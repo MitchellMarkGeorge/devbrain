@@ -48,7 +48,7 @@ Also here:
 
 - `types.ts`: what the components add to core's enums (`TaskStatus`, `TaskPriority`,
   `ProjectStatus`, `ProjectHealth`, imported from `@common/types`): their labels and colour tokens,
-  `isOverdue`/`dueTone`, `resolveColor` (swatch names and `#rrggbb` checked with `hexColorSchema`)
+  `dueTone`, `resolveColor` (swatch names and `#rrggbb` checked with `hexColorSchema`)
   and `cssColor`, plus the components' own `Swatch`, `Provider` and `CalendarEvent`.
 - `event-text.ts` and `project-text.ts`: how events and projects are worded (an event's time and
   repeat rule, how soon it starts; "Done Jun 12").

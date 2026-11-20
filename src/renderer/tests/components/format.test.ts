@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TaskStatus } from '@common/types';
 import { createFormat, dueText } from '@renderer/components/lib/format';
 import { eventCountdown, eventTimeRange, repeatLabel } from '@renderer/components/event-text';
-import { dueTone, isOverdue, resolveColor, showsOverdueFlag } from '@renderer/components/types';
+import { dueTone, resolveColor } from '@renderer/components/types';
 
 // Monday 22 June 2026, 9:48 AM local time, as the stories use
 const NOW = new Date(2026, 5, 22, 9, 48);
@@ -63,23 +63,10 @@ describe('formatRelative', () => {
 });
 
 describe('overdue', () => {
-  it('is an open task due before today', () => {
-    expect(isOverdue(TaskStatus.NOT_STARTED, day(-1, 23), NOW)).toBe(true);
-    expect(isOverdue(TaskStatus.IN_PROGRESS, day(-1), NOW)).toBe(true);
-    expect(isOverdue(TaskStatus.NOT_STARTED, day(0), NOW)).toBe(false);
-    expect(isOverdue(TaskStatus.COMPLETED, day(-1), NOW)).toBe(false);
-    expect(isOverdue(TaskStatus.CANCELLED, day(-1), NOW)).toBe(false);
-    expect(isOverdue(TaskStatus.NOT_STARTED, null, NOW)).toBe(false);
-  });
-
-  it('shows the flag only on a task not started', () => {
-    expect(showsOverdueFlag(TaskStatus.NOT_STARTED, true)).toBe(true);
-    expect(showsOverdueFlag(TaskStatus.IN_PROGRESS, true)).toBe(false);
-  });
-
   it('tones an open task due today or overdue, and never a closed one', () => {
     expect(dueTone(TaskStatus.NOT_STARTED, day(0), NOW)).toBe('today');
     expect(dueTone(TaskStatus.IN_PROGRESS, day(-2), NOW)).toBe('overdue');
+    expect(dueTone(TaskStatus.NOT_STARTED, day(-1, 23), NOW)).toBe('overdue');
     expect(dueTone(TaskStatus.COMPLETED, day(0), NOW)).toBeUndefined();
     expect(dueTone(TaskStatus.NOT_STARTED, day(2), NOW)).toBeUndefined();
   });
