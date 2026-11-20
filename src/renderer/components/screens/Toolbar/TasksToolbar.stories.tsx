@@ -24,11 +24,11 @@ function TasksToolbar({ compact = false }: { compact?: boolean }) {
         background: 'var(--background)',
       }}
     >
-      <Button icon={ListFilter} value="Open" hideValue={compact}>
+      <Button variant="outline" icon={ListFilter} value="Open" hideValue={compact}>
         Filter
       </Button>
       <div style={{ flex: 1 }} />
-      <Button icon={ArrowUpDown} value="Priority" hideValue={compact}>
+      <Button variant="outline" icon={ArrowUpDown} value="Priority" hideValue={compact}>
         Sort
       </Button>
       <ToggleGroup
@@ -39,7 +39,9 @@ function TasksToolbar({ compact = false }: { compact?: boolean }) {
           { value: 'board', icon: Kanban },
         ]}
       />
-      <Button icon={Plus}>New Task</Button>
+      <Button variant="outline" icon={Plus}>
+        New Task
+      </Button>
     </div>
   );
 }

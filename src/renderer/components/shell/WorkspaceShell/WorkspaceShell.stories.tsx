@@ -85,8 +85,16 @@ export const ListPage: Story = {
       <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />} {...demoTitleBar()}>
         <Page title="Tasks">
           <PageToolbar
-            start={<Button value="Open">Filter</Button>}
-            end={<Button value="Priority">Sort</Button>}
+            start={
+              <Button variant="outline" value="Open">
+                Filter
+              </Button>
+            }
+            end={
+              <Button variant="outline" value="Priority">
+                Sort
+              </Button>
+            }
           />
           <PageContent layout="list">
             <TaskList tasks={LONG_LIST} />

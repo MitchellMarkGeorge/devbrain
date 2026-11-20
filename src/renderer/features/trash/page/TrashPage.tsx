@@ -101,7 +101,12 @@ export function TrashPage() {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button icon={ArrowUpDown} value="Date trashed" hideValue={size === 'compact'}>
+                  <Button
+                    variant="outline"
+                    icon={ArrowUpDown}
+                    value="Date trashed"
+                    hideValue={size === 'compact'}
+                  >
                     Sort
                   </Button>
                 }
@@ -117,7 +122,12 @@ export function TrashPage() {
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button icon={Trash2} disabled={!trashHasItems} onClick={() => actions.empty()}>
+            <Button
+              variant="outline"
+              icon={Trash2}
+              disabled={!trashHasItems}
+              onClick={() => actions.empty()}
+            >
               Empty Trash
             </Button>
           </>

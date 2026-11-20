@@ -215,6 +215,7 @@ export function FilterMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={ListFilter}
             value={filterValue(
               fixedProject ? { ...resolved, project: undefined } : resolved,
@@ -341,6 +342,7 @@ export function GroupByMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={Group}
             value={GROUP_BY_LABELS[resolved.groupBy]}
             hideValue={size === 'compact'}
@@ -382,6 +384,7 @@ export function SortMenu({
       <DropdownMenuTrigger
         render={
           <Button
+            variant="outline"
             icon={ArrowUpDown}
             value={SORT_LABELS[resolved.sort]}
             hideValue={size === 'compact'}
@@ -469,6 +472,7 @@ export function TasksToolbarEnd({
         ))}
       </ToggleGroup>
       <Button
+        variant="outline"
         icon={Plus}
         onClick={() =>
           createTask({

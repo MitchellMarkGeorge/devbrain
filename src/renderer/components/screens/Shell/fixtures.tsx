@@ -93,13 +93,13 @@ export function TasksToolbar({ compact = false }: { compact?: boolean }) {
   return (
     <PageToolbar
       start={
-        <Button icon={ListFilter} value="Open" hideValue={compact}>
+        <Button variant="outline" icon={ListFilter} value="Open" hideValue={compact}>
           Filter
         </Button>
       }
       end={
         <>
-          <Button icon={ArrowUpDown} value="Priority" hideValue={compact}>
+          <Button variant="outline" icon={ArrowUpDown} value="Priority" hideValue={compact}>
             Sort
           </Button>
           <ToggleGroup
@@ -110,7 +110,9 @@ export function TasksToolbar({ compact = false }: { compact?: boolean }) {
               { value: 'board', icon: SquareKanban },
             ]}
           />
-          <Button icon={Plus}>New Task</Button>
+          <Button variant="outline" icon={Plus}>
+            New Task
+          </Button>
         </>
       }
     />

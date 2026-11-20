@@ -53,45 +53,6 @@
   min-width: 0;
   padding: 1px var(--space-6) var(--space-3);
 }
-/*
- * In dark, the toolbar's `default` buttons (Filter, Sort, "New …") draw as `outline`: the page's
- * colour inside a `border` line, filling with `accent` on hover, while their menu is open and while
- * pressed. Dark's `default` has a 4% fill and a 12% edge, which made the row read as a set of
- * pills, like the rows' own. Light keeps `default`, which already looks this way.
- */
-@media not (prefers-color-scheme: light) {
-  :root:not([data-theme='light']) .toolbar [data-slot='button'][data-variant='default'] {
-    background: var(--background);
-    border-color: var(--border);
-  }
-  :root:not([data-theme='light'])
-    .toolbar
-    [data-slot='button'][data-variant='default']:is(
-      :hover,
-      [data-popup-open],
-      [data-pressed],
-      [aria-pressed='true']
-    ) {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-}
-:root[data-theme='dark'] .toolbar [data-slot='button'][data-variant='default'] {
-  background: var(--background);
-  border-color: var(--border);
-}
-:root[data-theme='dark']
-  .toolbar
-  [data-slot='button'][data-variant='default']:is(
-    :hover,
-    [data-popup-open],
-    [data-pressed],
-    [aria-pressed='true']
-  ) {
-  background: var(--accent);
-  color: var(--accent-foreground);
-}
-
 .group {
   display: flex;
   align-items: center;
