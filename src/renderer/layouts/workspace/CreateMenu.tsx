@@ -21,7 +21,8 @@ import {
   defaultDurationMinutes,
   draftForDay,
 } from '@renderer/features/calendar/components/create/CreateEventDialog';
-import { dateParam, openEventSearch } from '@renderer/features/calendar/api/search';
+import { openEventSearch } from '@renderer/features/calendar/api/search';
+import { dateParam } from '@renderer/shared/lib/calendar';
 
 /**
  * The title bar's New: "+", opening New task (C), New note (N) and New project, then New event, in

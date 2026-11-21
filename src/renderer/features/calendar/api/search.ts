@@ -73,11 +73,6 @@ export function resolveCalendarSearch(
   };
 }
 
-/** A day as the `date` param writes it. */
-export function dateParam(date: Date): string {
-  return DateTime.fromJSDate(date).toISODate()!;
-}
-
 /** The sheet's search for an event: its id, and for an expanded occurrence of a series its start. */
 export function openEventSearch(
   id: EventId,

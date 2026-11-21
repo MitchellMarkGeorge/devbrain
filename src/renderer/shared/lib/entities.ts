@@ -1,6 +1,6 @@
 import { linkOptions } from '@tanstack/react-router';
-import { DateTime } from 'luxon';
 import { isId, type WorkspaceId } from '@common/ids';
+import { dateParam } from './calendar/date-param';
 
 // Where an entity's page is, by its id's prefix (tsk_, prj_, nte_, evt_): the one place that knows,
 // for useOpenEntity, links and tests.
@@ -40,9 +40,7 @@ export function entityLink(workspaceId: WorkspaceId, entity: EntityRef) {
       to: '/app/$workspaceId/calendar',
       params: { workspaceId },
       search: {
-        date: entity.startAt
-          ? (DateTime.fromJSDate(entity.startAt).toISODate() ?? undefined)
-          : undefined,
+        date: entity.startAt ? dateParam(entity.startAt) : undefined,
         open: id,
       },
     });

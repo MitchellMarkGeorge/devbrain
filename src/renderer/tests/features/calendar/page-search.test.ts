@@ -5,9 +5,9 @@ import FullCalendar, { type CalendarRef } from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/react/daygrid';
 import timeGridPlugin from '@fullcalendar/react/timegrid';
 import type { AppSettings } from '@common/types';
+import { dateParam } from '@renderer/shared/lib/calendar';
 import {
   calendarSearchSchema,
-  dateParam,
   resolveCalendarSearch,
   type CalendarViewParam,
 } from '@renderer/features/calendar/api/search';

@@ -4,7 +4,7 @@ import { useRouter } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
 import { isId, type EventId, type TaskId } from '@common/ids';
 import type { Event } from '@common/types';
-import type { EventInputProps } from '@renderer/shared/lib/calendar';
+import { dateParam, type EventInputProps } from '@renderer/shared/lib/calendar';
 import {
   CalendarView,
   Skeleton,
@@ -31,7 +31,7 @@ import {
 } from '../components/header/CalendarHeader';
 import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
 import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
-import { dateParam, openEventSearch, type CalendarSearch } from '../api/search';
+import { openEventSearch, type CalendarSearch } from '../api/search';
 import { EventSheet } from '../components/sheet/EventSheet';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
 import { calendarRoute } from '../api/route-api';
