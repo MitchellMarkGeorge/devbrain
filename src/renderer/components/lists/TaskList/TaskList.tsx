@@ -92,6 +92,12 @@ export interface TaskListBaseProps extends Omit<
    * under it, joined to it by guide lines; give the rows in that order. Each group is its own tree.
    */
   nested?: boolean;
+  /**
+   * whether a task's subtasks are drawn under it, or `undefined` for a row with none to show or
+   * hide; with `onSubtasksShownChange`, that row's subtask count is the button that toggles them
+   */
+  subtasksShown?: (task: TaskRowData) => boolean | undefined;
+  onSubtasksShownChange?: (task: TaskRowData, shown: boolean) => void;
   /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
   stack?: TaskRowProps['stack'];
   /** shows each row's project pill (the default); `false` for a list of one project's tasks */
@@ -199,6 +205,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     selecting,
     subtasks,
     nested = false,
+    subtasksShown,
+    onSubtasksShownChange,
     stack,
     showProject,
     selectionBar = true,
@@ -451,6 +459,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               onMenuOpenChange={(open) => setMenuOpenId(open ? id : null)}
               subtask={subtasks}
               tree={tree}
+              subtasksShown={subtasksShown?.(task)}
+              onSubtasksShownChange={
+                onSubtasksShownChange && ((shown) => onSubtasksShownChange(task, shown))
+              }
               stack={stack}
               showProject={showProject}
               onSelect={() => toggle(id)}

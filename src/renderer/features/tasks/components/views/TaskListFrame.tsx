@@ -9,7 +9,7 @@ import {
   type TaskListHandle,
 } from '@renderer/components';
 import { KeyScope, useCommands, useListCommands } from '@renderer/keyboard';
-import { arrangeSubtasks, hasPlacedSubtasks } from '../../lib/arrange';
+import { arrangeSubtasks, placedParents } from '../../lib/arrange';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '../menus/TaskMenus';
 import { TasksSelectionBar } from './TasksSelectionBar';
@@ -60,6 +60,12 @@ export function TaskListFrame({
       else next.add(id);
       return next;
     });
+  // the tasks with subtasks placed under them, which can show or hide them
+  const parents = useMemo(
+    () =>
+      placedParents(groups ? groups.map((group) => group.tasks as TaskListItem[]) : [tasks ?? []]),
+    [tasks, groups],
+  );
   const rows = useMemo(() => tasks && arrangeSubtasks(tasks, collapsed), [tasks, collapsed]);
   const grouped = useMemo(
     () =>
@@ -85,7 +91,7 @@ export function TaskListFrame({
   // → shows the focused row's subtasks under it, ← hides them
   const focusedParent = () => {
     const task = list.current?.focusedItem();
-    return task && hasPlacedSubtasks(task as TaskListItem, loaded) ? task.id : undefined;
+    return task && parents.has(task.id) ? task.id : undefined;
   };
   useCommands([
     {
@@ -119,6 +125,9 @@ export function TaskListFrame({
     onSelectedChange: setSelected,
     selectionBar: false,
     nested: true,
+    subtasksShown: (task: { id: string }) =>
+      parents.has(task.id) ? !collapsed.has(task.id) : undefined,
+    onSubtasksShownChange: (task: { id: string }, shown: boolean) => setShown(task.id, shown),
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
       actions.setStatus(full([task]), status),
     onOpen: (task: { id: string }) => openEntity({ id: task.id }),
@@ -161,7 +170,7 @@ export function TaskListFrame({
             actions={actions}
             onOpen={() => openEntity({ id: menuTask.id })}
             subtasks={
-              hasPlacedSubtasks(menuTask, loaded)
+              parents.has(menuTask.id)
                 ? {
                     shown: !collapsed.has(menuTask.id),
                     onToggle: () => setShown(menuTask.id, collapsed.has(menuTask.id)),

@@ -16,6 +16,7 @@ import {
   type RefObject,
 } from 'react';
 import { cva } from 'class-variance-authority';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Badge } from '../../ui/Badge';
 import { Checkbox } from '../../ui/Checkbox';
@@ -61,6 +62,13 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
    * by its depth, with guide lines from its parent's status icon to its own
    */
   tree?: TaskRowTree;
+  /**
+   * whether the task's subtasks are drawn under it, with `onSubtasksShownChange`: its subtask count
+   * becomes the button that shows and hides them, with a chevron (down while shown, right while
+   * hidden). Left out, the count is a plain pill.
+   */
+  subtasksShown?: boolean;
+  onSubtasksShownChange?: (shown: boolean) => void;
   /**
    * Home's tasks: a 44px row with no selection strip and no checkbox, the status icon 12px in.
    * Home has no selection, so leave out `onSelect`.
@@ -394,6 +402,8 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     state,
     subtask,
     tree,
+    subtasksShown,
+    onSubtasksShownChange,
     compact,
     stack,
     showProject = true,
@@ -535,12 +545,37 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           )}
           {subtasks && (
             <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
-              <Badge
-                muted
-                icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
-              >
-                {subtasks.completed}/{subtasks.total}
-              </Badge>
+              {subtasksShown !== undefined && onSubtasksShownChange ? (
+                <Badge
+                  muted
+                  icon={
+                    <ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />
+                  }
+                  tabIndex={-1}
+                  aria-expanded={subtasksShown}
+                  aria-label={`Subtasks, ${subtasks.completed} of ${subtasks.total} done`}
+                  data-subtasks-toggle=""
+                  onClick={() => onSubtasksShownChange(!subtasksShown)}
+                >
+                  <span className={styles.toggle}>
+                    {subtasks.completed}/{subtasks.total}
+                    {subtasksShown ? (
+                      <ChevronDown size={12} aria-hidden />
+                    ) : (
+                      <ChevronRight size={12} aria-hidden />
+                    )}
+                  </span>
+                </Badge>
+              ) : (
+                <Badge
+                  muted
+                  icon={
+                    <ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />
+                  }
+                >
+                  {subtasks.completed}/{subtasks.total}
+                </Badge>
+              )}
             </PillHoverCard>
           )}
         </PillStack>

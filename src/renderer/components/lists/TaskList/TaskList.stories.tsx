@@ -96,11 +96,40 @@ export const Subtasks: Story = {
 
 /**
  * The tasks pages' list (`nested`): each subtask under its parent, indented a level and joined to
- * the parent's status icon by a guide; a subtask of a subtask goes a level further. The last row's
- * parent is not in the list, so it stays at the left with its parent's pill.
+ * the parent's status icon by a guide; a subtask of a subtask goes a level further. A parent's
+ * count shows and hides its subtasks ("Create workspace step" starts with its one hidden). The
+ * last row's parent is not in the list, so it stays at the left with its parent's pill.
  */
 export const Nested: Story = {
   args: { tasks: SAMPLE_TREE, nested: true },
+  render: function Nested(args) {
+    // the parents whose subtasks are hidden: click a parent's count, or → / ← on it
+    const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set(['tsk_workspace']));
+    const parents = new Set(SAMPLE_TREE.flatMap((task) => task.parentTask?.id ?? []));
+    // a row is drawn unless one of its ancestors in the list is hidden
+    const byId = new Map(SAMPLE_TREE.map((task) => [task.id as string, task]));
+    const drawn = SAMPLE_TREE.filter((task) => {
+      for (let up = task.parentTask?.id; up && byId.has(up); up = byId.get(up)?.parentTask?.id) {
+        if (hidden.has(up)) return false;
+      }
+      return true;
+    });
+    return (
+      <TaskList
+        {...args}
+        tasks={drawn}
+        subtasksShown={(task) => (parents.has(task.id) ? !hidden.has(task.id) : undefined)}
+        onSubtasksShownChange={(task, shown) =>
+          setHidden((current) => {
+            const next = new Set(current);
+            if (shown) next.delete(task.id);
+            else next.add(task.id);
+            return next;
+          })
+        }
+      />
+    );
+  },
 };
 
 export const NestedSelected: Story = {

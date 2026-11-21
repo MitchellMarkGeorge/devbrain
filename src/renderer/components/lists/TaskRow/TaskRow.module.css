@@ -73,6 +73,17 @@
   border-left-width: 1px;
 }
 
+/* the subtask count as the button that shows and hides them: the count, then its chevron */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.toggle > svg {
+  flex: none;
+  margin-right: -3px;
+}
+
 /* Home: 44px with no selection strip, the status icon 12px in (as Figma's Home draws TaskRow) */
 .compact {
   min-height: 44px;

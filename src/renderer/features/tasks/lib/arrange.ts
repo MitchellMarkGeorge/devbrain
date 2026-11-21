@@ -36,7 +36,17 @@ export function arrangeSubtasks(
   return out;
 }
 
-/** Whether a task has subtasks placed under it in `tasks`. */
-export function hasPlacedSubtasks(task: TaskListItem, tasks: readonly TaskListItem[]): boolean {
-  return tasks.some((other) => other.parentTaskId === task.id);
+/**
+ * The tasks that `arrangeSubtasks` places subtasks under, in any of `lists` (a flat list's rows, or
+ * each group's): a parent with a subtask in the same list. Only these can show or hide subtasks.
+ */
+export function placedParents(lists: readonly (readonly TaskListItem[])[]): Set<string> {
+  const parents = new Set<string>();
+  for (const tasks of lists) {
+    const present = new Set(tasks.map((task) => task.id as string));
+    for (const task of tasks) {
+      if (task.parentTaskId && present.has(task.parentTaskId)) parents.add(task.parentTaskId);
+    }
+  }
+  return parents;
 }

@@ -113,4 +113,39 @@ describe('TaskRow in a tree', () => {
     );
     expect(container.textContent).toContain('Implement OAuth2 PKCE flow');
   });
+
+  it('makes the subtask count the button that shows and hides the subtasks', () => {
+    const parent = sampleTask({ title: 'Ship it', subtaskProgress: { completed: 1, total: 3 } });
+    const changes: boolean[] = [];
+    let opened = 0;
+    const draw = (shown: boolean) =>
+      act(() =>
+        root.render(
+          createElement(TaskRow, {
+            task: parent,
+            stack: 'none',
+            subtasksShown: shown,
+            onSubtasksShownChange: (next) => changes.push(next),
+            onOpen: () => opened++,
+          }),
+        ),
+      );
+    draw(true);
+    const toggle = () => container.querySelector<HTMLButtonElement>('[data-subtasks-toggle]')!;
+    expect(toggle().tagName).toBe('BUTTON');
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    act(() => toggle().click());
+    draw(false);
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    act(() => toggle().click());
+    expect(changes).toEqual([false, true]);
+    // a click on the count doesn't open the task
+    expect(opened).toBe(0);
+  });
+
+  it('keeps the count a plain pill without a way to toggle', () => {
+    const parent = sampleTask({ title: 'Ship it', subtaskProgress: { completed: 1, total: 3 } });
+    act(() => root.render(createElement(TaskRow, { task: parent, stack: 'none' })));
+    expect(container.querySelector('[data-subtasks-toggle]')).toBeNull();
+  });
 });
