@@ -18,7 +18,7 @@ import { SelectionBar } from '../SelectionBar';
 import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { isSynced } from '../../types';
-import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
+import { TaskRow, treeOf, type TaskRowData, type TaskRowProps, type TaskRowTree } from '../TaskRow';
 import styles from './TaskList.module.css';
 
 /** One group of a grouped list: its heading, then its rows (none while `collapsed`). */
@@ -87,6 +87,11 @@ export interface TaskListBaseProps extends Omit<
   compact?: boolean;
   /** indents every row (a task page's Subtasks list) */
   subtasks?: boolean;
+  /**
+   * draws each subtask that comes right after its parent (or the parent's other subtasks) indented
+   * under it, joined to it by guide lines; give the rows in that order. Each group is its own tree.
+   */
+  nested?: boolean;
   /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
   stack?: TaskRowProps['stack'];
   /** shows each row's project pill (the default); `false` for a list of one project's tasks */
@@ -132,25 +137,33 @@ export interface TaskListHandle {
 // One row of the flat list, with an `id` unique in the list: a task's own id, or its group's id
 // for a heading (`group:…`) and a footer (`footer:…`)
 type Entry =
-  | { kind: 'task'; id: string; task: TaskRowData; taskIndex: number }
+  | { kind: 'task'; id: string; task: TaskRowData; taskIndex: number; tree?: TaskRowTree }
   | { kind: 'heading'; id: string; group: TaskListGroup; first: boolean }
   | { kind: 'footer'; id: string; group: TaskListGroup };
 
 const idOf = (task: TaskRowData) => task.id as string;
 
 // the flat list: each group's heading, its rows unless collapsed, and its footer
-function entriesOf(tasks: TaskRowData[] | undefined, groups: TaskListGroup[] | undefined): Entry[] {
+function entriesOf(
+  tasks: TaskRowData[] | undefined,
+  groups: TaskListGroup[] | undefined,
+  nested: boolean,
+): Entry[] {
   let taskIndex = 0;
-  const row = (task: TaskRowData): Entry => ({
-    kind: 'task',
-    id: idOf(task),
-    task,
-    taskIndex: taskIndex++,
-  });
-  if (!groups) return (tasks ?? []).map(row);
+  const rows = (list: TaskRowData[]): Entry[] => {
+    const trees = nested ? treeOf(list) : undefined;
+    return list.map((task, i) => ({
+      kind: 'task',
+      id: idOf(task),
+      task,
+      taskIndex: taskIndex++,
+      tree: trees?.[i],
+    }));
+  };
+  if (!groups) return rows(tasks ?? []);
   return groups.flatMap((group, i) => [
     { kind: 'heading', id: `group:${group.id}`, group, first: i === 0 } as Entry,
-    ...(group.collapsed ? [] : group.tasks.map(row)),
+    ...(group.collapsed ? [] : rows(group.tasks)),
     ...(group.footer != null && !group.collapsed
       ? [{ kind: 'footer', id: `footer:${group.id}`, group } as Entry]
       : []),
@@ -185,6 +198,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     menuOpenAt,
     selecting,
     subtasks,
+    nested = false,
     stack,
     showProject,
     selectionBar = true,
@@ -201,7 +215,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   },
   ref,
 ) {
-  const entries = useMemo(() => entriesOf(tasks, groups), [tasks, groups]);
+  const entries = useMemo(() => entriesOf(tasks, groups, nested), [tasks, groups, nested]);
   const taskEntries = useMemo(
     () => entries.flatMap((entry, i) => (entry.kind === 'task' ? [i] : [])),
     [entries],
@@ -408,7 +422,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               </div>
             );
           }
-          const { task, taskIndex } = entry;
+          const { task, taskIndex, tree } = entry;
           const id = idOf(task);
           const on = isSelectedAt(item.index);
           return (
@@ -436,6 +450,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               menuOpen={menuOpenId === id}
               onMenuOpenChange={(open) => setMenuOpenId(open ? id : null)}
               subtask={subtasks}
+              tree={tree}
               stack={stack}
               showProject={showProject}
               onSelect={() => toggle(id)}

@@ -118,6 +118,7 @@ export function TaskListFrame({
     selected,
     onSelectedChange: setSelected,
     selectionBar: false,
+    nested: true,
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
       actions.setStatus(full([task]), status),
     onOpen: (task: { id: string }) => openEntity({ id: task.id }),

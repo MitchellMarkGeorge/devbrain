@@ -148,6 +148,49 @@ export const SAMPLE_SUBTASKS: TaskRowData[] = [
   }),
 ];
 
+/**
+ * A parent and its subtasks in tree order, as the tasks pages arrange them (`TaskList`'s
+ * `nested`): one subtask has its own, and the last row's parent is not in the list.
+ */
+export const SAMPLE_TREE: TaskRowData[] = [
+  sampleTask({
+    id: ONBOARDING.id,
+    title: ONBOARDING.title,
+    status: ONBOARDING.status,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(3),
+    subtaskProgress: { completed: 1, total: 3 },
+  }),
+  SAMPLE_SUBTASKS[0],
+  {
+    ...SAMPLE_SUBTASKS[1],
+    subtaskProgress: { completed: 0, total: 1 },
+  },
+  sampleTask({
+    id: 'tsk_workspace_name' as TaskId,
+    title: 'Suggest a workspace name',
+    parentTask: {
+      id: 'tsk_workspace' as TaskId,
+      title: 'Create workspace step',
+      status: TaskStatus.IN_PROGRESS,
+    },
+    dueDate: storyDate(1),
+  }),
+  SAMPLE_SUBTASKS[2],
+  sampleTask({
+    id: 'tsk_changelog' as TaskId,
+    title: 'Write the changelog entry',
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(5),
+  }),
+  sampleTask({
+    id: 'tsk_retry' as TaskId,
+    title: 'Retry a failed sync',
+    parentTask: sampleParent('Harden the sync engine', TaskStatus.NOT_STARTED),
+    priority: TaskPriority.LOW,
+  }),
+];
+
 /** A task with every pill, for stacking. */
 export const BUSY_TASK: TaskRowData = sampleTask({
   title: 'Move the sync engine onto change listeners and drop the old callbacks',

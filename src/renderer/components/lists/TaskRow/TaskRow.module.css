@@ -21,6 +21,58 @@
 .subtask {
   padding-left: 64px;
 }
+/*
+ * A subtask drawn under its parent in the tasks pages' lists (TaskList's `nested`): 28px in per
+ * level, so its status icon sits under the start of its parent's title, joined to the parent's
+ * status icon by guide lines. The checkbox stays in the strip, in line with every other row's.
+ */
+.nested {
+  --guide-step: 28px;
+  /* the centre of a depth-0 row's status icon, from the row's padding edge (36px - 1px) */
+  --guide-start: 47px;
+  padding-left: calc(36px + var(--depth, 0) * var(--guide-step));
+}
+.guides {
+  position: absolute;
+  /* the row's full height, past its 1px border, so the lines of neighbouring rows meet */
+  inset: -1px auto -1px 0;
+  pointer-events: none;
+}
+.guides > * {
+  position: absolute;
+  left: calc(var(--guide-start) + var(--level) * var(--guide-step));
+  border: 0 solid var(--border-strong);
+}
+/* an ancestor's subtasks go on below this row, or this row's own later siblings do */
+.through {
+  top: 0;
+  bottom: 0;
+  border-left-width: 1px;
+}
+/* the last subtask's: from the top of the row, turning into its status icon (└) */
+.elbow {
+  top: 0;
+  height: 50%;
+  width: 14px;
+  border-left-width: 1px;
+  border-bottom-width: 1px;
+  border-bottom-left-radius: 6px;
+}
+/* any other subtask's: off the line running on down, into its status icon (├) */
+.tick {
+  top: calc(50% - 1px);
+  height: 1px;
+  width: 13px;
+  margin-left: 1px;
+  border-bottom-width: 1px;
+}
+/* down from the row's own status icon to its first subtask */
+.stem {
+  top: calc(50% + 10px);
+  bottom: 0;
+  border-left-width: 1px;
+}
+
 /* Home: 44px with no selection strip, the status icon 12px in (as Figma's Home draws TaskRow) */
 .compact {
   min-height: 44px;

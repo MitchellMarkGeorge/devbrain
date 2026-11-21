@@ -1,12 +1,14 @@
 import {
   Children,
   forwardRef,
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type ComponentProps,
+  type CSSProperties,
   type FocusEvent,
   type MouseEvent,
   type ReactNode,
@@ -29,6 +31,7 @@ import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
 import { dueTone, isClosed, isSynced, providerOf, TASK_STATUS_LABELS } from '../../types';
 import type { TaskRowData } from './types';
+import type { TaskRowTree } from './tree';
 import styles from './TaskRow.module.css';
 
 export const taskRowVariants = cva(styles.row, {
@@ -53,6 +56,11 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   /** a static hover or focus, for pictures of the row */
   state?: 'hover' | 'focus';
   subtask?: boolean;
+  /**
+   * where the row sits among subtasks drawn under their parents (`TaskList`'s `nested`): indented
+   * by its depth, with guide lines from its parent's status icon to its own
+   */
+  tree?: TaskRowTree;
   /**
    * Home's tasks: a 44px row with no selection strip and no checkbox, the status icon 12px in.
    * Home has no selection, so leave out `onSelect`.
@@ -324,6 +332,33 @@ function useAutoStack(
   return level;
 }
 
+/**
+ * The lines joining a nested row to its parents: at its own level a line down from its parent
+ * turning into its status icon, rounded on the last sibling (└) and running on down past a tick on
+ * the others (├); a straight line at each level above where an ancestor's subtasks go on below;
+ * and a stem down from its own status icon when its subtasks are drawn under it. The lines never
+ * overlap: the border colour is translucent, so an overlap would draw darker.
+ */
+function TreeGuides({ tree }: { tree: TaskRowTree }) {
+  const at = (level: number) => ({ ['--level' as string]: level }) as CSSProperties;
+  return (
+    <span className={styles.guides} aria-hidden>
+      {tree.continues.map((on, i) => {
+        const level = i + 1;
+        return (
+          <Fragment key={level}>
+            {on && <span className={styles.through} style={at(i)} />}
+            {level === tree.depth && (
+              <span className={on ? styles.tick : styles.elbow} style={at(i)} />
+            )}
+          </Fragment>
+        );
+      })}
+      {tree.open && <span className={styles.stem} style={at(tree.depth)} />}
+    </span>
+  );
+}
+
 function assignRef<T>(ref: Ref<T> | undefined, value: T) {
   if (typeof ref === 'function') ref(value);
   else if (ref) (ref as { current: T }).current = value;
@@ -358,6 +393,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     joinNext,
     state,
     subtask,
+    tree,
     compact,
     stack,
     showProject = true,
@@ -370,6 +406,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     onOpen,
     onDueDateChange,
     className,
+    style,
     onClick,
     ...props
   },
@@ -387,7 +424,9 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   const synced = isSynced(task);
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
-  const leftPills = [key, task.parentTask, subtasks].filter(Boolean).length;
+  // a subtask drawn under its parent leaves out the parent's pill: the guide points at the parent
+  const parent = tree && tree.depth > 0 ? null : task.parentTask;
+  const leftPills = [key, parent, subtasks].filter(Boolean).length;
   const project = showProject ? task.project : null;
   const rightPills = [task.link, project].filter(Boolean).length;
   const autoLevel = useAutoStack(stack === 'auto' || stack === undefined, rowRef, {
@@ -463,10 +502,12 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-state={state}
       data-completed={completed ? '' : undefined}
       data-menu-open={menuOpen && !synced ? '' : undefined}
-      className={cn(taskRowVariants({ subtask, compact }), className)}
+      className={cn(taskRowVariants({ subtask, compact }), tree && styles.nested, className)}
+      style={tree ? { ...style, ['--depth' as string]: tree.depth } : style}
       onClick={handleClick}
       {...props}
     >
+      {tree && <TreeGuides tree={tree} />}
       {!compact && (
         <Checkbox
           className={styles.check}
@@ -487,9 +528,9 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
               <SourcePill provider={providerOf(task.external)}>{key}</SourcePill>
             </PillHoverCard>
           )}
-          {task.parentTask && (
-            <PillHoverCard target={{ type: 'task', ...task.parentTask }}>
-              <EntityPill entity={{ type: 'parent', ...task.parentTask }} />
+          {parent && (
+            <PillHoverCard target={{ type: 'task', ...parent }}>
+              <EntityPill entity={{ type: 'parent', ...parent }} />
             </PillHoverCard>
           )}
           {subtasks && (

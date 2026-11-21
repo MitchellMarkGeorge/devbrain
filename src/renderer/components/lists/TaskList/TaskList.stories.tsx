@@ -7,7 +7,13 @@ import { GroupHeading } from '../GroupHeading';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
-import { BUSY_TASK, manyTasks, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
+import {
+  BUSY_TASK,
+  manyTasks,
+  SAMPLE_SUBTASKS,
+  SAMPLE_TASKS,
+  SAMPLE_TREE,
+} from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
 import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '@renderer/keyboard';
 import {
@@ -86,6 +92,25 @@ export const StatusMenuOpen: Story = {
 
 export const Subtasks: Story = {
   args: { tasks: SAMPLE_SUBTASKS, subtasks: true },
+};
+
+/**
+ * The tasks pages' list (`nested`): each subtask under its parent, indented a level and joined to
+ * the parent's status icon by a guide; a subtask of a subtask goes a level further. The last row's
+ * parent is not in the list, so it stays at the left with its parent's pill.
+ */
+export const Nested: Story = {
+  args: { tasks: SAMPLE_TREE, nested: true },
+};
+
+export const NestedSelected: Story = {
+  args: {
+    tasks: SAMPLE_TREE,
+    nested: true,
+    defaultSelected: ['tsk_workspace', 'tsk_workspace_name'],
+    states: { 1: 'hover' },
+    floatingBar: false,
+  },
 };
 
 /** A narrow list: each row stacks its own pills as far as it needs to */
