@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Ellipsis, FileText, Folder } from 'lucide-react';
 import type { StampedEntity } from '@common/types';
@@ -13,45 +13,50 @@ import {
   useFormat,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
+import { entityLink } from '@renderer/shared/lib/entities';
 import { hasConnectedIntegration, summarizeSync } from '@renderer/shared/lib/sync-state';
 
 // The sidebar's Recents, Favorites and sync line (docs/renderer/implementation-plan.md, "App
-// layout"), from core's lists; each item opens with useOpenEntity.
+// layout"), from core's lists; each item is a link to where its entity opens (entityLink).
 
 const SHOWN = 5;
 const MORE = 50;
 
-/** One recent or favorite: its entity's glyph (a task's status, a project's folder in its colour, a note's page, an event's bar) and title. */
+/**
+ * One recent or favorite: its entity's glyph (a task's status, a project's folder in its colour, a
+ * note's page, an event's bar) and title, as a link to where it opens (an event in the calendar's
+ * sheet on its day).
+ */
 function EntityItem({ item }: { item: StampedEntity<'viewedAt'> | StampedEntity<'favoritedAt'> }) {
-  const openEntity = useOpenEntity();
-  const open = () =>
-    openEntity({
-      id: item.entity.id,
-      startAt: item.entityType === 'events' ? item.entity.startAt : undefined,
-    });
+  const { workspaceId } = useParams({ from: '/app/$workspaceId' });
+  const link = entityLink(workspaceId, {
+    id: item.entity.id,
+    startAt: item.entityType === 'events' ? item.entity.startAt : undefined,
+  });
+  // every stamped entity has a page; an id of none would stay an item that goes nowhere
+  const render = link ? <Link {...link} /> : undefined;
   switch (item.entityType) {
     case 'tasks':
       return (
-        <SidebarItem icon={<StatusIcon status={item.entity.status} />} onClick={open}>
+        <SidebarItem icon={<StatusIcon status={item.entity.status} />} render={render}>
           {item.entity.title}
         </SidebarItem>
       );
     case 'projects':
       return (
-        <SidebarItem icon={Folder} iconColor={resolveColor(item.entity.color)} onClick={open}>
+        <SidebarItem icon={Folder} iconColor={resolveColor(item.entity.color)} render={render}>
           {item.entity.title}
         </SidebarItem>
       );
     case 'notes':
       return (
-        <SidebarItem icon={FileText} onClick={open}>
+        <SidebarItem icon={FileText} render={render}>
           {item.entity.title || 'Untitled'}
         </SidebarItem>
       );
     case 'events':
       return (
-        <SidebarItem bar={resolveColor(item.entity.color, 'blue')} onClick={open}>
+        <SidebarItem bar={resolveColor(item.entity.color, 'blue')} render={render}>
           {item.entity.title}
         </SidebarItem>
       );

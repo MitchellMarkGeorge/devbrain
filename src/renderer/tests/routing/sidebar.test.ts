@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { IntegrationStatus, Provider, SourceType } from '@common/types';
+import { event } from '../fixtures/calendar';
 import { FakeMain, workspace } from './fake-main';
+import { fakeTask } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The app's sidebar, in a workspace where nothing is favorited (the fake main's favorites.list).
@@ -27,6 +29,36 @@ describe('the sidebar', () => {
       expect(sidebar().textContent).toContain('Star a task, note or project to keep it here.'),
     );
     expect(sidebar().textContent).toContain('Favorites');
+  });
+
+  it('links each favorite to where it opens: a task to its page, an event to its day', async () => {
+    const task = fakeTask('tsk_oauth', 'Ship OAuth');
+    const standup = event({
+      id: 'evt_standup' as never,
+      title: 'Standup',
+      startAt: new Date(2026, 6, 1, 10),
+      endAt: new Date(2026, 6, 1, 10, 15),
+    });
+    const app = await onWorkHome((main) =>
+      main.routes.set('favorites.list', () => [
+        {
+          items: [
+            { entityType: 'tasks', entity: task, favoritedAt: new Date() },
+            { entityType: 'events', entity: standup, favoritedAt: new Date() },
+          ],
+          nextCursor: null,
+        },
+        [],
+      ]),
+    );
+    const link = (text: string) => byText(sidebar(), 'a', text);
+    await eventually(() => expect(link('Ship OAuth')).toBeTruthy());
+    expect(link('Ship OAuth')!.getAttribute('href')).toBe(`/app/${WORK}/tasks/tsk_oauth`);
+    expect(link('Standup')!.getAttribute('href')).toBe(
+      `/app/${WORK}/calendar?date=2026-07-01&open=evt_standup`,
+    );
+    click(link('Ship OAuth')!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/tsk_oauth`));
   });
 
   it('opens the keyboard shortcuts from Help', async () => {

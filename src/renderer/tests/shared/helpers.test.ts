@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { IntegrationStatus, type SourceSyncStatus } from '@common/types';
-import { entityPath } from '@renderer/shared/lib/entities';
+import { entityLink } from '@renderer/shared/lib/entities';
 import { mutationErrorCopy } from '@renderer/shared/lib/mutation-errors';
 import { hasConnectedIntegration, summarizeSync } from '@renderer/shared/lib/sync-state';
 
@@ -10,23 +10,38 @@ import { hasConnectedIntegration, summarizeSync } from '@renderer/shared/lib/syn
 
 const WS = 'wsp_work' as WorkspaceId;
 
-describe('entityPath', () => {
+describe('entityLink', () => {
   it('opens tasks, projects and notes at their pages', () => {
-    expect(entityPath(WS, { id: 'tsk_1' })).toBe('/app/wsp_work/tasks/tsk_1');
-    expect(entityPath(WS, { id: 'prj_1' })).toBe('/app/wsp_work/projects/prj_1');
-    expect(entityPath(WS, { id: 'nte_1' })).toBe('/app/wsp_work/notes/nte_1');
+    expect(entityLink(WS, { id: 'tsk_1' })).toEqual({
+      to: '/app/$workspaceId/tasks/$taskId',
+      params: { workspaceId: WS, taskId: 'tsk_1' },
+    });
+    expect(entityLink(WS, { id: 'prj_1' })).toEqual({
+      to: '/app/$workspaceId/projects/$projectId',
+      params: { workspaceId: WS, projectId: 'prj_1' },
+    });
+    expect(entityLink(WS, { id: 'nte_1' })).toEqual({
+      to: '/app/$workspaceId/notes/$noteId',
+      params: { workspaceId: WS, noteId: 'nte_1' },
+    });
   });
 
   it('opens an event in the calendar on its day', () => {
-    expect(entityPath(WS, { id: 'evt_1', startAt: new Date(2026, 6, 1, 10) })).toBe(
-      '/app/wsp_work/calendar?date=2026-07-01&open=evt_1',
-    );
-    expect(entityPath(WS, { id: 'evt_1' })).toBe('/app/wsp_work/calendar?open=evt_1');
+    expect(entityLink(WS, { id: 'evt_1', startAt: new Date(2026, 6, 1, 10) })).toEqual({
+      to: '/app/$workspaceId/calendar',
+      params: { workspaceId: WS },
+      search: { date: '2026-07-01', open: 'evt_1' },
+    });
+    expect(entityLink(WS, { id: 'evt_1' })).toEqual({
+      to: '/app/$workspaceId/calendar',
+      params: { workspaceId: WS },
+      search: { date: undefined, open: 'evt_1' },
+    });
   });
 
   it('has nothing for another kind of id', () => {
-    expect(entityPath(WS, { id: 'cal_1' })).toBeNull();
-    expect(entityPath(WS, { id: 'nonsense' })).toBeNull();
+    expect(entityLink(WS, { id: 'cal_1' })).toBeNull();
+    expect(entityLink(WS, { id: 'nonsense' })).toBeNull();
   });
 });
 
