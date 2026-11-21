@@ -23,7 +23,7 @@ import {
   placeCards,
   useBoardSensors,
 } from './board-drag';
-import { prefetchTaskSheet, taskListQuery, withoutProjectPill } from '../../../api/queries';
+import { prefetchTaskSheet, taskListQuery } from '../../../api/queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
@@ -80,7 +80,7 @@ function useColumn(status: TaskStatus, base: TaskFilter, sort: TaskSort, shown: 
  */
 export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const { now } = useFormat();
-  const { search, setSearch, project: fixedProject } = useTasksSearch();
+  const { search, setSearch, showProjectPill } = useTasksSearch();
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
   const createTask = useCreateTask();
@@ -153,7 +153,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
             <DroppableColumn
               key={status}
               status={status}
-              tasks={withoutProjectPill(tasks, fixedProject)}
+              tasks={tasks}
               className={styles.column}
               add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
               onAdd={() => createTask({ defaults: { status, projectId } })}
@@ -168,6 +168,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
               renderCard={(card, task) => (
                 <DraggableCard
                   {...card}
+                  showProject={showProjectPill}
                   // the sheet's task and subtasks start loading before the click
                   onPointerEnter={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
                   onFocus={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
@@ -187,7 +188,9 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
         </ContextMenuContent>
       </ContextMenu>
       {/* the card under the pointer: drawn over everything, so a column's scroll can't clip it */}
-      <DragOverlay dropAnimation={null}>{dragging && <DragPreview task={dragging} />}</DragOverlay>
+      <DragOverlay dropAnimation={null}>
+        {dragging && <DragPreview task={dragging} showProject={showProjectPill} />}
+      </DragOverlay>
     </DndContext>
   );
 }

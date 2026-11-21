@@ -1,5 +1,5 @@
 import { queryOptions, noop, type InfiniteData, type QueryClient } from '@tanstack/react-query';
-import type { ProjectId, TaskId } from '@common/ids';
+import type { TaskId } from '@common/ids';
 import { type Event, type NoteListItem, type Page, type TaskListItem } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import type { TaskListInput } from './search';
@@ -102,18 +102,6 @@ export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
   const staleTime = 10_000;
   queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime }).catch(noop);
   queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime }).catch(noop);
-}
-
-/**
- * The tasks as a project's own page draws them: without that project's pill on every row, as it
- * says nothing there. The tasks page keeps every pill, whatever its filter.
- */
-export function withoutProjectPill<T extends Pick<TaskListItem, 'project'>>(
-  tasks: T[],
-  project: ProjectId | 'none' | undefined,
-): T[] {
-  if (!project || project === 'none') return tasks;
-  return tasks.map((task) => (task.project?.id === project ? { ...task, project: null } : task));
 }
 
 export { isSynced } from '@renderer/components/types';

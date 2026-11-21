@@ -16,7 +16,7 @@ import { KeyScope, useListCommands } from '@renderer/keyboard';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '@renderer/features/tasks/components/menus/TaskMenus';
-import { isSynced, withoutProjectPill } from '@renderer/features/tasks/api/queries';
+import { isSynced } from '@renderer/features/tasks/api/queries';
 import { useTaskActions } from '@renderer/features/tasks/hooks/use-task-actions';
 import type { overviewOpenTasksQuery } from '../../api/queries';
 import styles from './ProjectPage.module.css';
@@ -62,11 +62,8 @@ export function OverviewTaskSection({
 }: OverviewTaskSectionProps) {
   const query = useQuery(options);
   const tasks = useMemo(
-    () =>
-      withoutProjectPill(query.data?.items ?? [], project.id).map((task) =>
-        task.link ? { ...task, link: null } : task,
-      ),
-    [query.data, project.id],
+    () => (query.data?.items ?? []).map((task) => (task.link ? { ...task, link: null } : task)),
+    [query.data],
   );
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id as string, t])), [tasks]);
   const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
@@ -106,6 +103,7 @@ export function OverviewTaskSection({
             >
               <TaskList
                 compact
+                showProject={false}
                 ref={list}
                 tasks={tasks}
                 selectionBar={false}

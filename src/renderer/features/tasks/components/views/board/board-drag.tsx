@@ -96,8 +96,8 @@ export const DraggableCard = forwardRef<HTMLDivElement, BoardCardProps>(function
 });
 
 /** The card under the pointer while one is dragged. */
-export function DragPreview({ task }: { task: TaskListItem }) {
-  return <BoardCard task={task} className={styles.preview} />;
+export function DragPreview({ task, showProject }: { task: TaskListItem; showProject: boolean }) {
+  return <BoardCard task={task} showProject={showProject} className={styles.preview} />;
 }
 
 // ← and → move a dragged card to the next column's left edge; ↑ and ↓ do nothing (a column's

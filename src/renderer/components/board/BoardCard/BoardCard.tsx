@@ -42,6 +42,11 @@ export interface BoardCardProps extends useRender.ComponentProps<'div'> {
    * the card is pointed at or focused. Left out (or for a closed or synced task), nothing shows.
    */
   onDueDateChange?: (date: Date) => void;
+  /**
+   * shows the task's project pill (the default). A board of one project's tasks (that project's
+   * page) passes `false`: the pill would say the same thing on every card.
+   */
+  showProject?: boolean;
 }
 
 // clicks on the card's pills open what they link to, not the task
@@ -60,7 +65,7 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
-  { task, state, render, onClick, onDueDateChange, ...props },
+  { task, state, render, onClick, onDueDateChange, showProject = true, ...props },
   ref,
 ) {
   const { now, formatListDate } = useFormat();
@@ -87,7 +92,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         <EntityPill entity={task.link} />
       </PillHoverCard>
     ),
-    task.project && (
+    showProject && task.project && (
       <PillHoverCard key="project" target={{ type: 'project', ...task.project }}>
         <EntityPill entity={{ type: 'project', ...task.project }} />
       </PillHoverCard>

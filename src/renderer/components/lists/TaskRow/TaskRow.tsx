@@ -65,6 +65,11 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
    * row. A side with one pill never stacks.
    */
   stack?: StackMode;
+  /**
+   * shows the task's project pill (the default). A list of one project's tasks (that project's
+   * page) passes `false`: the pill would say the same thing on every row.
+   */
+  showProject?: boolean;
   /** the status, when controlled; otherwise the row shows its own pick until `task.status` changes */
   status?: TaskStatus;
   onStatusChange?: (status: PickableStatus) => void;
@@ -355,6 +360,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     subtask,
     compact,
     stack,
+    showProject = true,
     status: statusProp,
     onStatusChange,
     menuOpen: menuOpenProp,
@@ -382,7 +388,8 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
   const leftPills = [key, task.parentTask, subtasks].filter(Boolean).length;
-  const rightPills = [task.link, task.project].filter(Boolean).length;
+  const project = showProject ? task.project : null;
+  const rightPills = [task.link, project].filter(Boolean).length;
   const autoLevel = useAutoStack(stack === 'auto' || stack === undefined, rowRef, {
     left: leftPills > 1,
     right: rightPills > 1,
@@ -504,9 +511,9 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
               <EntityPill entity={task.link} />
             </PillHoverCard>
           )}
-          {task.project && (
-            <PillHoverCard target={{ type: 'project', ...task.project }}>
-              <EntityPill entity={{ type: 'project', ...task.project }} />
+          {project && (
+            <PillHoverCard target={{ type: 'project', ...project }}>
+              <EntityPill entity={{ type: 'project', ...project }} />
             </PillHoverCard>
           )}
         </PillStack>

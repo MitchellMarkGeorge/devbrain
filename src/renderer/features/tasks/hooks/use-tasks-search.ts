@@ -24,6 +24,11 @@ export interface TasksSearchState {
    * Group by no "Project", and New Task files the task there.
    */
   project?: ProjectId;
+  /**
+   * Whether rows and cards show their project pill: on the tasks page, whatever its filter; not on
+   * a project's Tasks tab, where every task is that project's.
+   */
+  showProjectPill: boolean;
 }
 
 const TasksSearchContext = createContext<TasksSearchState | null>(null);
@@ -72,5 +77,10 @@ export function useTasksRouteSearch(): TasksSearchState {
       }),
     [navigate],
   );
-  return { search, resolved: resolveTasksSearch(search, settings), setSearch };
+  return {
+    search,
+    resolved: resolveTasksSearch(search, settings),
+    setSearch,
+    showProjectPill: true,
+  };
 }
