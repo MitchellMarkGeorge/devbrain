@@ -6,6 +6,7 @@ import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
 import { EditorEntityPill } from '@renderer/editor/EntityPillView';
+import { useEditorOutline } from '@renderer/editor/use-editor-outline';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -356,5 +357,74 @@ describe('RichTextEditor to-dos', () => {
     act(() => boxes()[0].click());
     expect(onChange).not.toHaveBeenCalled();
     expect(boxes()[0].getAttribute('aria-checked')).toBe('false');
+  });
+});
+
+describe('RichTextEditor headings', () => {
+  const NOTE = '## Context\n\nWhy.\n\n### Goals\n\nWhat.\n\n## Design\n\nHow.';
+  // TipTap emits `create`, where the headings get their ids, after a timeout
+  const created = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+  it('gives the headings their ids without reporting an edit or adding a step to undo', async () => {
+    const onChange = vi.fn();
+    render({ value: NOTE, onChange });
+    await created();
+    expect(onChange).not.toHaveBeenCalled();
+    const headings = [...container.querySelectorAll('h2, h3')];
+    expect(headings.every((heading) => heading.getAttribute('data-toc-id'))).toBe(true);
+    // no ids from a note in the window's DOM
+    expect(headings.some((heading) => heading.hasAttribute('id'))).toBe(false);
+
+    act(() => {
+      editor.chain().focus('end').insertContent('!').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(`${NOTE}!`);
+    act(() => {
+      editor.commands.undo();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(NOTE);
+    expect(editor.can().undo()).toBe(false);
+  });
+
+  it('lists them with their levels closed up, and keeps the list as they change', async () => {
+    let outline: ReturnType<typeof useEditorOutline> | undefined;
+    function Outline({ of }: { of: Editor | null }) {
+      outline = useEditorOutline(of);
+      return null;
+    }
+    render({ value: NOTE });
+    await created();
+    const outlineContainer = document.createElement('div');
+    const outlineRoot = createRoot(outlineContainer);
+    act(() => outlineRoot.render(createElement(Outline, { of: editor })));
+    const listed = () => outline?.headings.map(({ label, level }) => [label, level]);
+    expect(listed()).toEqual([
+      ['Context', 1],
+      ['Goals', 2],
+      ['Design', 1],
+    ]);
+
+    act(() => {
+      editor.chain().focus('end').insertContent('<h4>Open questions</h4>').run();
+    });
+    expect(listed()).toEqual([
+      ['Context', 1],
+      ['Goals', 2],
+      ['Design', 1],
+      ['Open questions', 2],
+    ]);
+    act(() => outlineRoot.unmount());
+  });
+
+  it('gives a heading typed or pasted later an id of its own', async () => {
+    render({ value: NOTE });
+    await created();
+    act(() => {
+      editor.chain().focus('end').insertContent('<h2 data-toc-id="x" id="x">Pasted</h2>').run();
+    });
+    const ids = [...container.querySelectorAll('h2, h3')].map((h) => h.getAttribute('data-toc-id'));
+    expect(ids).toHaveLength(4);
+    expect(new Set(ids).size).toBe(4);
+    expect(ids).not.toContain('x');
   });
 });

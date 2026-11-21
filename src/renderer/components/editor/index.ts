@@ -7,4 +7,5 @@ export * from './FormatToolbar';
 export * from './LinkToolbar';
 export * from './MentionMenu';
 export * from './SlashMenu';
+export * from './TableOfContents';
 export * from './TurnIntoMenu';

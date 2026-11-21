@@ -9,6 +9,7 @@ import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillVi
 import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
+import { HeadingAnchors } from './extensions/table-of-contents';
 import { createDocumentExtensions } from './markdown';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
@@ -28,6 +29,8 @@ import styles from './RichTextEditor.module.css';
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
  * - Each entity link is drawn by `entityPill`, which finds its entity (the app's reads React
  *   Query); without one, a pill shows the label stored in the markdown.
+ * - Its headings, for a table of contents, are read from the editor (`onReady`) with
+ *   `useEditorOutline`.
  */
 
 export interface RichTextEditorProps extends EditorHost {
@@ -69,6 +72,7 @@ export function RichTextEditor({
     }),
     EditorHostExtension,
     MarkdownClipboard,
+    HeadingAnchors,
     Placeholder.configure({ placeholder }),
     SlashMenu,
     EntityMenu,

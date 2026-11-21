@@ -22,3 +22,36 @@
 .trashed {
   margin-bottom: var(--space-8);
 }
+
+/*
+ * The table of contents, in the right margin beside the column: a 0-high sticky box at the
+ * column's top (so it stays 48px under the page's top as the note scrolls) holding the list out to
+ * its right, 32px from the column. It takes the margin's width less 24px at the page's edge, up to
+ * `outline-width`, and shows only where that leaves it 136px: a page 720 + 2 * (136 + 32 + 24) =
+ * 1104px wide (a container query can't read the tokens).
+ */
+.content {
+  container-type: inline-size;
+}
+.outline {
+  position: sticky;
+  z-index: var(--z-sticky);
+  top: var(--space-12);
+  height: 0;
+}
+.outlineList {
+  position: absolute;
+  top: 0;
+  left: calc(100% + var(--space-8));
+  width: min(
+    var(--outline-width),
+    (100cqw - var(--content-max-width)) / 2 - var(--space-8) - var(--space-6)
+  );
+  max-height: calc(100vh - 3 * var(--space-12));
+  overflow-y: auto;
+}
+@container (max-width: 1103px) {
+  .outline {
+    display: none;
+  }
+}

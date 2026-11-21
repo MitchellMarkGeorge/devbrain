@@ -12,7 +12,9 @@ import {
   Text,
   useFormat,
   Page,
+  TableOfContents,
 } from '@renderer/components';
+import { useEditorOutline } from '@renderer/editor/use-editor-outline';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
@@ -35,7 +37,8 @@ import styles from '../components/detail/NotePage.module.css';
  * A note's page (`/app/$workspaceId/notes/$noteId`, Figma `7158:16387`, `7158:16863`): the title
  * (renamed as it's left), "Edited …", the pills (project, link, tasks), the body in the rich text
  * editor (saved as you type), then the Tasks made from it (each opening in the task sheet beside
- * the page, `?open=tsk_…`); the star and the "…" menu in the header. A note in the trash (opened
+ * the page, `?open=tsk_…`); the star and the "…" menu in the header. A note with two headings or
+ * more has its table of contents in the right margin, where the page is wide enough for it. A note in the trash (opened
  * from Trash) is shown read-only under a "This note is in the trash" bar until it is restored. The
  * route's loader has the note and its markdown before the first frame; a note deleted while it is
  * open shows not-found.
@@ -81,7 +84,8 @@ function NotePageContent({ note }: { note: NoteListItem }) {
       search: (previous) => ({ ...previous, open: id }),
       state: (previous) => ({ ...previous, openedSheet: true }),
     });
-  const editor = useRef<Editor | null>(null);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const outline = useEditorOutline(editor);
 
   // a note just created opens with its empty title focused, to name it
   const isNew = useRouterState({ select: (state) => state.location.state.newNote === true });
@@ -99,7 +103,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
       // on to the body, as a document's title does
       event.preventDefault();
       event.currentTarget.blur();
-      editor.current?.commands.focus('start');
+      editor?.commands.focus('start');
     } else if (event.key === 'Escape') {
       event.currentTarget.textContent = note.title;
       event.currentTarget.blur();
@@ -133,7 +137,17 @@ function NotePageContent({ note }: { note: NoteListItem }) {
         )
       }
     >
-      <PageContent layout="document" data-testid="note-page">
+      <PageContent layout="document" className={styles.content} data-testid="note-page">
+        {outline.headings.length >= 2 && (
+          <div className={styles.outline}>
+            <TableOfContents
+              className={styles.outlineList}
+              items={outline.headings}
+              activeId={outline.activeId}
+              onSelect={outline.scrollTo}
+            />
+          </div>
+        )}
         {trashed && (
           <div className={styles.trashed}>
             <TrashedNotice
@@ -171,14 +185,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
             </div>
           </div>
           <div className={styles.body}>
-            <NoteEditor
-              key={note.id}
-              noteId={note.id}
-              editable={!trashed}
-              onReady={(ready) => {
-                editor.current = ready;
-              }}
-            />
+            <NoteEditor key={note.id} noteId={note.id} editable={!trashed} onReady={setEditor} />
           </div>
           <NoteTasksSection
             noteId={note.id}

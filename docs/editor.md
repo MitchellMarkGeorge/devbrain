@@ -49,6 +49,13 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   `TurnIntoMenu` and `LinkToolbar`. A change to how any of these look belongs in the
   component and its guide (`docs/design-system/components/`), not here; `RichTextEditor.module.css`
   holds only the editor's own link rules.
+- Headings carry an id for a table of contents (`extensions/table-of-contents.ts`, TipTap's
+  `TableOfContents`): `data-toc-id`, never the element's `id` or one read from pasted HTML, and
+  never in the markdown. Giving a loaded note's headings their ids is not an edit: it sends no
+  `onChange` and Undo doesn't take it back. A page reads the headings with `useEditorOutline`
+  (`use-editor-outline.ts`), which also finds the one being read in the page's scroller and
+  scrolls to one; the note page draws them with the design system's `TableOfContents` in its
+  right margin, for a note with two headings or more, where the page is wide enough.
 - Copy and paste move markdown (`extensions/clipboard.ts`). Copying puts the selection's markdown
   on the clipboard as plain text beside the HTML (inside a code block, the code as it is).
   Pasting plain text that looks like markdown (a heading, a list, a fence, a quote, a table, a

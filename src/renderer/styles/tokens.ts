@@ -40,5 +40,6 @@ export const SIZE = {
   'sheet-width': 380,
   'toast-width': 356,
   'content-max-width': 720,
+  'outline-width': 184,
   'home-max-width': 800,
 } as const;
