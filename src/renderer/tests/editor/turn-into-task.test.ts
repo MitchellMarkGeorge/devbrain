@@ -13,6 +13,8 @@ import type { EditorEntity } from '@renderer/editor/types';
 let editor: Editor;
 
 function load(markdown: string) {
+  // a test may load more than one: destroy the last, or its DOM observer outlives the test
+  editor?.destroy();
   editor = new Editor({
     extensions: [...createDocumentExtensions(), EditorHostExtension],
     content: markdown,
