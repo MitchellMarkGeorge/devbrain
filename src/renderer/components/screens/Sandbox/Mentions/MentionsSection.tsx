@@ -1,6 +1,6 @@
 /*
- * Sandbox mock: "Linked from", the backlinks of a task, note, project or event. Each row is
- * something that links here, with the line that does. Mock data only; not in the design system.
+ * Sandbox mock: "Mentioned in", what mentions a task, note, project or event. Each row is
+ * something that mentions it, with the line that does. Mock data only; not in the design system.
  */
 import { Fragment, useState } from 'react';
 import { FileText, Folder } from 'lucide-react';
@@ -10,25 +10,25 @@ import { DetailSection } from '../../../detail/DetailSection';
 import { Icon } from '../../../ui/Icon';
 import { StatusIcon } from '../../../entities/StatusIcon';
 import { resolveColor } from '../../../types';
-import styles from './BacklinksSection.module.css';
+import styles from './MentionsSection.module.css';
 
-/** What links here: a note, a task's or project's description, an event's note. */
-export type BacklinkSource =
+/** What mentions the item: a note, a task's or project's description, an event's note. */
+export type MentionSource =
   | { type: 'note'; title: string }
   | { type: 'task'; title: string; status: TaskStatus }
   | { type: 'project'; title: string; color: string }
   | { type: 'event'; title: string; color: string };
 
-export interface Backlink {
+export interface Mention {
   id: string;
-  source: BacklinkSource;
+  source: MentionSource;
   /** when the source changed: "2h ago", "Jun 12" */
   updated: string;
-  /** the line that links here, with `null` where it names this item */
+  /** the line that mentions it, with `null` where it names this item */
   context: (string | null)[];
 }
 
-function SourceGlyph({ source }: { source: BacklinkSource }) {
+function SourceGlyph({ source }: { source: MentionSource }) {
   switch (source.type) {
     case 'note':
       return <Icon icon={FileText} size={16} />;
@@ -41,34 +41,34 @@ function SourceGlyph({ source }: { source: BacklinkSource }) {
   }
 }
 
-export interface BacklinksSectionProps {
+export interface MentionsSectionProps {
   /** how a line names the item the page is for: "this task", "this note" */
   selfLabel: string;
-  backlinks: Backlink[];
+  mentions: Mention[];
   /** `page`: the line beside each title; `sheet`: titles only */
   variant?: 'page' | 'sheet';
   /** how many to show before "Show n more" */
   limit?: number;
 }
 
-export function BacklinksSection({
+export function MentionsSection({
   selfLabel,
-  backlinks,
+  mentions,
   variant = 'page',
   limit = 5,
-}: BacklinksSectionProps) {
+}: MentionsSectionProps) {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? backlinks : backlinks.slice(0, limit);
-  const hidden = backlinks.length - visible.length;
+  const visible = expanded ? mentions : mentions.slice(0, limit);
+  const hidden = mentions.length - visible.length;
   return (
     <DetailSection
       spacing={variant}
-      title="Linked from"
-      count={backlinks.length || undefined}
+      title="Mentioned in"
+      count={mentions.length || undefined}
       data-variant={variant}
     >
-      {backlinks.length === 0 ? (
-        <div className={styles.empty}>Nothing links here yet</div>
+      {mentions.length === 0 ? (
+        <div className={styles.empty}>Nothing mentions this yet</div>
       ) : (
         <div className={styles.list}>
           {visible.map((b) => (

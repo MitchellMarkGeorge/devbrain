@@ -1,6 +1,6 @@
 /*
- * Sandbox: mock-ups of "Linked from", the backlinks of a task, note or event on its page and
- * sheet, so every item shows the connections made to it. Not built; mock data only.
+ * Sandbox: mock-ups of "Mentioned in", what mentions a task, note or event, on its page and
+ * sheet, so every item shows the connections made to it in your notes. Not built; mock data only.
  */
 import { useRef, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
@@ -33,17 +33,11 @@ import { AppWindow, DetailPage, DetailTopBar } from '../../TaskDetail/frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../../TaskDetail/data';
 import { NotePage } from '../../Notes/notePage';
 import { storyDate } from '../../../lib/story-dates';
-import { BacklinksSection } from './BacklinksSection';
-import {
-  ADR_BACKLINKS,
-  ADR_TITLE,
-  DESIGN_REVIEW_BACKLINKS,
-  PKCE_BACKLINKS,
-  PKCE_TITLE,
-} from './data';
+import { MentionsSection } from './MentionsSection';
+import { ADR_MENTIONS, ADR_TITLE, DESIGN_REVIEW_MENTIONS, PKCE_MENTIONS, PKCE_TITLE } from './data';
 
 const meta = {
-  title: 'Sandbox/Backlinks',
+  title: 'Sandbox/Mentions',
   parameters: { layout: 'fullscreen' },
 } satisfies Meta;
 
@@ -71,7 +65,7 @@ function Paragraph({ children }: { children: ReactNode }) {
   return <p style={{ margin: 0, fontSize: 14, lineHeight: '20px' }}>{children}</p>;
 }
 
-/** The task page: properties, description, subtasks and note, then what links here */
+/** The task page: properties, description, subtasks and note, then what mentions it */
 export const TaskPage: Story = {
   name: 'Task page',
   render: () => (
@@ -133,14 +127,14 @@ export const TaskPage: Story = {
               updated="2h ago"
             />
           </DetailSection>
-          <BacklinksSection selfLabel="this task" backlinks={PKCE_BACKLINKS} />
+          <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
         </div>
       </DetailPage>
     </AppWindow>
   ),
 };
 
-/** The task sheet: what links here, titles only */
+/** The task sheet: what mentions it, titles only */
 export const TaskSheet: Story = {
   name: 'Task sheet',
   render: () => (
@@ -176,13 +170,13 @@ export const TaskSheet: Story = {
           layout="stacked"
         />
       </DetailSection>
-      <BacklinksSection variant="sheet" selfLabel="this task" backlinks={PKCE_BACKLINKS} />
+      <MentionsSection variant="sheet" selfLabel="this task" mentions={PKCE_MENTIONS} />
     </SheetColumn>
   ),
 };
 
-/** The note page: after its Tasks, the notes, tasks and events that link to it */
-export const NotePageBacklinks: Story = {
+/** The note page: after its Tasks, the notes, tasks and events that mention it */
+export const NotePageMentions: Story = {
   name: 'Note page',
   render: () => (
     <NotePage
@@ -208,12 +202,12 @@ export const NotePageBacklinks: Story = {
         </ul>
       </EditorContent>
       <SheetDivider style={{ margin: '24px 0 16px' }} />
-      <BacklinksSection selfLabel="this note" backlinks={ADR_BACKLINKS} />
+      <MentionsSection selfLabel="this note" mentions={ADR_MENTIONS} />
     </NotePage>
   ),
 };
 
-/** The event sheet: the notes and tasks that link to the meeting */
+/** The event sheet: the notes and tasks that mention the meeting */
 export const EventSheet: Story = {
   name: 'Event sheet',
   render: () => (
@@ -242,11 +236,7 @@ export const EventSheet: Story = {
           />
         </div>
       </DetailSection>
-      <BacklinksSection
-        variant="sheet"
-        selfLabel="this event"
-        backlinks={DESIGN_REVIEW_BACKLINKS}
-      />
+      <MentionsSection variant="sheet" selfLabel="this event" mentions={DESIGN_REVIEW_MENTIONS} />
     </SheetColumn>
   ),
 };
@@ -267,13 +257,13 @@ export const States: Story = {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
-          <BacklinksSection selfLabel="this task" backlinks={[]} />
-          <BacklinksSection selfLabel="this note" backlinks={ADR_BACKLINKS} />
-          <BacklinksSection selfLabel="this task" backlinks={PKCE_BACKLINKS} />
+          <MentionsSection selfLabel="this task" mentions={[]} />
+          <MentionsSection selfLabel="this note" mentions={ADR_MENTIONS} />
+          <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
-          <BacklinksSection variant="sheet" selfLabel="this task" backlinks={[]} />
-          <BacklinksSection variant="sheet" selfLabel="this task" backlinks={PKCE_BACKLINKS} />
+          <MentionsSection variant="sheet" selfLabel="this task" mentions={[]} />
+          <MentionsSection variant="sheet" selfLabel="this task" mentions={PKCE_MENTIONS} />
         </div>
       </div>
     </TooltipProvider>

@@ -1,10 +1,10 @@
-/* Sandbox mock data: what links to the PKCE task, its ADR note and the Design Review event. */
+/* Sandbox mock data: what mentions the PKCE task, its ADR note and the Design Review event. */
 import { TaskStatus } from '@common/types';
-import type { Backlink } from './BacklinksSection';
+import type { Mention } from './MentionsSection';
 
 export const PKCE_TITLE = 'Implement OAuth2 PKCE flow';
 
-export const PKCE_BACKLINKS: Backlink[] = [
+export const PKCE_MENTIONS: Mention[] = [
   {
     id: 'b1',
     source: { type: 'event', title: 'Mitchell / Jesse 1:1', color: 'green' },
@@ -51,7 +51,7 @@ export const PKCE_BACKLINKS: Backlink[] = [
 
 export const ADR_TITLE = 'Architecture ADR #4 — PKCE';
 
-export const ADR_BACKLINKS: Backlink[] = [
+export const ADR_MENTIONS: Mention[] = [
   {
     id: 'n1',
     source: { type: 'task', title: PKCE_TITLE, status: TaskStatus.IN_PROGRESS },
@@ -72,7 +72,7 @@ export const ADR_BACKLINKS: Backlink[] = [
   },
 ];
 
-export const DESIGN_REVIEW_BACKLINKS: Backlink[] = [
+export const DESIGN_REVIEW_MENTIONS: Mention[] = [
   {
     id: 'e1',
     source: { type: 'note', title: 'Billing revamp — scope' },

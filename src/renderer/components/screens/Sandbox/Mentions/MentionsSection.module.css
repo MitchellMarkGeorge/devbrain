@@ -1,10 +1,10 @@
-/* Sandbox mock: the "Linked from" section of a detail page or sheet. Not part of the design system. */
+/* Sandbox mock: the "Mentioned in" section of a detail page or sheet. Not part of the design system. */
 .list {
   display: flex;
   flex-direction: column;
 }
 
-/* a row like a linked task's: glyph, title, the line that links here, then when */
+/* a row like a linked task's: glyph, title, the line that mentions it, then when */
 .row {
   display: flex;
   align-items: center;
