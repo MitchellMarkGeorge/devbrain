@@ -8,6 +8,7 @@ import {
   type ResolvedTasksSearch,
   type TasksSearch,
 } from '../../../api/search';
+import { useTasksSearch } from '../../../hooks/use-tasks-search';
 import { TaskListFrame } from '../TaskListFrame';
 import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
 
@@ -23,6 +24,7 @@ export interface TasksListProps {
  */
 export function TasksList({ resolved, search, onClearFilters }: TasksListProps) {
   const { now } = useFormat();
+  const { project } = useTasksSearch();
   const query = useInfiniteQuery(taskListQuery(taskListInput(resolved, now)));
   const tasks = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
@@ -33,7 +35,7 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
   return (
     <TaskListFrame
       loaded={tasks}
-      tasks={withoutProjectPill(tasks, resolved.project)}
+      tasks={withoutProjectPill(tasks, project)}
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
       }}

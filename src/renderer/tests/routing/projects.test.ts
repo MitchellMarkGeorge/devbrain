@@ -326,3 +326,25 @@ describe('a project’s page', () => {
     });
   });
 });
+
+describe('the project pill on a task row', () => {
+  const summary = { id: auth.id, title: auth.title, color: auth.color };
+  const withPill = () =>
+    new FakeTasks(
+      [fakeTask('tsk_audit', 'Audit token storage', { projectId: auth.id, project: summary })],
+      [{ ...auth }],
+    );
+  const row = () => document.querySelector<HTMLElement>('[role="row"][data-task-id="tsk_audit"]');
+
+  it('shows on the tasks page, even filtered to the project', async () => {
+    open(`/tasks?project=${auth.id}`, withPill());
+    await eventually(() => expect(row()).not.toBeNull());
+    expect(row()!.textContent).toContain('Auth Overhaul');
+  });
+
+  it('is left off on the project’s own Tasks tab', async () => {
+    open(`/projects/${auth.id}?tab=tasks`, withPill());
+    await eventually(() => expect(row()).not.toBeNull());
+    expect(row()!.textContent).not.toContain('Auth Overhaul');
+  });
+});

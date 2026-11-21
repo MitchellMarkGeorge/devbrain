@@ -17,6 +17,7 @@ import {
 import { trpc } from '@renderer/ipc';
 import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from '../../../lib/groups';
 import { groupTasksQuery, withoutProjectPill } from '../../../api/queries';
+import { useTasksSearch } from '../../../hooks/use-tasks-search';
 import {
   hasFilters,
   taskListInput,
@@ -161,6 +162,7 @@ function Heading({
 export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsProps) {
   const { now } = useFormat();
   const createTask = useCreateTask();
+  const { project: fixedProject } = useTasksSearch();
   const queryClient = useQueryClient();
   const projects = useQuery({
     ...trpc.projects.list.queryOptions({ limit: 200 }),
@@ -258,7 +260,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
           onSeen={onSeen}
         />
       ),
-      tasks: withoutProjectPill(state?.tasks ?? [], resolved.project),
+      tasks: withoutProjectPill(state?.tasks ?? [], fixedProject),
       footer: loading ? (
         <TaskRowSkeleton />
       ) : state?.hasNextPage ? (

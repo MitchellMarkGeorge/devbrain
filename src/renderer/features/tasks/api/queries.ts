@@ -105,8 +105,8 @@ export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
 }
 
 /**
- * The tasks as a list fixed to one project draws them (a project's page, or the project filter):
- * without that project's pill on every row, as it says nothing there.
+ * The tasks as a project's own page draws them: without that project's pill on every row, as it
+ * says nothing there. The tasks page keeps every pill, whatever its filter.
  */
 export function withoutProjectPill<T extends Pick<TaskListItem, 'project'>>(
   tasks: T[],

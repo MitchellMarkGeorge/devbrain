@@ -80,7 +80,7 @@ function useColumn(status: TaskStatus, base: TaskFilter, sort: TaskSort, shown: 
  */
 export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const { now } = useFormat();
-  const { search, setSearch } = useTasksSearch();
+  const { search, setSearch, project: fixedProject } = useTasksSearch();
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
   const createTask = useCreateTask();
@@ -153,7 +153,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
             <DroppableColumn
               key={status}
               status={status}
-              tasks={withoutProjectPill(tasks, resolved.project)}
+              tasks={withoutProjectPill(tasks, fixedProject)}
               className={styles.column}
               add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
               onAdd={() => createTask({ defaults: { status, projectId } })}
