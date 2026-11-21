@@ -4,11 +4,11 @@ import { Badge } from '../../ui/Badge';
 import { Icon } from '../../ui/Icon';
 import { ListRow, type ListRowProps } from '../ListRow';
 import { Progress } from '../../ui/Progress';
-import type { Project, ProjectStats } from '@common/types';
 import { PROJECT_STATUS_LABELS, ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
 import { useFormat } from '../../lib/format';
-import { percentOf, resolveColor } from '../../types';
-import { projectDateText } from '../../project-text';
+import { cn } from '../../lib/cn';
+import { dateTone, percentOf, resolveColor } from '../../types';
+import { ProjectStatus, type Project, type ProjectStats } from '@common/types';
 import styles from './ProjectRow.module.css';
 
 /** The fields of core's `Project` a project row reads; pass the project as it is. */
@@ -29,13 +29,19 @@ export interface ProjectRowProps extends Omit<
 /**
  * A project in the Projects list, drawn from core's `Project` and its stats: its folder in the
  * project's colour, the name, a status pill, a 120px progress bar with the percent of tasks done,
- * and the due date ("Due Jul 1", or "Done Jun 12" once completed). A strokeless 48px `ListRow`.
+ * and its date: always the date ("Jul 1"; "Dec 2025" in another year, from `formatListDate`), the
+ * due date coloured when it is today or overdue, or the day it was done once completed. A
+ * strokeless 48px `ListRow`.
  */
 export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function ProjectRow(
   { project, stats, ...props },
   ref,
 ) {
-  const format = useFormat();
+  const { now, formatListDate } = useFormat();
+  // a completed project ends with the day it was done (its status pill says so), else its due date
+  const done = project.status === ProjectStatus.COMPLETED;
+  const date = done ? (project.completedAt ?? project.dueDate) : project.dueDate;
+  const tone = dateTone(project.dueDate, now, done);
   const color = resolveColor(project.color);
   const progress = stats && percentOf(stats.numOfCompleted, stats.totalTasks);
   return (
@@ -51,8 +57,15 @@ export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function P
         />
       }
       title={project.title}
-      meta={projectDateText(project, format)}
-      metaWidth={76}
+      meta={
+        date && (
+          <span
+            className={cn(tone === 'today' && styles.today, tone === 'overdue' && styles.overdue)}
+          >
+            {formatListDate(date)}
+          </span>
+        )
+      }
       {...props}
     >
       <span className={styles.status}>

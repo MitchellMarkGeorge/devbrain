@@ -23,14 +23,15 @@ export interface NoteRowProps extends Omit<
 /**
  * A note in the Notes list, drawn from core's `NoteListItem`: the file icon, the title ("Untitled"
  * when it has none) and its preview cut to one line, the pills of the task or event it links to
- * and its project, and when it was edited ("2h ago", from `useFormat()`). A strokeless 48px
+ * and its project, and the day it was last edited ("Nov 20"; "Dec 2025" in another year, from `useFormat()`'s
+ * `formatListDate`). A strokeless 48px
  * `ListRow`.
  */
 export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow(
   { note, ...props },
   ref,
 ) {
-  const { formatRelative } = useFormat('minute');
+  const { formatListDate } = useFormat();
   const pills = note.link || note.project;
   return (
     <ListRow
@@ -38,7 +39,7 @@ export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow
       icon={<Icon icon={FileText} size={16} />}
       title={note.title || 'Untitled'}
       excerpt={note.preview ?? undefined}
-      meta={formatRelative(note.updatedAt)}
+      meta={formatListDate(note.updatedAt)}
       {...props}
     >
       {pills && (
