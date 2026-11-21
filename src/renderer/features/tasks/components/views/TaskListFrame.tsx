@@ -14,7 +14,6 @@ import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '../menus/TaskMenus';
 import { TasksSelectionBar } from './TasksSelectionBar';
 import { useTaskActions } from '../../hooks/use-task-actions';
-import { useTasksSearch } from '../../hooks/use-tasks-search';
 import styles from './TasksView.module.css';
 
 export interface TaskListFrameProps {
@@ -27,6 +26,8 @@ export interface TaskListFrameProps {
   /** the list's total, when known */
   rowCount?: number;
   onEndReached?: () => void;
+  /** whether rows and cards show their project pill (see `TasksView`) */
+  showProjectPill: boolean;
 }
 
 /**
@@ -40,10 +41,10 @@ export function TaskListFrame({
   groups,
   rowCount,
   onEndReached,
+  showProjectPill,
 }: TaskListFrameProps) {
   const list = useRef<TaskListHandle>(null);
   const actions = useTaskActions();
-  const { showProjectPill } = useTasksSearch();
   const openEntity = useOpenEntity();
   const [selected, setSelected] = useState<string[]>([]);
   // the task whose row was right-clicked: the menu is drawn for it

@@ -46,6 +46,8 @@ export interface TasksBoardProps {
   resolved: ResolvedTasksSearch;
   /** shows a task in the sheet (`?open=tsk_…`) */
   onOpen: (id: TaskId) => void;
+  /** whether rows and cards show their project pill (see `TasksView`) */
+  showProjectPill: boolean;
 }
 
 /**
@@ -78,9 +80,9 @@ function useColumn(status: TaskStatus, base: TaskFilter, sort: TaskSort, shown: 
  * columns refetch. A synced task's card can't be dragged, as its status is its provider's. A
  * right-click opens the task's menu.
  */
-export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
+export function TasksBoard({ resolved, onOpen, showProjectPill }: TasksBoardProps) {
   const { now } = useFormat();
-  const { search, setSearch, showProjectPill } = useTasksSearch();
+  const { search, setSearch } = useTasksSearch();
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
   const createTask = useCreateTask();

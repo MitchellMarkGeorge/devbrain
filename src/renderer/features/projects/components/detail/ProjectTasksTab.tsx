@@ -43,12 +43,11 @@ export function ProjectTasksTab({ project }: { project: Project }) {
       resolved: resolveTasksSearch(projectTasksSearch(search, project.id), settings),
       setSearch,
       project: project.id,
-      showProjectPill: false,
     };
   }, [search, project.id, settings, setSearch]);
   return (
     <TasksSearchProvider value={state}>
-      <TasksView />
+      <TasksView showProjectPill={false} />
     </TasksSearchProvider>
   );
 }
