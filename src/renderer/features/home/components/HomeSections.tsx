@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Folder } from 'lucide-react';
 import type { Calendar, Project, TaskListItem } from '@common/types';
 import {
@@ -24,7 +24,7 @@ import {
 } from '@renderer/components';
 import { dueText } from '@renderer/components/lib/format';
 import { trpc } from '@renderer/ipc';
-import { entityPath } from '@renderer/shared/lib/entities';
+import { entityLink } from '@renderer/shared/lib/entities';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '@renderer/features/tasks/components/menus/TaskMenus';
 import { useTaskActions } from '@renderer/features/tasks/hooks/use-task-actions';
@@ -201,7 +201,6 @@ function HomeProjectRow({ project }: { project: Project }) {
 
 function NotesSection({ section }: { section: Section<'notes'> }) {
   const goTo = useGoTo();
-  const router = useRouter();
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   return (
     <HomeSection title="Recent notes" link="All notes" onLinkClick={() => goTo('notes')}>
@@ -211,9 +210,7 @@ function NotesSection({ section }: { section: Section<'notes'> }) {
             key={note.id}
             size="sm"
             note={{ ...note, project: null, link: null }}
-            render={
-              <a href={router.history.createHref(entityPath(workspaceId, { id: note.id }) ?? '')} />
-            }
+            render={<Link {...entityLink(workspaceId, { id: note.id })!} />}
           />
         ))}
       </HomeCards>

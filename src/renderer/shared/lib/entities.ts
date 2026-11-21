@@ -1,3 +1,4 @@
+import { linkOptions } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
 import { isId, type WorkspaceId } from '@common/ids';
 
@@ -12,19 +13,38 @@ export interface EntityRef {
 }
 
 /**
- * The app path an entity opens at, or null for an id of no page: a task, project or note's page,
- * or an event in the calendar's sheet on its day (events have no page of their own).
+ * Where an entity opens, as options for a `Link` or `navigate`, or null for an id of no page: a
+ * task, project or note's page, or an event in the calendar's sheet on its day (events have no
+ * page of their own). Typed against the route tree, so a renamed route or a wrong search param
+ * fails the build.
  */
-export function entityPath(workspaceId: WorkspaceId, entity: EntityRef): string | null {
-  const base = `/app/${workspaceId}`;
+export function entityLink(workspaceId: WorkspaceId, entity: EntityRef) {
   const { id } = entity;
-  if (isId('task', id)) return `${base}/tasks/${id}`;
-  if (isId('project', id)) return `${base}/projects/${id}`;
-  if (isId('note', id)) return `${base}/notes/${id}`;
-  if (isId('event', id)) {
-    const date = entity.startAt ? DateTime.fromJSDate(entity.startAt).toISODate() : null;
-    const search = new URLSearchParams({ ...(date ? { date } : {}), open: id });
-    return `${base}/calendar?${search.toString()}`;
-  }
+  if (isId('task', id))
+    return linkOptions({
+      to: '/app/$workspaceId/tasks/$taskId',
+      params: { workspaceId, taskId: id },
+    });
+  if (isId('project', id))
+    return linkOptions({
+      to: '/app/$workspaceId/projects/$projectId',
+      params: { workspaceId, projectId: id },
+    });
+  if (isId('note', id))
+    return linkOptions({
+      to: '/app/$workspaceId/notes/$noteId',
+      params: { workspaceId, noteId: id },
+    });
+  if (isId('event', id))
+    return linkOptions({
+      to: '/app/$workspaceId/calendar',
+      params: { workspaceId },
+      search: {
+        date: entity.startAt
+          ? (DateTime.fromJSDate(entity.startAt).toISODate() ?? undefined)
+          : undefined,
+        open: id,
+      },
+    });
   return null;
 }

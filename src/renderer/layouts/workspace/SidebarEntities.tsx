@@ -13,11 +13,11 @@ import {
   useFormat,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { entityPath } from '@renderer/shared/lib/entities';
+import { entityLink } from '@renderer/shared/lib/entities';
 import { hasConnectedIntegration, summarizeSync } from '@renderer/shared/lib/sync-state';
 
 // The sidebar's Recents, Favorites and sync line (docs/renderer/implementation-plan.md, "App
-// layout"), from core's lists; each item is a link to where its entity opens (entityPath).
+// layout"), from core's lists; each item is a link to where its entity opens (entityLink).
 
 const SHOWN = 5;
 const MORE = 50;
@@ -29,14 +29,12 @@ const MORE = 50;
  */
 function EntityItem({ item }: { item: StampedEntity<'viewedAt'> | StampedEntity<'favoritedAt'> }) {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
-  const href = entityPath(workspaceId, {
+  const link = entityLink(workspaceId, {
     id: item.entity.id,
     startAt: item.entityType === 'events' ? item.entity.startAt : undefined,
   });
-  // the router builds the location from `href` alone (its path and search), as navigate({ href })
-  // does; its types still ask for a `to`. Every stamped entity has a path: an id of none would
-  // stay an item that goes nowhere.
-  const render = href ? <Link to="." href={href} /> : undefined;
+  // every stamped entity has a page; an id of none would stay an item that goes nowhere
+  const render = link ? <Link {...link} /> : undefined;
   switch (item.entityType) {
     case 'tasks':
       return (
