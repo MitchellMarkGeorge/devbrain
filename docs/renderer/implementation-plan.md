@@ -582,8 +582,8 @@ menu show default glyphs"): `resolveEntity` reads `tasks.get` / `projects.get` /
 `events.get` from the cache and subscribes so pills re-render when the query settles. Every page
 with a `RichTextEditor` passes `onOpenEntity={useOpenEntity()}`, which navigates by type: task →
 `/app/tasks/$id`, project → `/app/projects/$id`, note → `/app/notes/$id`, event →
-`/app/calendar?date=…&open=evt_…`. The same `useOpenEntity` serves search results, recents,
-favorites and pills.
+`/app/calendar?date=…&open=evt_…`. The same `useOpenEntity` serves search results and pills;
+the sidebar's recents and favorites are links to the same `entityPath`.
 
 ## App-wide pieces
 
@@ -600,8 +600,8 @@ favorites and pills.
 to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps its section active).
 - **Recents** and **Favorites** (milestone 3): `recents.list({ limit: 5 })`;
   `favorites.list({ limit: 5 })` with "More"; before anything is starred, Favorites keeps its label
-  with a `SidebarHint` ("Star a task, note or project to keep it here"). Items open with
-  `useOpenEntity`. Collapsed sidebar
+  with a `SidebarHint` ("Star a task, note or project to keep it here"). Items are links
+  (`SidebarItem render={<Link href={entityPath(…)} />}`). Collapsed sidebar
   shows these as flyouts (`7167:14942`).
 - **Footer:** one row: the sync line, then Trash, Settings and Help as icons (Help opens the keyboard shortcuts, `help.shortcuts`, as `?`).
   `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and `sync.progress` events;
