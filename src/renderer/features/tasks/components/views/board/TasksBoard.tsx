@@ -23,7 +23,7 @@ import {
   placeCards,
   useBoardSensors,
 } from './board-drag';
-import { prefetchTaskSheet, taskListQuery, withoutProjectPill } from '../../../api/queries';
+import { prefetchTaskSheet, taskListQuery } from '../../../api/queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
@@ -46,6 +46,8 @@ export interface TasksBoardProps {
   resolved: ResolvedTasksSearch;
   /** shows a task in the sheet (`?open=tsk_…`) */
   onOpen: (id: TaskId) => void;
+  /** whether rows and cards show their project pill (see `TasksView`) */
+  showProjectPill: boolean;
 }
 
 /**
@@ -78,7 +80,7 @@ function useColumn(status: TaskStatus, base: TaskFilter, sort: TaskSort, shown: 
  * columns refetch. A synced task's card can't be dragged, as its status is its provider's. A
  * right-click opens the task's menu.
  */
-export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
+export function TasksBoard({ resolved, onOpen, showProjectPill }: TasksBoardProps) {
   const { now } = useFormat();
   const { search, setSearch } = useTasksSearch();
   const actions = useTaskActions();
@@ -153,7 +155,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
             <DroppableColumn
               key={status}
               status={status}
-              tasks={withoutProjectPill(tasks, resolved.project)}
+              tasks={tasks}
               className={styles.column}
               add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
               onAdd={() => createTask({ defaults: { status, projectId } })}
@@ -168,6 +170,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
               renderCard={(card, task) => (
                 <DraggableCard
                   {...card}
+                  showProject={showProjectPill}
                   // the sheet's task and subtasks start loading before the click
                   onPointerEnter={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
                   onFocus={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
@@ -187,7 +190,9 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
         </ContextMenuContent>
       </ContextMenu>
       {/* the card under the pointer: drawn over everything, so a column's scroll can't clip it */}
-      <DragOverlay dropAnimation={null}>{dragging && <DragPreview task={dragging} />}</DragOverlay>
+      <DragOverlay dropAnimation={null}>
+        {dragging && <DragPreview task={dragging} showProject={showProjectPill} />}
+      </DragOverlay>
     </DndContext>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useFormat } from '@renderer/components';
-import { taskListQuery, withoutProjectPill } from '../../../api/queries';
+import { taskListQuery } from '../../../api/queries';
 import {
   hasFilters,
   taskListInput,
@@ -15,13 +15,15 @@ export interface TasksListProps {
   resolved: ResolvedTasksSearch;
   search: TasksSearch;
   onClearFilters: () => void;
+  /** whether rows and cards show their project pill (see `TasksView`) */
+  showProjectPill: boolean;
 }
 
 /**
  * The list view (Figma `7155:5231`): one virtualized `TaskList` over `tasks.list`'s pages, loading
  * the next as the end comes near. Subtasks are rows of their own, with their parent's pill.
  */
-export function TasksList({ resolved, search, onClearFilters }: TasksListProps) {
+export function TasksList({ resolved, search, onClearFilters, showProjectPill }: TasksListProps) {
   const { now } = useFormat();
   const query = useInfiniteQuery(taskListQuery(taskListInput(resolved, now)));
   const tasks = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
@@ -33,7 +35,8 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
   return (
     <TaskListFrame
       loaded={tasks}
-      tasks={withoutProjectPill(tasks, resolved.project)}
+      tasks={tasks}
+      showProjectPill={showProjectPill}
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
       }}

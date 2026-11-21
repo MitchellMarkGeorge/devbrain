@@ -40,6 +40,12 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/** On a project's board, where every task is that project's, the card leaves its project pill off. */
+export const WithoutProject: Story = {
+  name: 'Without project pill',
+  args: { showProject: false },
+};
+
 /** A synced task with no link: its source and project pills */
 export const SourceOnly: Story = {
   args: {

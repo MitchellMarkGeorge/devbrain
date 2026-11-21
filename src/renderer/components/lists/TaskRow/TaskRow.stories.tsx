@@ -122,6 +122,12 @@ export const NoDueDate: Story = {
   ),
 };
 
+/** On a project's page, where every task is that project's, the row leaves its project pill off. */
+export const WithoutProject: Story = {
+  name: 'Without project pill',
+  args: { showProject: false },
+};
+
 export const StatusMenuOpen: Story = {
   args: { defaultMenuOpen: true },
   decorators: [

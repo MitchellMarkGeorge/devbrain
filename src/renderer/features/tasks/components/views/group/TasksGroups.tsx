@@ -16,7 +16,7 @@ import {
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from '../../../lib/groups';
-import { groupTasksQuery, withoutProjectPill } from '../../../api/queries';
+import { groupTasksQuery } from '../../../api/queries';
 import {
   hasFilters,
   taskListInput,
@@ -37,6 +37,8 @@ export interface TasksGroupsProps {
   resolved: ResolvedTasksSearch;
   search: TasksSearch;
   onClearFilters: () => void;
+  /** whether rows and cards show their project pill (see `TasksView`) */
+  showProjectPill: boolean;
 }
 
 /** What the view knows of a group's rows, from its query. */
@@ -158,7 +160,12 @@ function Heading({
  * "Add task" in a heading opens Create task with the group's project, status, priority or date. A
  * project group with no tasks for these filters is left out once it has loaded.
  */
-export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsProps) {
+export function TasksGroups({
+  resolved,
+  search,
+  onClearFilters,
+  showProjectPill,
+}: TasksGroupsProps) {
   const { now } = useFormat();
   const createTask = useCreateTask();
   const queryClient = useQueryClient();
@@ -258,7 +265,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
           onSeen={onSeen}
         />
       ),
-      tasks: withoutProjectPill(state?.tasks ?? [], resolved.project),
+      tasks: state?.tasks ?? [],
       footer: loading ? (
         <TaskRowSkeleton />
       ) : state?.hasNextPage ? (
@@ -304,5 +311,5 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
       />
     );
   }
-  return <TaskListFrame loaded={loaded} groups={groups} />;
+  return <TaskListFrame loaded={loaded} groups={groups} showProjectPill={showProjectPill} />;
 }

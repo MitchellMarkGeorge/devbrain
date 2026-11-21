@@ -1438,7 +1438,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      720px) and a rail of cards on the right (one column, the rail under, below 1180px). The document is the header (the tile in the project's colour, which opens Change
      colour; the name as an `EditorTitle size="lg"`, saved as a task's title is; status and
      dates as pills with how long is left; the description), then Open tasks (the soonest due
-     first, eight compact rows without the linked note's pill, an "Add task…" `QuickAddRow` that
+     first, eight compact rows without the project pill, an "Add task…" `QuickAddRow` that
      creates the task in the project, and "N more in Tasks") and Recently completed (three). The
      rail's cards are Progress (the percent, a bar split by status, and a row per status and
      for the overdue tasks, each opening the Tasks tab on them) and the latest notes, with "+"

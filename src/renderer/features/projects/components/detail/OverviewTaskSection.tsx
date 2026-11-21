@@ -16,7 +16,7 @@ import { KeyScope, useListCommands } from '@renderer/keyboard';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '@renderer/features/tasks/components/menus/TaskMenus';
-import { isSynced, withoutProjectPill } from '@renderer/features/tasks/api/queries';
+import { isSynced } from '@renderer/features/tasks/api/queries';
 import { useTaskActions } from '@renderer/features/tasks/hooks/use-task-actions';
 import type { overviewOpenTasksQuery } from '../../api/queries';
 import styles from './ProjectPage.module.css';
@@ -45,7 +45,7 @@ export interface OverviewTaskSectionProps {
  * One of the Overview's task sections (Open tasks, Recently completed): a few of the project's
  * tasks as compact rows, with "N more in Tasks" opening the Tasks tab on the rest. Rows change
  * status at once, open on click, and have the row menu and the list keys. They leave out the
- * project pill and the linked note's: the overview is a summary, and the Tasks tab has them. The
+ * project pill, which would name this project on every row, and keep the linked event or note. The
  * "Add task…" row creates a task in the project from its title, and stays open for the next.
  */
 export function OverviewTaskSection({
@@ -61,13 +61,7 @@ export function OverviewTaskSection({
   'data-testid': testId,
 }: OverviewTaskSectionProps) {
   const query = useQuery(options);
-  const tasks = useMemo(
-    () =>
-      withoutProjectPill(query.data?.items ?? [], project.id).map((task) =>
-        task.link ? { ...task, link: null } : task,
-      ),
-    [query.data, project.id],
-  );
+  const tasks = useMemo(() => query.data?.items ?? [], [query.data]);
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id as string, t])), [tasks]);
   const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
   const actions = useTaskActions();
@@ -106,6 +100,7 @@ export function OverviewTaskSection({
             >
               <TaskList
                 compact
+                showProject={false}
                 ref={list}
                 tasks={tasks}
                 selectionBar={false}

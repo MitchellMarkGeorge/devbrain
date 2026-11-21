@@ -47,7 +47,7 @@ export function ProjectTasksTab({ project }: { project: Project }) {
   }, [search, project.id, settings, setSearch]);
   return (
     <TasksSearchProvider value={state}>
-      <TasksView />
+      <TasksView showProjectPill={false} />
     </TasksSearchProvider>
   );
 }

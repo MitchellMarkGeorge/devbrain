@@ -26,6 +26,8 @@ export interface TaskListFrameProps {
   /** the list's total, when known */
   rowCount?: number;
   onEndReached?: () => void;
+  /** whether rows and cards show their project pill (see `TasksView`) */
+  showProjectPill: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ export function TaskListFrame({
   groups,
   rowCount,
   onEndReached,
+  showProjectPill,
 }: TaskListFrameProps) {
   const list = useRef<TaskListHandle>(null);
   const actions = useTaskActions();
@@ -109,6 +112,7 @@ export function TaskListFrame({
 
   const common = {
     ref: list,
+    showProject: showProjectPill,
     rowCount,
     onEndReached,
     selected,

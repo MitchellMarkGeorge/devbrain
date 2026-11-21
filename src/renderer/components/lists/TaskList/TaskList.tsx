@@ -89,6 +89,8 @@ export interface TaskListBaseProps extends Omit<
   subtasks?: boolean;
   /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
   stack?: TaskRowProps['stack'];
+  /** shows each row's project pill (the default); `false` for a list of one project's tasks */
+  showProject?: boolean;
   /** shows the SelectionBar while rows are selected; `false` leaves it to the page */
   selectionBar?: boolean;
   /** the bar sticks to the bottom of the scrolling list (default); `false` puts it under the rows */
@@ -184,6 +186,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     selecting,
     subtasks,
     stack,
+    showProject,
     selectionBar = true,
     floatingBar = true,
     compact = false,
@@ -434,6 +437,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               onMenuOpenChange={(open) => setMenuOpenId(open ? id : null)}
               subtask={subtasks}
               stack={stack}
+              showProject={showProject}
               onSelect={() => toggle(id)}
               onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
               onOpen={onOpen && (() => onOpen(task))}
