@@ -6,6 +6,8 @@ import { createDocumentExtensions } from '@renderer/editor/markdown';
 let editor: Editor;
 
 function load(markdown: string) {
+  // a test may load more than one: destroy the last, or its DOM observer outlives the test
+  editor?.destroy();
   editor = new Editor({
     extensions: [...createDocumentExtensions(), MarkdownClipboard],
     content: markdown,
