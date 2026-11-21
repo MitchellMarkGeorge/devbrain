@@ -1,0 +1,163 @@
+/* Sandbox mock: the "Mentioned in" section of a detail page or sheet. Not part of the design system. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mention {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  transition: background-color var(--duration-fast);
+  cursor: pointer;
+}
+.mention:hover {
+  background: var(--accent);
+}
+
+/* the source: its glyph, title, where in it, project, then when it changed */
+.source {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--muted-foreground);
+}
+.title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.where {
+  flex: none;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}
+.time {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the line that mentions it, under the title, behind a 2px bar like a quote */
+.snippet {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0 0 0 24px;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  line-height: 22px;
+}
+.snippet[data-kind='todo'] {
+  border-left-color: var(--status-in-progress);
+}
+.snippet[data-kind='done'] {
+  border-left-color: var(--status-completed);
+}
+.snippet[data-kind='done'] .text {
+  text-decoration: line-through;
+}
+.snippet[data-kind='heading'] .text {
+  color: var(--foreground);
+  font-weight: var(--font-weight-semibold);
+}
+.text {
+  min-width: 0;
+}
+[data-density='compact'] .text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.check {
+  flex: none;
+  margin-top: 4px;
+}
+.text :global([data-slot='badge']) {
+  vertical-align: -3px;
+}
+/* the mention of the item this page is for */
+.self {
+  border-color: color-mix(in oklab, var(--status-in-progress) 55%, transparent) !important;
+  background: color-mix(in oklab, var(--status-in-progress) 10%, transparent) !important;
+  color: var(--foreground) !important;
+}
+.more {
+  margin-left: 24px;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}
+
+/* unlinked mentions: the title written as plain text, with Link on the right */
+.unlinked {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+.unlinked + .unlinked {
+  border-top: 1px solid var(--edge);
+}
+.unlinkedBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.unlinked mark {
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in oklab, var(--warning) 22%, transparent);
+  color: var(--foreground);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.empty {
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--subtle-foreground);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+}
+
+/* in a sheet the item's own title is highlighted text, which wraps, rather than a pill */
+.selfText {
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in oklab, var(--status-in-progress) 14%, transparent);
+  color: var(--foreground);
+  font-weight: var(--font-weight-medium);
+}
