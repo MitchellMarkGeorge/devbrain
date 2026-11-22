@@ -34,7 +34,7 @@ export const Statuses: Story = {
   ),
 };
 
-/** A project synced from Linear leads its pills with where it comes from. */
+/** A project synced from Linear shows where it comes from right after its name, as a task's key. */
 export const Synced: Story = {
   args: {
     project: {

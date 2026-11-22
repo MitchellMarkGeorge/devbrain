@@ -40,7 +40,8 @@ export interface ProjectRowProps extends Omit<
  * project's colour, the name, a status pill, a 120px progress bar with the percent of tasks done,
  * and its date: always the date ("Jul 1"; "Dec 2025" in another year, from `formatListDate`), the
  * due date coloured when it is today or overdue, or the day it was done once completed ("No date"
- * without one). A project synced from Linear leads its pills with a `SourcePill` ("Linear"). A
+ * without one). A project synced from Linear shows a `SourcePill` ("Linear") right after its name, where a
+ * synced task's key sits. A
  * strokeless 48px `ListRow`.
  */
 export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function ProjectRow(
@@ -70,6 +71,15 @@ export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function P
         />
       }
       title={project.title}
+      titlePills={
+        external && (
+          <PillHoverCard target={{ type: 'source', title: project.title, external }}>
+            <SourcePill provider={provider}>
+              {provider ? PROVIDER_LABELS[provider] : 'Synced'}
+            </SourcePill>
+          </PillHoverCard>
+        )
+      }
       meta={
         date ? (
           <span
@@ -83,13 +93,6 @@ export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function P
       }
       {...props}
     >
-      {external && (
-        <PillHoverCard target={{ type: 'source', title: project.title, external }}>
-          <SourcePill provider={provider}>
-            {provider ? PROVIDER_LABELS[provider] : 'Synced'}
-          </SourcePill>
-        </PillHoverCard>
-      )}
       <span className={styles.status}>
         <Badge
           variant="outline"
