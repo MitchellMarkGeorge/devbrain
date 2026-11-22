@@ -202,7 +202,7 @@ describe('defaultDueDate', () => {
   it('reads the setting from today', () => {
     expect(defaultDueDate('today', TODAY)).toEqual(TODAY);
     expect(defaultDueDate('tomorrow', TODAY)).toEqual(new Date(2026, 5, 23));
-    // 22 Jun 2026 is a Monday: next week is the Monday after
+    // 22 Jun 2026 is a Monday: next week is a week on
     expect(defaultDueDate('nextWeek', TODAY)).toEqual(new Date(2026, 5, 29));
     expect(defaultDueDate(undefined, TODAY)).toBeNull();
   });

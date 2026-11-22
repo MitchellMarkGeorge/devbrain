@@ -14,15 +14,14 @@ export interface DatePickerQuickPick {
   date: Date;
 }
 
-/** Today, Tomorrow and Next week (the coming Monday), from `today`. */
+/** Today, Tomorrow and Next week (the same weekday a week on), from `today`. */
 export function defaultQuickPicks(today: Date): DatePickerQuickPick[] {
   const day = (offset: number) =>
     new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-  const toMonday = (8 - today.getDay()) % 7 || 7;
   return [
     { label: 'Today', date: day(0) },
     { label: 'Tomorrow', date: day(1) },
-    { label: 'Next week', date: day(toMonday) },
+    { label: 'Next week', date: day(7) },
   ];
 }
 
@@ -114,7 +113,7 @@ export function DatePicker({
         />
         {picks.length > 0 && (
           <div className={styles.quickPicks}>
-            {/* by place: two picks can share a day (on a Sunday, Tomorrow is Next week's Monday) */}
+            {/* by place: a caller's picks can share a day */}
             {picks.map((pick, index) => (
               <Button
                 key={index}
