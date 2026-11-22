@@ -110,3 +110,8 @@
   font-size: var(--text-xs);
   line-height: var(--text-xs-leading);
 }
+
+/* wrapped: the whole line under the title, for a sheet given to the mentions */
+[data-wrap] .context {
+  white-space: normal;
+}

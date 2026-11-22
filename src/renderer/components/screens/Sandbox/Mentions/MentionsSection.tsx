@@ -67,10 +67,18 @@ export interface MentionListProps {
   layout?: 'line' | 'title' | 'stacked';
   /** how many to show before "Show n more" */
   limit?: number;
+  /** stacked only: the whole line, wrapping, rather than one line cut with "…" */
+  wrap?: boolean;
 }
 
 /** The rows alone, for a section, a side panel or a popover. */
-export function MentionList({ selfLabel, mentions, layout = 'line', limit = 5 }: MentionListProps) {
+export function MentionList({
+  selfLabel,
+  mentions,
+  layout = 'line',
+  limit = 5,
+  wrap,
+}: MentionListProps) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? mentions : mentions.slice(0, limit);
   const hidden = mentions.length - visible.length;
@@ -78,7 +86,7 @@ export function MentionList({ selfLabel, mentions, layout = 'line', limit = 5 }:
     return <div className={styles.empty}>Nothing mentions this yet</div>;
   }
   return (
-    <div className={styles.list} data-layout={layout}>
+    <div className={styles.list} data-layout={layout} data-wrap={wrap || undefined}>
       {visible.map((m) => {
         const context = (
           <span className={styles.context}>
