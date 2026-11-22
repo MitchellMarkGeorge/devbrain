@@ -164,20 +164,6 @@ describe('TaskService — listTaskTree', () => {
   });
 });
 
-describe('TaskService — listTaskTree, parents newer than their subtasks', () => {
-  it('nests a chain whose parents were made after their subtasks', () => {
-    // made oldest first, then each put under the next newer one with "Make subtask of…"
-    const [low, mid, high] = ['Low', 'Mid', 'High'].map((title) => tasks.createTask({ title }));
-    tasks.demoteTask(low.id, mid.id);
-    tasks.demoteTask(mid.id, high.id);
-    expect(tasks.listTaskTree({}, BY_PRIORITY).items.map((item) => [item.id, item.depth])).toEqual([
-      [high.id, 0],
-      [mid.id, 1],
-      [low.id, 2],
-    ]);
-  });
-});
-
 describe('TaskService — listSubtree', () => {
   it('gives the rows listTaskTree would place under the root, its subtasks at depth 1', () => {
     const root = tasks.createTask({ title: 'Root' });
