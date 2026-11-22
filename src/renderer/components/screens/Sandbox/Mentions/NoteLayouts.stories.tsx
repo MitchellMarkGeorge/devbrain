@@ -181,7 +181,7 @@ function SheetPill({
 }
 
 /**
- * The note page with its tasks-and-mentions sheet: either header pill opens the one sheet, which
+ * The note page with its Links sheet: either header pill opens the one sheet, which
  * holds the note's Tasks and then its Mentioned in. Both pills stay filled while it's open; either
  * closes it again.
  */
@@ -204,11 +204,7 @@ function NoteWithSheet() {
         }
       />
       <Body />
-      <DockedSheet
-        open={open}
-        onOpenChange={setOpen}
-        header={<SheetHeader>Tasks and mentions</SheetHeader>}
-      >
+      <DockedSheet open={open} onOpenChange={setOpen} header={<SheetHeader>Links</SheetHeader>}>
         <DetailSection
           title="Tasks"
           count={2}
@@ -240,11 +236,11 @@ function NoteWithSheet() {
 }
 
 /**
- * B with a sheet: the header pills open one sheet just for the note's tasks and mentions, docked
- * beside it, rather than a popover. A row opens its item in the sheet.
+ * B with a sheet: the header pills open one Links sheet, just for the note's tasks and mentions,
+ * docked beside it, rather than a popover. A row opens its item in the sheet.
  */
 export const HeaderPillsSheet: Story = {
-  name: 'B – Header pills, tasks and mentions sheet',
+  name: 'B – Header pills, Links sheet',
   render: () => <NoteWithSheet />,
 };
 
