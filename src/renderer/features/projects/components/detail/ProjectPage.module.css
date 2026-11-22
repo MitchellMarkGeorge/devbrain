@@ -47,8 +47,8 @@ button.tile[data-popup-open] {
   background: color-mix(in oklab, var(--tile) 22%, transparent);
 }
 button.tile:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 /* the header's "2 days overdue" */
 .late {
@@ -262,9 +262,9 @@ div.quickAdd {
   color: var(--foreground);
 }
 .more:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  outline: none;
   border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
 /*
