@@ -27,38 +27,80 @@ export interface TaskRowTree {
 }
 
 /**
+ * Whether each row is the last of its siblings (the subtasks of the same parent): the rows the
+ * prefix ends with └ rather than ├. A row is the last of its siblings when no later row sits at
+ * its depth before the rows go shallower (its parent's subtasks have ended).
+ *
+ * It reads the rows from the bottom up, because "is a sibling still to come?" is about the rows
+ * below: by the time a row comes up, every row below it has been seen. For the rows a, a1, a1x, a2
+ * (depths 0, 1, 2, 1):
+ *
+ *   a2   depth 1: nothing seen at depth 1 yet   → last; now a row at depth 1 is below
+ *   a1x  depth 2: nothing seen at depth 2 yet   → last; now a row at depth 2 is below
+ *   a1   depth 1: a2 is below, at depth 1       → not last; forget depth 2 (a1x was a1's own)
+ *   a    depth 0: nothing seen at depth 0 yet   → last
+ */
+function markLastSiblings(rowDepths: readonly number[]): boolean[] {
+  const isLastSibling: boolean[] = new Array(rowDepths.length);
+  // for each depth: whether a row at that depth has been seen below, under the same parent as the
+  // rows being read now
+  const siblingSeenBelow: boolean[] = [];
+
+  for (let row = rowDepths.length - 1; row >= 0; row--) {
+    const depth = rowDepths[row];
+    isLastSibling[row] = !siblingSeenBelow[depth];
+    // the deeper rows seen so far were this row's own subtasks (or a later sibling's): they are
+    // no siblings of the rows above, so forget them
+    siblingSeenBelow.length = depth;
+    // and for the rows above, a row at this depth is now below them
+    siblingSeenBelow[depth] = true;
+  }
+  return isLastSibling;
+}
+
+/**
  * Each row's place in the tree, from rows in tree order with their depths, as core's `tasks.tree`
  * gives them (each subtask after its parent and the parent's earlier subtasks). A row with no
- * `depth` is at the left. Linear: two passes over the depths.
+ * `depth` is at the left.
  *
- * 1. From the bottom up: whether each row is the last of its siblings, that is whether no later row
- *    sits at its depth before the rows go shallower. `later[d]` says a row at depth `d` has been
- *    seen below, under the same parent; meeting a shallower row forgets the deeper ones.
- * 2. From the top down: each row's cells, from whether each of its ancestors (the latest row above
- *    at each shallower depth) was last, then whether it is.
+ * A row's prefix has one cell per level, as the `tree` command prints one:
+ *
+ *   a                  []
+ *   ├ a1               [tee]
+ *   │ └ a1x            [line, elbow]
+ *   └ a2               [elbow]
+ *     └ a2x            [none, elbow]
+ *
+ * Its own cell (the last) is └ when it is the last of its siblings, else ├. Each cell before it is
+ * for one of its ancestors: │ when that ancestor has a later sibling (its parent's line runs on
+ * past this row, down to that sibling), else nothing. So a row's cells come from whether it and
+ * each of its ancestors is the last of its siblings, which `markLastSiblings` works out first.
  */
 export function treeOf(tasks: readonly Pick<TaskRowData, 'depth'>[]): TaskRowTree[] {
-  const depths = tasks.map((task) => task.depth ?? 0);
+  const rowDepths = tasks.map((task) => task.depth ?? 0);
+  const isLastSibling = markLastSiblings(rowDepths);
 
-  const last: boolean[] = new Array(depths.length);
-  const later: boolean[] = [];
-  for (let i = depths.length - 1; i >= 0; i--) {
-    const depth = depths[i];
-    last[i] = !later[depth];
-    later.length = depth;
-    later[depth] = true;
-  }
+  // Read from the top down, the row's ancestors are the latest rows above at each shallower depth.
+  // For each depth: whether the current row's ancestor at that depth is the last of its siblings.
+  const ancestorIsLastSibling: boolean[] = [];
 
-  // whether the row's ancestor at each depth (the latest row above at that depth) was last
-  const ancestorWasLast: boolean[] = [];
-  return depths.map((depth, i) => {
-    ancestorWasLast.length = depth;
+  return rowDepths.map((depth, row) => {
+    // the entries at this depth and deeper belonged to an earlier branch: drop them
+    ancestorIsLastSibling.length = depth;
+
     const cells: TreeCell[] = [];
-    for (let level = 1; level < depth; level++) {
-      cells.push(ancestorWasLast[level] ? 'none' : 'line');
+    // one cell for each ancestor below the root: │ while its parent has more subtasks to come
+    for (let ancestorDepth = 1; ancestorDepth < depth; ancestorDepth++) {
+      cells.push(ancestorIsLastSibling[ancestorDepth] ? 'none' : 'line');
     }
-    if (depth > 0) cells.push(last[i] ? 'elbow' : 'tee');
-    ancestorWasLast[depth] = last[i];
-    return { depth, cells, open: depths[i + 1] === depth + 1 };
+    // then the row's own: └ for the last of its siblings, ├ for any other (a root has none)
+    if (depth > 0) cells.push(isLastSibling[row] ? 'elbow' : 'tee');
+
+    // for the rows below, this row is their ancestor at its depth
+    ancestorIsLastSibling[depth] = isLastSibling[row];
+
+    // its subtasks follow it when the next row is one level deeper: a stem runs down to them
+    const hasSubtasksBelow = rowDepths[row + 1] === depth + 1;
+    return { depth, cells, open: hasSubtasksBelow };
   });
 }
