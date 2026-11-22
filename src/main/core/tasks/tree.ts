@@ -16,11 +16,10 @@ import type { TaskSortOptions } from './types';
  * under one that doesn't is not in the subtree; it is a root of its own. Every matching task is
  * therefore in exactly one place: a root, or under the one root above it.
  *
- * Parents can form a cycle. DevBrain never makes one ("Make subtask of…" refuses), but it doesn't
- * forbid one in the data: a sync can briefly write one (a task's new parent applied before its
- * parent's own move), and a provider might allow them. A cycle has no task at its top, so one of
- * its members is made a root (`cycleRoots`: the one with the smallest id, so always the same one),
- * which keeps its parent pill, and the others nest under it. Each task still shows once.
+ * Parents are taken to form a tree. DevBrain never makes a cycle ("Make subtask of…" refuses one),
+ * and the providers it syncs don't allow one. A cycle in the data would have no root, so its tasks
+ * would be left out of the list (the walks below still end: they don't loop). How to show one,
+ * should a provider ever send them, is in docs/renderer/task-tree.md ("Cycles of parents").
  *
  * Everything here is synchronous, as better-sqlite3 is, and reads only: one recursive walk for
  * the ids, one read of the rows by id, and the ordering in memory.
@@ -76,36 +75,9 @@ function descendants(rootIds: readonly TaskId[], match: SQL): SQL {
 }
 
 /**
- * The SQL of a subquery of the tasks to treat as roots because their parents form a cycle among
- * the tasks matching `match`: one per cycle, the member with the smallest id.
- *
- * It walks up from matching tasks through matching parents, recording (start, ancestor) pairs,
- * and keeps the starts it comes back to. Only a cycle's smallest member is wanted, and walking up
- * from it never passes a smaller id, so a walk goes on only while the ancestor's id is larger than
- * the start's, and starts only where the parent's id is (`>=`: a task its own parent is a cycle of
- * one). Ids are time-ordered and a parent is nearly always made before its subtasks, so nearly
- * every walk ends before it begins: the check costs a read of the matching subtasks, not of their
- * ancestry. A walk that never comes back (a chain that only enters a cycle) ends at a smaller id,
- * or after one turn, where `union` drops the pairs already found.
- *
- * Not correlated with the query it is used in, so SQLite runs it once per page.
- */
-export function cycleRoots(match: SQL): SQL {
-  return sql`(with recursive up(start, id) as (
-    select ${tasks.id}, ${tasks.parentTaskId} from ${tasks}
-      where ${tasks.parentTaskId} >= ${tasks.id} and ${match}
-    union
-    select up.start, ${tasks.parentTaskId} from up join ${tasks} on ${tasks.id} = up.id
-      where up.id > up.start and ${tasks.parentTaskId} is not null and ${match}
-  )
-  select start from up where id = start)`;
-}
-
-/**
  * The matching descendants of each of `rootIds`, at any depth, as (root, id) pairs in no order:
  * ids only, so walking even a subtree of thousands builds no rows. A root with no matching
- * descendants has no pair; `rootIds` empty reads nothing. See `descendants` for the walk. A
- * cycle's root is reached again at the end of its own cycle, and is left out of its own subtree.
+ * descendants has no pair; `rootIds` empty reads nothing. See `descendants` for the walk.
  */
 function descendantIds(
   db: BetterSQLite3Database,
@@ -114,7 +86,7 @@ function descendantIds(
 ): { root: TaskId; id: TaskId }[] {
   if (rootIds.length === 0) return [];
   return db.all<{ root: TaskId; id: TaskId }>(
-    sql`${descendants(rootIds, match)} select root, id from sub where id != root`,
+    sql`${descendants(rootIds, match)} select root, id from sub`,
   );
 }
 

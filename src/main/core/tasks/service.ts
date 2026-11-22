@@ -41,7 +41,7 @@ import { copyTitle, isSubtask } from './utils';
 import { subtreeOf, subtreeOfAll } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
 import { taskFilter, taskFilterClauses, taskPager } from './filter';
-import { cycleRoots, expandRoots, subtreeRows, TreeRow } from './tree';
+import { expandRoots, subtreeRows, TreeRow } from './tree';
 import { alias } from 'drizzle-orm/sqlite-core';
 import { toExportedTasks } from '../transfer/task-format';
 import { taskAsMarkdown } from '../transfer/markdown-copy';
@@ -301,8 +301,6 @@ export class TaskService {
           .from(parent)
           .where(and(eq(parent.id, tasks.parentTaskId), taskFilter(parent, filter))),
       ),
-      // a cycle of parents has no top: one of its members stands in (see `cycleRoots`)
-      inArray(tasks.id, cycleRoots(match)),
     );
     const pager = taskPager(sort, page);
     const roots = this.db

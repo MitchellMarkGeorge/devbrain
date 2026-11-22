@@ -23,12 +23,9 @@ For the page's filter **F** and sort **S** (`TaskService.listTaskTree`, `src/mai
   expanded. A page is then at most `limit × (1 + INLINE_SUBTREE_LIMIT)` rows, however a workspace
   nests; in practice a little over 100.
 
-- **A cycle of parents** has no task at its top. DevBrain never makes one ("Make subtask of…"
-  refuses), but doesn't forbid one in the data: a sync can briefly write one, applying a task's new
-  parent before its parent's own move, and a provider might allow them (Jira, Asana and Azure DevOps enforce a tree; Notion's sub-items might not). Its member with the smallest id
-  is made a root (`cycleRoots`), keeping its parent pill, and the rest nest under it, so each task
-  still shows once. The check stops each walk up at the first smaller id, and ids are
-  time-ordered, so it costs about nothing on a page.
+- **Parents form a tree.** A cycle of parents would have no root, so its tasks would be left out
+  of the list. DevBrain doesn't make one and its providers don't allow one; see
+  [Cycles of parents](#cycles-of-parents) for how to show them if that changes.
 
 Each row is a `TaskTreeItem` (`src/common/types`): the list row plus its `depth` (0 for a root)
 and `subtreeSize` (set only on a root sent alone). Pages vary in size, which costs nothing: the
@@ -62,3 +59,66 @@ Measured over `seed:large`, which has one parent with 1,000 subtasks for this
 ([performance](../performance.md#the-task-tree)): a page of the tree costs 2–7 ms in main against
 1.5–2 ms for a page of `tasks.list`, the group view about 1.5 times what it did, and expanding the
 1,000-subtask parent 15 ms in main for 645 KB. Scrolling the whole list takes 55 pages instead of 89.
+
+## Cycles of parents
+
+**Not supported.** The tree takes parents to form a tree, and a cycle has no task at its top, so
+none of its members is a root and the list leaves all of them out. The walks still end (`union`
+in the walk down, place-once in `inTreeOrder`), so nothing loops. That is fine while a cycle can't
+happen:
+
+- **Locally**, "Make subtask of…" (`TaskService.demoteTask`) refuses to put a task under itself or
+  under one of its own subtasks.
+- **From providers**, Jira (its issue-type hierarchy), Asana and Azure DevOps (documented: tree
+  topology) refuse a cycle; Linear and GitHub's sub-issues are taken to as well, though that wasn't
+  checked against their docs. Notion's sub-items, a self-relation on a database, might not.
+
+If a provider that allows them is ever synced, or a sync is found to leave one behind (applying a
+task's new parent before its parent's own move, across two pages), the tree can show a cycle this
+way. It was built, measured and tested, then taken out until it is needed.
+
+**Rule.** Of the tasks matching the filter, each cycle's member with the smallest id is a root as
+well. It keeps its parent pill (the member at the end of its own cycle), and the rest of the cycle
+nests under it, so each task shows once. The id makes the choice fixed; any fixed order would do.
+
+**Roots.** Add one condition to `listTaskTree`'s roots, beside "no parent" and "a parent that
+doesn't match": `inArray(tasks.id, cycleRoots(match))`, with `match` the filter on the tasks table.
+
+```ts
+/** The tasks to treat as roots because their parents form a cycle among those matching `match`. */
+export function cycleRoots(match: SQL): SQL {
+  return sql`(with recursive up(start, id) as (
+    select ${tasks.id}, ${tasks.parentTaskId} from ${tasks}
+      where ${tasks.parentTaskId} >= ${tasks.id} and ${match}
+    union
+    select up.start, ${tasks.parentTaskId} from up join ${tasks} on ${tasks.id} = up.id
+      where up.id > up.start and ${tasks.parentTaskId} is not null and ${match}
+  )
+  select start from up where id = start)`;
+}
+```
+
+It walks up from matching tasks through matching parents, recording (start, ancestor) pairs, and
+keeps the starts it comes back to. Only a cycle's smallest member is wanted, and walking up from it
+never passes a smaller id, so a walk starts only where the parent's id is at least the task's own
+(`>=`: a task its own parent is a cycle of one) and goes on only while the ancestor's id is larger
+than the start's. Correct for any ids: the smallest member's walk goes all the way round and comes
+back; every other member's reaches the smallest and stops; a task not in a cycle never comes back.
+A walk that only enters a cycle ends at a smaller id, or after one turn, where `union` drops the
+pairs already found. Not correlated with the query, so SQLite runs it once a page.
+
+**Subtrees.** The walk down from a cycle's root reaches the root again at the end of its own cycle,
+so `descendantIds` must leave it out: `select root, id from sub where id != root`. Without it the
+root counts in its own `subtreeSize` (`inTreeOrder` already places it once).
+
+**Cost.** On `seed:large` (`perf:core`, p50), the three tree pages took 6.3, 3.7 and 1.9 ms with the
+check, as without it. Ids are time-ordered and a parent is nearly always made before its subtasks,
+so nearly every walk ends before it starts; with random ids a walk would average about two steps,
+and the worst case (a long chain of ever-larger ids) walks the chain, as an unpruned walk would. An
+unpruned walk over every matching subtask's ancestry cost up to 16 ms a page.
+
+**Tests** (in `core/tests/tasks/tree.test.ts`; the app can't make a cycle, so they write
+`parent_task_id` directly): a cycle of three (its smallest member the root, the rest at depths 1
+and 2, its parent pill the last member); a task hanging off a cycle, under it; a task its own
+parent, alone; a cycle the filter already breaks, the usual way; paging through a cycle, each task
+once; a cycle root's subtree without itself. Removing the roots condition fails the first three.
