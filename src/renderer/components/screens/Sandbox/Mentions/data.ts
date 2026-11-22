@@ -1,5 +1,9 @@
 /* Sandbox mock data: what mentions the PKCE task, its ADR note and the Design Review event. */
 import { TaskStatus } from '@common/types';
+import type { TaskId } from '@common/ids';
+import { TaskPriority } from '@common/types';
+import { sampleLinear, sampleTask } from '../../../lists/TaskRow/fixtures';
+import { storyDate } from '../../../lib/story-dates';
 import type { Mention } from './MentionsSection';
 
 export const PKCE_TITLE = 'Implement OAuth2 PKCE flow';
@@ -51,8 +55,13 @@ export const PKCE_MENTIONS: Mention[] = [
 
 export const ADR_TITLE = 'Architecture ADR #4 — PKCE';
 
-// a note's tasks are in its Tasks section, so its mentions are notes and events only
 export const ADR_MENTIONS: Mention[] = [
+  {
+    id: 'n0',
+    source: { type: 'task', title: PKCE_TITLE, status: TaskStatus.IN_PROGRESS },
+    updated: '3h ago',
+    context: ['Follow the decision in ', null, ': S256 only'],
+  },
   {
     id: 'n1',
     source: { type: 'note', title: 'Security review — June' },
@@ -96,4 +105,23 @@ export const DESIGN_REVIEW_MENTIONS: Mention[] = [
     updated: 'Jun 8',
     context: ['Decisions from ', null],
   },
+];
+
+/** The ADR note's tasks (its Tasks section). */
+export const ADR_TASKS = [
+  sampleTask({
+    id: 'tsk_124' as TaskId,
+    title: PKCE_TITLE,
+    status: TaskStatus.IN_PROGRESS,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(2),
+    external: sampleLinear('ENG-124'),
+    subtaskProgress: { completed: 3, total: 4 },
+  }),
+  sampleTask({
+    id: 'tsk_132' as TaskId,
+    title: 'Write PKCE migration guide',
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(6),
+  }),
 ];

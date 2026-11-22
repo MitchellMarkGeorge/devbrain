@@ -1,0 +1,228 @@
+/*
+ * Sandbox: three ways to give a note's Tasks and Mentioned in their place without taking room
+ * under the editor. Mock data only.
+ */
+import { useState, type ReactNode } from 'react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
+import { AtSign, CircleCheck, FileText, Plus } from 'lucide-react';
+import { Button } from '../../../ui/Button';
+import { DetailSection } from '../../../detail/DetailSection';
+import { EditorContent, EditorTitle } from '../../../editor/EditorContent';
+import { EntityPill } from '../../../entities/EntityPill';
+import { IconButton } from '../../../ui/IconButton';
+import { LinkedTaskRow, type LinkedTaskRowData } from '../../../lists/LinkedTaskRow';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/Popover';
+import { SheetDivider } from '../../../ui/Sheet';
+import { TaskList } from '../../../lists/TaskList';
+import { AppWindow, DetailPage, DetailTopBar } from '../../TaskDetail/frame';
+import { storyDate } from '../../../lib/story-dates';
+import { MentionList } from './MentionsSection';
+import { ADR_MENTIONS, ADR_TASKS, ADR_TITLE } from './data';
+
+const meta = {
+  title: 'Sandbox/Mentions/Note layouts',
+  parameters: { layout: 'fullscreen' },
+} satisfies Meta;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+const TASK_ROWS: LinkedTaskRowData[] = [
+  { title: 'Implement OAuth2 PKCE flow', status: TaskStatus.IN_PROGRESS, dueDate: storyDate(2) },
+  { title: 'Write PKCE migration guide', status: TaskStatus.NOT_STARTED, dueDate: storyDate(6) },
+];
+
+function Body() {
+  return (
+    <EditorContent>
+      <p>
+        Status: accepted. The implicit flow returns tokens in the URL fragment, where they leak into
+        browser history, logs and referrer headers.
+      </p>
+      <h2>Decision</h2>
+      <p>Every first-party client moves to the authorization code flow with PKCE:</p>
+      <ul>
+        <li>Use the S256 challenge method and reject plain challenges.</li>
+        <li>Generate a new 96-character code verifier for every sign-in.</li>
+        <li>Expire authorization codes after 10 minutes.</li>
+      </ul>
+      <h2>Consequences</h2>
+      <p>
+        Mobile clients need a fallback for in-app browsers that block the custom-scheme redirect.
+        The implicit flow stays behind a feature flag for one release, then is removed.
+      </p>
+    </EditorContent>
+  );
+}
+
+/** The note's title, its edit time and pills, then its text. */
+function NoteColumn({ pills, children }: { pills: ReactNode; children?: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <EditorTitle>{ADR_TITLE}</EditorTitle>
+      <span
+        style={{
+          marginTop: 2,
+          color: 'var(--subtle-foreground)',
+          fontSize: 12,
+          lineHeight: '16px',
+        }}
+      >
+        Edited yesterday
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>{pills}</div>
+      <div style={{ marginTop: 32 }}>
+        <Body />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const top = (
+  <DetailTopBar
+    items={[
+      { label: 'Notes', href: '#' },
+      { label: ADR_TITLE, icon: FileText },
+    ]}
+  />
+);
+
+const projectPill = (
+  <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
+);
+
+/**
+ * A: a side panel. The text keeps the page; Tasks and Mentioned in sit in a quiet column on the
+ * right, each line under its title. The panel folds away from the title bar.
+ */
+export const SidePanel: Story = {
+  name: 'A – Side panel',
+  render: () => (
+    <AppWindow active="Notes">
+      <DetailPage top={top}>
+        <NoteColumn pills={projectPill} />
+      </DetailPage>
+      <aside
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 24,
+          flex: 'none',
+          width: 320,
+          padding: '64px 16px 16px',
+          borderLeft: '1px solid var(--border)',
+        }}
+      >
+        <DetailSection
+          title="Tasks"
+          count={2}
+          action={<IconButton size="sm" tone="muted" icon={Plus} label="New task" />}
+        >
+          <div>
+            {TASK_ROWS.map((t) => (
+              <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
+            ))}
+          </div>
+        </DetailSection>
+        <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
+          <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+        </DetailSection>
+      </aside>
+    </AppWindow>
+  ),
+};
+
+/**
+ * B: pills in the note's header. "2 tasks" and "4 mentions" sit with the project; each opens
+ * its list in a popover. Nothing under the text.
+ */
+export const HeaderPills: Story = {
+  name: 'B – Header pills',
+  render: () => (
+    <AppWindow active="Notes">
+      <DetailPage top={top}>
+        <NoteColumn
+          pills={
+            <>
+              {projectPill}
+              <Popover>
+                <PopoverTrigger render={<EntityPill glyph={CircleCheck} />}>
+                  2 tasks · 1 in progress
+                </PopoverTrigger>
+                <PopoverContent size="auto" style={{ width: 360 }}>
+                  <div>
+                    {TASK_ROWS.map((t) => (
+                      <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover defaultOpen>
+                <PopoverTrigger render={<EntityPill glyph={AtSign} />}>
+                  {ADR_MENTIONS.length} mentions
+                </PopoverTrigger>
+                <PopoverContent size="auto" style={{ width: 380 }} initialFocus={false}>
+                  <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+                </PopoverContent>
+              </Popover>
+            </>
+          }
+        />
+      </DetailPage>
+    </AppWindow>
+  ),
+};
+
+function FooterTabs() {
+  const [open, setOpen] = useState<'tasks' | 'mentions' | null>('mentions');
+  const toggle = (tab: 'tasks' | 'mentions') => setOpen(open === tab ? null : tab);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
+      <SheetDivider />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Button
+          size="xs"
+          variant={open === 'tasks' ? 'secondary' : 'ghost'}
+          icon={CircleCheck}
+          onClick={() => toggle('tasks')}
+        >
+          Tasks 2
+        </Button>
+        <Button
+          size="xs"
+          variant={open === 'mentions' ? 'secondary' : 'ghost'}
+          icon={AtSign}
+          onClick={() => toggle('mentions')}
+        >
+          Mentioned in {ADR_MENTIONS.length}
+        </Button>
+        {open === 'tasks' && (
+          <Button size="xs" icon={Plus} style={{ marginLeft: 'auto' }}>
+            New Task
+          </Button>
+        )}
+      </div>
+      {open === 'tasks' && <TaskList selectionBar={false} tasks={ADR_TASKS} />}
+      {open === 'mentions' && <MentionList selfLabel="this note" mentions={ADR_MENTIONS} />}
+    </div>
+  );
+}
+
+/**
+ * C: one bar under the text. Tasks and Mentioned in are tabs, closed until picked, so the note
+ * ends with a single line.
+ */
+export const FooterBar: Story = {
+  name: 'C – Footer tabs',
+  render: () => (
+    <AppWindow active="Notes">
+      <DetailPage top={top}>
+        <NoteColumn pills={projectPill}>
+          <FooterTabs />
+        </NoteColumn>
+      </DetailPage>
+    </AppWindow>
+  ),
+};

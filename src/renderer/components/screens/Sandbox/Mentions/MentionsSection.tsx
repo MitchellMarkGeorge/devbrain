@@ -57,6 +57,70 @@ export interface MentionsSectionProps {
   collapsible?: boolean;
 }
 
+export interface MentionListProps {
+  selfLabel: string;
+  mentions: Mention[];
+  /**
+   * `line`: the line beside the title (a page's column); `title`: titles only (a sheet);
+   * `stacked`: the line under the title (a side panel or popover)
+   */
+  layout?: 'line' | 'title' | 'stacked';
+  /** how many to show before "Show n more" */
+  limit?: number;
+}
+
+/** The rows alone, for a section, a side panel or a popover. */
+export function MentionList({ selfLabel, mentions, layout = 'line', limit = 5 }: MentionListProps) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? mentions : mentions.slice(0, limit);
+  const hidden = mentions.length - visible.length;
+  if (mentions.length === 0) {
+    return <div className={styles.empty}>Nothing mentions this yet</div>;
+  }
+  return (
+    <div className={styles.list} data-layout={layout}>
+      {visible.map((m) => {
+        const context = (
+          <span className={styles.context}>
+            {m.context.map((part, i) => (
+              <Fragment key={i}>
+                {part ?? <span className={styles.self}>{selfLabel}</span>}
+              </Fragment>
+            ))}
+          </span>
+        );
+        return (
+          <div key={m.id} className={styles.row} role="button" tabIndex={0}>
+            <span className={styles.glyph}>
+              <SourceGlyph source={m.source} />
+            </span>
+            {layout === 'stacked' ? (
+              <span className={styles.stack}>
+                <span className={styles.stackTop}>
+                  <span className={styles.title}>{m.source.title}</span>
+                  <span className={styles.time}>{m.updated}</span>
+                </span>
+                {context}
+              </span>
+            ) : (
+              <>
+                <span className={styles.title}>{m.source.title}</span>
+                {layout === 'line' && context}
+                <span className={styles.time}>{m.updated}</span>
+              </>
+            )}
+          </div>
+        );
+      })}
+      {hidden > 0 && (
+        <button type="button" className={styles.more} onClick={() => setExpanded(true)}>
+          Show {hidden} more
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function MentionsSection({
   selfLabel,
   mentions,
@@ -64,9 +128,6 @@ export function MentionsSection({
   limit = 5,
   collapsible,
 }: MentionsSectionProps) {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? mentions : mentions.slice(0, limit);
-  const hidden = mentions.length - visible.length;
   return (
     <DetailSection
       spacing={variant}
@@ -79,37 +140,13 @@ export function MentionsSection({
         )
       }
       collapsible={collapsible}
-      data-variant={variant}
     >
-      {mentions.length === 0 ? (
-        <div className={styles.empty}>Nothing mentions this yet</div>
-      ) : (
-        <div className={styles.list}>
-          {visible.map((b) => (
-            <div key={b.id} className={styles.row} role="button" tabIndex={0}>
-              <span className={styles.glyph}>
-                <SourceGlyph source={b.source} />
-              </span>
-              <span className={styles.title}>{b.source.title}</span>
-              {variant === 'page' && (
-                <span className={styles.context}>
-                  {b.context.map((part, i) => (
-                    <Fragment key={i}>
-                      {part ?? <span className={styles.self}>{selfLabel}</span>}
-                    </Fragment>
-                  ))}
-                </span>
-              )}
-              <span className={styles.time}>{b.updated}</span>
-            </div>
-          ))}
-          {hidden > 0 && (
-            <button type="button" className={styles.more} onClick={() => setExpanded(true)}>
-              Show {hidden} more
-            </button>
-          )}
-        </div>
-      )}
+      <MentionList
+        selfLabel={selfLabel}
+        mentions={mentions}
+        layout={variant === 'page' ? 'line' : 'title'}
+        limit={limit}
+      />
     </DetailSection>
   );
 }

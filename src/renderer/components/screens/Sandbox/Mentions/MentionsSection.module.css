@@ -37,7 +37,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-[data-variant='sheet'] .title {
+[data-layout='title'] .title {
   flex: 1;
   max-width: none;
 }
@@ -78,4 +78,35 @@
   color: var(--subtle-foreground);
   font-size: var(--text-sm);
   line-height: var(--control-lg);
+}
+
+/* stacked: the title and time, then the line under them (a side panel, a popover) */
+[data-layout='stacked'] .row {
+  align-items: flex-start;
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+[data-layout='stacked'] .glyph {
+  margin-top: 0;
+}
+.stack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.stackTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+[data-layout='stacked'] .title {
+  flex: 1;
+  max-width: none;
+}
+[data-layout='stacked'] .context {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
 }
