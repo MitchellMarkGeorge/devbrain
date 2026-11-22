@@ -3,7 +3,15 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { NoteId, TaskId, WorkspaceId } from '@common/ids';
-import type { MentionTargetId, WorkspaceInfo } from '@common/types';
+import {
+  AuthType,
+  LinkState,
+  Provider,
+  SourceType,
+  type MentionTargetId,
+  type WorkspaceInfo,
+} from '@common/types';
+import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { mentions } from '@main/db/schema/mentions';
 import { notes as notesTable } from '@main/db/schema/notes';
 import { projects as projectsTable } from '@main/db/schema/projects';
@@ -114,6 +122,54 @@ describe('MentionService', () => {
     expect(workspace.mentions.list(task.id)).toEqual([]);
   });
 
+  it("indexes an event's description, and shows the event as its row does", () => {
+    const target = workspace.tasks.createTask({ title: 'PKCE' });
+    const event = workspace.events.createEvent({
+      title: 'Review',
+      startAt: new Date('2026-06-22T13:00:00Z'),
+      endAt: new Date('2026-06-22T14:00:00Z'),
+      description: `Walk through ${link('task', target.id)}`,
+    });
+    expect(workspace.mentions.list(target.id)).toEqual([
+      expect.objectContaining({
+        source: {
+          type: 'event',
+          id: event.id,
+          title: 'Review',
+          startAt: event.startAt,
+          color: null,
+        },
+        contextBefore: 'Walk through ',
+      }),
+    ]);
+
+    workspace.events.updateEvent(event.id, { description: 'Nothing to see' });
+    expect(workspace.mentions.list(target.id)).toEqual([]);
+  });
+
+  it('ignores the text of a synced item, on save and on rebuild, but not a detached one', async () => {
+    const target = workspace.tasks.createTask({ title: 'Target' });
+    const synced = workspace.tasks.createTask({
+      title: 'ENG-1',
+      description: link('task', target.id),
+    });
+    const detached = workspace.tasks.createTask({
+      title: 'ENG-2',
+      description: link('task', target.id),
+    });
+    linkTask(synced.id, LinkState.SYNCED);
+    linkTask(detached.id, LinkState.DETACHED);
+
+    // what the workspace does when an item's text may have changed
+    workspace.mentions.indexSource(synced.id, synced.description);
+    workspace.mentions.indexSource(detached.id, detached.description);
+    expect(mentionsOf(target.id)).toEqual([[detached.id, '', '']]);
+
+    clearIndex();
+    await workspace.mentions.rebuild();
+    expect(mentionsOf(target.id)).toEqual([[detached.id, '', '']]);
+  });
+
   it('hides a trashed source until it is restored, without re-indexing', async () => {
     const target = workspace.tasks.createTask({ title: 'Target' });
     const note = await workspace.notes.createNote({ content: link('task', target.id) });
@@ -217,6 +273,43 @@ function stampUpdatedAt(
 }
 
 // drops every mention row; whether the index was built (index_builds) is left as it is
+let linkCount = 0;
+
+// links the task to a Linear issue in `state`, as sync or a detach leaves it
+function linkTask(taskId: TaskId, state: LinkState) {
+  const db = dbOf(workspace);
+  const integrationId = db
+    .insert(integrations)
+    .values({
+      provider: Provider.LINEAR,
+      authType: AuthType.API_KEY,
+      accountId: `org:user${++linkCount}`,
+      accountLabel: 'Acme',
+      credentials: Buffer.from('ciphertext'),
+    })
+    .returning()
+    .get().id;
+  const source = db
+    .insert(externalSources)
+    .values({ integrationId, sourceType: SourceType.TASKS })
+    .returning()
+    .get();
+  const at = new Date('2026-10-01T12:00:00Z');
+  db.insert(externalLinks)
+    .values({
+      sourceId: source.id,
+      provider: Provider.LINEAR,
+      externalId: `item-${linkCount}`,
+      externalKey: `ENG-${linkCount}`,
+      externalUrl: `https://linear.app/acme/issue/ENG-${linkCount}`,
+      externalUpdatedAt: at,
+      lastSyncedAt: at,
+      state,
+      taskId,
+    })
+    .run();
+}
+
 function clearIndex() {
   dbOf(workspace).delete(mentions).run();
 }

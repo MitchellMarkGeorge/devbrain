@@ -149,7 +149,8 @@ export class Workspace {
 
     // Mentions follow the same saves: a source is indexed again whenever its text may have
     // changed (re-indexing unchanged text announces nothing), and a deleted item's rows go with
-    // it. A trashed item keeps its rows, which lists leave out until it is restored.
+    // it. A trashed item keeps its rows, which lists leave out until it is restored. A synced
+    // item mentions nothing (indexSource), and sync's own writes aren't indexed.
     this.mentions = new MentionService(db, this.notes, options.logger);
     this.tasks.onChange((change) => {
       if (change.type === 'deleted') this.mentions.removeItems(change.taskIds);
@@ -169,7 +170,10 @@ export class Workspace {
         this.mentions.indexSource(change.note.id, change.content);
     });
     this.events.onChange((change) => {
+      // a fetch writes synced events, whose descriptions are Google's
+      if (change.type === 'events_fetched') return;
       if (change.type === 'deleted') this.mentions.removeItems(change.eventIds);
+      else this.mentions.indexSource(change.event.id, change.event.description);
     });
     this.archive.onChange((change) => {
       if (change.type !== 'emptied') return;
@@ -207,6 +211,13 @@ export class Workspace {
       logger,
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
+    // detaching makes a task the user's own, so its description can mention; reattaching makes it
+    // Linear's again, so it mentions nothing. Either way it is indexed as it now is
+    this.detach.onChange((change) => {
+      if (change.type === 'kept_local') return;
+      const changed = db.select().from(tasks).where(inArray(tasks.id, change.taskIds)).all();
+      for (const task of changed) this.mentions.indexSource(task.id, task.description);
+    });
     // A synced calendar chosen or dropped syncs its source at once, as a newly switched-on source
     // does: the run gives a selected calendar a full pass and removes a deselected one's events.
     this.calendars.onChange((change) => {

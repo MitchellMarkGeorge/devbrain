@@ -1,11 +1,20 @@
-import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
-import type { Mention, MentionSource, MentionSourceId, MentionTargetId } from '@common/types';
+import { isId, type EventId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
+import {
+  LinkState,
+  type Mention,
+  type MentionSource,
+  type MentionSourceId,
+  type MentionTargetId,
+} from '@common/types';
+import { calendars } from '@main/db/schema/calendars';
+import { events } from '@main/db/schema/events';
 import { mentions } from '@main/db/schema/mentions';
 import { notes } from '@main/db/schema/notes';
 import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, not, notInArray, sql, type SQLWrapper } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { hasLinkInState } from '../integrations/refs';
 import type { NoteService } from '../notes/service';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { isIndexBuilt, markIndexBuilt } from '../shared/index-builds';
@@ -22,7 +31,7 @@ const INSERT_CHUNK = 500;
 type MentionRow = typeof mentions.$inferSelect;
 
 /**
- * Which items mention which, from the `devbrain://` links in notes and in task and project
+ * Which items mention which, from the `devbrain://` links in notes and in task, project and event
  * descriptions (docs: src/common/entity-links.ts). The workspace keeps it in step: it indexes a
  * source whenever its text is saved, and removes deleted items, as it does for search.
  *
@@ -49,13 +58,16 @@ export class MentionService {
   }
 
   /**
-   * Replaces what `sourceId` mentions with the links in `markdown` (a note's content, a task's or
-   * project's description; null when it has none). A source's links to itself are left out.
+   * Replaces what `sourceId` mentions with the links in `markdown` (a note's content, a task's,
+   * project's or event's description; null when it has none). A synced item (from Linear or Google)
+   * mentions nothing: its text is the provider's. A source's links to itself are left out.
    * Announces the targets whose mention changed, if any.
    */
   indexSource(sourceId: MentionSourceId, markdown: string | null): void {
     this.rebuildWrites?.add(sourceId);
-    const extracted = markdown ? extractMentions(markdown) : [];
+    // a synced item's text is the provider's: it holds no links of the user's
+    const text = markdown && !this.isSynced(sourceId) ? markdown : null;
+    const extracted = text ? extractMentions(text) : [];
     const rows = extracted
       .filter((mention) => mention.targetId !== sourceId)
       .map((mention) => toRow(sourceId, mention));
@@ -75,19 +87,15 @@ export class MentionService {
    */
   removeItems(ids: MentionTargetId[]): void {
     if (ids.length === 0) return;
-    // a rebuild reading the files mustn't bring a deleted note's rows back
-    for (const id of ids) {
-      if (!isId('event', id)) this.rebuildWrites?.add(id);
-    }
+    // a rebuild reading the files mustn't bring a deleted item's rows back
+    for (const id of ids) this.rebuildWrites?.add(id);
     const changed = this.db.transaction((tx) => {
       const sourced = tx
         .select({ targetId: mentions.targetId })
         .from(mentions)
-        .where(inArray(mentions.sourceId, ids as MentionSourceId[]))
+        .where(inArray(mentions.sourceId, ids))
         .all();
-      tx.delete(mentions)
-        .where(inArray(mentions.sourceId, ids as MentionSourceId[]))
-        .run();
+      tx.delete(mentions).where(inArray(mentions.sourceId, ids)).run();
       tx.delete(mentions).where(inArray(mentions.targetId, ids)).run();
       const deleted = new Set<string>(ids);
       return [...new Set(sourced.map((row) => row.targetId))].filter((id) => !deleted.has(id));
@@ -97,7 +105,7 @@ export class MentionService {
 
   /**
    * The items that mention `targetId`, most recently changed first, each with the line it
-   * mentions it in. Trashed sources are left out.
+   * mentions it in. Trashed sources are left out, as are events whose provider item was removed.
    */
   list(targetId: MentionTargetId): Mention[] {
     const rows = this.db.select().from(mentions).where(eq(mentions.targetId, targetId)).all();
@@ -154,6 +162,31 @@ export class MentionService {
       }
     }
 
+    const eventIds = ids.filter((id): id is EventId => isId('event', id));
+    if (eventIds.length > 0) {
+      const found = this.db
+        .select({
+          id: events.id,
+          title: events.title,
+          startAt: events.startAt,
+          color: sql<string | null>`coalesce(${events.color}, ${calendars.color})`,
+          updatedAt: events.updatedAt,
+        })
+        .from(events)
+        .innerJoin(calendars, eq(events.calendarId, calendars.id))
+        // an event whose provider item was removed is kept only for its note, as other lists do
+        .where(
+          and(
+            inArray(events.id, eventIds),
+            not(hasLinkInState('event', events.id, LinkState.REMOVED)),
+          ),
+        )
+        .all();
+      for (const { updatedAt, ...event } of found) {
+        sources.set(event.id, { source: { type: 'event', ...event }, updatedAt });
+      }
+    }
+
     return rows
       .flatMap((row): Mention[] => {
         const found = sources.get(row.sourceId);
@@ -181,7 +214,8 @@ export class MentionService {
   }
 
   /**
-   * Indexes every task, project and note again, trashed ones included, reading each note's file.
+   * Indexes every task, project, event and note again, trashed ones included, reading each note's
+   * file. Synced items are left out, as indexSource leaves them.
    * A source saved while the files are read keeps what that save indexed; a note whose file can't
    * be read keeps its rows. Marks the index built (isBuilt) in the same transaction. Resolves to
    * the number of rows. One rebuild runs at a time: a call while one runs gets that one.
@@ -226,15 +260,26 @@ export class MentionService {
         if (kept.length === 0) tx.delete(mentions).run();
         else tx.delete(mentions).where(notInArray(mentions.sourceId, kept)).run();
 
+        // descriptions, but not synced items': their text is the provider's
+        const local = (entity: 'task' | 'project' | 'event', id: SQLWrapper) =>
+          not(hasLinkInState(entity, id, LinkState.SYNCED));
         const texts: [MentionSourceId, string | null][] = [
           ...tx
             .select({ id: tasks.id, text: tasks.description })
             .from(tasks)
+            .where(local('task', tasks.id))
             .all()
             .map(({ id, text }): [MentionSourceId, string | null] => [id, text]),
           ...tx
             .select({ id: projects.id, text: projects.description })
             .from(projects)
+            .where(local('project', projects.id))
+            .all()
+            .map(({ id, text }): [MentionSourceId, string | null] => [id, text]),
+          ...tx
+            .select({ id: events.id, text: events.description })
+            .from(events)
+            .where(local('event', events.id))
             .all()
             .map(({ id, text }): [MentionSourceId, string | null] => [id, text]),
           ...contents,
@@ -257,6 +302,17 @@ export class MentionService {
     } finally {
       this.rebuildWrites = null;
     }
+  }
+
+  // whether the item is synced from a provider (a Linear task or project, a Google event); a note
+  // never is. Detached and removed items are the user's own.
+  private isSynced(id: MentionSourceId): boolean {
+    if (isId('note', id)) return false;
+    const entity = isId('task', id) ? 'task' : isId('project', id) ? 'project' : 'event';
+    const [[synced]] = this.db.values<[number]>(
+      sql`select ${hasLinkInState(entity, sql`${id}`, LinkState.SYNCED)}`,
+    );
+    return synced === 1;
   }
 
   private logError(message: string, error: unknown): void {
