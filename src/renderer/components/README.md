@@ -32,7 +32,7 @@ ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 |                 |              | Card, Badge, Kbd, Separator, Skeleton (and the card skeletons), Progress, ProgressRing, Breadcrumb, EmptyState, ScrollArea, Icon, ColourBar, SwatchDot, Logomark                                                      |
 | `entities/`     | Entities     | StatusIcon, PriorityIcon, HealthIcon, ProjectStatusIcon, StatusMenu, PriorityMenu, ProjectPicker, EntityPill, EntityHoverCard (and PillHoverCard), SourcePill, SyncedBadge, ProviderLogo, ProviderTile, WorkspaceTile |
 | `shell/`        | Shell        | AppShell, WorkspaceShell, WindowBar, Sidebar, WorkspaceSwitcher, SyncStatus, Page, CardGrid, VirtualCardGrid                                                                                                          |
-| `lists/`        | Lists        | ListRow, TaskRow, TaskList, NoteList, NoteRow, ProjectList, ProjectRow, TrashRow, EventRow, LinkedTaskRow, QuickAddRow, DraftTaskRow, TaskRowSkeleton, GroupHeading, SelectionBar                                     |
+| `lists/`        | Lists        | ListRow, TaskRow, TaskList, NoteList, NoteRow, ProjectList, ProjectRow, TrashRow, LinkedTaskRow, QuickAddRow, DraftTaskRow, TaskRowSkeleton, GroupHeading, SelectionBar                                               |
 | `board/`        | Board        | BoardCard, BoardColumn                                                                                                                                                                                                |
 | `detail/`       | Detail       | PropertyRow, DetailRow, DetailSection, DateRange, TaskNoteCard, AddSlot, CreateDialog                                                                                                                                 |
 | `editor/`       | Editor       | EditorContent, FormatToolbar, LinkToolbar, TurnIntoMenu, ColourMenu, SlashMenu, MentionMenu, Callout, CodeBlock                                                                                                       |
@@ -57,7 +57,7 @@ Also here:
   and `useFormat()`, on luxon and `Intl.RelativeTimeFormat`). `story-dates.ts` is the stories' fixed `now` (22 Jun 2026, 9:48 AM).
 
 **Entity components take core's own shapes.** `TaskRow`, `BoardCard`, `NoteRow`, `NoteCard`,
-`ProjectRow`, `ProjectCard`, `EventRow` and the rest take the row core returns (a
+`ProjectRow`, `ProjectCard` and the rest take the row core returns (a
 `TaskListItem`, a `Project`, an `Event`) as a `Pick` of its shared type, with no mapping step in
 the page, and derive what they draw (overdue, "Today", 10:30 AM, colours) through `useFormat()`.
 Their stories' fixtures are core-shaped rows with real `Date`s around the story's `now`

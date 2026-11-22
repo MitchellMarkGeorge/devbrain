@@ -2,7 +2,6 @@ import { useMemo, useRef, useState, type ComponentType, type ReactNode } from 'r
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Calendar, CircleAlert, Folder } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
-import { EventRow } from '../EventRow';
 import { GroupHeading } from '../GroupHeading';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TaskStatus } from '@common/types';
@@ -174,29 +173,14 @@ export const Grouped: Story = {
         id: 'event',
         collapsed: collapsed.event,
         heading: (
-          <>
-            <GroupHeading
-              label="Mitchell / Jesse 1:1"
-              subtitle="Today, 10:00 AM"
-              bar="indigo"
-              count={3}
-              collapsed={collapsed.event}
-              onCollapsedChange={toggle('event')}
-            />
-            {!collapsed.event && (
-              <EventRow
-                event={{
-                  title: 'Mitchell / Jesse 1:1',
-                  startAt: storyDate(0, 10),
-                  endAt: storyDate(0, 10, 30),
-                  allDay: false,
-                  recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
-                  meetingUrl: 'https://meet.google.com/abc-defg-hij',
-                  color: 'indigo',
-                }}
-              />
-            )}
-          </>
+          <GroupHeading
+            label="Mitchell / Jesse 1:1"
+            subtitle="Today, 10:00 AM"
+            bar="indigo"
+            count={3}
+            collapsed={collapsed.event}
+            onCollapsedChange={toggle('event')}
+          />
         ),
         tasks: [SAMPLE_TASKS[0], SAMPLE_TASKS[4]],
       },
