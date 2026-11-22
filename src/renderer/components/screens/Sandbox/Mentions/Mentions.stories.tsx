@@ -5,7 +5,9 @@
 import { useRef, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { CalendarDays, CircleCheck, Clock, Plus, Repeat } from 'lucide-react';
+import { CalendarDays, CircleCheck, Clock, Link, Plus, Repeat } from 'lucide-react';
+import type { TaskId } from '@common/ids';
+import { Badge } from '../../../ui/Badge';
 import { Button } from '../../../ui/Button';
 import { DateRange } from '../../../detail/DateRange';
 import { DetailRow, DetailRows } from '../../../detail/DetailRow';
@@ -33,6 +35,7 @@ import { AppWindow, DetailPage, DetailTopBar } from '../../TaskDetail/frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../../TaskDetail/data';
 import { NotePage } from '../../Notes/notePage';
 import { storyDate } from '../../../lib/story-dates';
+import { sampleLinear, sampleTask } from '../../../lists/TaskRow/fixtures';
 import { MentionsSection } from './MentionsSection';
 import { ADR_MENTIONS, ADR_TITLE, DESIGN_REVIEW_MENTIONS, PKCE_MENTIONS, PKCE_TITLE } from './data';
 
@@ -64,6 +67,24 @@ function SheetColumn({ name, children }: { name: string; children: ReactNode }) 
 function Paragraph({ children }: { children: ReactNode }) {
   return <p style={{ margin: 0, fontSize: 14, lineHeight: '20px' }}>{children}</p>;
 }
+
+const ADR_TASKS = [
+  sampleTask({
+    id: 'tsk_124' as TaskId,
+    title: PKCE_TITLE,
+    status: TaskStatus.IN_PROGRESS,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(2),
+    external: sampleLinear('ENG-124'),
+    subtaskProgress: { completed: 3, total: 4 },
+  }),
+  sampleTask({
+    id: 'tsk_132' as TaskId,
+    title: 'Write PKCE migration guide',
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(6),
+  }),
+];
 
 /** The task page: properties, description, subtasks and note, then what mentions it */
 export const TaskPage: Story = {
@@ -175,7 +196,10 @@ export const TaskSheet: Story = {
   ),
 };
 
-/** The note page: after its Tasks, the notes, tasks and events that mention it */
+/**
+ * The note page: Tasks, then Mentioned in, folding like it. Tasks already lists the note's tasks,
+ * so Mentioned in has only notes and events.
+ */
 export const NotePageMentions: Story = {
   name: 'Note page',
   render: () => (
@@ -185,7 +209,7 @@ export const NotePageMentions: Story = {
       pills={
         <>
           <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
-          <EntityPill glyph={CircleCheck}>1 task · 1 in progress</EntityPill>
+          <EntityPill glyph={CircleCheck}>2 tasks · 1 in progress</EntityPill>
         </>
       }
     >
@@ -201,8 +225,28 @@ export const NotePageMentions: Story = {
           <li>Expire authorization codes after 10 minutes.</li>
         </ul>
       </EditorContent>
-      <SheetDivider style={{ margin: '24px 0 16px' }} />
-      <MentionsSection selfLabel="this note" mentions={ADR_MENTIONS} />
+      <SheetDivider style={{ margin: '4px 0 16px' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <DetailSection
+          collapsible
+          spacing="page"
+          title="Tasks"
+          count={<Badge variant="secondary">2</Badge>}
+          action={
+            <>
+              <Button size="xs" variant="ghost" icon={Link}>
+                Link Task
+              </Button>
+              <Button size="xs" icon={Plus}>
+                New Task
+              </Button>
+            </>
+          }
+        >
+          <TaskList selectionBar={false} tasks={ADR_TASKS} />
+        </DetailSection>
+        <MentionsSection collapsible selfLabel="this note" mentions={ADR_MENTIONS} />
+      </div>
     </NotePage>
   ),
 };

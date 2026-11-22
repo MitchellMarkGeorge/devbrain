@@ -51,24 +51,25 @@ export const PKCE_MENTIONS: Mention[] = [
 
 export const ADR_TITLE = 'Architecture ADR #4 — PKCE';
 
+// a note's tasks are in its Tasks section, so its mentions are notes and events only
 export const ADR_MENTIONS: Mention[] = [
   {
     id: 'n1',
-    source: { type: 'task', title: PKCE_TITLE, status: TaskStatus.IN_PROGRESS },
-    updated: '3h ago',
-    context: ['Follow the decision in ', null, ': S256 only'],
-  },
-  {
-    id: 'n2',
     source: { type: 'note', title: 'Security review — June' },
     updated: 'Jun 18',
     context: ['SR-12 is fixed by design in ', null],
   },
   {
-    id: 'n3',
+    id: 'n2',
     source: { type: 'event', title: 'Auth Overhaul Design Review', color: 'blue' },
     updated: 'Jun 12',
     context: ['Get sign-off on ', null, ' from the platform team'],
+  },
+  {
+    id: 'n3',
+    source: { type: 'note', title: 'Auth provider eval matrix' },
+    updated: 'Jun 4',
+    context: ['Whichever provider we pick has to support ', null],
   },
 ];
 

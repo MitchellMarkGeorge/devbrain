@@ -5,6 +5,7 @@
 import { Fragment, useState } from 'react';
 import { FileText, Folder } from 'lucide-react';
 import { TaskStatus } from '@common/types';
+import { Badge } from '../../../ui/Badge';
 import { ColourBar } from '../../../ui/ColourBar';
 import { DetailSection } from '../../../detail/DetailSection';
 import { Icon } from '../../../ui/Icon';
@@ -49,6 +50,11 @@ export interface MentionsSectionProps {
   variant?: 'page' | 'sheet';
   /** how many to show before "Show n more" */
   limit?: number;
+  /**
+   * folds away like the sections around it: on a note, under its Tasks, with the count as a
+   * badge as Tasks has it
+   */
+  collapsible?: boolean;
 }
 
 export function MentionsSection({
@@ -56,6 +62,7 @@ export function MentionsSection({
   mentions,
   variant = 'page',
   limit = 5,
+  collapsible,
 }: MentionsSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? mentions : mentions.slice(0, limit);
@@ -64,7 +71,14 @@ export function MentionsSection({
     <DetailSection
       spacing={variant}
       title="Mentioned in"
-      count={mentions.length || undefined}
+      count={
+        mentions.length === 0 ? undefined : collapsible ? (
+          <Badge variant="secondary">{mentions.length}</Badge>
+        ) : (
+          mentions.length
+        )
+      }
+      collapsible={collapsible}
       data-variant={variant}
     >
       {mentions.length === 0 ? (
