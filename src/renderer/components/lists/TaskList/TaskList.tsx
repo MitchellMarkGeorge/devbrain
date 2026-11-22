@@ -86,8 +86,9 @@ export interface TaskListBaseProps extends Omit<
    */
   compact?: boolean;
   /**
-   * draws each subtask that comes right after its parent (or the parent's other subtasks) indented
-   * under it, joined to it by guide lines; give the rows in that order. Each group is its own tree.
+   * draws the rows as a tree: each indented by its `depth` and joined to its parent by guide lines.
+   * Give the rows in tree order with their depths, as core's `tasks.tree` does. Each group is its
+   * own tree.
    */
   nested?: boolean;
   /**

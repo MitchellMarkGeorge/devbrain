@@ -34,6 +34,7 @@ export const LIST_TASKS: TaskRowData[] = [
       ...sampleParent('Implement OAuth2 PKCE flow', TaskStatus.IN_PROGRESS),
       id: 'tsk_eng-124' as TaskId,
     },
+    depth: 1,
     project: sampleProject('Auth Overhaul', 'blue'),
   }),
   sampleTask({

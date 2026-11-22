@@ -2,8 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { TaskId } from '@common/ids';
-import { TaskStatus } from '@common/types';
 import {
   PillHoverCardsProvider,
   type PillHoverCardsProviderProps,
@@ -19,40 +17,19 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// a row with the given id under the parent with the given id (none for a top-level row)
-const row = (id: string, parent?: string) =>
-  sampleTask({
-    id: id as TaskId,
-    title: id,
-    parentTask: parent
-      ? { id: parent as TaskId, title: parent, status: TaskStatus.NOT_STARTED }
-      : null,
-  });
+// rows at these depths, as core's tasks.tree gives them
+const rows = (...depths: number[]) => depths.map((depth) => ({ depth }));
 
 describe('treeOf', () => {
-  it('nests subtasks under their parent, a level per generation', () => {
-    const trees = treeOf([
-      row('a'),
-      row('a1', 'a'),
-      row('a2', 'a'),
-      row('a2x', 'a2'),
-      row('a3', 'a'),
-      row('b'),
-    ]);
+  it('opens a row whose next row is a level deeper', () => {
+    const trees = treeOf(rows(0, 1, 1, 2, 1, 0));
     expect(trees.map((t) => t.depth)).toEqual([0, 1, 1, 2, 1, 0]);
     expect(trees.map((t) => t.open)).toEqual([true, false, true, false, false, false]);
   });
 
   it('runs a guide on past a row while a later sibling or an ancestor’s subtask follows', () => {
-    const trees = treeOf([
-      row('a'),
-      row('a1', 'a'),
-      row('a2', 'a'),
-      row('a2x', 'a2'),
-      row('a2y', 'a2'),
-      row('a3', 'a'),
-    ]);
-    expect(trees.map((t) => t.continues)).toEqual([
+    // a, a1, a2, a2x, a2y, a3
+    expect(treeOf(rows(0, 1, 1, 2, 2, 1)).map((t) => t.continues)).toEqual([
       [],
       [true], // a2 follows
       [true], // a3 follows
@@ -62,16 +39,16 @@ describe('treeOf', () => {
     ]);
   });
 
-  it('leaves a subtask whose parent is not above it at the left', () => {
-    const trees = treeOf([row('a'), row('b'), row('a1', 'a'), row('c', 'missing')]);
-    expect(trees.map((t) => t.depth)).toEqual([0, 0, 0, 0]);
-    expect(trees.every((t) => !t.open)).toBe(true);
+  it('closes a branch once a row outside it comes', () => {
+    // a, a1, a1x, a2
+    expect(treeOf(rows(0, 1, 2, 1))[2].continues).toEqual([true, false]);
   });
 
-  it('closes a branch once a row outside it comes', () => {
-    const trees = treeOf([row('a'), row('a1', 'a'), row('a1x', 'a1'), row('a2', 'a')]);
-    expect(trees.map((t) => t.depth)).toEqual([0, 1, 2, 1]);
-    expect(trees[2].continues).toEqual([true, false]);
+  it('puts a row with no depth at the left', () => {
+    const trees = treeOf([{}, { depth: 1 }, {}]);
+    expect(trees.map((t) => t.depth)).toEqual([0, 1, 0]);
+    expect(trees[0].open).toBe(true);
+    expect(trees[1].continues).toEqual([false]);
   });
 });
 

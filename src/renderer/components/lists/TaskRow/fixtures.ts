@@ -149,8 +149,8 @@ export const SAMPLE_SUBTASKS: TaskRowData[] = [
 ];
 
 /**
- * A parent and its subtasks in tree order, as the tasks pages arrange them (`TaskList`'s
- * `nested`): one subtask has its own, and the last row's parent is not in the list.
+ * A parent and its subtasks in tree order with their depths, as core's `tasks.tree` gives them
+ * (`TaskList`'s `nested`): one subtask has its own, and the last row's parent is not in the list.
  */
 export const SAMPLE_TREE: TaskRowData[] = [
   sampleTask({
@@ -161,10 +161,11 @@ export const SAMPLE_TREE: TaskRowData[] = [
     dueDate: storyDate(3),
     subtaskProgress: { completed: 1, total: 3 },
   }),
-  SAMPLE_SUBTASKS[0],
+  { ...SAMPLE_SUBTASKS[0], depth: 1 },
   {
     ...SAMPLE_SUBTASKS[1],
     subtaskProgress: { completed: 0, total: 1 },
+    depth: 1,
   },
   sampleTask({
     id: 'tsk_workspace_name' as TaskId,
@@ -175,8 +176,9 @@ export const SAMPLE_TREE: TaskRowData[] = [
       status: TaskStatus.IN_PROGRESS,
     },
     dueDate: storyDate(1),
+    depth: 2,
   }),
-  SAMPLE_SUBTASKS[2],
+  { ...SAMPLE_SUBTASKS[2], depth: 1 },
   sampleTask({
     id: 'tsk_changelog' as TaskId,
     title: 'Write the changelog entry',

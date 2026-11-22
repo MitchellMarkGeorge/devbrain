@@ -46,8 +46,8 @@ indexed column, SQLite would read that index at every step of the walk instead.
   (one `useQueries` over the shown ones). `lib/tree.ts` puts the loaded subtrees in place
   (`withSubtrees`), finds the parents (`parentsIn`: rows followed by a deeper row, and roots sent
   alone) and leaves out what a hidden parent hides (`visibleRows`).
-- **`TaskList`'s `nested`** draws the rows it is given as a tree (`treeOf`, the guides, the parent
-  pill left off a nested row), and the frame's `subtasksShown` makes a parent's count the button
+- **`TaskList`'s `nested`** draws the rows it is given as a tree from their `depth`, as core sent
+  it (`treeOf` works out the guides; the parent pill is left off a nested row), and the frame's `subtasksShown` makes a parent's count the button
   that shows and hides its subtasks, as → / ← and its menu do. That count opens no hover card: the
   subtasks it would list are the rows under it.
 

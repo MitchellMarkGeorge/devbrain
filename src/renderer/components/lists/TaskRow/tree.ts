@@ -26,21 +26,13 @@ function runsOn(depths: readonly number[], index: number, level: number): boolea
 }
 
 /**
- * Each row's place in the tree, from rows already in tree order (each subtask after its parent and
- * the parent's earlier subtasks, as the tasks pages arrange them). A row is nested when its parent
- * is the row above it or one of that row's ancestors; any other row, a subtask whose parent is not
- * there included, is at depth 0 and keeps its parent's pill to say where it belongs.
+ * Each row's place in the tree, from rows in tree order with their depths, as core's `tasks.tree`
+ * gives them (each subtask after its parent and the parent's earlier subtasks): which guide lines
+ * run on below each row (`runsOn`) and whether its subtasks follow it. A row with no `depth` is at
+ * the left.
  */
-export function treeOf(tasks: readonly Pick<TaskRowData, 'id' | 'parentTask'>[]): TaskRowTree[] {
-  const depths: number[] = [];
-  // the ids of the row above and its ancestors, outermost first
-  const path: string[] = [];
-  for (const task of tasks) {
-    const parent = task.parentTask?.id as string | undefined;
-    path.length = parent ? path.lastIndexOf(parent) + 1 : 0;
-    depths.push(path.length);
-    path.push(task.id as string);
-  }
+export function treeOf(tasks: readonly Pick<TaskRowData, 'depth'>[]): TaskRowTree[] {
+  const depths = tasks.map((task) => task.depth ?? 0);
   return depths.map((depth, index) => ({
     depth,
     continues: Array.from({ length: depth }, (_, level) => runsOn(depths, index, level + 1)),
