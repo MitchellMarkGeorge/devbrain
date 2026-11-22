@@ -1,14 +1,21 @@
 /*
  * The strokeless 48px row lists share with TaskRow. See docs/design-system/components/ListRow.md
- * and the README's "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ * and the README's "Lists".
+ *
+ * A grid of named areas, as TaskRow's: the selection checkbox, the icon, the title with its excerpt,
+ * and the right side. The icon, the right side and the checkbox are each optional, so the 10px
+ * between the parts is on the parts, not a column gap: a part left out then takes no room at all.
+ * The checkbox's slot is 28px (the checkbox, 2px, and the 10px before the icon), so with the 8px
+ * padding the icon starts 36px from the row's edge, as a task row's status icon does.
  */
 .row {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-areas: 'check icon main side';
+  grid-template-columns: 28px auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 36px;
+  padding: 0 var(--space-3) 0 8px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -41,15 +48,13 @@
 }
 
 /*
- * the selection checkbox: as TaskRow's, it shows on keyboard focus only, not after a click, in the
- * row's left padding 8px from its edge, so showing it moves nothing
+ * the selection checkbox, 8px from the row's edge: as TaskRow's, it shows on keyboard focus only,
+ * not after a click, and keeps its slot while hidden, so showing it moves nothing
  */
 .check {
-  position: absolute;
-  top: 50%;
-  left: 8px;
-  margin-top: -8px;
-  display: none;
+  grid-area: check;
+  justify-self: start;
+  visibility: hidden;
 }
 .row:hover .check,
 .row:focus-visible .check,
@@ -57,12 +62,13 @@
 .row[data-state] .check,
 .row[data-selected] .check,
 .row[data-selecting] .check {
-  display: inline-grid;
+  visibility: visible;
 }
 
 /* the glyph sits in the 24px slot of a task row's status button, so lists line up */
 .icon {
-  flex: none;
+  grid-area: icon;
+  margin-right: 10px;
   display: grid;
   place-items: center;
   width: 24px;
@@ -71,7 +77,7 @@
 }
 
 .main {
-  flex: 1;
+  grid-area: main;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -96,7 +102,8 @@
 }
 
 .side {
-  flex: none;
+  grid-area: side;
+  margin-left: 10px;
   display: flex;
   align-items: center;
   justify-content: flex-end;

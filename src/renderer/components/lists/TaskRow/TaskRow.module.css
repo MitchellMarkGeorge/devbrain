@@ -1,17 +1,27 @@
 /*
  * One task in a strokeless list. See docs/design-system/components/TaskRow.md and the README's
- * "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ * "Lists".
+ *
+ * A grid of named areas: the selection checkbox, the status icon, the title with its pills, and the
+ * right side. The checkbox's slot is 18px, 2px more than the checkbox, so with the 8px padding and
+ * the 10px gap the status icon starts 36px from the row's edge, 12px after the checkbox.
  */
 .row {
-  /* the strip before the status icon, and the icon's size: the tree's guides are drawn from them */
-  --row-strip: 36px;
+  --check-inset: 8px;
+  --check-slot: 18px;
+  --row-gap: 10px;
   --status-size: 24px;
+  /* where the status icon starts (36px): the tree's guides are drawn from it */
+  --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-areas: 'check status title side';
+  /* the status column fits the icon and, in a tree, its indent */
+  grid-template-columns: var(--check-slot) auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  column-gap: var(--row-gap);
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 var(--row-strip);
+  padding: 0 var(--space-3) 0 var(--check-inset);
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -29,7 +39,7 @@
    * one level in: the status icon and the 10px gap after it, less the icon's 4px inset around its
    * 16px glyph, so a subtask's glyph starts exactly where its parent's title does (30px)
    */
-  --guide-step: calc(var(--status-size) + 10px - 4px);
+  --guide-step: calc(var(--status-size) + var(--row-gap) - 4px);
   /*
    * where a level's line runs: the centre of the status icon at depth 0 (the strip plus half the
    * icon: 48px)
@@ -37,7 +47,10 @@
   --guide-start: calc(var(--row-strip) + var(--status-size) / 2);
   /* how far a line turns right towards a subtask's icon: up to 4px short of it (14px) */
   --guide-reach: calc(var(--guide-step) - var(--status-size) / 2 - 4px);
-  padding-left: calc(var(--row-strip) + var(--depth, 0) * var(--guide-step));
+}
+/* a level in: the status icon moves, the checkbox stays in its column with every other row's */
+.nested .status {
+  margin-left: calc(var(--depth, 0) * var(--guide-step));
 }
 .guides {
   position: absolute;
@@ -92,8 +105,10 @@
   margin-right: -3px;
 }
 
-/* Home: 44px with no selection strip, the status icon 12px in (as Figma's Home draws TaskRow) */
+/* Home: 44px with no checkbox, the status icon 12px in (as Figma's Home draws TaskRow) */
 .compact {
+  grid-template-areas: 'status title side';
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 44px;
   padding: 0 var(--space-4) 0 var(--space-3);
 }
@@ -134,17 +149,15 @@
 }
 
 /*
- * the leading strip: the checkbox shows on hover, keyboard focus, and on every row while selecting.
- * Keyboard focus only: a click leaves focus on the checkbox, and it must hide once the pointer leaves.
- * It is placed in the row's left padding, out of the flow, so showing it moves nothing: 8px from
- * the row's edge, and 16px wide, so 12px before the status icon at 36px.
+ * the selection checkbox, 8px from the row's edge: it shows on hover, keyboard focus, and on every
+ * row while selecting. Keyboard focus only: a click leaves focus on the checkbox, and it must hide
+ * once the pointer leaves. Hidden, it keeps its slot (and leaves the tab order and the
+ * accessibility tree), so showing it moves nothing.
  */
 .check {
-  position: absolute;
-  top: 50%;
-  left: 8px;
-  margin-top: -8px;
-  display: none;
+  grid-area: check;
+  justify-self: start;
+  visibility: hidden;
 }
 .row:hover .check,
 .row:focus-visible .check,
@@ -152,12 +165,12 @@
 .row[data-state] .check,
 .row[data-selected] .check,
 .row[data-selecting] .check {
-  display: inline-grid;
+  visibility: visible;
 }
 
 /* the status icon is a button that opens the status menu */
 .status {
-  flex: none;
+  grid-area: status;
   display: grid;
   place-items: center;
   width: var(--status-size);
@@ -183,7 +196,7 @@
 
 /* the title first, then its pills */
 .title {
-  flex: 1;
+  grid-area: title;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -309,7 +322,7 @@
 
 /* entity pills, priority and the date on the right; these never give way */
 .side {
-  flex: none;
+  grid-area: side;
   display: flex;
   align-items: center;
   justify-content: flex-end;
