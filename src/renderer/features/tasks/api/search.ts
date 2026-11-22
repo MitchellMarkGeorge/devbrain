@@ -211,13 +211,13 @@ export function taskSortOf(resolved: ResolvedTasksSearch): TaskSort {
   return { sortBy: SORT_BY[resolved.sort], direction: resolved.dir };
 }
 
-/** How many tasks a page of `tasks.list` asks for. */
+/** How many tasks a page of `tasks.list` asks for, and how many roots a page of `tasks.tree`. */
 export const TASKS_PAGE_SIZE = 100;
 
 /**
- * The list and group views' input: the page's filter and sort, without the cursor. Unlike the
- * board's columns, they list subtasks too, each in its place in the sort with its parent's pill,
- * as Figma's list draws them (`7155:5231`).
+ * The list and group views' input (`tasks.tree`): the page's filter and sort, without the cursor.
+ * Unlike the board's columns, they list subtasks too, each under its parent; one whose parent the
+ * filter leaves out is a row of its own, with its parent's pill.
  */
 export function taskListInput(
   resolved: ResolvedTasksSearch,

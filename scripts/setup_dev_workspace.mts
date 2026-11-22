@@ -1093,6 +1093,9 @@ async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]
 // ---------------------------------------------------------------------------
 
 const VERY_LONG_NOTE_TITLE = 'Engineering handbook (long note)';
+// the parent docs/performance.md expands in the task list: more subtasks than a page brings inline
+const BIG_PARENT_TITLE = 'Migrate every endpoint to v2 (1,000 subtasks)';
+const BIG_PARENT_SUBTASKS = 1000;
 
 async function seedLargeExtras(
   workspace: Workspace,
@@ -1103,6 +1106,24 @@ async function seedLargeExtras(
     events,
   }: { tasks: Task[]; projects: Project[]; notes: Note[]; events: Event[] },
 ): Promise<{ veryLongNote: Note; favorites: number; recents: number; archived: number }> {
+  // the parent docs/performance.md expands: High, so it is on the task list's first page, with a
+  // hundred subtasks and nine under each of those
+  const bigParent = workspace.tasks.createTask({
+    title: BIG_PARENT_TITLE,
+    priority: TaskPriority.HIGH,
+  });
+  let firstLevel: Task | null = null;
+  for (let i = 0; i < BIG_PARENT_SUBTASKS; i++) {
+    const under = i % 10 === 0 || !firstLevel ? bigParent : firstLevel;
+    const subtask = workspace.tasks.createSubtask(under.id, {
+      title: `Move endpoint ${i + 1} to v2`,
+      priority: TaskPriority.HIGH,
+      // a third of the deeper ones done, so a filter that hides closed tasks leaves out some
+      status: under !== bigParent && i % 3 === 0 ? TaskStatus.COMPLETED : TaskStatus.NOT_STARTED,
+    });
+    if (under === bigParent) firstLevel = subtask;
+  }
+
   // the note docs/performance.md opens and types in: about 200 KB
   const veryLongNote = await workspace.notes.createNote({ title: VERY_LONG_NOTE_TITLE });
   await workspace.notes.updateNoteContent(

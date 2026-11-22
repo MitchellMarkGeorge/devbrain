@@ -55,7 +55,7 @@ describe('a switch', () => {
     const app = await onWorkTasks(main, { splashMinimumMs: SPLASH_DELAY_MS * 2 });
     const release = main.hold('notes.list');
     const dom = watchDom(app.container, ['Work tasks.list', 'Home notes.list']);
-    const tasksCallsBefore = main.callsTo('tasks.list').length;
+    const tasksCallsBefore = main.callsTo('tasks.tree').length;
 
     const navigation = app.router.navigate({
       to: '/app/$workspaceId/notes',
@@ -79,8 +79,9 @@ describe('a switch', () => {
     expect(after).not.toContain('Work tasks.list');
     expect(after.at(-1)).toBe('Home notes.list');
     // and Work's page never refetched (with Home's data) once the switch started
-    expect(main.callsTo('tasks.list')).toHaveLength(tasksCallsBefore);
-    expect(main.callsTo('tasks.list').every((call) => call.open === WORK)).toBe(true);
+    expect(tasksCallsBefore).toBeGreaterThan(0);
+    expect(main.callsTo('tasks.tree')).toHaveLength(tasksCallsBefore);
+    expect(main.callsTo('tasks.tree').every((call) => call.open === WORK)).toBe(true);
     expect(app.path()).toBe(`/app/${HOME}/notes`);
   });
 

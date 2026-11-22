@@ -7,6 +7,7 @@ import {
   Provider,
   type Task,
   TaskPriority,
+  type TaskTreeItem,
   TaskStatus,
 } from '@common/types';
 import { type ExternalTask } from '@main/core/integrations/types';
@@ -105,6 +106,31 @@ async function syncedTask(item: ExternalTask): Promise<TaskId> {
 }
 
 describe('tasks', () => {
+  it("reads the task list as a tree, and a root's subtree on its own", async () => {
+    const ws = workspace();
+    const parent = ws.tasks.createTask({ title: 'Parent', priority: TaskPriority.HIGH });
+    const child = ws.tasks.createSubtask(parent.id, { title: 'Child' });
+    const done = ws.tasks.createSubtask(parent.id, {
+      title: 'Done',
+      status: TaskStatus.COMPLETED,
+    });
+    const filter = { excludeClosed: true };
+    const sort = { sortBy: 'priority' };
+
+    const page = dataOf(await call<Page<TaskTreeItem>>('tasks.tree', { filter, sort, limit: 10 }));
+    expect(page.items.map((item) => [item.id, item.depth, item.subtreeSize])).toEqual([
+      [parent.id, 0, null],
+      [child.id, 1, null],
+    ]);
+    expect(page.items.map((item) => item.id)).not.toContain(done.id);
+
+    const subtree = dataOf(
+      await call<TaskTreeItem[]>('tasks.subtree', { id: parent.id, filter, sort }),
+    );
+    expect(subtree.map((item) => item.id)).toEqual([child.id]);
+    expect(code(await call('tasks.subtree', { id: 'tsk_missing' }))).toBe('not_found');
+  });
+
   it('reads a task with its list details: its project, though completed, and its parent', async () => {
     const ws = devBrain.currentWorkspace!;
     const project = ws.projects.createProject({ title: 'Shipped', dueDate: DUE });

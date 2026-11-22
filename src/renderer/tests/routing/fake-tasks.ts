@@ -8,6 +8,7 @@ import {
   type ProjectStats,
   type Task,
   type TaskListItem,
+  type TaskTreeItem,
 } from '@common/types';
 
 // The tasks a fake main's workspace holds, answering the tasks routes the pages call as core
@@ -190,6 +191,24 @@ export class FakeTasks {
         (filter.dueOn === undefined ||
           (task.dueDate !== null && sameDay(task.dueDate, filter.dueOn))),
     );
+  }
+
+  /**
+   * `tasks.tree`: the listed tasks as core's tree, each subtask under its parent (in the order
+   * given) and one whose parent is filtered out a root. Every subtree comes inline.
+   */
+  tree(filter: Filter = {}): TaskTreeItem[] {
+    const listed = this.list(filter);
+    const ids = new Set(listed.map((task) => task.id as string));
+    const out: TaskTreeItem[] = [];
+    const place = (task: TaskListItem, depth: number) => {
+      out.push({ ...task, depth, subtreeSize: null });
+      for (const child of listed) if (child.parentTaskId === task.id) place(child, depth + 1);
+    };
+    for (const task of listed) {
+      if (!task.parentTaskId || !ids.has(task.parentTaskId)) place(task, 0);
+    }
+    return out;
   }
 
   /** `notes.list`: the notes not in the trash, filtered as core does, the newest edit first. */

@@ -28,6 +28,8 @@ const opt = (name: string, fallback: string) =>
 const ROOT_PATH = path.resolve(REPO_ROOT, opt('path', '.perf'));
 const JSON_OUT = opt('json', '');
 const SWITCH_NAME = 'Perf switch';
+// seed:large's parent with more subtasks than a page of the task tree brings inline
+const BIG_PARENT_TITLE = 'Migrate every endpoint to v2 (1,000 subtasks)';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Playwright's types aren't installed with the app */
 type App = any;
@@ -321,6 +323,28 @@ async function main() {
   await watchLongTasks(page);
   await step(app, page, 'Home', `${W}/home`, { sel: '[role=row]' });
   await step(app, page, 'Tasks list, first paint', `${W}/tasks`, ROWS);
+
+  // the parent with 1,000 subtasks: the list sends it alone, and clicking its count loads them
+  {
+    const parent = page.locator('[role=row]', { hasText: BIG_PARENT_TITLE });
+    await parent.waitFor();
+    await settle(app);
+    await takeCalls(app);
+    await takeLongTasks(page);
+    const start = Date.now();
+    await parent.locator('[data-subtasks-toggle]').click();
+    await page.locator('[role=row]', { hasText: 'Move endpoint' }).first().waitFor();
+    const ms = Date.now() - start;
+    await settle(app);
+    record({
+      name: 'Tasks list, expand a parent with 1,000 subtasks',
+      ms,
+      ...callStats(await takeCalls(app)),
+      ...longTaskStats(await takeLongTasks(page)),
+    });
+    // folded again, so the scroll below reads the list as it was
+    await parent.locator('[data-subtasks-toggle]').click();
+  }
 
   // the list scrolled to its end: until its row count stops growing
   {

@@ -69,6 +69,21 @@ export const tasksRouter = t.router({
       ctx.workspace.tasks.listTasks(filter, sort, page),
     ),
 
+  // a page of the task list as a tree (the tasks pages' list and grouped views): `limit` roots, each
+  // with its matching subtasks in tree order; a root with too many comes alone, with subtreeSize
+  tree: wsProcedure
+    .input(z.object({ filter: filter.optional(), sort: sort.optional(), ...zPageFields }))
+    .query(({ ctx, input: { filter, sort, ...page } }) =>
+      ctx.workspace.tasks.listTaskTree(filter, sort, page),
+    ),
+
+  // the matching subtasks of a root `tree` sent alone, under the same filter and sort
+  subtree: wsProcedure
+    .input(z.object({ id: zId('task'), filter: filter.optional(), sort: sort.optional() }))
+    .query(({ ctx, input: { id, filter, sort } }) =>
+      ctx.workspace.tasks.listSubtree(id, filter, sort),
+    ),
+
   // a task as the task list shows it (its project, parent and link), in the trash too (its
   // `archivedAt` set): Trash opens it, and its page shows it read-only until it is restored
   get: wsProcedure

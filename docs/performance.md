@@ -23,9 +23,10 @@ uses, so every rule, index and search entry is as the app would make them:
 | Rows               | Count                                                                                                                                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Projects           | 200 (the 15 base projects, then each per team), mixed statuses                                                                                                                                    |
-| Tasks              | 9,822: 6,174 top-level and 3,648 subtasks; 15% of the regular ones undated                                                                                                                        |
+| Tasks              | 10,823: 6,175 top-level and 4,648 subtasks (1,001 of them the task tree below); 15% of the regular ones undated                                                                                   |
 | Notes              | 3,023: p50 0.5 KB, p90 10 KB, p99 51 KB, and one synthetic note of 200 KB with 364 to-dos, 70 code blocks and ~550 mentions, far more than a real note holds ("Engineering handbook (long note)") |
 | Events             | 5,000: 30 recurring series (6 kinds for 5 teams, from six months back) and 4,970 one-offs over ±180 days                                                                                          |
+| Task tree          | one High parent with 1,000 subtasks, a hundred under it and nine under each of those ("Migrate every endpoint to v2 (1,000 subtasks)"), which the task list sends alone and expands on a click    |
 | Favorites, recents | 67 favorites; 231 entities viewed                                                                                                                                                                 |
 | Trash              | about 1,180 rows (10 projects with their tasks and notes, 300 tasks, 100 notes)                                                                                                                   |
 
@@ -112,6 +113,28 @@ Core (`perf:core`), p50 / p95 over 30 runs:
 | recents, favorites, trash pages                 | 0.6–0.8 ms       |             |
 | `tasks.updateMany`, 200 tasks                   | 865 / 878 ms     |             |
 | `tasks.updateStatus`, twice                     | 10.6 / 14.6 ms   |             |
+
+### The task tree
+
+The tasks list and group view read `tasks.tree` ([the task list as a tree](renderer/task-tree.md)).
+Measured against `main` on the same machine and the same seed (on `main`, without the 1,000-subtask
+parent), in November 2026:
+
+| Step                                  | `main` (`tasks.list`)             | `tasks.tree`                          |
+| ------------------------------------- | --------------------------------- | ------------------------------------- |
+| Tasks list, first paint               | 92 ms, 12.6 ms in main            | 74 ms, 17 ms in main                  |
+| Expand the parent with 1,000 subtasks |                                   | 194 ms; `tasks.subtree` 15 ms, 645 KB |
+| Tasks list, scrolled to the end       | 36 s, 89 pages, 2 s of long tasks | 23 s, 55 pages, 0.6 s of long tasks   |
+| Tasks grouped by project              | 108 ms, 47 groups, 126 ms in main | 139 ms, 47 groups, 184 ms in main     |
+| A change with the whole list loaded   | 89 pages, 245 ms in main          | 56 pages, 300 ms in main              |
+
+In core, p50 / p95 over 30 runs: a page of 100 roots by priority costs 6.8 / 8.1 ms (120 KB), open
+tasks by due date 3.2 / 4.0 ms, a project's group 2.3 / 4.0 ms, against 1.4–2 ms for a page of
+`tasks.list`; `tasks.subtree` for the 1,000 costs 11.5 / 19 ms. The page by priority is the
+slowest because the seed's 1,000 High subtasks are the newest High rows, which the roots query
+reads past. Over all 191 project groups, open or not, a page of the tree costs 1.6 times a page of
+`tasks.list`. The walk down the subtrees names the parent index: without it, the "No project" group
+read the project index at every step, 450 ms for the 1,000.
 
 ### The SQL
 

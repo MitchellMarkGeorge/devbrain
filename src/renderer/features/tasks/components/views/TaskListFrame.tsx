@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
-import type { TaskListItem } from '@common/types';
+import { useQueries } from '@tanstack/react-query';
+import type { TaskId } from '@common/ids';
+import type { TaskListItem, TaskTreeItem } from '@common/types';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -9,20 +11,27 @@ import {
   type TaskListHandle,
 } from '@renderer/components';
 import { KeyScope, useCommands, useListCommands } from '@renderer/keyboard';
-import { arrangeSubtasks, placedParents } from '../../lib/arrange';
+import { parentsIn, subtasksShown, visibleRows, withSubtrees } from '../../lib/tree';
+import { subtreeQuery } from '../../api/queries';
+import type { TaskListInput } from '../../api/search';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '../menus/TaskMenus';
 import { TasksSelectionBar } from './TasksSelectionBar';
 import { useTaskActions } from '../../hooks/use-task-actions';
 import styles from './TasksView.module.css';
 
+/** A group of the group view: its rows as core's tree, and the input they were read with. */
+export interface TaskListFrameGroup extends Omit<TaskListGroup, 'tasks'> {
+  tasks: TaskTreeItem[];
+  input: TaskListInput;
+}
+
 export interface TaskListFrameProps {
-  /** every task loaded, for the commands and menus to find a row's task by id */
-  loaded: readonly TaskListItem[];
-  /** a flat list's rows */
-  tasks?: TaskListItem[];
+  /** a flat list's rows, as core's tree (`tasks.tree`), and the input they were read with */
+  tasks?: TaskTreeItem[];
+  input?: TaskListInput;
   /** a grouped list's groups */
-  groups?: TaskListGroup[];
+  groups?: TaskListFrameGroup[];
   /** the list's total, when known */
   rowCount?: number;
   onEndReached?: () => void;
@@ -30,14 +39,23 @@ export interface TaskListFrameProps {
   showProjectPill: boolean;
 }
 
+// the data of each expanded subtree's query; a function outside the component, so React Query
+// keeps the combined result the same between renders while no query's data changes
+const subtreeData = (results: readonly { data?: TaskTreeItem[] }[]) =>
+  results.map((result) => result.data);
+
 /**
  * A `TaskList` as the tasks pages mount it: in a `list` key scope with the list keys (open,
  * status, favorite, trash, on the selection or the focused row), the row's right-click menu, and
  * the selection bar over its bottom. Status changes from a row are optimistic.
+ *
+ * Its rows are core's tree, each subtask under its parent. A parent shows or hides its subtasks
+ * (its count, → / ←, its menu); a root core sent alone, with more subtasks than come inline,
+ * starts hidden and loads them (`tasks.subtree`) once shown.
  */
 export function TaskListFrame({
-  loaded,
   tasks,
+  input,
   groups,
   rowCount,
   onEndReached,
@@ -49,32 +67,56 @@ export function TaskListFrame({
   const [selected, setSelected] = useState<string[]>([]);
   // the task whose row was right-clicked: the menu is drawn for it
   const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
-  const byId = useMemo(() => new Map(loaded.map((task) => [task.id as string, task])), [loaded]);
-  const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
-  // parents whose subtasks are hidden; every parent shows its subtasks under it at first
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  // what the user chose for each parent: its subtasks shown or hidden (`subtasksShown`)
+  const [chosen, setChosen] = useState<ReadonlyMap<string, boolean>>(() => new Map());
   const setShown = (id: string, shown: boolean) =>
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (shown) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  // the tasks with subtasks placed under them, which can show or hide them
-  const parents = useMemo(
+    setChosen((current) => new Map(current).set(id, shown));
+
+  // each list's rows and the input they were read with: the flat list, or each group
+  const lists = useMemo(
     () =>
-      placedParents(groups ? groups.map((group) => group.tasks as TaskListItem[]) : [tasks ?? []]),
-    [tasks, groups],
+      groups
+        ? groups.map((group) => ({ rows: group.tasks, input: group.input }))
+        : [{ rows: tasks ?? [], input: input ?? {} }],
+    [tasks, input, groups],
   );
-  const rows = useMemo(() => tasks && arrangeSubtasks(tasks, collapsed), [tasks, collapsed]);
-  const grouped = useMemo(
+  // the roots sent alone that are shown: their subtrees load
+  const expanded = lists.flatMap((list) =>
+    list.rows
+      .filter((row) => row.subtreeSize !== null && chosen.get(row.id) === true)
+      .map((row) => ({ id: row.id, input: list.input })),
+  );
+  const loadedSubtrees = useQueries({
+    queries: expanded.map((root) => subtreeQuery(root.id as TaskId, root.input)),
+    combine: subtreeData,
+  });
+  const subtreeKey = expanded.map((root) => root.id).join();
+  const subtrees = useMemo(
     () =>
-      groups?.map((group) => ({
-        ...group,
-        tasks: arrangeSubtasks(group.tasks as TaskListItem[], collapsed),
-      })),
-    [groups, collapsed],
+      new Map(
+        subtreeKey
+          .split(',')
+          .flatMap((id, i) => (loadedSubtrees[i] ? [[id, loadedSubtrees[i]!] as const] : [])),
+      ),
+    [subtreeKey, loadedSubtrees],
   );
+
+  // each list with its loaded subtrees in place, then the rows a reader sees
+  const trees = useMemo(
+    () => lists.map((list) => withSubtrees(list.rows, subtrees)),
+    [lists, subtrees],
+  );
+  const parents = useMemo(() => new Set(trees.flatMap((rows) => [...parentsIn(rows)])), [trees]);
+  const byId = useMemo(
+    () => new Map(trees.flat().map((task) => [task.id as string, task])),
+    [trees],
+  );
+  const shownRows = useMemo(() => trees.map((rows) => visibleRows(rows, chosen)), [trees, chosen]);
+  const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
+  const shownOf = (id: string) => {
+    const row = byId.get(id);
+    return row && parents.has(id) ? subtasksShown(row, chosen) : undefined;
+  };
   const clearAfter = (moved: boolean) => {
     if (moved) setSelected([]);
   };
@@ -125,8 +167,7 @@ export function TaskListFrame({
     onSelectedChange: setSelected,
     selectionBar: false,
     nested: true,
-    subtasksShown: (task: { id: string }) =>
-      parents.has(task.id) ? !collapsed.has(task.id) : undefined,
+    subtasksShown: (task: { id: string }) => shownOf(task.id),
     onSubtasksShownChange: (task: { id: string }, shown: boolean) => setShown(task.id, shown),
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
       actions.setStatus(full([task]), status),
@@ -148,9 +189,13 @@ export function TaskListFrame({
         {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
         <KeyScope name="list" render={<div className={styles.region} />}>
           {groups ? (
-            <TaskList {...common} groups={grouped ?? []} selecting={selected.length > 0} />
+            <TaskList
+              {...common}
+              groups={groups.map((group, i) => ({ ...group, tasks: shownRows[i] }))}
+              selecting={selected.length > 0}
+            />
           ) : (
-            <TaskList {...common} tasks={rows ?? []} />
+            <TaskList {...common} tasks={shownRows[0]} />
           )}
         </KeyScope>
         <TasksSelectionBar
@@ -172,8 +217,8 @@ export function TaskListFrame({
             subtasks={
               parents.has(menuTask.id)
                 ? {
-                    shown: !collapsed.has(menuTask.id),
-                    onToggle: () => setShown(menuTask.id, collapsed.has(menuTask.id)),
+                    shown: shownOf(menuTask.id) ?? false,
+                    onToggle: () => setShown(menuTask.id, !shownOf(menuTask.id)),
                   }
                 : undefined
             }

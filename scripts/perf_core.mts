@@ -156,6 +156,12 @@ async function main() {
         id: string;
       }[],
     )?.id,
+    // seed:large's parent with 1,000 subtasks, which the task tree sends alone
+    bigParent: one(
+      sqlite
+        .prepare(`SELECT id FROM tasks WHERE title LIKE 'Migrate every endpoint to v2%'`)
+        .all() as { id: string }[],
+    )?.id,
     tasks: (
       sqlite
         .prepare(
@@ -223,6 +229,34 @@ async function main() {
           { sortBy: 'createdAt', direction: 'asc' },
           { limit: 100 },
         ),
+    ],
+    [
+      'tasks.tree: Tasks, by priority, 100 roots',
+      async () =>
+        w.tasks.listTaskTree({}, { sortBy: 'priority', direction: 'desc' }, { limit: 100 }),
+    ],
+    [
+      'tasks.tree: open, by due date, 100 roots',
+      async () =>
+        w.tasks.listTaskTree(
+          { excludeClosed: true },
+          { sortBy: 'dueDate', direction: 'asc' },
+          { limit: 100 },
+        ),
+    ],
+    [
+      'tasks.tree: a project group, 100 roots',
+      async () =>
+        w.tasks.listTaskTree(
+          { projectId: ids.project as never },
+          { sortBy: 'priority', direction: 'desc' },
+          { limit: 100 },
+        ),
+    ],
+    [
+      'tasks.subtree: the parent with 1,000 subtasks',
+      async () =>
+        w.tasks.listSubtree(ids.bigParent as never, {}, { sortBy: 'priority', direction: 'desc' }),
     ],
     ['tasks.get', async () => w.tasks.getById(ids.tasks[0] as never, { includeArchived: true })],
     ['tasks.subtasks', async () => w.tasks.listSubtasks(ids.tasks[0] as never, { limit: 100 })],

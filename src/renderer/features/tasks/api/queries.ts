@@ -1,6 +1,12 @@
 import { queryOptions, noop, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
-import { type Event, type NoteListItem, type Page, type TaskListItem } from '@common/types';
+import {
+  type Event,
+  type NoteListItem,
+  type Page,
+  type TaskListItem,
+  type TaskTreeItem,
+} from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import type { TaskListInput } from './search';
 
@@ -19,18 +25,28 @@ export function taskListQuery(input: TaskListInput) {
 }
 
 /**
- * One group of the group view: the first `pages` pages of `tasks.list`, as one page. "Show more"
+ * The list view's rows: the task list as a tree (`tasks.tree`), one infinite list paged by root.
+ * Each page is `limit` roots with their subtasks, so its rows vary in number.
+ */
+export function taskTreeQuery(input: TaskListInput) {
+  return trpc.tasks.tree.infiniteQueryOptions(input, {
+    getNextPageParam: (page) => page.nextCursor,
+  });
+}
+
+/**
+ * One group of the group view: the first `pages` pages of `tasks.tree`, as one page. "Show more"
  * asks for a page more. A plain query, not an infinite one, so the view holds every group's in one
- * `useQueries`; its key starts with `tasks.list`'s, so a change to tasks refetches it.
+ * `useQueries`; its key starts with `tasks.tree`'s, so a change to tasks refetches it.
  */
 export function groupTasksQuery(input: TaskListInput, pages: number) {
   return queryOptions({
-    queryKey: [...trpc.tasks.list.queryKey(input), { pages }],
-    queryFn: async (): Promise<Page<TaskListItem>> => {
-      const items: TaskListItem[] = [];
+    queryKey: [...trpc.tasks.tree.queryKey(input), { pages }],
+    queryFn: async (): Promise<Page<TaskTreeItem>> => {
+      const items: TaskTreeItem[] = [];
       let cursor: string | null = null;
       for (let page = 0; page < pages; page++) {
-        const next = await ipc.tasks.list.query({ ...input, cursor });
+        const next = await ipc.tasks.tree.query({ ...input, cursor });
         items.push(...next.items);
         cursor = next.nextCursor;
         if (cursor === null) break;
@@ -38,6 +54,14 @@ export function groupTasksQuery(input: TaskListInput, pages: number) {
       return { items, nextCursor: cursor };
     },
   });
+}
+
+/**
+ * The subtasks of a root `tasks.tree` sent alone (its `subtreeSize`), under the list's filter and
+ * sort, loaded once it is expanded.
+ */
+export function subtreeQuery(id: TaskId, input: TaskListInput) {
+  return trpc.tasks.subtree.queryOptions({ id, filter: input.filter, sort: input.sort });
 }
 
 /** A task's direct subtasks, as one infinite list. */
@@ -49,17 +73,30 @@ export function subtasksQuery(id: TaskId) {
 }
 
 /**
- * The task as a loaded list already holds it (a board column, a list or a group), for a sheet to
- * draw at once while `tasks.get` loads the task itself.
+ * The task as a loaded list already holds it (a board column, the list, a group or an expanded
+ * subtree), for a sheet to draw at once while `tasks.get` loads the task itself.
  */
 export function listedTask(queryClient: QueryClient, id: TaskId): TaskListItem | undefined {
-  const lists = queryClient.getQueriesData<InfiniteData<Page<TaskListItem>>>({
-    queryKey: trpc.tasks.list.pathKey(),
-  });
-  for (const [, data] of lists) {
-    for (const page of data?.pages ?? []) {
-      const task = page.items.find((item) => item.id === id);
-      if (task) return task;
+  for (const pathKey of [
+    trpc.tasks.list.pathKey(),
+    trpc.tasks.tree.pathKey(),
+    trpc.tasks.subtree.pathKey(),
+  ]) {
+    for (const [, data] of queryClient.getQueriesData<
+      InfiniteData<Page<TaskListItem>> | Page<TaskListItem> | TaskListItem[]
+    >({ queryKey: pathKey })) {
+      const pages =
+        data === undefined
+          ? []
+          : Array.isArray(data)
+            ? [{ items: data }]
+            : 'pages' in data
+              ? data.pages
+              : [data];
+      for (const page of pages) {
+        const task = page.items.find((item) => item.id === id);
+        if (task) return task;
+      }
     }
   }
   return undefined;

@@ -7,7 +7,7 @@ import type { RouterContext } from '@renderer/app/router';
 import { primeLinks } from '@renderer/shared/api/loaders';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { groupDefs, PRIMED_GROUPS } from '../lib/groups';
-import { groupTasksQuery, subtasksQuery, taskListQuery } from './queries';
+import { groupTasksQuery, subtasksQuery, taskTreeQuery } from './queries';
 import { resolveTasksSearch, taskListInput, type TasksSearch } from './search';
 
 // What the tasks routes load before their first frame (routes/app/$workspaceId/tasks/): they only
@@ -36,7 +36,7 @@ export async function loadTasks({ queryClient, trpc }: RouterContext, search: Ta
   const resolved = resolveTasksSearch(search, settings);
   if (resolved.view === 'list') {
     await queryClient.infiniteQuery({
-      ...taskListQuery(taskListInput(resolved, today())),
+      ...taskTreeQuery(taskListInput(resolved, today())),
       staleTime: 'static',
     });
   }

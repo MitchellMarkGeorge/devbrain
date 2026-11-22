@@ -3,7 +3,7 @@ import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
-import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import { eq, inArray, and, isNull, SQL, desc, or, notExists } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   LinkState,
@@ -16,6 +16,7 @@ import {
   TaskDeleteResult,
   TaskListItem,
   TaskPriority,
+  TaskTreeItem,
   TaskStatus,
 } from '@common/types';
 import {
@@ -39,15 +40,15 @@ import {
 import { copyTitle, isSubtask } from './utils';
 import { subtreeOf, subtreeOfAll } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
+import { taskFilter, taskFilterClauses, taskPager } from './filter';
+import { expandRoots, subtreeRows, TreeRow } from './tree';
+import { alias } from 'drizzle-orm/sqlite-core';
 import { toExportedTasks } from '../transfer/task-format';
 import { taskAsMarkdown } from '../transfer/markdown-copy';
-import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
-import { localDayWindow } from '../shared/dates';
 import { keyset, PageOptions } from '../shared/pagination';
 import {
   assertEditable,
   assertRowEditable,
-  hasLinkInState,
   isSynced,
   withExternalRef,
   withExternalRefs,
@@ -261,90 +262,11 @@ export class TaskService {
     sort: TaskSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
   ): Page<TaskListItem> {
-    const clauses = [isNull(tasks.archivedAt)];
-    if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
-    if (filter.excludeClosed) {
-      clauses.push(notInArray(tasks.status, [TaskStatus.COMPLETED, TaskStatus.CANCELLED]));
-    }
-
-    if (filter.status) clauses.push(eq(tasks.status, filter.status));
-
-    if (filter.projectId !== undefined) {
-      clauses.push(
-        filter.projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, filter.projectId),
-      );
-    }
-
-    if (filter.noteId !== undefined) {
-      clauses.push(
-        filter.noteId === null ? isNull(tasks.linkedNoteId) : eq(tasks.linkedNoteId, filter.noteId),
-      );
-    }
-
-    if (filter.eventId !== undefined) {
-      clauses.push(
-        filter.eventId === null
-          ? isNull(tasks.linkedEventId)
-          : eq(tasks.linkedEventId, filter.eventId),
-      );
-    }
-
-    // NONE is 0, so test for a value, not truthiness
-    if (filter.priority !== undefined) clauses.push(eq(tasks.priority, filter.priority));
-    // figure this out
-    if (filter.dueBefore != null) clauses.push(lt(tasks.dueDate, filter.dueBefore));
-    if (filter.dueAfter != null) clauses.push(gt(tasks.dueDate, filter.dueAfter));
-    if (filter.noDueDate) clauses.push(isNull(tasks.dueDate));
-    if (filter.dueOn != null) {
-      // get the start and end time the date and compare (inclusive start and exlusive end/midnight)
-      const { startOfDay, endOfDay } = localDayWindow(filter.dueOn);
-      clauses.push(gte(tasks.dueDate, startOfDay));
-      clauses.push(lt(tasks.dueDate, endOfDay));
-    }
-
-    if (filter.origin !== undefined) {
-      // only a synced link makes a task external; a detached one is the user's own again
-      const isSynced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
-      clauses.push(filter.origin === 'external' ? isSynced : not(isSynced));
-    }
-
-    let sortColumn: SQLiteColumn;
-    switch (sort.sortBy) {
-      case 'dueDate':
-        sortColumn = tasks.dueDate;
-        break;
-      case 'priority':
-        sortColumn = tasks.priority;
-        break;
-      case 'status':
-        sortColumn = tasks.status;
-        break;
-      case 'createdAt':
-        sortColumn = tasks.createdAt;
-        break;
-      case 'updatedAt':
-        sortColumn = tasks.updatedAt;
-        break;
-    }
-
-    const pager = keyset<Task>(
-      {
-        sortKey: sort.sortBy,
-        sortColumn,
-        idColumn: tasks.id,
-        direction: sort.direction === 'asc' ? 'asc' : 'desc',
-        sortValue: (row) => row[sortColumn.name as keyof Task],
-        id: (row) => row.id,
-        // undated rows sort last
-        isSortValueNullable: sort.sortBy === 'dueDate',
-      },
-      page,
-    );
-
+    const pager = taskPager(sort, page);
     const rows = this.db
       .select()
       .from(tasks)
-      .where(and(...clauses, pager.after))
+      .where(and(...taskFilterClauses(tasks, filter), pager.after))
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit)
       .all();
@@ -352,6 +274,72 @@ export class TaskService {
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
     return { ...result, items: withListDetails(this.db, result.items) };
+  }
+
+  /**
+   * A page of the task list as a tree, for the tasks pages' list and grouped views. The page holds
+   * `limit` roots in `sort`'s order (tasks matching `filter` whose parent is missing or doesn't
+   * match it), each followed by its matching subtasks at any depth, in tree order with siblings in
+   * `sort`'s order. A subtask whose parent is filtered out is a root, and keeps its parent's
+   * summary. A root with more than `INLINE_SUBTREE_LIMIT` matching subtasks comes alone, with
+   * `subtreeSize`; `listSubtree` loads them. The cursor is the last root's, so a page has `limit`
+   * roots and as many rows as their subtrees add up to.
+   */
+  listTaskTree(
+    filter: TaskFilterOptions = {},
+    sort: TaskSortOptions = { sortBy: 'createdAt' },
+    page: PageOptions = {},
+  ): Page<TaskTreeItem> {
+    const match = taskFilter(tasks, filter);
+    // the row's parent, read against the same filter (typed as the table: see `TasksTable`)
+    const parent = alias(tasks, 'parent') as unknown as typeof tasks;
+    const isRoot = or(
+      isNull(tasks.parentTaskId),
+      notExists(
+        this.db
+          .select({ id: parent.id })
+          .from(parent)
+          .where(and(eq(parent.id, tasks.parentTaskId), taskFilter(parent, filter))),
+      ),
+    );
+    const pager = taskPager(sort, page);
+    const roots = this.db
+      .select()
+      .from(tasks)
+      .where(and(match, isRoot, pager.after))
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit)
+      .all();
+
+    const result = pager.toPage(roots);
+    return {
+      ...result,
+      items: this.withTreeDetails(expandRoots(this.db, result.items, match, sort)),
+    };
+  }
+
+  /**
+   * The matching subtasks of a root that `listTaskTree` sent alone (its `subtreeSize`), at any
+   * depth, in tree order with siblings in `sort`'s order; depths count from the root's own
+   * subtasks (1). The same rows `listTaskTree` would have placed under it.
+   */
+  listSubtree(
+    rootId: TaskId,
+    filter: TaskFilterOptions = {},
+    sort: TaskSortOptions = { sortBy: 'createdAt' },
+  ): TaskTreeItem[] {
+    const root = this.db.select().from(tasks).where(eq(tasks.id, rootId)).get();
+    if (!root) throw new NotFoundError(rootId);
+    return this.withTreeDetails(subtreeRows(this.db, root, taskFilter(tasks, filter), sort));
+  }
+
+  // the list's details on rows placed in the tree, keeping their place
+  private withTreeDetails(rows: TreeRow[]): TaskTreeItem[] {
+    return withListDetails(this.db, rows).map((item, i) => ({
+      ...item,
+      depth: rows[i].depth,
+      subtreeSize: rows[i].subtreeSize,
+    }));
   }
 
   listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<SubtaskListItem> {
