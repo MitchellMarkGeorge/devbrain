@@ -3,16 +3,16 @@
  * and the README's "Lists".
  *
  * A grid of named areas, as TaskRow's: the selection checkbox, the icon, the title with its excerpt,
- * and the right side, 12px apart. The icon, the right side and the checkbox are each optional, so
+ * and the right side, 8px apart. The icon, the right side and the checkbox are each optional, so
  * the space between the parts is on the parts, not a column gap: a part left out then takes no room
- * at all. The checkbox's slot is 28px (the 16px checkbox and the 12px before the icon), so with
- * the 8px padding the icon starts 36px from the row's edge, as a task row's status icon does.
+ * at all. The checkbox's slot is 24px (the 16px checkbox and the 8px before the icon), so with
+ * the 8px padding the icon starts 32px from the row's edge, as a task row's status icon does.
  */
 .row {
   position: relative;
   display: grid;
   grid-template-areas: 'check icon main side';
-  grid-template-columns: 28px auto minmax(0, 1fr) auto;
+  grid-template-columns: 24px auto minmax(0, 1fr) auto;
   align-items: center;
   min-height: var(--row-height);
   padding: 0 var(--space-3) 0 8px;
@@ -68,7 +68,7 @@
 /* the glyph sits in the 24px slot of a task row's status button, so lists line up */
 .icon {
   grid-area: icon;
-  margin-right: var(--space-3);
+  margin-right: var(--space-2);
   display: grid;
   place-items: center;
   width: 24px;
@@ -81,7 +81,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 .title,
 .excerpt {
@@ -103,7 +103,7 @@
 
 .side {
   grid-area: side;
-  margin-left: var(--space-3);
+  margin-left: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: flex-end;

@@ -3,15 +3,15 @@
  * "Lists".
  *
  * A grid of named areas: the selection checkbox, the status icon, the title with its pills, and the
- * right side, 12px apart. With the 8px padding before the 16px checkbox, the status icon starts
- * 36px from the row's edge.
+ * right side, 8px apart. With the 8px padding before the 16px checkbox, the status icon starts
+ * 32px from the row's edge.
  */
 .row {
   --check-inset: 8px;
   --check-slot: 16px;
-  --row-gap: var(--space-3);
+  --row-gap: var(--space-2);
   --status-size: 24px;
-  /* where the status icon starts (36px): the tree's guides are drawn from it */
+  /* where the status icon starts (32px): the tree's guides are drawn from it */
   --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
   position: relative;
   display: grid;
@@ -37,15 +37,15 @@
 .nested {
   /*
    * one level in: the status icon and the gap after it, less the icon's 4px inset around its 16px
-   * glyph, so a subtask's glyph starts exactly where its parent's title does (32px)
+   * glyph, so a subtask's glyph starts exactly where its parent's title does (28px)
    */
   --guide-step: calc(var(--status-size) + var(--row-gap) - 4px);
   /*
    * where a level's line runs: the centre of the status icon at depth 0 (the strip plus half the
-   * icon: 48px)
+   * icon: 44px)
    */
   --guide-start: calc(var(--row-strip) + var(--status-size) / 2);
-  /* how far a line turns right towards a subtask's icon: up to 4px short of it (14px) */
+  /* how far a line turns right towards a subtask's icon: up to 4px short of it (12px) */
   --guide-reach: calc(var(--guide-step) - var(--status-size) / 2 - 4px);
 }
 /* a level in: the status icon moves, the checkbox stays in its column with every other row's */

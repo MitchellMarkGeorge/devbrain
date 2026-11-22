@@ -33,7 +33,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 
 const Label = ({ children }: { children: string }) => (
-  <Text size="xs" tone="subtle" style={{ padding: '12px 0 4px 36px' }}>
+  <Text size="xs" tone="subtle" style={{ padding: '12px 0 4px 32px' }}>
     {children}
   </Text>
 );

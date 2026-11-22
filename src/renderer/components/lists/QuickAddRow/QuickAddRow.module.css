@@ -3,9 +3,10 @@
   display: flex;
   align-items: center;
   /* as a task row's, so what is typed starts where task titles do */
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 36px;
+  /* the icon where a task row's status icon is */
+  padding: 0 var(--space-3) 0 32px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);

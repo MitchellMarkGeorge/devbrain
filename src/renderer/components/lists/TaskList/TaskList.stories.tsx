@@ -252,7 +252,7 @@ function Page({ header, children }: { header: ReactNode; children: ReactNode }) 
         borderRadius: 8,
       }}
     >
-      <div style={{ flex: 'none', padding: '12px 12px 12px 36px' }}>{header}</div>
+      <div style={{ flex: 'none', padding: '12px 12px 12px 32px' }}>{header}</div>
       {children}
     </div>
   );
