@@ -27,28 +27,41 @@ describe('treeOf', () => {
     expect(trees.map((t) => t.open)).toEqual([true, false, true, false, false, false]);
   });
 
-  it('runs a guide on past a row while a later sibling or an ancestor’s subtask follows', () => {
-    // a, a1, a2, a2x, a2y, a3
-    expect(treeOf(rows(0, 1, 1, 2, 2, 1)).map((t) => t.continues)).toEqual([
+  it('gives each row its prefix, as the tree command draws it', () => {
+    // a
+    // ├ a1
+    // ├ a2
+    // │ ├ a2x
+    // │ └ a2y
+    // └ a3
+    //   └ a3x
+    // b
+    expect(treeOf(rows(0, 1, 1, 2, 2, 1, 2, 0)).map((t) => t.cells)).toEqual([
       [],
-      [true], // a2 follows
-      [true], // a3 follows
-      [true, true], // a3 follows at level 1, a2y at level 2
-      [true, false], // the last of a2's
-      [false], // the last of a's
+      ['tee'],
+      ['tee'],
+      ['line', 'tee'],
+      ['line', 'elbow'],
+      ['elbow'],
+      ['none', 'elbow'],
+      [],
     ]);
   });
 
-  it('closes a branch once a row outside it comes', () => {
-    // a, a1, a1x, a2
-    expect(treeOf(rows(0, 1, 2, 1))[2].continues).toEqual([true, false]);
+  it('ends a branch once a shallower row comes, deep or not', () => {
+    // a, a1, a1x, then b: a1 is the last of a's, a1x of a1's
+    expect(treeOf(rows(0, 1, 2, 0)).map((t) => t.cells)).toEqual([
+      [],
+      ['elbow'],
+      ['none', 'elbow'],
+      [],
+    ]);
   });
 
   it('puts a row with no depth at the left', () => {
     const trees = treeOf([{}, { depth: 1 }, {}]);
-    expect(trees.map((t) => t.depth)).toEqual([0, 1, 0]);
+    expect(trees.map((t) => t.cells)).toEqual([[], ['elbow'], []]);
     expect(trees[0].open).toBe(true);
-    expect(trees[1].continues).toEqual([false]);
   });
 });
 
@@ -78,7 +91,7 @@ describe('TaskRow in a tree', () => {
         createElement(TaskRow, {
           task: subtask,
           stack: 'none',
-          tree: { depth: 1, continues: [false], open: false },
+          tree: { depth: 1, cells: ['elbow'], open: false },
         }),
       ),
     );
@@ -94,7 +107,7 @@ describe('TaskRow in a tree', () => {
         createElement(TaskRow, {
           task: subtask,
           stack: 'none',
-          tree: { depth: 0, continues: [], open: false },
+          tree: { depth: 0, cells: [], open: false },
         }),
       ),
     );

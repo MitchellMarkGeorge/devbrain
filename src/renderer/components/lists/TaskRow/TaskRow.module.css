@@ -63,13 +63,13 @@
   left: calc(var(--guide-start) + var(--level) * var(--guide-step));
   border: 0 solid var(--border-strong);
 }
-/* an ancestor's subtasks go on below this row, or this row's own later siblings do */
-.through {
+/* │ an ancestor's line passing by: it has a later sibling below this row */
+.line {
   top: 0;
   bottom: 0;
   border-left-width: 1px;
 }
-/* the last subtask's: from the top of the row, turning into its status icon (└) */
+/* └ the last subtask's: from the top of the row, turning into its status icon */
 .elbow {
   top: 0;
   height: 50%;
@@ -78,14 +78,21 @@
   border-bottom-width: 1px;
   border-bottom-left-radius: 6px;
 }
-/* any other subtask's: off the line running on down, into its status icon (├) */
-.tick {
+/* ├ any other subtask's: the line running on down, and a tick off it into its status icon */
+.tee {
+  top: 0;
+  bottom: 0;
+  border-left-width: 1px;
+}
+.tee::after {
+  content: '';
+  position: absolute;
+  /* from just past the line (inside its border), so the two never overlap */
+  left: 0;
   top: calc(50% - 1px);
   height: 1px;
-  /* from just past the line, so the two never overlap */
   width: calc(var(--guide-reach) - 1px);
-  margin-left: 1px;
-  border-bottom-width: 1px;
+  border-bottom: 1px solid var(--border-strong);
 }
 /* down from the row's own status icon to its first subtask, starting 2px below its glyph */
 .stem {

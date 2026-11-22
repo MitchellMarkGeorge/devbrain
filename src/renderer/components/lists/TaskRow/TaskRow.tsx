@@ -1,7 +1,6 @@
 import {
   Children,
   forwardRef,
-  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -348,27 +347,18 @@ function useAutoStack(
 }
 
 /**
- * The lines joining a nested row to its parents: at its own level a line down from its parent
- * turning into its status icon, rounded on the last sibling (└) and running on down past a tick on
- * the others (├); a straight line at each level above where an ancestor's subtasks go on below;
- * and a stem down from its own status icon when its subtasks are drawn under it. The lines never
- * overlap: the border colour is translucent, so an overlap would draw darker.
+ * The lines joining a nested row to its parents: one per cell of its prefix (`tree.cells`), at that
+ * level's line (the centre of the status icon of the ancestor at that level), and a stem down from
+ * its own status icon when its subtasks are drawn under it. The lines never overlap: the border
+ * colour is translucent, so an overlap would draw darker.
  */
 function TreeGuides({ tree }: { tree: TaskRowTree }) {
   const at = (level: number) => ({ ['--level' as string]: level }) as CSSProperties;
   return (
     <span className={styles.guides} aria-hidden>
-      {tree.continues.map((on, i) => {
-        const level = i + 1;
-        return (
-          <Fragment key={level}>
-            {on && <span className={styles.through} style={at(i)} />}
-            {level === tree.depth && (
-              <span className={on ? styles.tick : styles.elbow} style={at(i)} />
-            )}
-          </Fragment>
-        );
-      })}
+      {tree.cells.map((cell, level) =>
+        cell === 'none' ? null : <span key={level} className={styles[cell]} style={at(level)} />,
+      )}
       {tree.open && <span className={styles.stem} style={at(tree.depth)} />}
     </span>
   );

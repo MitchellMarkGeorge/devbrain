@@ -94,7 +94,7 @@ export const States: Story = {
         })}
       />
       <Label>Subtask, drawn under its parent (TaskList nested)</Label>
-      <TaskRow task={SAMPLE_SUBTASKS[1]} tree={{ depth: 1, continues: [false], open: false }} />
+      <TaskRow task={SAMPLE_SUBTASKS[1]} tree={{ depth: 1, cells: ['elbow'], open: false }} />
     </Stack>
   ),
 };
