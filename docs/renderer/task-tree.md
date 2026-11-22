@@ -41,7 +41,8 @@ indexed column, SQLite would read that index at every step of the walk instead.
 - **Queries** (`features/tasks/api/queries.ts`): the list view is one infinite `taskTreeQuery`;
   each group of the group view is a `groupTasksQuery` over `tasks.tree`, its group's condition
   folded into F, so a subtask grouped apart from its parent is a root in its own group.
-- **`TaskListFrame`** keeps which parents the user has shown or hidden. A parent with its subtasks
+- **`TaskListFrame`** keeps which parents the user has shown or hidden, and drops the choice of a
+  parent once it leaves the list (filtered out, trashed), so it starts afresh if it comes back. A parent with its subtasks
   inline starts shown; a root sent alone starts hidden, and showing it runs `subtreeQuery` for it
   (one `useQueries` over the shown ones). `lib/tree.ts` puts the loaded subtrees in place
   (`withSubtrees`), finds the parents (`parentsIn`: rows followed by a deeper row, and roots sent

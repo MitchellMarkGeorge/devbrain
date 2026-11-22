@@ -80,25 +80,32 @@ export function TaskListFrame({
         : [{ rows: tasks ?? [], input: input ?? {} }],
     [tasks, input, groups],
   );
-  // the roots sent alone that are shown: their subtrees load
-  const expanded = lists.flatMap((list) =>
-    list.rows
-      .filter((row) => row.subtreeSize !== null && chosen.get(row.id) === true)
-      .map((row) => ({ id: row.id, input: list.input })),
+  // the roots sent alone that are shown, each with its list's input: their subtrees load. Kept
+  // the same between renders until the lists or the choices change, so `subtrees` is too
+  const expanded = useMemo(
+    () =>
+      lists.flatMap((list) =>
+        list.rows
+          .filter((row) => row.subtreeSize !== null && chosen.get(row.id) === true)
+          .map((row) => ({ id: row.id, input: list.input })),
+      ),
+    [lists, chosen],
   );
+  // one query per expanded root, in `expanded`'s order; undefined while one loads
   const loadedSubtrees = useQueries({
     queries: expanded.map((root) => subtreeQuery(root.id as TaskId, root.input)),
     combine: subtreeData,
   });
-  const subtreeKey = expanded.map((root) => root.id).join();
+  // each expanded root's loaded rows, by its id
   const subtrees = useMemo(
     () =>
       new Map(
-        subtreeKey
-          .split(',')
-          .flatMap((id, i) => (loadedSubtrees[i] ? [[id, loadedSubtrees[i]!] as const] : [])),
+        expanded.flatMap((root, i) => {
+          const rows = loadedSubtrees[i];
+          return rows ? [[root.id as string, rows] as const] : [];
+        }),
       ),
-    [subtreeKey, loadedSubtrees],
+    [expanded, loadedSubtrees],
   );
 
   // each list with its loaded subtrees in place, then the rows a reader sees
@@ -106,6 +113,17 @@ export function TaskListFrame({
     () => lists.map((list) => withSubtrees(list.rows, subtrees)),
     [lists, subtrees],
   );
+  // The choices of parents no longer in any list (filtered out, trashed, in a subtree folded away)
+  // are dropped once the rows change, so one doesn't come back if that parent shows up again.
+  // Adjusted while rendering, as React suggests for state that follows props, not in an effect.
+  const [prunedFor, setPrunedFor] = useState(trees);
+  if (prunedFor !== trees) {
+    setPrunedFor(trees);
+    const present = new Set(trees.flat().map((row) => row.id as string));
+    if ([...chosen.keys()].some((id) => !present.has(id))) {
+      setChosen(new Map([...chosen].filter(([id]) => present.has(id))));
+    }
+  }
   const parents = useMemo(() => new Set(trees.flatMap((rows) => [...parentsIn(rows)])), [trees]);
   const byId = useMemo(
     () => new Map(trees.flat().map((task) => [task.id as string, task])),

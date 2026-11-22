@@ -195,20 +195,35 @@ export class FakeTasks {
 
   /**
    * `tasks.tree`: the listed tasks as core's tree, each subtask under its parent (in the order
-   * given) and one whose parent is filtered out a root. Every subtree comes inline.
+   * given) and one whose parent is filtered out a root. A root with more than 50 subtasks comes
+   * alone, with `subtreeSize`, as core sends it.
    */
   tree(filter: Filter = {}): TaskTreeItem[] {
     const listed = this.list(filter);
     const ids = new Set(listed.map((task) => task.id as string));
     const out: TaskTreeItem[] = [];
-    const place = (task: TaskListItem, depth: number) => {
-      out.push({ ...task, depth, subtreeSize: null });
-      for (const child of listed) if (child.parentTaskId === task.id) place(child, depth + 1);
-    };
     for (const task of listed) {
-      if (!task.parentTaskId || !ids.has(task.parentTaskId)) place(task, 0);
+      if (task.parentTaskId && ids.has(task.parentTaskId)) continue;
+      const below = this.under(task.id, listed, 1);
+      if (below.length > 50) out.push({ ...task, depth: 0, subtreeSize: below.length });
+      else out.push({ ...task, depth: 0, subtreeSize: null }, ...below);
     }
     return out;
+  }
+
+  /** `tasks.subtree`: a root's listed descendants in tree order, its subtasks at depth 1. */
+  subtree(id: unknown, filter: Filter = {}): TaskTreeItem[] {
+    return this.under(id, this.list(filter), 1);
+  }
+
+  // the tasks under `id` among `listed`, in tree order, from `depth`
+  private under(id: unknown, listed: TaskListItem[], depth: number): TaskTreeItem[] {
+    return listed
+      .filter((task) => task.parentTaskId === id)
+      .flatMap((task) => [
+        { ...task, depth, subtreeSize: null },
+        ...this.under(task.id, listed, depth + 1),
+      ]);
   }
 
   /** `notes.list`: the notes not in the trash, filtered as core does, the newest edit first. */

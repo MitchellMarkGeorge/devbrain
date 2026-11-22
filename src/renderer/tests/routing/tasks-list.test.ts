@@ -73,6 +73,55 @@ describe('the list view', () => {
     expect(app.router.history.length).toBe(length);
   });
 
+  it('starts a parent of more than 50 subtasks folded, and loads them when it is shown', async () => {
+    const parent = fakeTask('tsk_big', 'Migrate every endpoint', {
+      priority: TaskPriority.HIGH,
+      subtaskProgress: { completed: 0, total: 51 },
+    });
+    const subtasks = Array.from({ length: 51 }, (_, n) =>
+      fakeTask(`tsk_big_${n}`, `Endpoint ${n + 1}`, { parentTaskId: parent.id }),
+    );
+    const { main } = tasksPage('', [parent, ...subtasks]);
+    await eventually(() => expect(row('Migrate every endpoint')).toBeDefined());
+    // sent alone: its count shows it folded, and none of its rows is loaded
+    const toggle = () =>
+      row('Migrate every endpoint')!.querySelector<HTMLElement>('[data-subtasks-toggle]')!;
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(row('Endpoint 1')).toBeUndefined();
+    expect(main.callsTo('tasks.subtree')).toHaveLength(0);
+
+    click(toggle());
+    // the list draws only the rows in view: the first of them
+    await eventually(() => expect(row('Endpoint 1')).toBeDefined());
+    expect(main.callsTo('tasks.subtree')[0].input).toMatchObject({ id: 'tsk_big' });
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('forgets a parent’s folded subtasks once it leaves the list', async () => {
+    const parent = fakeTask('tsk_parent', 'Ship the release', {
+      priority: TaskPriority.HIGH,
+      subtaskProgress: { completed: 0, total: 1 },
+    });
+    const child = fakeTask('tsk_child', 'Write the notes', { parentTaskId: parent.id });
+    const { app, main } = tasksPage('', [parent, child]);
+    await eventually(() => expect(row('Write the notes')).toBeDefined());
+    // folded
+    click(row('Ship the release')!.querySelector('[data-subtasks-toggle]'));
+    await eventually(() => expect(row('Write the notes')).toBeUndefined());
+
+    // to the trash and back: the list drops it, then has it again
+    row('Ship the release')!.focus();
+    key(row('Ship the release')!, 'x');
+    await eventually(() => expect(app.text()).toContain('1 selected'));
+    key(document.activeElement!, 'Backspace', { metaKey: true });
+    await eventually(() => expect(main.callsTo('archive.archiveTask')).toHaveLength(1));
+    await eventually(() => expect(row('Ship the release')).toBeUndefined());
+    click(byText(document.body, 'button', 'Undo'));
+    await eventually(() => expect(row('Ship the release')).toBeDefined());
+    // its subtasks show, as a parent's do at first
+    await eventually(() => expect(row('Write the notes')).toBeDefined());
+  });
+
   it('sets the status from the keyboard, at once', async () => {
     const { main } = tasksPage();
     await eventually(() => expect(row('Plan the launch')).toBeDefined());

@@ -344,7 +344,7 @@ export class FakeMain {
         return [page(items), []];
       }
       case 'tasks.subtree':
-        return [[], []];
+        return [store.subtree(args.id, (args.filter ?? {}) as never), []];
       case 'tasks.get': {
         // as core: a task in the trash too
         const found = store.tasks.find((t) => t.id === args.id);
