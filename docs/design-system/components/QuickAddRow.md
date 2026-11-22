@@ -1,6 +1,6 @@
 # QuickAddRow
 
-The inline "Add task…" row that ends a list group (or a board column), on a task row's 48px anatomy.
+The inline "Add task…" row that ends a list group (or a board column), on a task row's 48px anatomy: a grid of named areas as `TaskRow`'s less the checkbox (`icon`, `input`, `side`, 8px apart), its 24px icon slot 32px from the edge where a task's status icon sits, so what is typed starts where task titles do.
 
 - **Placeholder.** A 16px "+" in the status slot and "Add task…" in `subtle-foreground`. Clicking it puts the caret in the row.
 - **Typing.** The row takes the focused-row look (the `row-selected` tint and a 1px `ring` outline), the "+" becomes the not-started status icon, and on the right show the pills the new task inherits from its group (`children`: its project, event or note), its default priority and due date ("Today" in `date-today`), and a `Kbd` "↵".

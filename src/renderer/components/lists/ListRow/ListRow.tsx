@@ -24,7 +24,7 @@ export interface ListRowProps extends Omit<ComponentProps<'div'>, 'title' | 'onS
   meta?: ReactNode;
   /** buttons after the meta text that show while the row is pointed at or focused (Restore, Delete) */
   actions?: ReactNode;
-  /** the width the meta text is aligned in, so columns line up from row to row (default 64px) */
+  /** the width the meta text is aligned in, so columns line up from row to row (default 60px, as a task row's date) */
   metaWidth?: number;
   /** the row is selected */
   selected?: boolean;
@@ -63,7 +63,7 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
     excerpt,
     children,
     meta,
-    metaWidth = 64,
+    metaWidth = 60,
     actions,
     selected,
     selecting,

@@ -6,11 +6,16 @@ import { EntityPill } from '../../entities/EntityPill';
 import { ProjectStatus, type Project } from '@common/types';
 import { PROJECT_STATUS_LABELS, ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
 import { useFormat } from '../../lib/format';
-import { dateTone } from '../../types';
+import { PillHoverCard } from '../../entities/EntityHoverCard';
+import { SourcePill } from '../../entities/SourcePill';
+import { dateTone, PROVIDER_LABELS, providerOf } from '../../types';
 import styles from './ProjectHeader.module.css';
 
 /** The fields of core's `Project` the header reads. */
-export type ProjectHeaderData = Pick<Project, 'title' | 'status' | 'startDate' | 'dueDate'>;
+export type ProjectHeaderData = Pick<
+  Project,
+  'title' | 'status' | 'startDate' | 'dueDate' | 'external'
+>;
 
 export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
   /**
@@ -42,7 +47,7 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
 
 /**
  * The top of a project's overview, as a document's: the project's tile, the name (30px), its
- * properties as pills (status, start → due) with how long is left, then the description.
+ * properties as pills (where a synced project comes from, status, start → due) with how long is left, then the description.
  */
 export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(function ProjectHeader(
   {
@@ -61,7 +66,9 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
 ) {
   const titleId = useId();
   const { now, formatDate } = useFormat();
-  const { status, startDate, dueDate } = project;
+  const { status, startDate, dueDate, external } = project;
+  // a project synced from Linear says so first, as its row in the Projects list does
+  const provider = external ? providerOf(external) : undefined;
   const dueTone = dateTone(dueDate, now, status === ProjectStatus.COMPLETED);
   return (
     <div ref={ref} aria-labelledby={titleId} className={cn(styles.header, className)} {...props}>
@@ -70,6 +77,13 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
         {title ?? <EditorTitle size="lg">{project.title}</EditorTitle>}
       </div>
       <div className={styles.properties}>
+        {external && (
+          <PillHoverCard target={{ type: 'source', title: project.title, external }}>
+            <SourcePill provider={provider}>
+              {provider ? PROVIDER_LABELS[provider] : 'Synced'}
+            </SourcePill>
+          </PillHoverCard>
+        )}
         {statusPill ?? (
           <EntityPill glyph={<ProjectStatusIcon status={status} size={12} />}>
             {PROJECT_STATUS_LABELS[status]}

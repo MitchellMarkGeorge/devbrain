@@ -6,7 +6,7 @@ progress, or else the next to start. A `card` with the `edge` outline, `radius-l
 - the heading, "Up next" or "Now" while it runs (12px `muted-foreground`);
 - the calendar's `ColourBar` and the title (14px medium `foreground-strong`, cut with "…");
 - how soon it starts and its time (12px `subtle-foreground`): "In 14m · 9:00 – 10:00 AM", the
-  countdown in `date-today` from an hour before (`eventCountdown`, as `EventRow` words it);
+  countdown in `date-today` from an hour before (`eventCountdown`);
 - "Join" (an outline xs button with the video icon) when the event has a meeting link.
 
 With `onOpen`, the title is a button that opens the event, and its click area and focus ring cover

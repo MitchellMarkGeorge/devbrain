@@ -64,6 +64,9 @@ A Linear project comes in with its name, description, start and target dates, an
 status maps to **Not started** (Backlog, Planned), **Active** (Started), **On hold** (Paused) or
 **Completed** (Completed, Canceled).
 
+In the Projects list and at the top of its page, a synced project shows a **Linear** pill. Point at
+it to see when it last synced.
+
 When none of your issues are in a project any more, or it's deleted in Linear, it leaves DevBrain.
 If you've put your own tasks in it, it stays instead, as a local project of yours.
 

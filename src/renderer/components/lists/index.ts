@@ -1,6 +1,5 @@
 // The lists components. One line per folder in this directory; keep it sorted.
 export * from './DraftTaskRow';
-export * from './EventRow';
 export * from './GroupHeading';
 export * from './LinkedTaskRow';
 export * from './ListRow';

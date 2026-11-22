@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { LinkState, Provider } from '@common/types';
+import { storyAgo } from '../../lib/story-dates';
 import { AUTH_OVERHAUL, SAMPLE_PROJECTS } from '../../projects/ProjectCard/fixtures';
 import { ProjectRow } from './ProjectRow';
 
@@ -30,4 +32,27 @@ export const Statuses: Story = {
       ))}
     </div>
   ),
+};
+
+/** A project synced from Linear shows where it comes from right after its name, as a task's key. */
+export const Synced: Story = {
+  args: {
+    project: {
+      ...AUTH_OVERHAUL.project,
+      external: {
+        provider: Provider.LINEAR,
+        state: LinkState.SYNCED,
+        key: null,
+        url: 'https://linear.app/devbrain/project/auth-overhaul',
+        statusLabel: 'In Progress',
+        priorityLabel: null,
+        lastSyncedAt: storyAgo(3),
+      },
+    },
+  },
+};
+
+/** Without a due date the date column reads "No date". */
+export const NoDate: Story = {
+  args: { project: { ...AUTH_OVERHAUL.project, dueDate: null } },
 };

@@ -15,13 +15,22 @@ export interface TaskRowSkeletonProps extends Omit<ComponentProps<'div'>, 'child
 export function TaskRowSkeleton({ titleWidth = 240, className, ...props }: TaskRowSkeletonProps) {
   return (
     <div aria-hidden className={cn(styles.row, className)} {...props}>
-      <Skeleton width={16} height={16} />
-      <Skeleton className={styles.line} width={titleWidth} />
-      <Skeleton className={styles.line} width={48} />
-      <span className={styles.spacer} />
-      <Skeleton className={styles.pill} width={104} />
-      <Skeleton className={styles.line} width={16} />
-      <Skeleton className={styles.line} width={40} />
+      <span className={styles.status}>
+        <Skeleton width={16} height={16} />
+      </span>
+      <span className={styles.title}>
+        <Skeleton className={styles.line} width={titleWidth} />
+        <Skeleton className={styles.line} width={48} />
+      </span>
+      <span className={styles.side}>
+        <Skeleton className={styles.pill} width={104} />
+        <span className={styles.priority}>
+          <Skeleton className={styles.line} width={16} />
+        </span>
+        <span className={styles.date}>
+          <Skeleton className={styles.line} width={40} />
+        </span>
+      </span>
     </div>
   );
 }

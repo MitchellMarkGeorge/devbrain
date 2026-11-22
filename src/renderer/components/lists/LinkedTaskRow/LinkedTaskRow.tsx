@@ -4,7 +4,7 @@ import { StatusIcon } from '../../entities/StatusIcon';
 import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
 import type { Task, TaskStatus } from '@common/types';
 import { useFormat } from '../../lib/format';
-import { dueTone, isSynced, TASK_STATUS_LABELS } from '../../types';
+import { dueTone, isSynced, NO_DATE_LABEL, TASK_STATUS_LABELS } from '../../types';
 import styles from './LinkedTaskRow.module.css';
 
 /** The fields of core's `Task` the row reads. */
@@ -79,11 +79,12 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
         />
       )}
       <span className={styles.title}>{task.title}</span>
-      {task.dueDate && (
-        <span className={styles.date} data-tone={dueTone(shown, task.dueDate, now)}>
-          {formatListDate(task.dueDate)}
-        </span>
-      )}
+      <span
+        className={styles.date}
+        data-tone={task.dueDate ? dueTone(shown, task.dueDate, now) : undefined}
+      >
+        {task.dueDate ? formatListDate(task.dueDate) : NO_DATE_LABEL}
+      </span>
     </div>
   );
 });
