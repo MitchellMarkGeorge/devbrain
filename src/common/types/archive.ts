@@ -52,6 +52,17 @@ export interface TrashSelection {
 }
 
 /**
+ * What moving a selection to the trash would take along besides the rows chosen, read before
+ * asking (`archive.previewArchive`): the subtasks of chosen tasks, a chosen project's tasks, and
+ * the notes linked to any of them or to the project. Rows already in the trash are left out.
+ */
+export interface ArchivePreview {
+  // by title
+  tasks: { id: TaskId; title: string; status: TaskStatus }[];
+  notes: { id: NoteId; title: string }[];
+}
+
+/**
  * What `archive.restoreMany` brought back: the rows chosen and every row their cascades restored
  * (a project's tasks and notes, a task's subtree and notes).
  */

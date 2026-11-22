@@ -7,6 +7,7 @@ import {
   type ArchivableEntityType,
   type ArchivableId,
   type ArchivedEntity,
+  type ArchivePreview,
   type EmptyTrashResult,
   type RestoreResult,
   type TrashSelection,
@@ -312,6 +313,52 @@ export class ArchiveService {
         .get();
       this.changes.emit({ type: 'restored', taskIds: [], projectIds: [], noteIds: [id] });
       return note;
+    });
+  }
+
+  /**
+   * What archiving `selection` (archiveTask/archiveTasks, archiveProject and archiveNote together)
+   * would take along besides the rows chosen: each chosen task's subtree, each chosen project's
+   * tasks, and the notes linked to any of those tasks or to a chosen project. Rows already in the
+   * trash, and the rows chosen, are left out. Reads only; unknown ids add nothing.
+   */
+  previewArchive(selection: TrashSelection): ArchivePreview {
+    const taskIds = [...new Set(selection.taskIds)];
+    const projectIds = [...new Set(selection.projectIds)];
+    const chosen = new Set<string>([...taskIds, ...projectIds, ...selection.noteIds]);
+    if (taskIds.length + projectIds.length === 0) return { tasks: [], notes: [] };
+    return this.db.transaction((tx) => {
+      const taskConditions = [
+        taskIds.length > 0 ? inArray(tasks.id, subtreeOfAll(taskIds)) : undefined,
+        projectIds.length > 0 ? inArray(tasks.projectId, projectIds) : undefined,
+      ].filter((condition) => condition !== undefined);
+      // every task the archive stamps, chosen or not, since their notes go along too
+      const stamped = tx
+        .select({ id: tasks.id, title: tasks.title, status: tasks.status })
+        .from(tasks)
+        .where(and(or(...taskConditions), isNull(tasks.archivedAt)))
+        .orderBy(tasks.title)
+        .all();
+      const stampedIds = stamped.map((task) => task.id);
+
+      const noteConditions = [
+        stampedIds.length > 0 ? inArray(notes.linkedTaskId, stampedIds) : undefined,
+        projectIds.length > 0 ? inArray(notes.projectId, projectIds) : undefined,
+      ].filter((condition) => condition !== undefined);
+      const linkedNotes =
+        noteConditions.length === 0
+          ? []
+          : tx
+              .select({ id: notes.id, title: notes.title })
+              .from(notes)
+              .where(and(or(...noteConditions), isNull(notes.archivedAt)))
+              .orderBy(notes.title)
+              .all();
+
+      return {
+        tasks: stamped.filter((task) => !chosen.has(task.id)),
+        notes: linkedNotes.filter((note) => !chosen.has(note.id)),
+      };
     });
   }
 

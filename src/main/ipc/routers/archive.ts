@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { EmptyTrashResult, RestoreResult } from '@common/types';
+import type { ArchivePreview, EmptyTrashResult, RestoreResult } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -35,6 +35,18 @@ export const archiveRouter = t.router({
   archiveTasks: wsProcedure
     .input(z.object({ ids: z.array(zId('task')).min(1) }))
     .mutation(({ ctx, input }) => ctx.workspace.archive.archiveTasks(input.ids)),
+
+  // what moving the rows chosen to the trash would take along (subtasks, a project's tasks, linked
+  // notes), shown in the confirmation before it; reads only
+  previewArchive: wsProcedure
+    .input(
+      z.object({
+        taskIds: z.array(zId('task')),
+        projectIds: z.array(zId('project')),
+        noteIds: z.array(zId('note')),
+      }),
+    )
+    .query(({ ctx, input }): ArchivePreview => ctx.workspace.archive.previewArchive(input)),
 
   restoreTask: wsProcedure
     .input(taskId)
