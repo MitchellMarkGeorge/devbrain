@@ -12,7 +12,6 @@
   gap: 10px;
   min-height: var(--row-height);
   padding: 0 var(--space-3) 0 var(--row-strip);
-  border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -32,19 +31,18 @@
    */
   --guide-step: calc(var(--status-size) + 10px - 4px);
   /*
-   * where a level's line runs: the centre of the status icon at depth 0, from the row's padding
-   * edge, where the guides are placed (the strip, less the icon's 1px pull past the border, plus
-   * half the icon: 47px)
+   * where a level's line runs: the centre of the status icon at depth 0 (the strip plus half the
+   * icon: 48px)
    */
-  --guide-start: calc(var(--row-strip) - 1px + var(--status-size) / 2);
+  --guide-start: calc(var(--row-strip) + var(--status-size) / 2);
   /* how far a line turns right towards a subtask's icon: up to 4px short of it (14px) */
   --guide-reach: calc(var(--guide-step) - var(--status-size) / 2 - 4px);
   padding-left: calc(var(--row-strip) + var(--depth, 0) * var(--guide-step));
 }
 .guides {
   position: absolute;
-  /* the row's full height, past its 1px border, so the lines of neighbouring rows meet */
-  inset: -1px auto -1px 0;
+  /* the row's full height, so the lines of neighbouring rows meet */
+  inset: 0 auto 0 0;
   pointer-events: none;
 }
 .guides > * {
@@ -125,11 +123,14 @@
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
-/* keyboard focus: the hover tint, outlined with the ring colour (a 1px line, no halo) */
+/*
+ * keyboard focus: the hover tint, outlined with the ring colour (a 1px line, no halo). An inset
+ * shadow, as the app's other focus rings are shadows: it takes no room, so the row needs no border
+ */
 .row:focus-visible,
 .row[data-state='focus'] {
   z-index: 1;
-  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
 }
 
 /*
@@ -139,7 +140,7 @@
 .check {
   position: absolute;
   top: 50%;
-  left: 8px;
+  left: 9px;
   margin-top: -8px;
   display: none;
 }
@@ -159,8 +160,6 @@
   place-items: center;
   width: var(--status-size);
   height: var(--status-size);
-  /* 36px from the row's outer edge, past its 1px border */
-  margin-left: -1px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
