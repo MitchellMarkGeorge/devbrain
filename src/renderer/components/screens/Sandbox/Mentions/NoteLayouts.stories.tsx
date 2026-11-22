@@ -153,7 +153,7 @@ export const HeaderPills: Story = {
   ),
 };
 
-type SheetView = 'tasks' | 'mentions';
+type Tab = 'tasks' | 'mentions';
 
 /** A header pill that opens a view in the sheet; filled while its view is open. */
 function SheetPill({
@@ -180,9 +180,13 @@ function SheetPill({
   );
 }
 
-function NoteWithSheet({ initial }: { initial: SheetView }) {
-  const [view, setView] = useState<SheetView | null>(initial);
-  const toggle = (next: SheetView) => setView(view === next ? null : next);
+/**
+ * The note page with its tasks-and-mentions sheet: either header pill opens the one sheet, which
+ * holds the note's Tasks and then its Mentioned in. Both pills stay filled while it's open; either
+ * closes it again.
+ */
+function NoteWithSheet() {
+  const [open, setOpen] = useState(true);
   return (
     <DetailScreen page="Notes" title={ADR_TITLE}>
       <NoteHead
@@ -190,18 +194,10 @@ function NoteWithSheet({ initial }: { initial: SheetView }) {
         pills={
           <>
             {projectPill}
-            <SheetPill
-              glyph={CircleCheck}
-              active={view === 'tasks'}
-              onClick={() => toggle('tasks')}
-            >
+            <SheetPill glyph={CircleCheck} active={open} onClick={() => setOpen(!open)}>
               2 tasks · 1 in progress
             </SheetPill>
-            <SheetPill
-              glyph={AtSign}
-              active={view === 'mentions'}
-              onClick={() => toggle('mentions')}
-            >
+            <SheetPill glyph={AtSign} active={open} onClick={() => setOpen(!open)}>
               {ADR_MENTIONS.length} mentions
             </SheetPill>
           </>
@@ -209,11 +205,27 @@ function NoteWithSheet({ initial }: { initial: SheetView }) {
       />
       <Body />
       <DockedSheet
-        open={view != null}
-        onOpenChange={(open) => !open && setView(null)}
-        header={<SheetHeader>{view === 'tasks' ? 'Tasks' : 'Mentioned in'}</SheetHeader>}
+        open={open}
+        onOpenChange={setOpen}
+        header={<SheetHeader>Tasks and mentions</SheetHeader>}
       >
-        {view === 'mentions' && (
+        <DetailSection
+          title="Tasks"
+          count={2}
+          action={
+            <>
+              <Button size="xs" variant="ghost">
+                Link
+              </Button>
+              <Button size="xs" icon={Plus}>
+                New
+              </Button>
+            </>
+          }
+        >
+          <TaskRows />
+        </DetailSection>
+        <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
           <MentionList
             selfLabel="this note"
             mentions={ADR_MENTIONS}
@@ -221,43 +233,24 @@ function NoteWithSheet({ initial }: { initial: SheetView }) {
             wrap
             limit={50}
           />
-        )}
-        {view === 'tasks' && (
-          <>
-            <TaskRows />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button size="xs" icon={Plus}>
-                New Task
-              </Button>
-              <Button size="xs" variant="ghost">
-                Link Task
-              </Button>
-            </div>
-          </>
-        )}
+        </DetailSection>
       </DockedSheet>
     </DetailScreen>
   );
 }
 
 /**
- * B in the sheet: the header pills open their list in the docked sheet beside the note, rather
- * than a popover. The open pill stays filled; clicking it again closes the sheet. A row opens its
- * item in the same sheet.
+ * B with a sheet: the header pills open one sheet just for the note's tasks and mentions, docked
+ * beside it, rather than a popover. A row opens its item in the sheet.
  */
-export const HeaderPillsSheetMentions: Story = {
-  name: 'B – Header pills, mentions in the sheet',
-  render: () => <NoteWithSheet initial="mentions" />,
-};
-
-export const HeaderPillsSheetTasks: Story = {
-  name: 'B – Header pills, tasks in the sheet',
-  render: () => <NoteWithSheet initial="tasks" />,
+export const HeaderPillsSheet: Story = {
+  name: 'B – Header pills, tasks and mentions sheet',
+  render: () => <NoteWithSheet />,
 };
 
 function FooterTabs() {
-  const [open, setOpen] = useState<SheetView | null>('mentions');
-  const toggle = (tab: SheetView) => setOpen(open === tab ? null : tab);
+  const [open, setOpen] = useState<Tab | null>('mentions');
+  const toggle = (tab: Tab) => setOpen(open === tab ? null : tab);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
       <SheetDivider />
