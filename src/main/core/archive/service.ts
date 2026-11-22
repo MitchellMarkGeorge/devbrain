@@ -85,9 +85,9 @@ export class ArchiveService {
 
       // the task, its whole subtree (a local task's subtasks, or the deeper subtree a detached
       // task carried over from Linear), and the notes linked to any of them
-      const stamped = stampArchived(tx, archiveCascade(tx, { taskIds: [id], projectIds: [] }));
-      this.changes.emit({ type: 'archived', projectIds: [], ...stamped.ids });
-      const [task] = stamped.tasks.filter((t) => t.id === id);
+      const archived = applyArchivePlan(tx, planArchive(tx, { taskIds: [id], projectIds: [] }));
+      this.changes.emit({ type: 'archived', projectIds: [], ...archived.ids });
+      const [task] = archived.tasks.filter((t) => t.id === id);
       return withExternalRef(tx, task);
     });
   }
@@ -120,9 +120,12 @@ export class ArchiveService {
         assertEditable(tx, id);
       }
 
-      const stamped = stampArchived(tx, archiveCascade(tx, { taskIds: uniqueIds, projectIds: [] }));
-      this.changes.emit({ type: 'archived', projectIds: [], ...stamped.ids });
-      const byId = new Map(stamped.tasks.map((task) => [task.id, task]));
+      const archived = applyArchivePlan(
+        tx,
+        planArchive(tx, { taskIds: uniqueIds, projectIds: [] }),
+      );
+      this.changes.emit({ type: 'archived', projectIds: [], ...archived.ids });
+      const byId = new Map(archived.tasks.map((task) => [task.id, task]));
       return withExternalRefs(
         tx,
         uniqueIds.map((id) => byId.get(id)!),
@@ -180,8 +183,12 @@ export class ArchiveService {
         .returning()
         .get();
       // its tasks (and subtasks), and its notes and those linked to its tasks (task notes)
-      const stamped = stampArchived(tx, archiveCascade(tx, { taskIds: [], projectIds: [id] }), now);
-      this.changes.emit({ type: 'archived', projectIds: [id], ...stamped.ids });
+      const archived = applyArchivePlan(
+        tx,
+        planArchive(tx, { taskIds: [], projectIds: [id] }),
+        now,
+      );
+      this.changes.emit({ type: 'archived', projectIds: [id], ...archived.ids });
       return withExternalRef(tx, project);
     });
   }
@@ -272,10 +279,10 @@ export class ArchiveService {
       ...selection.noteIds,
     ]);
     // one read, so the rows come from the same snapshot
-    const cascade = this.db.transaction((tx) => archiveCascade(tx, selection));
+    const plan = this.db.transaction((tx) => planArchive(tx, selection));
     return {
-      tasks: cascade.tasks.filter((task) => !chosen.has(task.id)),
-      notes: cascade.notes.filter((note) => !chosen.has(note.id)),
+      tasks: plan.tasks.filter((task) => !chosen.has(task.id)),
+      notes: plan.notes.filter((note) => !chosen.has(note.id)),
     };
   }
 
@@ -739,17 +746,21 @@ function assertInTrash(tx: Transaction, table: ArchivableTable, ids: ArchivableI
   }
 }
 
+// What an archive will stamp: the tasks and notes, by title, including the tasks chosen. The same
+// shape as the preview, which is the plan without the rows chosen.
+type ArchivePlan = ArchivePreview;
+
 /**
- * The rows archiving these tasks and projects stamps, by title: each task's subtree, each project's
+ * Plans archiving these tasks and projects, reading only: each task's subtree, each project's
  * tasks, and the notes linked to any of those tasks or to a project. Rows already in the trash are
  * left out (they keep when they were trashed). The one place that decides what an archive takes
- * along: archiveTask, archiveTasks and archiveProject stamp these rows, and previewArchive lists
- * them before the user confirms.
+ * along: archiveTask, archiveTasks and archiveProject apply the plan (applyArchivePlan), and
+ * previewArchive lists it before the user confirms.
  */
-function archiveCascade(
+function planArchive(
   tx: Transaction,
   { taskIds, projectIds }: Pick<TrashSelection, 'taskIds' | 'projectIds'>,
-): ArchivePreview {
+): ArchivePlan {
   const taskConditions = [
     taskIds.length > 0 ? inArray(tasks.id, subtreeOfAll(taskIds)) : undefined,
     projectIds.length > 0 ? inArray(tasks.projectId, projectIds) : undefined,
@@ -780,16 +791,16 @@ function archiveCascade(
 }
 
 /**
- * Stamps the rows of an `archiveCascade` with `now`. Returns the tasks as archived, and the ids
- * stamped, for the `archived` change.
+ * Carries out a `planArchive` in the same transaction: stamps its tasks and notes with `now`.
+ * Returns the tasks as archived, and the ids stamped, for the `archived` change.
  */
-function stampArchived(
+function applyArchivePlan(
   tx: Transaction,
-  cascade: ArchivePreview,
+  plan: ArchivePlan,
   now = new Date(),
 ): { tasks: (typeof tasks.$inferSelect)[]; ids: Omit<ArchiveChangedIds, 'projectIds'> } {
-  const taskIds = cascade.tasks.map((task) => task.id);
-  const noteIds = cascade.notes.map((note) => note.id);
+  const taskIds = plan.tasks.map((task) => task.id);
+  const noteIds = plan.notes.map((note) => note.id);
   const stamped =
     taskIds.length === 0
       ? []
