@@ -64,7 +64,7 @@ export class Workspace {
   readonly favorites: FavoritesService;
   readonly recents: RecentsService;
   readonly search: SearchService;
-  // what mentions each item, kept in step with every save like search (startMentions builds it)
+  // what mentions each item, kept in step with every save like search (startIndexes builds it)
   readonly mentions: MentionService;
   // importing tasks and notes from files, and exporting them (docs/import-export.md)
   readonly transfer: TransferService;
@@ -357,16 +357,19 @@ export class Workspace {
   }
 
   /**
-   * Builds the mentions index in the background if it has never been built: on the first open
-   * after mentions were added, every note's file is read once, for the links written before then.
-   * Every later open finds it built and reads nothing. Called by WorkspaceService.open, like
-   * sync.start.
+   * Builds, in the background, each index derived from the workspace's content (search, mentions)
+   * that has never been built: on the first open after it was added, or after a migration that
+   * changed it, every note's file is read once, for what was saved before then. Every later open
+   * finds them built and reads nothing; saves keep them in step. Called by WorkspaceService.open,
+   * like sync.start.
    */
-  startMentions(): void {
-    if (this.mentions.isBuilt()) return;
-    this.mentions
-      .rebuild()
-      .catch((error) => console.error(`Building mentions failed error=${errorClass(error)}`));
+  startIndexes(): void {
+    const build = (name: string, rebuild: () => Promise<unknown>) =>
+      rebuild().catch((error) =>
+        console.error(`Building the ${name} index failed error=${errorClass(error)}`),
+      );
+    if (!this.search.isBuilt()) build('search', () => this.search.rebuild());
+    if (!this.mentions.isBuilt()) build('mentions', () => this.mentions.rebuild());
   }
 
   /**

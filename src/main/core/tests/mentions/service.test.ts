@@ -189,7 +189,7 @@ describe('MentionService', () => {
     clearIndex();
     expect(workspace.mentions.isBuilt()).toBe(false);
 
-    workspace.startMentions();
+    workspace.startIndexes();
     await workspace.mentions.whenIdle();
     expect(workspace.mentions.isBuilt()).toBe(true);
     expect(mentionsOf(target.id)).toEqual([[note.id, '', '']]);
@@ -197,7 +197,7 @@ describe('MentionService', () => {
     // built: a later start reads nothing, even with no mentions left at all
     clearIndex();
     const read = vi.spyOn(workspace.notes, 'readContent');
-    workspace.startMentions();
+    workspace.startIndexes();
     await workspace.mentions.whenIdle();
     expect(read).not.toHaveBeenCalled();
     expect(mentionsOf(target.id)).toEqual([]);

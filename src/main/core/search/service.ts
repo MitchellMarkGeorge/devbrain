@@ -3,6 +3,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
 import { errorClass } from '../shared/logger';
+import { isIndexBuilt, markIndexBuilt } from '../shared/index-builds';
 import { readNoteFile } from '../local/notes';
 import {
   type Event,
@@ -265,8 +266,17 @@ export class SearchService {
    * except those whose provider item was removed. The old entries are replaced in one transaction,
    * once the note files are read, so searches see the old index until then. A note whose content a
    * write indexed meanwhile keeps that entry; one whose file can't be read is left out and
-   * reported.
+   * reported. Marks the index built (isBuilt) in the same transaction.
    */
+  /**
+   * Whether a rebuild has ever finished in this workspace. Until one has (a workspace from before
+   * `index_builds`, or after a migration that changed the index), items saved earlier may be
+   * missing from search; after it, saves keep the index in step.
+   */
+  isBuilt(): boolean {
+    return isIndexBuilt(this.db, 'search');
+  }
+
   async rebuild(): Promise<RebuildResult> {
     return this.withNoteFiles(undefined, ({ bodies, unreadable, written }) => {
       const entities: IndexEntity[] = [
@@ -297,6 +307,7 @@ export class SearchService {
       for (let i = 0; i < entities.length; i += INSERT_CHUNK) {
         this.db.run(insertQuery(entities.slice(i, i + INSERT_CHUNK)));
       }
+      markIndexBuilt(this.db, 'search');
       const [[indexed]] = this.db.values<[number]>(sql`SELECT count(*) FROM search_index`);
       return { indexed, unreadableNoteIds: unreadable };
     });

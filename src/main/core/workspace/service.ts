@@ -359,7 +359,7 @@ export class WorkspaceService {
         };
         this.writeWorkspaceFile(workspaces);
         workspace.sync.start();
-        workspace.startMentions();
+        workspace.startIndexes();
         this.current = workspace;
       } catch (error) {
         await workspace.close();

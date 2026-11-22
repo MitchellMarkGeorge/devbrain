@@ -1,6 +1,5 @@
 import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
 import type { Mention, MentionSource, MentionSourceId, MentionTargetId } from '@common/types';
-import { indexBuilds } from '@main/db/schema/index-builds';
 import { mentions } from '@main/db/schema/mentions';
 import { notes } from '@main/db/schema/notes';
 import { projects } from '@main/db/schema/projects';
@@ -9,6 +8,7 @@ import { and, eq, inArray, isNull, notInArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { NoteService } from '../notes/service';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import { isIndexBuilt, markIndexBuilt } from '../shared/index-builds';
 import { errorClass, type Logger } from '../shared/logger';
 import { extractMentions, type ExtractedMention } from './extract';
 
@@ -177,13 +177,7 @@ export class MentionService {
    * mentions), links saved earlier aren't indexed; after it, saves keep the index in step.
    */
   isBuilt(): boolean {
-    return (
-      this.db
-        .select({ name: indexBuilds.name })
-        .from(indexBuilds)
-        .where(eq(indexBuilds.name, 'mentions'))
-        .all().length > 0
-    );
+    return isIndexBuilt(this.db, 'mentions');
   }
 
   /**
@@ -257,11 +251,7 @@ export class MentionService {
             .values(rows.slice(i, i + INSERT_CHUNK))
             .run();
         }
-        const builtAt = new Date();
-        tx.insert(indexBuilds)
-          .values({ name: 'mentions', builtAt })
-          .onConflictDoUpdate({ target: indexBuilds.name, set: { builtAt } })
-          .run();
+        markIndexBuilt(tx, 'mentions');
         return tx.select({ id: mentions.sourceId }).from(mentions).all().length;
       });
     } finally {
