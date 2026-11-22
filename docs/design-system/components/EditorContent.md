@@ -13,7 +13,7 @@ The note editor's block styles, for whichever editor library DevBrain adopts: wr
 - **Collapsible sections** (Tiptap's details markup, `<details>` in the note): a 20px chevron button in `muted-foreground` (`accent` on hover) that turns down when open, then the summary in medium `foreground-strong` with the body 4px under it, hidden while closed.
 - **Sub- and superscript** at 0.75em; keys (`<kbd>`) are the `Kbd` component.
 - **Unsupported HTML**, shown as its source text, in mono `muted-foreground`.
-- **Selection**: a selected block (a divider, a section) has a 2px `ring` outline at 50%.
+- **Selection**: a selected block (a divider, a section) has a 2px `ring` outline at 50%. A pill selected as a node takes the focus ring; in forced colours, which drops its shadow, a 2px `Highlight` outline.
 - **Placeholders**: an empty block with `data-placeholder` shows it in `subtle-foreground` ("Start writing, or press / for commands…", "Press / for commands…", "Heading 2").
 
 The rich-text editor itself is not part of the design system yet; the floating chrome around it is (`FormatToolbar`, `LinkToolbar`, `TurnIntoMenu`, `ColourMenu`, `SlashMenu`, `MentionMenu`).
