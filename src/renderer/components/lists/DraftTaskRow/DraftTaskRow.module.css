@@ -1,8 +1,14 @@
 /* Tasks drafted in a create dialog. See docs/design-system/components/DraftTaskRow.md */
+/*
+ * A grid of named areas, as the list rows': the status icon, the title, and the remove button,
+ * 8px apart. Without `onRemove` the last column takes no room.
+ */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-areas: 'status title remove';
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
+  column-gap: var(--space-2);
   min-width: 0;
   height: var(--control-md);
   padding: 0 var(--space-1) 0 var(--space-2);
@@ -17,10 +23,13 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .row > svg {
-  flex: none;
+  grid-area: status;
+}
+.remove {
+  grid-area: remove;
 }
 .title {
-  flex: 1;
+  grid-area: title;
   min-width: 0;
   overflow: hidden;
   color: var(--foreground);

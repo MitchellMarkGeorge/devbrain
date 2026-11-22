@@ -56,8 +56,8 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
       }}
       {...props}
     >
+      <ColourBar color={color} height={20} className={styles.bar} />
       <div className={styles.main}>
-        <ColourBar color={color} height={20} className={styles.bar} />
         <span className={styles.title}>{event.title}</span>
         <span className={styles.time}>
           {!isToday(event.startAt, format.now) && `${format.formatDue(event.startAt)}, `}

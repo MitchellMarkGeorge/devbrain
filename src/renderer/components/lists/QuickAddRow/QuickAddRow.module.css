@@ -1,11 +1,18 @@
-/* The inline "Add task…" row. See docs/design-system/components/QuickAddRow.md */
+/*
+ * The inline "Add task…" row. See docs/design-system/components/QuickAddRow.md
+ *
+ * A grid of named areas, as TaskRow's less its checkbox: the icon in the status slot, the input
+ * where a title is, and the right side, 8px apart. The 32px before the icon is a task row's
+ * checkbox strip (8px, the 16px checkbox and the 8px after it), so what is typed starts where
+ * task titles do.
+ */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-areas: 'icon input side';
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  /* as a task row's, so what is typed starts where task titles do */
-  gap: var(--space-2);
+  column-gap: var(--space-2);
   min-height: var(--row-height);
-  /* the icon where a task row's status icon is */
   padding: 0 var(--space-3) 0 32px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
@@ -23,7 +30,7 @@
 }
 /* the "+" (rest) or the new task's status icon, in a task row's status slot */
 .icon {
-  flex: none;
+  grid-area: icon;
   display: grid;
   place-items: center;
   width: 24px;
@@ -31,7 +38,7 @@
   color: var(--subtle-foreground);
 }
 .input {
-  flex: 1;
+  grid-area: input;
   min-width: 0;
   height: 20px;
   padding: 0;
@@ -45,7 +52,7 @@
   color: var(--subtle-foreground);
 }
 .side {
-  flex: none;
+  grid-area: side;
   display: flex;
   align-items: center;
   gap: var(--space-2);

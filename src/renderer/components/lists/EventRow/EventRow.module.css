@@ -1,11 +1,18 @@
 /* A calendar event in a list (Home, Inbox). See docs/design-system/components/EventRow.md */
+/*
+ * A grid of named areas, as TaskRow's less its checkbox: the calendar's colour bar centred in the
+ * 24px slot where a task's status icon sits (32px in, after a task row's checkbox strip), the
+ * title and time where a task's title is, and the right side, 8px apart, so events line up with
+ * the tasks around them.
+ */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-areas: 'bar main side';
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-3);
+  column-gap: var(--space-2);
   min-height: var(--row-height);
-  /* the bar sits where a TaskRow's status icon does, so events line up with tasks */
-  padding: 0 var(--space-3) 0 37px;
+  padding: 0 var(--space-3) 0 32px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -21,15 +28,16 @@
     0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .main {
-  flex: 1;
+  grid-area: main;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 /* the calendar's colour (a ColourBar) */
 .bar {
-  flex: none;
+  grid-area: bar;
+  justify-self: center;
 }
 .title {
   min-width: 0;
@@ -47,10 +55,10 @@
   white-space: nowrap;
 }
 .side {
-  flex: none;
+  grid-area: side;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 .relative {
   min-width: 44px;

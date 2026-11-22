@@ -31,6 +31,7 @@ export const DraftTaskRow = forwardRef<HTMLDivElement, DraftTaskRowProps>(functi
       <span className={styles.title}>{title}</span>
       {onRemove && (
         <IconButton
+          className={styles.remove}
           size="xs"
           tone="muted"
           icon={X}

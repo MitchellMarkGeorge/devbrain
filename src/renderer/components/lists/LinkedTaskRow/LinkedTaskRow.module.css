@@ -1,8 +1,14 @@
 /* The compact task row of sheets and the note's Linked tasks. See docs/design-system/components/LinkedTaskRow.md */
+/*
+ * A grid of named areas, as the list rows': the status button, the title, and the date, 8px apart.
+ * The date is right-aligned in 60px, as a task row's, so dates line up down a sheet's list.
+ */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-areas: 'status title date';
+  grid-template-columns: 20px minmax(0, 1fr) 60px;
   align-items: center;
-  gap: var(--space-2);
+  column-gap: var(--space-2);
   min-width: 0;
   height: var(--control-lg);
   padding: 0 var(--space-2);
@@ -22,8 +28,8 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .status {
+  grid-area: status;
   display: inline-flex;
-  flex: none;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -46,7 +52,7 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .title {
-  flex: 1;
+  grid-area: title;
   min-width: 0;
   overflow: hidden;
   color: var(--foreground);
@@ -55,7 +61,8 @@
   text-overflow: ellipsis;
 }
 .date {
-  flex: none;
+  grid-area: date;
+  text-align: right;
   color: var(--subtle-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   font-variant-numeric: tabular-nums;

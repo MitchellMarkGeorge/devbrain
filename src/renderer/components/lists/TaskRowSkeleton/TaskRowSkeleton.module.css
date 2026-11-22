@@ -1,10 +1,45 @@
 /* A TaskRow while the list loads. See docs/design-system/components/TaskRowSkeleton.md */
+/*
+ * TaskRow's grid of named areas, so the placeholders sit where a task's parts will: the checkbox
+ * slot (empty), the status icon 32px in, the title with a pill, and the right side with its 60px
+ * date column.
+ */
 .row {
+  display: grid;
+  grid-template-areas: 'check status title side';
+  grid-template-columns: 16px 24px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
+  height: var(--row-height);
+  padding: 0 var(--space-3) 0 8px;
+}
+.status {
+  grid-area: status;
+  display: grid;
+  place-items: center;
+}
+.title,
+.side {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  height: var(--row-height);
-  padding: 0 var(--space-4);
+  gap: var(--space-2);
+  min-width: 0;
+}
+.title {
+  grid-area: title;
+}
+.side {
+  grid-area: side;
+}
+.priority {
+  display: grid;
+  place-items: center;
+  width: 20px;
+}
+.date {
+  display: flex;
+  justify-content: flex-end;
+  width: 60px;
 }
 .line {
   height: 12px;
@@ -13,7 +48,4 @@
 .pill {
   height: 20px;
   border-radius: var(--radius-lg);
-}
-.spacer {
-  flex: 1;
 }
