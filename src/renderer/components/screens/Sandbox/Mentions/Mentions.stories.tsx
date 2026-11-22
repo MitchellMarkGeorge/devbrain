@@ -2,7 +2,7 @@
  * Sandbox: mock-ups of "Mentioned in", what mentions a task, note or event, on its page and
  * sheet, so every item shows the connections made to it in your notes. Not built; mock data only.
  */
-import { useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { CalendarDays, CircleCheck, Clock, Link, Plus, Repeat } from 'lucide-react';
@@ -18,21 +18,20 @@ import { LinkedTaskRow } from '../../../lists/LinkedTaskRow';
 import { PriorityIcon } from '../../../entities/PriorityIcon';
 import { ProgressRing } from '../../../ui/ProgressRing';
 import { PropertyRow } from '../../../detail/PropertyRow';
-import {
-  Sheet,
-  SheetBody,
-  SheetContent,
-  SheetDivider,
-  SheetHeader,
-  SheetItemTitle,
-} from '../../../ui/Sheet';
+import { SheetDivider, SheetHeader, SheetItemTitle } from '../../../ui/Sheet';
 import { StatusIcon } from '../../../entities/StatusIcon';
 import { TaskList } from '../../../lists/TaskList';
 import { TaskNoteCard } from '../../../detail/TaskNoteCard';
 import { TooltipProvider } from '../../../ui/Tooltip';
-import { AppWindow, DetailPage, DetailTopBar } from '../../TaskDetail/frame';
+import { ScreenFrame } from '../../Shell/AppFrame';
+import { FIGMA_TASKS, TasksToolbar } from '../../Shell/fixtures';
+import { CalendarScreen } from '../../Calendar/CalendarScreen';
+import { NOW, WEEK_EVENTS } from '../../Calendar/data';
+import { CalendarView, calendarEventInput } from '../../../calendar/CalendarView';
+import { PageContent } from '../../../shell/Page';
+import { TaskRow } from '../../../lists/TaskRow';
+import { DetailScreen, DockedSheet, NoteHead } from './frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../../TaskDetail/data';
-import { NotePage } from '../../Notes/notePage';
 import { storyDate } from '../../../lib/story-dates';
 import { MentionsSection } from './MentionsSection';
 import {
@@ -52,20 +51,39 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function SheetColumn({ name, children }: { name: string; children: ReactNode }) {
-  const column = useRef<HTMLDivElement>(null);
+/** The Tasks list with a task's sheet docked beside it. */
+function TasksWithSheet({ children }: { children: ReactNode }) {
   return (
-    <TooltipProvider>
-      <div style={{ display: 'flex', height: 1024, background: 'var(--background)' }}>
-        <div ref={column} style={{ position: 'relative', width: 'var(--sheet-width)' }} />
-        <Sheet open>
-          <SheetContent container={column}>
-            <SheetHeader onOpenAsPage={() => undefined}>{name}</SheetHeader>
-            <SheetBody>{children}</SheetBody>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </TooltipProvider>
+    <ScreenFrame page="Tasks" title="Tasks">
+      <TasksToolbar />
+      <PageContent layout="list">
+        {FIGMA_TASKS.map((task) => (
+          <TaskRow key={task.id} task={task} />
+        ))}
+      </PageContent>
+      <DockedSheet header={<SheetHeader onOpenAsPage={() => undefined}>Task</SheetHeader>}>
+        {children}
+      </DockedSheet>
+    </ScreenFrame>
+  );
+}
+
+/** The calendar's week with an event's sheet docked beside it. */
+function CalendarWithSheet({ children }: { children: ReactNode }) {
+  return (
+    <CalendarScreen view="week">
+      <CalendarView
+        view="week"
+        date={NOW}
+        now={NOW}
+        eventSources={[{ events: WEEK_EVENTS.map(calendarEventInput) }]}
+        startHour={8}
+        endHour={24}
+      />
+      <DockedSheet header={<SheetHeader onOpenAsPage={() => undefined}>Event</SheetHeader>}>
+        {children}
+      </DockedSheet>
+    </CalendarScreen>
   );
 }
 
@@ -77,68 +95,57 @@ function Paragraph({ children }: { children: ReactNode }) {
 export const TaskPage: Story = {
   name: 'Task page',
   render: () => (
-    <AppWindow active="Tasks" height={1500}>
-      <DetailPage
-        top={
-          <DetailTopBar
-            items={[
-              { label: 'Tasks', href: '#' },
-              { label: PKCE_TITLE, icon: <StatusIcon status={TaskStatus.IN_PROGRESS} /> },
-            ]}
-          />
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 32, paddingBottom: 64 }}>
-          <Heading level={1} variant="document">
-            {PKCE_TITLE}
-          </Heading>
-          <PropertyRow
-            properties={
-              <>
-                <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
-                  In progress
-                </EntityPill>
-                <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
-                  High
-                </EntityPill>
-                <DateRange start="Jun 15" due="Jun 24" />
-                <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
-              </>
-            }
-          />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14 }}>
-            {PKCE_DESCRIPTION.map((p) => (
-              <p key={p} style={{ margin: 0, lineHeight: '20px' }}>
-                {p}
-              </p>
-            ))}
-          </div>
-          <DetailSection
-            spacing="page"
-            title="Subtasks"
-            glyph={<ProgressRing value={3} total={4} size={12} />}
-            count="3/4"
-            action={
-              <Button size="xs" icon={Plus}>
-                Add
-              </Button>
-            }
-          >
-            <TaskList tasks={PKCE_SUBTASKS} selectionBar={false} style={{ marginLeft: -36 }} />
-          </DetailSection>
-          <DetailSection spacing="page" title="Task note">
-            <TaskNoteCard
-              title={PKCE_TITLE}
-              project="Auth Overhaul"
-              projectColor="blue"
-              tasksSummary="2 tasks · 1 in progress"
-              updated="2h ago"
-            />
-          </DetailSection>
-          <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
+    <DetailScreen page="Tasks" title={PKCE_TITLE}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32, paddingBottom: 64 }}>
+        <Heading level={1} variant="document">
+          {PKCE_TITLE}
+        </Heading>
+        <PropertyRow
+          properties={
+            <>
+              <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+                In progress
+              </EntityPill>
+              <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+                High
+              </EntityPill>
+              <DateRange start="Jun 15" due="Jun 24" />
+              <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
+            </>
+          }
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14 }}>
+          {PKCE_DESCRIPTION.map((p) => (
+            <p key={p} style={{ margin: 0, lineHeight: '20px' }}>
+              {p}
+            </p>
+          ))}
         </div>
-      </DetailPage>
-    </AppWindow>
+        <DetailSection
+          spacing="page"
+          title="Subtasks"
+          glyph={<ProgressRing value={3} total={4} size={12} />}
+          count="3/4"
+          action={
+            <Button size="xs" icon={Plus}>
+              Add
+            </Button>
+          }
+        >
+          <TaskList tasks={PKCE_SUBTASKS} selectionBar={false} style={{ marginLeft: -36 }} />
+        </DetailSection>
+        <DetailSection spacing="page" title="Task note">
+          <TaskNoteCard
+            title={PKCE_TITLE}
+            project="Auth Overhaul"
+            projectColor="blue"
+            tasksSummary="2 tasks · 1 in progress"
+            updated="2h ago"
+          />
+        </DetailSection>
+        <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
+      </div>
+    </DetailScreen>
   ),
 };
 
@@ -146,7 +153,7 @@ export const TaskPage: Story = {
 export const TaskSheet: Story = {
   name: 'Task sheet',
   render: () => (
-    <SheetColumn name="Task">
+    <TasksWithSheet>
       <SheetItemTitle>{PKCE_TITLE}</SheetItemTitle>
       <DetailRows>
         <DetailRow label="Status">
@@ -179,7 +186,7 @@ export const TaskSheet: Story = {
         />
       </DetailSection>
       <MentionsSection variant="sheet" selfLabel="this task" mentions={PKCE_MENTIONS} />
-    </SheetColumn>
+    </TasksWithSheet>
   ),
 };
 
@@ -187,17 +194,17 @@ export const TaskSheet: Story = {
 export const NotePageMentions: Story = {
   name: 'Note page',
   render: () => (
-    <NotePage
-      title={ADR_TITLE}
-      edited="Edited yesterday"
-      pills={
-        <>
-          <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
-          <EntityPill glyph={CircleCheck}>2 tasks · 1 in progress</EntityPill>
-        </>
-      }
-    >
-      <EditorContent>
+    <DetailScreen page="Notes" title={ADR_TITLE}>
+      <NoteHead
+        title={ADR_TITLE}
+        pills={
+          <>
+            <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
+            <EntityPill glyph={CircleCheck}>2 tasks · 1 in progress</EntityPill>
+          </>
+        }
+      />
+      <EditorContent style={{ marginTop: 32 }}>
         <p>
           Status: accepted. The implicit flow returns tokens in the URL fragment, where they leak
           into browser history, logs and referrer headers.
@@ -231,7 +238,7 @@ export const NotePageMentions: Story = {
         </DetailSection>
         <MentionsSection collapsible selfLabel="this note" mentions={ADR_MENTIONS} />
       </div>
-    </NotePage>
+    </DetailScreen>
   ),
 };
 
@@ -239,7 +246,7 @@ export const NotePageMentions: Story = {
 export const EventSheet: Story = {
   name: 'Event sheet',
   render: () => (
-    <SheetColumn name="Event">
+    <CalendarWithSheet>
       <SheetItemTitle barColor="blue">Design Review</SheetItemTitle>
       <DetailRows>
         <DetailRow label="Date">
@@ -265,7 +272,7 @@ export const EventSheet: Story = {
         </div>
       </DetailSection>
       <MentionsSection variant="sheet" selfLabel="this event" mentions={DESIGN_REVIEW_MENTIONS} />
-    </SheetColumn>
+    </CalendarWithSheet>
   ),
 };
 

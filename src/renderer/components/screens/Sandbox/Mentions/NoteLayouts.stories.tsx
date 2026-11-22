@@ -1,23 +1,23 @@
 /*
- * Sandbox: three ways to give a note's Tasks and Mentioned in their place without taking room
- * under the editor. Mock data only.
+ * Sandbox: ways to give a note's Tasks and Mentioned in their place without taking room under the
+ * editor. Mock data only.
  */
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskStatus } from '@common/types';
-import { AtSign, CircleCheck, FileText, Plus } from 'lucide-react';
+import { AtSign, CircleCheck, Plus } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import { DetailSection } from '../../../detail/DetailSection';
-import { EditorContent, EditorTitle } from '../../../editor/EditorContent';
+import { EditorContent } from '../../../editor/EditorContent';
 import { EntityPill } from '../../../entities/EntityPill';
 import { IconButton } from '../../../ui/IconButton';
 import { LinkedTaskRow, type LinkedTaskRowData } from '../../../lists/LinkedTaskRow';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/Popover';
-import { Sheet, SheetBody, SheetContent, SheetDivider, SheetHeader } from '../../../ui/Sheet';
+import { SheetDivider, SheetHeader } from '../../../ui/Sheet';
 import { TaskList } from '../../../lists/TaskList';
-import { AppWindow, DetailPage, DetailTopBar } from '../../TaskDetail/frame';
 import { storyDate } from '../../../lib/story-dates';
 import { MentionList } from './MentionsSection';
+import { DetailScreen, DockedSheet, NoteHead } from './frame';
 import { ADR_MENTIONS, ADR_TASKS, ADR_TITLE } from './data';
 
 const meta = {
@@ -35,7 +35,7 @@ const TASK_ROWS: LinkedTaskRowData[] = [
 
 function Body() {
   return (
-    <EditorContent>
+    <EditorContent style={{ marginTop: 32 }}>
       <p>
         Status: accepted. The implicit flow returns tokens in the URL fragment, where they leak into
         browser history, logs and referrer headers.
@@ -56,81 +56,58 @@ function Body() {
   );
 }
 
-/** The note's title, its edit time and pills, then its text. */
-function NoteColumn({ pills, children }: { pills: ReactNode; children?: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <EditorTitle>{ADR_TITLE}</EditorTitle>
-      <span
-        style={{
-          marginTop: 2,
-          color: 'var(--subtle-foreground)',
-          fontSize: 12,
-          lineHeight: '16px',
-        }}
-      >
-        Edited yesterday
-      </span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>{pills}</div>
-      <div style={{ marginTop: 32 }}>
-        <Body />
-      </div>
-      {children}
-    </div>
-  );
-}
-
-const top = (
-  <DetailTopBar
-    items={[
-      { label: 'Notes', href: '#' },
-      { label: ADR_TITLE, icon: FileText },
-    ]}
-  />
-);
-
 const projectPill = (
   <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
 );
 
+function TaskRows() {
+  return (
+    <div>
+      {TASK_ROWS.map((t) => (
+        <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
+      ))}
+    </div>
+  );
+}
+
 /**
  * A: a side panel. The text keeps the page; Tasks and Mentioned in sit in a quiet column on the
- * right, each line under its title. The panel folds away from the title bar.
+ * right, each line under its title.
  */
 export const SidePanel: Story = {
   name: 'A – Side panel',
   render: () => (
-    <AppWindow active="Notes">
-      <DetailPage top={top}>
-        <NoteColumn pills={projectPill} />
-      </DetailPage>
-      <aside
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 24,
-          flex: 'none',
-          width: 320,
-          padding: '64px 16px 16px',
-          borderLeft: '1px solid var(--border)',
-        }}
-      >
-        <DetailSection
-          title="Tasks"
-          count={2}
-          action={<IconButton size="sm" tone="muted" icon={Plus} label="New task" />}
+    <DetailScreen
+      page="Notes"
+      title={ADR_TITLE}
+      aside={
+        <aside
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 24,
+            flex: 'none',
+            width: 320,
+            padding: '48px 16px 16px',
+            borderLeft: '1px solid var(--border)',
+          }}
         >
-          <div>
-            {TASK_ROWS.map((t) => (
-              <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
-            ))}
-          </div>
-        </DetailSection>
-        <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
-          <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
-        </DetailSection>
-      </aside>
-    </AppWindow>
+          <DetailSection
+            title="Tasks"
+            count={2}
+            action={<IconButton size="sm" tone="muted" icon={Plus} label="New task" />}
+          >
+            <TaskRows />
+          </DetailSection>
+          <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
+            <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+          </DetailSection>
+        </aside>
+      }
+    >
+      <NoteHead title={ADR_TITLE} pills={projectPill} />
+      <Body />
+    </DetailScreen>
   ),
 };
 
@@ -141,43 +118,141 @@ export const SidePanel: Story = {
 export const HeaderPills: Story = {
   name: 'B – Header pills',
   render: () => (
-    <AppWindow active="Notes">
-      <DetailPage top={top}>
-        <NoteColumn
-          pills={
-            <>
-              {projectPill}
-              <Popover>
-                <PopoverTrigger render={<EntityPill glyph={CircleCheck} />}>
-                  2 tasks · 1 in progress
-                </PopoverTrigger>
-                <PopoverContent size="auto" style={{ width: 360 }}>
-                  <div>
-                    {TASK_ROWS.map((t) => (
-                      <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Popover defaultOpen>
-                <PopoverTrigger render={<EntityPill glyph={AtSign} />}>
-                  {ADR_MENTIONS.length} mentions
-                </PopoverTrigger>
-                <PopoverContent size="auto" style={{ width: 380 }} initialFocus={false}>
-                  <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
-                </PopoverContent>
-              </Popover>
-            </>
-          }
-        />
-      </DetailPage>
-    </AppWindow>
+    <DetailScreen page="Notes" title={ADR_TITLE}>
+      <NoteHead
+        title={ADR_TITLE}
+        pills={
+          <>
+            {projectPill}
+            <Popover>
+              <PopoverTrigger render={<EntityPill glyph={CircleCheck} />}>
+                2 tasks · 1 in progress
+              </PopoverTrigger>
+              <PopoverContent size="auto" style={{ width: 360 }}>
+                <TaskRows />
+              </PopoverContent>
+            </Popover>
+            <Popover defaultOpen>
+              <PopoverTrigger render={<EntityPill glyph={AtSign} />}>
+                {ADR_MENTIONS.length} mentions
+              </PopoverTrigger>
+              <PopoverContent size="auto" style={{ width: 380 }} initialFocus={false}>
+                <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+              </PopoverContent>
+            </Popover>
+          </>
+        }
+      />
+      <Body />
+    </DetailScreen>
   ),
 };
 
+type SheetView = 'tasks' | 'mentions';
+
+/** A header pill that opens a view in the sheet; filled while its view is open. */
+function SheetPill({
+  glyph,
+  active,
+  onClick,
+  children,
+}: {
+  glyph: typeof AtSign;
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <EntityPill
+      glyph={glyph}
+      onClick={onClick}
+      style={
+        active ? { background: 'var(--pill-fill-hover)', color: 'var(--foreground)' } : undefined
+      }
+    >
+      {children}
+    </EntityPill>
+  );
+}
+
+function NoteWithSheet({ initial }: { initial: SheetView }) {
+  const [view, setView] = useState<SheetView | null>(initial);
+  const toggle = (next: SheetView) => setView(view === next ? null : next);
+  return (
+    <DetailScreen page="Notes" title={ADR_TITLE}>
+      <NoteHead
+        title={ADR_TITLE}
+        pills={
+          <>
+            {projectPill}
+            <SheetPill
+              glyph={CircleCheck}
+              active={view === 'tasks'}
+              onClick={() => toggle('tasks')}
+            >
+              2 tasks · 1 in progress
+            </SheetPill>
+            <SheetPill
+              glyph={AtSign}
+              active={view === 'mentions'}
+              onClick={() => toggle('mentions')}
+            >
+              {ADR_MENTIONS.length} mentions
+            </SheetPill>
+          </>
+        }
+      />
+      <Body />
+      <DockedSheet
+        open={view != null}
+        onOpenChange={(open) => !open && setView(null)}
+        header={<SheetHeader>{view === 'tasks' ? 'Tasks' : 'Mentioned in'}</SheetHeader>}
+      >
+        {view === 'mentions' && (
+          <MentionList
+            selfLabel="this note"
+            mentions={ADR_MENTIONS}
+            layout="stacked"
+            wrap
+            limit={50}
+          />
+        )}
+        {view === 'tasks' && (
+          <>
+            <TaskRows />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button size="xs" icon={Plus}>
+                New Task
+              </Button>
+              <Button size="xs" variant="ghost">
+                Link Task
+              </Button>
+            </div>
+          </>
+        )}
+      </DockedSheet>
+    </DetailScreen>
+  );
+}
+
+/**
+ * B in the sheet: the header pills open their list in the docked sheet beside the note, rather
+ * than a popover. The open pill stays filled; clicking it again closes the sheet. A row opens its
+ * item in the same sheet.
+ */
+export const HeaderPillsSheetMentions: Story = {
+  name: 'B – Header pills, mentions in the sheet',
+  render: () => <NoteWithSheet initial="mentions" />,
+};
+
+export const HeaderPillsSheetTasks: Story = {
+  name: 'B – Header pills, tasks in the sheet',
+  render: () => <NoteWithSheet initial="tasks" />,
+};
+
 function FooterTabs() {
-  const [open, setOpen] = useState<'tasks' | 'mentions' | null>('mentions');
-  const toggle = (tab: 'tasks' | 'mentions') => setOpen(open === tab ? null : tab);
+  const [open, setOpen] = useState<SheetView | null>('mentions');
+  const toggle = (tab: SheetView) => setOpen(open === tab ? null : tab);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
       <SheetDivider />
@@ -217,129 +292,10 @@ function FooterTabs() {
 export const FooterBar: Story = {
   name: 'C – Footer tabs',
   render: () => (
-    <AppWindow active="Notes">
-      <DetailPage top={top}>
-        <NoteColumn pills={projectPill}>
-          <FooterTabs />
-        </NoteColumn>
-      </DetailPage>
-    </AppWindow>
+    <DetailScreen page="Notes" title={ADR_TITLE}>
+      <NoteHead title={ADR_TITLE} pills={projectPill} />
+      <Body />
+      <FooterTabs />
+    </DetailScreen>
   ),
-};
-
-type SheetView = 'tasks' | 'mentions';
-
-/** A header pill that opens a view in the sheet; filled while its view is open. */
-function SheetPill({
-  glyph,
-  active,
-  onClick,
-  children,
-}: {
-  glyph: typeof AtSign;
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <EntityPill
-      glyph={glyph}
-      onClick={onClick}
-      style={
-        active ? { background: 'var(--pill-fill-hover)', color: 'var(--foreground)' } : undefined
-      }
-    >
-      {children}
-    </EntityPill>
-  );
-}
-
-function NoteWithSheet({ initial }: { initial: SheetView }) {
-  const [view, setView] = useState<SheetView | null>(initial);
-  const column = useRef<HTMLDivElement>(null);
-  const toggle = (next: SheetView) => setView(view === next ? null : next);
-  return (
-    <AppWindow active="Notes">
-      <DetailPage top={top}>
-        <NoteColumn
-          pills={
-            <>
-              {projectPill}
-              <SheetPill
-                glyph={CircleCheck}
-                active={view === 'tasks'}
-                onClick={() => toggle('tasks')}
-              >
-                2 tasks · 1 in progress
-              </SheetPill>
-              <SheetPill
-                glyph={AtSign}
-                active={view === 'mentions'}
-                onClick={() => toggle('mentions')}
-              >
-                {ADR_MENTIONS.length} mentions
-              </SheetPill>
-            </>
-          }
-        />
-      </DetailPage>
-      <div
-        ref={column}
-        style={{ position: 'relative', flex: 'none', width: view ? 'var(--sheet-width)' : 0 }}
-      />
-      <Sheet open={view != null} onOpenChange={(open) => !open && setView(null)}>
-        <SheetContent container={column}>
-          {view === 'mentions' && (
-            <>
-              <SheetHeader>Mentioned in</SheetHeader>
-              <SheetBody>
-                <MentionList
-                  selfLabel="this note"
-                  mentions={ADR_MENTIONS}
-                  layout="stacked"
-                  wrap
-                  limit={50}
-                />
-              </SheetBody>
-            </>
-          )}
-          {view === 'tasks' && (
-            <>
-              <SheetHeader>Tasks</SheetHeader>
-              <SheetBody>
-                <div>
-                  {TASK_ROWS.map((t) => (
-                    <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Button size="xs" icon={Plus}>
-                    New Task
-                  </Button>
-                  <Button size="xs" variant="ghost">
-                    Link Task
-                  </Button>
-                </div>
-              </SheetBody>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
-    </AppWindow>
-  );
-}
-
-/**
- * B in the sheet: the header pills open their list in the docked sheet beside the note, rather
- * than a popover. The open pill stays filled; clicking it again closes the sheet. A row opens its
- * item in the same sheet.
- */
-export const HeaderPillsSheetMentions: Story = {
-  name: 'B – Header pills, mentions in the sheet',
-  render: () => <NoteWithSheet initial="mentions" />,
-};
-
-export const HeaderPillsSheetTasks: Story = {
-  name: 'B – Header pills, tasks in the sheet',
-  render: () => <NoteWithSheet initial="tasks" />,
 };
