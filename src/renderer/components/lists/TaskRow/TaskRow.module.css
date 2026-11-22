@@ -3,13 +3,13 @@
  * "Lists".
  *
  * A grid of named areas: the selection checkbox, the status icon, the title with its pills, and the
- * right side. The checkbox's slot is 18px, 2px more than the checkbox, so with the 8px padding and
- * the 10px gap the status icon starts 36px from the row's edge, 12px after the checkbox.
+ * right side, 12px apart. With the 8px padding before the 16px checkbox, the status icon starts
+ * 36px from the row's edge.
  */
 .row {
   --check-inset: 8px;
-  --check-slot: 18px;
-  --row-gap: 10px;
+  --check-slot: 16px;
+  --row-gap: var(--space-3);
   --status-size: 24px;
   /* where the status icon starts (36px): the tree's guides are drawn from it */
   --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
@@ -36,8 +36,8 @@
  */
 .nested {
   /*
-   * one level in: the status icon and the 10px gap after it, less the icon's 4px inset around its
-   * 16px glyph, so a subtask's glyph starts exactly where its parent's title does (30px)
+   * one level in: the status icon and the gap after it, less the icon's 4px inset around its 16px
+   * glyph, so a subtask's glyph starts exactly where its parent's title does (32px)
    */
   --guide-step: calc(var(--status-size) + var(--row-gap) - 4px);
   /*
@@ -200,7 +200,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--row-gap);
 }
 .name {
   min-width: 0;

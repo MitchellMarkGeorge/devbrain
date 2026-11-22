@@ -2,7 +2,8 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* as a task row's, so what is typed starts where task titles do */
+  gap: var(--space-3);
   min-height: var(--row-height);
   padding: 0 var(--space-3) 0 36px;
   border-radius: var(--radius-md);
