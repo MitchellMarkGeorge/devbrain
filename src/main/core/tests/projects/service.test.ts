@@ -6,7 +6,7 @@ import path from 'node:path';
 import { generateId } from '@common/ids';
 import { ProjectChange, ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
-import { ArchiveService } from '../../archive/service';
+import { ArchiveService, type ArchiveChange } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectStatus, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
@@ -668,25 +668,35 @@ describe('ArchiveService — archiveProject', () => {
     expect(tasks.getById(taskInB.id)).toMatchObject({ id: taskInB.id });
   });
 
-  it('overwrites archivedAt of already-archived tasks with the project archive timestamp', async () => {
+  it('leaves tasks and notes already in the trash with the time they were trashed', async () => {
     const project = projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const task = tasks.createTask({
       title: 'Pre-archived',
       dueDate: TOMORROW,
       projectId: project.id,
     });
+    const note = await notesService.createNote({ projectId: project.id });
     archive.archiveTask(task.id);
-
-    const before = new Date();
-    archive.archiveProject(project.id);
-    const after = new Date();
-
-    // archiveProject stamps all tasks with a fresh timestamp regardless of prior archive state
+    archive.archiveNote(note.id);
     const { tasks: tasksTable } = await import('@main/db/schema/tasks');
+    const { notes: notesTable } = await import('@main/db/schema/notes');
     const { eq: drizzleEq } = await import('drizzle-orm');
-    const raw = db.select().from(tasksTable).where(drizzleEq(tasksTable.id, task.id)).get()!;
-    expect(raw.archivedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(raw.archivedAt!.getTime()).toBeLessThanOrEqual(after.getTime());
+    const taskTrashedAt = () =>
+      db.select().from(tasksTable).where(drizzleEq(tasksTable.id, task.id)).get()!.archivedAt;
+    const noteTrashedAt = () =>
+      db.select().from(notesTable).where(drizzleEq(notesTable.id, note.id)).get()!.archivedAt;
+    const before = { task: taskTrashedAt(), note: noteTrashedAt() };
+    const changes: ArchiveChange[] = [];
+    archive.onChange((change) => changes.push(change));
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    archive.archiveProject(project.id);
+
+    expect(taskTrashedAt()).toEqual(before.task);
+    expect(noteTrashedAt()).toEqual(before.note);
+    expect(changes).toEqual([
+      { type: 'archived', projectIds: [project.id], taskIds: [], noteIds: [] },
+    ]);
   });
 
   it('archives notes directly owned by the project', async () => {

@@ -83,32 +83,11 @@ export class ArchiveService {
       // a synced task is detached before it can be archived; restore is left open for SyncWriter
       assertEditable(tx, id);
 
-      const now = new Date();
-      // archives the task and its whole subtree: a local task's subtasks, or the deeper subtree a
-      // detached task carried over from Linear
-      const updatedTasks = tx
-        .update(tasks)
-        .set({ archivedAt: now })
-        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
-        .returning()
-        .all();
-
-      const updatedTaskIds = updatedTasks.map((t) => t.id);
-
-      // archive notes linked to the task and/or any of its subtasks
-      const noteIds =
-        updatedTaskIds.length > 0
-          ? tx
-              .update(notes)
-              .set({ archivedAt: now })
-              .where(inArray(notes.linkedTaskId, updatedTaskIds))
-              .returning({ id: notes.id })
-              .all()
-              .map(({ id }) => id)
-          : [];
-
-      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
-      const [task] = updatedTasks.filter((t) => t.id === id);
+      // the task, its whole subtree (a local task's subtasks, or the deeper subtree a detached
+      // task carried over from Linear), and the notes linked to any of them
+      const stamped = stampArchived(tx, archiveCascade(tx, { taskIds: [id], projectIds: [] }));
+      this.changes.emit({ type: 'archived', projectIds: [], ...stamped.ids });
+      const [task] = stamped.tasks.filter((t) => t.id === id);
       return withExternalRef(tx, task);
     });
   }
@@ -141,25 +120,9 @@ export class ArchiveService {
         assertEditable(tx, id);
       }
 
-      const now = new Date();
-      const updatedTasks = tx
-        .update(tasks)
-        .set({ archivedAt: now })
-        .where(and(inArray(tasks.id, subtreeOfAll(uniqueIds)), isNull(tasks.archivedAt)))
-        .returning()
-        .all();
-      const updatedTaskIds = updatedTasks.map((t) => t.id);
-
-      const noteIds = tx
-        .update(notes)
-        .set({ archivedAt: now })
-        .where(inArray(notes.linkedTaskId, updatedTaskIds))
-        .returning({ id: notes.id })
-        .all()
-        .map(({ id }) => id);
-
-      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
-      const byId = new Map(updatedTasks.map((task) => [task.id, task]));
+      const stamped = stampArchived(tx, archiveCascade(tx, { taskIds: uniqueIds, projectIds: [] }));
+      this.changes.emit({ type: 'archived', projectIds: [], ...stamped.ids });
+      const byId = new Map(stamped.tasks.map((task) => [task.id, task]));
       return withExternalRefs(
         tx,
         uniqueIds.map((id) => byId.get(id)!),
@@ -210,35 +173,15 @@ export class ArchiveService {
       assertEditable(tx, id);
 
       const now = new Date();
-      // archive the project
       const project = tx
         .update(projects)
-        .set({
-          archivedAt: now,
-        })
+        .set({ archivedAt: now })
         .where(eq(projects.id, id))
         .returning()
         .get();
-
-      // archive all tasks (and subtasks) attached to the project
-      const updatedTaskIds = tx
-        .update(tasks)
-        .set({ archivedAt: now })
-        .where(eq(tasks.projectId, id))
-        .returning({ id: tasks.id })
-        .all()
-        .map(({ id }) => id);
-
-      // archaive all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
-      const noteIds = tx
-        .update(notes)
-        .set({ archivedAt: now })
-        .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
-        .returning({ id: notes.id })
-        .all()
-        .map(({ id }) => id);
-
-      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [id], noteIds });
+      // its tasks (and subtasks), and its notes and those linked to its tasks (task notes)
+      const stamped = stampArchived(tx, archiveCascade(tx, { taskIds: [], projectIds: [id] }), now);
+      this.changes.emit({ type: 'archived', projectIds: [id], ...stamped.ids });
       return withExternalRef(tx, project);
     });
   }
@@ -323,43 +266,17 @@ export class ArchiveService {
    * trash, and the rows chosen, are left out. Reads only; unknown ids add nothing.
    */
   previewArchive(selection: TrashSelection): ArchivePreview {
-    const taskIds = [...new Set(selection.taskIds)];
-    const projectIds = [...new Set(selection.projectIds)];
-    const chosen = new Set<string>([...taskIds, ...projectIds, ...selection.noteIds]);
-    if (taskIds.length + projectIds.length === 0) return { tasks: [], notes: [] };
-    return this.db.transaction((tx) => {
-      const taskConditions = [
-        taskIds.length > 0 ? inArray(tasks.id, subtreeOfAll(taskIds)) : undefined,
-        projectIds.length > 0 ? inArray(tasks.projectId, projectIds) : undefined,
-      ].filter((condition) => condition !== undefined);
-      // every task the archive stamps, chosen or not, since their notes go along too
-      const stamped = tx
-        .select({ id: tasks.id, title: tasks.title, status: tasks.status })
-        .from(tasks)
-        .where(and(or(...taskConditions), isNull(tasks.archivedAt)))
-        .orderBy(tasks.title)
-        .all();
-      const stampedIds = stamped.map((task) => task.id);
-
-      const noteConditions = [
-        stampedIds.length > 0 ? inArray(notes.linkedTaskId, stampedIds) : undefined,
-        projectIds.length > 0 ? inArray(notes.projectId, projectIds) : undefined,
-      ].filter((condition) => condition !== undefined);
-      const linkedNotes =
-        noteConditions.length === 0
-          ? []
-          : tx
-              .select({ id: notes.id, title: notes.title })
-              .from(notes)
-              .where(and(or(...noteConditions), isNull(notes.archivedAt)))
-              .orderBy(notes.title)
-              .all();
-
-      return {
-        tasks: stamped.filter((task) => !chosen.has(task.id)),
-        notes: linkedNotes.filter((note) => !chosen.has(note.id)),
-      };
-    });
+    const chosen = new Set<string>([
+      ...selection.taskIds,
+      ...selection.projectIds,
+      ...selection.noteIds,
+    ]);
+    // one read, so the rows come from the same snapshot
+    const cascade = this.db.transaction((tx) => archiveCascade(tx, selection));
+    return {
+      tasks: cascade.tasks.filter((task) => !chosen.has(task.id)),
+      notes: cascade.notes.filter((note) => !chosen.has(note.id)),
+    };
   }
 
   /**
@@ -820,4 +737,70 @@ function assertInTrash(tx: Transaction, table: ArchivableTable, ids: ArchivableI
     if (!archivedAt.has(id)) throw new NotFoundError(id);
     if (archivedAt.get(id) === null) throw new NotArchivedError(id);
   }
+}
+
+/**
+ * The rows archiving these tasks and projects stamps, by title: each task's subtree, each project's
+ * tasks, and the notes linked to any of those tasks or to a project. Rows already in the trash are
+ * left out (they keep when they were trashed). The one place that decides what an archive takes
+ * along: archiveTask, archiveTasks and archiveProject stamp these rows, and previewArchive lists
+ * them before the user confirms.
+ */
+function archiveCascade(
+  tx: Transaction,
+  { taskIds, projectIds }: Pick<TrashSelection, 'taskIds' | 'projectIds'>,
+): ArchivePreview {
+  const taskConditions = [
+    taskIds.length > 0 ? inArray(tasks.id, subtreeOfAll(taskIds)) : undefined,
+    projectIds.length > 0 ? inArray(tasks.projectId, projectIds) : undefined,
+  ].filter((condition) => condition !== undefined);
+  if (taskConditions.length === 0) return { tasks: [], notes: [] };
+  const cascadedTasks = tx
+    .select({ id: tasks.id, title: tasks.title, status: tasks.status })
+    .from(tasks)
+    .where(and(or(...taskConditions), isNull(tasks.archivedAt)))
+    .orderBy(tasks.title)
+    .all();
+
+  const taskIdsStamped = cascadedTasks.map((task) => task.id);
+  const noteConditions = [
+    taskIdsStamped.length > 0 ? inArray(notes.linkedTaskId, taskIdsStamped) : undefined,
+    projectIds.length > 0 ? inArray(notes.projectId, projectIds) : undefined,
+  ].filter((condition) => condition !== undefined);
+  const cascadedNotes =
+    noteConditions.length === 0
+      ? []
+      : tx
+          .select({ id: notes.id, title: notes.title })
+          .from(notes)
+          .where(and(or(...noteConditions), isNull(notes.archivedAt)))
+          .orderBy(notes.title)
+          .all();
+  return { tasks: cascadedTasks, notes: cascadedNotes };
+}
+
+/**
+ * Stamps the rows of an `archiveCascade` with `now`. Returns the tasks as archived, and the ids
+ * stamped, for the `archived` change.
+ */
+function stampArchived(
+  tx: Transaction,
+  cascade: ArchivePreview,
+  now = new Date(),
+): { tasks: (typeof tasks.$inferSelect)[]; ids: Omit<ArchiveChangedIds, 'projectIds'> } {
+  const taskIds = cascade.tasks.map((task) => task.id);
+  const noteIds = cascade.notes.map((note) => note.id);
+  const stamped =
+    taskIds.length === 0
+      ? []
+      : tx
+          .update(tasks)
+          .set({ archivedAt: now })
+          .where(inArray(tasks.id, taskIds))
+          .returning()
+          .all();
+  if (noteIds.length > 0) {
+    tx.update(notes).set({ archivedAt: now }).where(inArray(notes.id, noteIds)).run();
+  }
+  return { tasks: stamped, ids: { taskIds, noteIds } };
 }
