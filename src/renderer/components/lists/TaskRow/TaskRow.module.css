@@ -136,11 +136,13 @@
 /*
  * the leading strip: the checkbox shows on hover, keyboard focus, and on every row while selecting.
  * Keyboard focus only: a click leaves focus on the checkbox, and it must hide once the pointer leaves.
+ * It is placed in the row's left padding, out of the flow, so showing it moves nothing: 8px from
+ * the row's edge, and 16px wide, so 12px before the status icon at 36px.
  */
 .check {
   position: absolute;
   top: 50%;
-  left: 9px;
+  left: 8px;
   margin-top: -8px;
   display: none;
 }

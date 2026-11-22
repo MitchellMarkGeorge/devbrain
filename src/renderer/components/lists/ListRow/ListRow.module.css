@@ -40,11 +40,14 @@
   box-shadow: inset 0 0 0 1px var(--ring);
 }
 
-/* the selection checkbox: as TaskRow's, it shows on keyboard focus only, not after a click */
+/*
+ * the selection checkbox: as TaskRow's, it shows on keyboard focus only, not after a click, in the
+ * row's left padding 8px from its edge, so showing it moves nothing
+ */
 .check {
   position: absolute;
   top: 50%;
-  left: 9px;
+  left: 8px;
   margin-top: -8px;
   display: none;
 }
