@@ -182,3 +182,100 @@ describe('TaskService — listSubtree', () => {
     expect(() => tasks.listSubtree(generateId('task'))).toThrow(NotFoundError);
   });
 });
+
+describe('TaskService — listTaskTree with a cycle of parents', () => {
+  // the app refuses to make one ("Make subtask of…"), so the parents are written directly, as a
+  // sync could write them
+  const setParent = (id: string, parentId: string) =>
+    db
+      .update(tasksTable)
+      .set({ parentTaskId: parentId as never })
+      .where(eq(tasksTable.id, id as never))
+      .run();
+  const ids = (items: TaskTreeItem[]) => items.map((item) => item.id);
+
+  it('makes the cycle member with the smallest id its root, the rest under it, each once', () => {
+    const [first, second, third] = ['Gather', 'Draft', 'Review']
+      .map((title) => tasks.createTask({ title }))
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    // first → second → third → first
+    setParent(second.id, first.id);
+    setParent(third.id, second.id);
+    setParent(first.id, third.id);
+    const other = tasks.createTask({ title: 'Other' });
+
+    const items = tasks.listTaskTree({}, BY_PRIORITY).items;
+    expect(new Set(ids(items))).toEqual(new Set([first.id, second.id, third.id, other.id]));
+    expect(items).toHaveLength(4);
+    const at = items.findIndex((item) => item.id === first.id);
+    expect(items.slice(at, at + 3).map((item) => [item.id, item.depth])).toEqual([
+      [first.id, 0],
+      [second.id, 1],
+      [third.id, 2],
+    ]);
+    // the root keeps its parent's summary: the task at the end of its own cycle
+    expect(items[at].parentTask?.id).toBe(third.id);
+    expect(items[at].subtreeSize).toBeNull();
+  });
+
+  it('places a task hanging off a cycle under it, and lists a task its own parent alone', () => {
+    const a = tasks.createTask({ title: 'A' });
+    const b = tasks.createTask({ title: 'B' });
+    setParent(a.id, b.id);
+    setParent(b.id, a.id);
+    const child = sub(a, 'Child of A');
+    const self = tasks.createTask({ title: 'Self' });
+    setParent(self.id, self.id);
+
+    const items = tasks.listTaskTree({}, BY_PRIORITY, { limit: 200 }).items;
+    expect(items).toHaveLength(4);
+    expect(new Set(ids(items))).toEqual(new Set([a.id, b.id, child.id, self.id]));
+    expect(items.find((item) => item.id === self.id)?.depth).toBe(0);
+    expect(
+      items
+        .filter((item) => item.depth === 0)
+        .map((item) => item.id)
+        .sort(),
+    ).toEqual([a.id < b.id ? a.id : b.id, self.id].sort());
+  });
+
+  it('breaks no cycle the filter already breaks', () => {
+    const a = tasks.createTask({ title: 'A' });
+    const b = tasks.createTask({ title: 'B', status: TaskStatus.COMPLETED });
+    setParent(a.id, b.id);
+    setParent(b.id, a.id);
+    // with B filtered out, A's parent doesn't match: A is a root the usual way
+    expect(ids(tasks.listTaskTree({ excludeClosed: true }).items)).toEqual([a.id]);
+  });
+
+  it('pages through a cycle, reading each task once', () => {
+    const made = Array.from({ length: 5 }, (_, i) => tasks.createTask({ title: `T${i}` }));
+    setParent(made[1].id, made[0].id);
+    setParent(made[0].id, made[1].id);
+    const paged = collectPages((page) =>
+      tasks.listTaskTree({}, BY_PRIORITY, { ...page, limit: 2 }),
+    );
+    expect(paged.map((item) => item.id).sort()).toEqual(made.map((task) => task.id).sort());
+  });
+
+  it('sees no cycle in a chain whose parents are newer than their subtasks', () => {
+    // made oldest first, then each put under the next newer one, as a re-parent can do
+    const [low, mid, high] = ['Low', 'Mid', 'High'].map((title) => tasks.createTask({ title }));
+    setParent(low.id, mid.id);
+    setParent(mid.id, high.id);
+    expect(tasks.listTaskTree({}, BY_PRIORITY).items.map((item) => [item.id, item.depth])).toEqual([
+      [high.id, 0],
+      [mid.id, 1],
+      [low.id, 2],
+    ]);
+  });
+
+  it("gives a cycle's root its subtree without itself", () => {
+    const a = tasks.createTask({ title: 'A' });
+    const b = tasks.createTask({ title: 'B' });
+    setParent(a.id, b.id);
+    setParent(b.id, a.id);
+    const root = a.id < b.id ? a : b;
+    expect(ids(tasks.listSubtree(root.id))).toEqual([(root === a ? b : a).id]);
+  });
+});

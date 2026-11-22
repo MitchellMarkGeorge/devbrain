@@ -23,6 +23,13 @@ For the page's filter **F** and sort **S** (`TaskService.listTaskTree`, `src/mai
   expanded. A page is then at most `limit × (1 + INLINE_SUBTREE_LIMIT)` rows, however a workspace
   nests; in practice a little over 100.
 
+- **A cycle of parents** has no task at its top. DevBrain never makes one ("Make subtask of…"
+  refuses), but doesn't forbid one in the data: a sync can briefly write one, applying a task's new
+  parent before its parent's own move, and a provider might allow them (Jira, Asana and Azure DevOps enforce a tree; Notion's sub-items might not). Its member with the smallest id
+  is made a root (`cycleRoots`), keeping its parent pill, and the rest nest under it, so each task
+  still shows once. The check stops each walk up at the first smaller id, and ids are
+  time-ordered, so it costs about nothing on a page.
+
 Each row is a `TaskTreeItem` (`src/common/types`): the list row plus its `depth` (0 for a root)
 and `subtreeSize` (set only on a root sent alone). Pages vary in size, which costs nothing: the
 list draws only the rows in view, and "near the end" counts rows, not pages.
