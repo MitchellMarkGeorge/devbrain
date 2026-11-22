@@ -27,18 +27,35 @@ export interface TaskListFrameGroup extends Omit<TaskListGroup, 'tasks'> {
   input: TaskListInput;
 }
 
-export interface TaskListFrameProps {
-  /** a flat list's rows, as core's tree (`tasks.tree`), and the input they were read with */
-  tasks?: TaskTreeItem[];
-  input?: TaskListInput;
-  /** a grouped list's groups */
-  groups?: TaskListFrameGroup[];
+/**
+ * The props `TaskListFrame` takes in either form: the flat list's (`tasks` and `input`) or the
+ * group view's (`groups`).
+ */
+interface TaskListFrameCommonProps {
   /** the list's total, when known */
   rowCount?: number;
   onEndReached?: () => void;
   /** whether rows and cards show their project pill (see `TasksView`) */
   showProjectPill: boolean;
 }
+
+/** The list view: one list of rows. */
+interface TaskListFrameListProps extends TaskListFrameCommonProps {
+  /** the rows, as core's tree (`tasks.tree`) */
+  tasks: TaskTreeItem[];
+  /** the input `tasks` were read with, which a big root's subtree is loaded with too */
+  input: TaskListInput;
+  groups?: never;
+}
+
+/** The group view: a list per group, each read with its own input. */
+interface TaskListFrameGroupsProps extends TaskListFrameCommonProps {
+  groups: TaskListFrameGroup[];
+  tasks?: never;
+  input?: never;
+}
+
+export type TaskListFrameProps = TaskListFrameListProps | TaskListFrameGroupsProps;
 
 // the rows of each expanded root's subtree query, undefined while one loads; a function outside
 // the component, so React Query keeps the combined result the same while no query's data changes
@@ -54,14 +71,8 @@ const subtreeRowsOf = (results: readonly { data?: TaskTreeItem[] }[]) =>
  * (its count, → / ←, its menu); a root core sent alone, with more subtasks than come inline,
  * starts hidden and loads them (`tasks.subtree`) once shown.
  */
-export function TaskListFrame({
-  tasks,
-  input,
-  groups,
-  rowCount,
-  onEndReached,
-  showProjectPill,
-}: TaskListFrameProps) {
+export function TaskListFrame(props: TaskListFrameProps) {
+  const { groups, rowCount, onEndReached, showProjectPill } = props;
   const listRef = useRef<TaskListHandle>(null);
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
@@ -79,10 +90,10 @@ export function TaskListFrame({
   // each list as core sent it, with the input it was read with: the flat list, or each group
   const listsFromCore = useMemo(
     () =>
-      groups
-        ? groups.map((group) => ({ rows: group.tasks, input: group.input }))
-        : [{ rows: tasks ?? [], input: input ?? {} }],
-    [tasks, input, groups],
+      props.groups
+        ? props.groups.map((group) => ({ rows: group.tasks, input: group.input }))
+        : [{ rows: props.tasks, input: props.input }],
+    [props.tasks, props.input, props.groups],
   );
   // the roots sent alone (too many subtasks to come inline) that the user has shown, each with
   // its list's input: their subtrees load. The same array until the lists or the choices change,
