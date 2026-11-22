@@ -8,6 +8,7 @@ import { RecentsService } from '../recents/service';
 import { CalendarService } from '../calendars/service';
 import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
+import { MentionService } from '../mentions/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
 import { TransferService } from '../transfer/service';
@@ -63,6 +64,8 @@ export class Workspace {
   readonly favorites: FavoritesService;
   readonly recents: RecentsService;
   readonly search: SearchService;
+  // what mentions each item, kept in step with every save like search (startMentions builds it)
+  readonly mentions: MentionService;
   // importing tasks and notes from files, and exporting them (docs/import-export.md)
   readonly transfer: TransferService;
   readonly integrations: IntegrationService;
@@ -143,6 +146,35 @@ export class Workspace {
     });
     // archived rows leave search and restored ones come back, in the archive's transaction
     this.archive.onChange((change) => this.onArchiveChange(change));
+
+    // Mentions follow the same saves: a source is indexed again whenever its text may have
+    // changed (re-indexing unchanged text announces nothing), and a deleted item's rows go with
+    // it. A trashed item keeps its rows, which lists leave out until it is restored.
+    this.mentions = new MentionService(db, this.notes, options.logger);
+    this.tasks.onChange((change) => {
+      if (change.type === 'deleted') this.mentions.removeItems(change.taskIds);
+      // the task went to the trash and its project, with its description, took its place
+      else if (change.type === 'converted') {
+        this.mentions.indexSource(change.project.id, change.project.description);
+      } else this.mentions.indexSource(change.task.id, change.task.description);
+    });
+    this.projects.onChange((change) => {
+      if (change.type === 'deleted') this.mentions.removeItems([change.projectId]);
+      else this.mentions.indexSource(change.project.id, change.project.description);
+    });
+    this.notes.onChange((change) => {
+      if (change.type === 'deleted') this.mentions.removeItems([change.noteId]);
+      // a change without content (a rename, a move to a project) leaves the links as they were
+      else if (change.content !== undefined)
+        this.mentions.indexSource(change.note.id, change.content);
+    });
+    this.events.onChange((change) => {
+      if (change.type === 'deleted') this.mentions.removeItems(change.eventIds);
+    });
+    this.archive.onChange((change) => {
+      if (change.type !== 'emptied') return;
+      this.mentions.removeItems([...change.taskIds, ...change.projectIds, ...change.noteIds]);
+    });
     const { credentials, integrations } = createIntegrationServices(
       db,
       options,
@@ -150,11 +182,13 @@ export class Workspace {
     );
     this.credentials = credentials;
     this.integrations = integrations;
-    // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
+    // a disconnect deletes mirrored rows; they leave search and mentions in its transaction, all or
+    // nothing
     integrations.onChange((change) => {
       if (change.type !== 'disconnected') return;
       const { taskIds, projectIds, eventIds } = change.deleted;
       this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
+      this.mentions.removeItems([...taskIds, ...projectIds, ...eventIds]);
     });
     const { logger } = options;
     const syncState = new SyncStateManager(db, { logger });
@@ -323,10 +357,23 @@ export class Workspace {
   }
 
   /**
-   * Cancels integration authentication, then waits for sync runs, token refreshes in flight and
-   * search's index writes waiting on note files, before closing SQLite. Authentication checks cancellation before
-   * touching the database again. Ordinary service calls are not tracked or drained. Every caller
-   * shares the same close promise.
+   * Builds the mentions index in the background when it is empty: on the first open after mentions
+   * were added, every note's file is read once. One that is empty because nothing mentions
+   * anything is built again on each open, which costs that read and writes nothing. Called by
+   * WorkspaceService.open, like sync.start.
+   */
+  startMentions(): void {
+    if (!this.mentions.isEmpty()) return;
+    this.mentions
+      .rebuild()
+      .catch((error) => console.error(`Building mentions failed error=${errorClass(error)}`));
+  }
+
+  /**
+   * Cancels integration authentication, then waits for sync runs, token refreshes in flight, and
+   * search's and mentions' index writes waiting on note files, before closing SQLite.
+   * Authentication checks cancellation before touching the database again. Ordinary service calls
+   * are not tracked or drained. Every caller shares the same close promise.
    */
   close(): Promise<void> {
     if (!this.closePromise) {
@@ -338,6 +385,7 @@ export class Workspace {
         await this.credentials.whenIdle();
         // index writes waiting on note files, such as a restore's or a rebuild's
         await this.search.whenIdle();
+        await this.mentions.whenIdle();
         this.sqliteClient.close();
       })();
     }
