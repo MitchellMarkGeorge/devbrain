@@ -42,7 +42,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Fields.** Inputs, selects, checkboxes and the quiet default button sit on `input-fill` (`foreground` at 4% in dark, none in light) with an `input` outline, so they are findable at rest.
 - **Destructive.** `destructive` is a red tint (20%) with red text, never a solid red.
 - **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border-strong` line). They hang about 160px from the top of the window (create dialogs 140px, the ⌘K search 120px), centred on the whole window, ignoring the sidebar (Figma centres them over the page beside it; the window was chosen instead).
-- **Focus.** shadcn's ring, unchanged: the border turns `ring` with a 3px `ring` halo at 50%.
+- **Focus.** shadcn's ring, unchanged: the border turns `ring` with a 3px `ring` halo at 50%. In Windows' forced colours (high-contrast) mode, which drops box shadows, keyboard focus is a 2px outline in the system's `Highlight` colour instead: 2px outside a control, 2px inside a row and a highlighted menu or command item (`data-highlighted`, which a combobox's options use while focus stays in its field). One rule in `src/renderer/styles/base.css` draws it for every `:focus-visible` element (except the editor, where the caret shows focus); a component whose ring sits on a box round a bare field (`CaptureBox`, `QuickAddRow`, `Command`'s search) outlines the box instead. Outside forced colours nothing changes.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 

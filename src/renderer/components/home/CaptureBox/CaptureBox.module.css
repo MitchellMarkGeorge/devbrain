@@ -100,3 +100,14 @@
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   text-align: center;
 }
+
+/* forced colours: the box is outlined while its field has focus, where its ring is drawn */
+@media (forced-colors: active) {
+  .input:focus-visible {
+    outline: none !important;
+  }
+  .box:has(.input:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

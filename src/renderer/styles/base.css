@@ -135,3 +135,29 @@ body {
   );
   --title-bar-end: calc(var(--caption-buttons-width) + var(--space-4));
 }
+
+/*
+ * Focus in Windows' forced colours (high-contrast) mode. Focus rings are box shadows, which forced
+ * colours removes, and most come with `outline: none`, so here keyboard focus is drawn as a 2px
+ * outline in the system's Highlight colour instead, 2px outside the control (important, to win
+ * over each component's `outline: none`). Nothing changes outside forced colours.
+ * - Rows (`role="row"`) and highlighted menu and command items, whose ground fills their list and
+ *   would clip an outline outside them, draw it 2px inside instead, as their 1px ring is drawn.
+ * - A highlighted item (`data-highlighted`) is outlined too: a combobox's options keep focus in
+ *   its input, and forced colours removes the tint that shows which one ↵ picks.
+ * - `data-state='focus'` is the focus state stories show on rows and cards.
+ * - The editor isn't outlined: its caret shows where focus is, as it does outside forced colours.
+ */
+@media (forced-colors: active) {
+  :where(:focus-visible:not(.ProseMirror), [data-state='focus']) {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px;
+  }
+  [data-highlighted] {
+    outline: 2px solid Highlight !important;
+  }
+  [role='row']:is(:focus-visible, [data-state='focus']),
+  [data-highlighted] {
+    outline-offset: -2px;
+  }
+}
