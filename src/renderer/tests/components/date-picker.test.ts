@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { parseNaturalDate } from '@renderer/components';
+import { describe, expect, it, vi } from 'vitest';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { DatePicker, parseNaturalDate } from '@renderer/components';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // The DatePicker's field, read with chrono. Today is Tuesday 17 Nov 2026.
 
@@ -30,5 +34,21 @@ describe('parseNaturalDate', () => {
     expect(parseNaturalDate('', TODAY)).toBeUndefined();
     expect(parseNaturalDate('   ', TODAY)).toBeUndefined();
     expect(parseNaturalDate('whenever', TODAY)).toBeUndefined();
+  });
+});
+
+describe('DatePicker', () => {
+  it('draws every quick pick when two fall on one day', () => {
+    // a Sunday: Tomorrow and Next week are both Monday 23 Nov
+    const sunday = new Date(2026, 10, 22, 9);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    act(() => root.render(createElement(DatePicker, { today: sunday })));
+    const labels = [...container.querySelectorAll('button')].map((button) => button.textContent);
+    act(() => root.unmount());
+    expect(labels).toEqual(expect.arrayContaining(['Today', 'Tomorrow', 'Next week']));
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 });

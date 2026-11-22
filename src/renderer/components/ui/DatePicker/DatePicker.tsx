@@ -114,9 +114,10 @@ export function DatePicker({
         />
         {picks.length > 0 && (
           <div className={styles.quickPicks}>
-            {picks.map((pick) => (
+            {/* by place: two picks can share a day (on a Sunday, Tomorrow is Next week's Monday) */}
+            {picks.map((pick, index) => (
               <Button
-                key={pick.date.toISOString()}
+                key={index}
                 size="xs"
                 variant="outline"
                 className={styles.quickPick}
