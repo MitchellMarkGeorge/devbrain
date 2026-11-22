@@ -7,13 +7,7 @@ import { GroupHeading } from '../GroupHeading';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
-import {
-  BUSY_TASK,
-  manyTasks,
-  SAMPLE_SUBTASKS,
-  SAMPLE_TASKS,
-  SAMPLE_TREE,
-} from '../TaskRow/fixtures';
+import { BUSY_TASK, manyTasks, SAMPLE_TASKS, SAMPLE_TREE } from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
 import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '@renderer/keyboard';
 import {
@@ -88,10 +82,6 @@ export const Selection: Story = {
 
 export const StatusMenuOpen: Story = {
   args: { menuOpenAt: 1 },
-};
-
-export const Subtasks: Story = {
-  args: { tasks: SAMPLE_SUBTASKS, subtasks: true },
 };
 
 /**

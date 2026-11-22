@@ -13,7 +13,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
-import type { SettablePriority, TaskListItem, TaskPriority, TaskStatus } from '@common/types';
+import type {
+  SettablePriority,
+  SubtaskListItem,
+  TaskListItem,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import {
   defaultQuickPicks,
   DropdownMenuFilter,
@@ -168,7 +174,8 @@ export function ProjectSubmenu({
 }
 
 export interface TaskMenuItemsProps {
-  task: TaskListItem;
+  /** the task: a list row, or a task's own subtask, which names no parent (no "Open parent task") */
+  task: SubtaskListItem & Partial<Pick<TaskListItem, 'parentTask'>>;
   actions: TaskActions;
   /** "Open task": its page, or the board's sheet */
   onOpen: () => void;

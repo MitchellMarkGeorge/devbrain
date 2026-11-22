@@ -14,7 +14,9 @@ const meta = {
     state: { control: 'inline-radio', options: [undefined, 'hover', 'focus'] },
     stack: { control: 'inline-radio', options: ['auto', 'none', 'right', 'both'] },
     selected: { control: 'boolean' },
-    subtask: { control: 'boolean' },
+    showProject: { control: 'boolean' },
+    showParent: { control: 'boolean' },
+    showLink: { control: 'boolean' },
   },
   decorators: [
     (Story) => (
@@ -91,8 +93,8 @@ export const States: Story = {
           dueDate: storyDate(4),
         })}
       />
-      <Label>Subtask</Label>
-      <TaskRow task={SAMPLE_SUBTASKS[1]} subtask />
+      <Label>Subtask, drawn under its parent (TaskList nested)</Label>
+      <TaskRow task={SAMPLE_SUBTASKS[1]} tree={{ depth: 1, continues: [false], open: false }} />
     </Stack>
   ),
 };

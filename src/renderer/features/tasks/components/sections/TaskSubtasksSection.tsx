@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { TaskStatus, type Task, type TaskListItem } from '@common/types';
+import { TaskStatus, type Task, type SubtaskListItem } from '@common/types';
 import {
   Button,
   ContextMenu,
@@ -35,12 +35,8 @@ export interface TaskSubtasksSectionProps {
  */
 export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectionProps) {
   const query = useInfiniteQuery(subtasksQuery(task.id));
-  // a subtask list item names no parent: the parent is this page
-  const subtasks = useMemo<TaskListItem[]>(
-    () =>
-      query.data?.pages.flatMap((page) =>
-        page.items.map((item) => ({ ...item, parentTask: null })),
-      ) ?? [],
+  const subtasks = useMemo(
+    () => query.data?.pages.flatMap((page) => page.items) ?? [],
     [query.data],
   );
   const byId = useMemo(() => new Map(subtasks.map((s) => [s.id as string, s])), [subtasks]);
@@ -49,7 +45,7 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
   const openEntity = useOpenEntity();
   const createTask = useCreateTask();
   const list = useRef<TaskListHandle>(null);
-  const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
+  const [menuTask, setMenuTask] = useState<SubtaskListItem | null>(null);
   const canAdd = !isSynced(task);
 
   useListCommands(list, {
@@ -105,13 +101,13 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
               <TaskList
                 compact={compact}
                 ref={list}
+                tasks={subtasks}
+                // its rows name no parent: the parent is the task this section is on
+                showParent={false}
                 // in the sheet's narrow column a subtask shows its title, priority and date:
                 // its project and link are mostly the parent's
-                tasks={
-                  compact
-                    ? subtasks.map((row) => ({ ...row, project: null, link: null }))
-                    : subtasks
-                }
+                showProject={!compact}
+                showLink={!compact}
                 selectionBar={false}
                 // the rows' selection strip hangs into the page margin, so the status icons
                 // line up with the column, as Figma's page draws them

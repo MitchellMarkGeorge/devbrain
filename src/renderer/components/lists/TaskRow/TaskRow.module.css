@@ -3,12 +3,15 @@
  * "Lists". The 36px left padding is the strip the selection checkbox appears in.
  */
 .row {
+  /* the strip before the status icon, and the icon's size: the tree's guides are drawn from them */
+  --row-strip: 36px;
+  --status-size: 24px;
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 36px;
+  padding: 0 var(--space-3) 0 var(--row-strip);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
@@ -17,20 +20,26 @@
   cursor: default;
   transition: background-color var(--duration-fast);
 }
-/* a subtask is indented under its parent */
-.subtask {
-  padding-left: 64px;
-}
 /*
- * A subtask drawn under its parent in the tasks pages' lists (TaskList's `nested`): 28px in per
- * level, so its status icon sits under the start of its parent's title, joined to the parent's
- * status icon by guide lines. The checkbox stays in the strip, in line with every other row's.
+ * A subtask drawn under its parent in the tasks pages' lists (TaskList's `nested`), joined to the
+ * parent's status icon by guide lines. The checkbox stays in the strip, in line with every other
+ * row's.
  */
 .nested {
-  --guide-step: 28px;
-  /* the centre of a depth-0 row's status icon, from the row's padding edge (36px - 1px) */
-  --guide-start: 47px;
-  padding-left: calc(36px + var(--depth, 0) * var(--guide-step));
+  /*
+   * one level in: the status icon and the 10px gap after it, less the icon's 4px inset around its
+   * 16px glyph, so a subtask's glyph starts exactly where its parent's title does (30px)
+   */
+  --guide-step: calc(var(--status-size) + 10px - 4px);
+  /*
+   * where a level's line runs: the centre of the status icon at depth 0, from the row's padding
+   * edge, where the guides are placed (the strip, less the icon's 1px pull past the border, plus
+   * half the icon: 47px)
+   */
+  --guide-start: calc(var(--row-strip) - 1px + var(--status-size) / 2);
+  /* how far a line turns right towards a subtask's icon: up to 4px short of it (14px) */
+  --guide-reach: calc(var(--guide-step) - var(--status-size) / 2 - 4px);
+  padding-left: calc(var(--row-strip) + var(--depth, 0) * var(--guide-step));
 }
 .guides {
   position: absolute;
@@ -53,7 +62,7 @@
 .elbow {
   top: 0;
   height: 50%;
-  width: 14px;
+  width: var(--guide-reach);
   border-left-width: 1px;
   border-bottom-width: 1px;
   border-bottom-left-radius: 6px;
@@ -62,11 +71,12 @@
 .tick {
   top: calc(50% - 1px);
   height: 1px;
-  width: 13px;
+  /* from just past the line, so the two never overlap */
+  width: calc(var(--guide-reach) - 1px);
   margin-left: 1px;
   border-bottom-width: 1px;
 }
-/* down from the row's own status icon to its first subtask */
+/* down from the row's own status icon to its first subtask, starting 2px below its glyph */
 .stem {
   top: calc(50% + 10px);
   bottom: 0;
@@ -133,9 +143,6 @@
   margin-top: -8px;
   display: none;
 }
-.subtask .check {
-  left: 36px;
-}
 .row:hover .check,
 .row:focus-visible .check,
 .row:has(:focus-visible) .check,
@@ -150,8 +157,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: var(--status-size);
+  height: var(--status-size);
   /* 36px from the row's outer edge, past its 1px border */
   margin-left: -1px;
   padding: 0;

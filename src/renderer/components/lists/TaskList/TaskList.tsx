@@ -85,8 +85,6 @@ export interface TaskListBaseProps extends Omit<
    * Makes every rendered `TaskRow` compact
    */
   compact?: boolean;
-  /** indents every row (a task page's Subtasks list) */
-  subtasks?: boolean;
   /**
    * draws each subtask that comes right after its parent (or the parent's other subtasks) indented
    * under it, joined to it by guide lines; give the rows in that order. Each group is its own tree.
@@ -102,6 +100,10 @@ export interface TaskListBaseProps extends Omit<
   stack?: TaskRowProps['stack'];
   /** shows each row's project pill (the default); `false` for a list of one project's tasks */
   showProject?: boolean;
+  /** shows a subtask's parent pill (the default); `false` for a task's own Subtasks section */
+  showParent?: boolean;
+  /** shows each row's linked event or note pill (the default); `false` in the sheet's Subtasks */
+  showLink?: boolean;
   /** shows the SelectionBar while rows are selected; `false` leaves it to the page */
   selectionBar?: boolean;
   /** the bar sticks to the bottom of the scrolling list (default); `false` puts it under the rows */
@@ -203,12 +205,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     states,
     menuOpenAt,
     selecting,
-    subtasks,
     nested = false,
     subtasksShown,
     onSubtasksShownChange,
     stack,
     showProject,
+    showParent,
+    showLink,
     selectionBar = true,
     floatingBar = true,
     compact = false,
@@ -457,7 +460,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               state={states?.[taskIndex]}
               menuOpen={menuOpenId === id}
               onMenuOpenChange={(open) => setMenuOpenId(open ? id : null)}
-              subtask={subtasks}
               tree={tree}
               subtasksShown={subtasksShown?.(task)}
               onSubtasksShownChange={
@@ -465,6 +467,8 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               }
               stack={stack}
               showProject={showProject}
+              showParent={showParent}
+              showLink={showLink}
               onSelect={() => toggle(id)}
               onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
               onOpen={onOpen && (() => onOpen(task))}

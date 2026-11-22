@@ -2,7 +2,7 @@ import type { TaskListItem } from '@common/types';
 
 /**
  * The fields of core's `TaskListItem` a task row, a board card and a task list read. Pass a
- * `TaskListItem` (or a `SubtaskListItem` with `parentTask: null`) as it is.
+ * `TaskListItem`, or a `SubtaskListItem` (a task's own subtasks, which name no parent), as it is.
  */
 export type TaskRowData = Pick<
   TaskListItem,
@@ -14,6 +14,6 @@ export type TaskRowData = Pick<
   | 'subtaskProgress'
   | 'project'
   | 'link'
-  | 'parentTask'
   | 'external'
->;
+> &
+  Partial<Pick<TaskListItem, 'parentTask'>>;

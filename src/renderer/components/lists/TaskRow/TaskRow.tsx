@@ -37,8 +37,6 @@ import styles from './TaskRow.module.css';
 
 export const taskRowVariants = cva(styles.row, {
   variants: {
-    /** indented under its parent */
-    subtask: { true: styles.subtask },
     /** Home: 44px, with no selection strip */
     compact: { true: styles.compact },
   },
@@ -56,7 +54,6 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   joinNext?: boolean;
   /** a static hover or focus, for pictures of the row */
   state?: 'hover' | 'focus';
-  subtask?: boolean;
   /**
    * where the row sits among subtasks drawn under their parents (`TaskList`'s `nested`): indented
    * by its depth, with guide lines from its parent's status icon to its own
@@ -86,6 +83,16 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
    * page) passes `false`: the pill would say the same thing on every row.
    */
   showProject?: boolean;
+  /**
+   * shows a subtask's parent pill (the default). A task's own Subtasks section passes `false`: the
+   * parent is the task it is on. A row drawn under its parent in a tree leaves it off either way.
+   */
+  showParent?: boolean;
+  /**
+   * shows the task's linked event or note pill (the default). The task sheet's narrow Subtasks
+   * section passes `false`: a subtask shares its parent's link, which the sheet already shows.
+   */
+  showLink?: boolean;
   /** the status, when controlled; otherwise the row shows its own pick until `task.status` changes */
   status?: TaskStatus;
   onStatusChange?: (status: PickableStatus) => void;
@@ -400,13 +407,14 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     joinPrev,
     joinNext,
     state,
-    subtask,
     tree,
     subtasksShown,
     onSubtasksShownChange,
     compact,
     stack,
     showProject = true,
+    showParent = true,
+    showLink = true,
     status: statusProp,
     onStatusChange,
     menuOpen: menuOpenProp,
@@ -435,10 +443,11 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
   // a subtask drawn under its parent leaves out the parent's pill: the guide points at the parent
-  const parent = tree && tree.depth > 0 ? null : task.parentTask;
+  const parent = !showParent || (tree && tree.depth > 0) ? null : task.parentTask;
   const leftPills = [key, parent, subtasks].filter(Boolean).length;
   const project = showProject ? task.project : null;
-  const rightPills = [task.link, project].filter(Boolean).length;
+  const link = showLink ? task.link : null;
+  const rightPills = [link, project].filter(Boolean).length;
   const autoLevel = useAutoStack(stack === 'auto' || stack === undefined, rowRef, {
     left: leftPills > 1,
     right: rightPills > 1,
@@ -512,7 +521,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-state={state}
       data-completed={completed ? '' : undefined}
       data-menu-open={menuOpen && !synced ? '' : undefined}
-      className={cn(taskRowVariants({ subtask, compact }), tree && styles.nested, className)}
+      className={cn(taskRowVariants({ compact }), tree && styles.nested, className)}
       style={tree ? { ...style, ['--depth' as string]: tree.depth } : style}
       onClick={handleClick}
       {...props}
@@ -581,9 +590,9 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       </div>
       <div className={styles.side} data-side="">
         <PillStack stacked={level >= 1}>
-          {task.link && (
-            <PillHoverCard target={linkTarget(task.link)}>
-              <EntityPill entity={task.link} />
+          {link && (
+            <PillHoverCard target={linkTarget(link)}>
+              <EntityPill entity={link} />
             </PillHoverCard>
           )}
           {project && (

@@ -10,7 +10,12 @@ import {
   type PillTarget,
 } from '@renderer/components/entities/EntityHoverCard';
 import { TaskRow, treeOf } from '@renderer/components/lists/TaskRow';
-import { sampleParent, sampleTask } from '@renderer/components/lists/TaskRow/fixtures';
+import {
+  sampleEventLink,
+  sampleParent,
+  sampleProject,
+  sampleTask,
+} from '@renderer/components/lists/TaskRow/fixtures';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -193,5 +198,41 @@ describe('TaskRow in a tree', () => {
     draw(false);
     focusCount();
     expect(prepared).toEqual(['subtasks']);
+  });
+
+  it('leaves off the parent, link and project pills the list asks it to', () => {
+    const busy = sampleTask({
+      title: 'Busy',
+      parentTask: sampleParent('The parent'),
+      link: sampleEventLink('The meeting'),
+      project: sampleProject('The project'),
+    });
+    const draw = (hide: boolean) =>
+      act(() =>
+        root.render(
+          createElement(TaskRow, {
+            task: busy,
+            stack: 'none',
+            showParent: !hide,
+            showLink: !hide,
+            showProject: !hide,
+          }),
+        ),
+      );
+    draw(false);
+    for (const name of ['The parent', 'The meeting', 'The project']) {
+      expect(container.textContent).toContain(name);
+    }
+    draw(true);
+    for (const name of ['The parent', 'The meeting', 'The project']) {
+      expect(container.textContent).not.toContain(name);
+    }
+  });
+
+  it('takes a subtask with no parent field, as a task’s own Subtasks list gives it', () => {
+    const { parentTask, ...own } = sampleTask({ title: 'Own subtask' });
+    void parentTask;
+    act(() => root.render(createElement(TaskRow, { task: own, stack: 'none' })));
+    expect(container.textContent).toContain('Own subtask');
   });
 });
