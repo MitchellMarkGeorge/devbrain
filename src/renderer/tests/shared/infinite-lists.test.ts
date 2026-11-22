@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InfiniteQueryObserver, QueryClient } from '@tanstack/react-query';
-import {
-  taskListQuery,
-  taskTreeQuery,
-  subtasksQuery,
-} from '@renderer/features/tasks/api/queries';
+import { taskListQuery, taskTreeQuery, subtasksQuery } from '@renderer/features/tasks/api/queries';
 import { noteListQuery, noteTasksQuery } from '@renderer/features/notes/api/queries';
 import { projectListQuery, projectNotesQuery } from '@renderer/features/projects/api/queries';
 import { trashListQuery } from '@renderer/features/trash/api/queries';

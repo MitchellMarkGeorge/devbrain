@@ -44,7 +44,8 @@ indexed column, SQLite would read that index at every step of the walk instead.
   alone) and leaves out what a hidden parent hides (`visibleRows`).
 - **`TaskList`'s `nested`** draws the rows it is given as a tree (`treeOf`, the guides, the parent
   pill left off a nested row), and the frame's `subtasksShown` makes a parent's count the button
-  that shows and hides its subtasks, as → / ← and its menu do.
+  that shows and hides its subtasks, as → / ← and its menu do. That count opens no hover card: the
+  subtasks it would list are the rows under it.
 
 The count stays the task's own: "1/3" counts every subtask, while the tree shows those matching F.
 

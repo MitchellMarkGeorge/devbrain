@@ -4,6 +4,11 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { TaskId } from '@common/ids';
 import { TaskStatus } from '@common/types';
+import {
+  PillHoverCardsProvider,
+  type PillHoverCardsProviderProps,
+  type PillTarget,
+} from '@renderer/components/entities/EntityHoverCard';
 import { TaskRow, treeOf } from '@renderer/components/lists/TaskRow';
 import { sampleParent, sampleTask } from '@renderer/components/lists/TaskRow/fixtures';
 
@@ -147,5 +152,46 @@ describe('TaskRow in a tree', () => {
     const parent = sampleTask({ title: 'Ship it', subtaskProgress: { completed: 1, total: 3 } });
     act(() => root.render(createElement(TaskRow, { task: parent, stack: 'none' })));
     expect(container.querySelector('[data-subtasks-toggle]')).toBeNull();
+  });
+
+  it('opens no hover card on the count that toggles, and its card on a plain count', () => {
+    const parent = sampleTask({ title: 'Ship it', subtaskProgress: { completed: 1, total: 3 } });
+    const prepared: string[] = [];
+    const draw = (toggles: boolean) =>
+      act(() =>
+        root.render(
+          createElement(
+            PillHoverCardsProvider,
+            {
+              delay: 0,
+              closeDelay: 0,
+              renderCard: () => null,
+              children: null,
+              onPrepare: (target: PillTarget) => {
+                prepared.push(target.type);
+              },
+            } as PillHoverCardsProviderProps,
+            createElement(TaskRow, {
+              task: parent,
+              stack: 'none',
+              ...(toggles ? { subtasksShown: true, onSubtasksShownChange: () => {} } : {}),
+            }),
+          ),
+        ),
+      );
+    // focusing a pill opens its card, as pointing at it does
+    const focusCount = () =>
+      act(() =>
+        [...container.querySelectorAll('[data-slot="badge"]')]
+          .find((el) => el.textContent?.includes('1/3'))!
+          .dispatchEvent(new FocusEvent('focusin', { bubbles: true })),
+      );
+
+    draw(true);
+    focusCount();
+    expect(prepared).toEqual([]);
+    draw(false);
+    focusCount();
+    expect(prepared).toEqual(['subtasks']);
   });
 });

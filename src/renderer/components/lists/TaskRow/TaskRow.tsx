@@ -543,30 +543,30 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
               <EntityPill entity={{ type: 'parent', ...parent }} />
             </PillHoverCard>
           )}
-          {subtasks && (
-            <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
-              {subtasksShown !== undefined && onSubtasksShownChange ? (
-                <Badge
-                  muted
-                  icon={
-                    <ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />
-                  }
-                  tabIndex={-1}
-                  aria-expanded={subtasksShown}
-                  aria-label={`Subtasks, ${subtasks.completed} of ${subtasks.total} done`}
-                  data-subtasks-toggle=""
-                  onClick={() => onSubtasksShownChange(!subtasksShown)}
-                >
-                  <span className={styles.toggle}>
-                    {subtasks.completed}/{subtasks.total}
-                    {subtasksShown ? (
-                      <ChevronDown size={12} aria-hidden />
-                    ) : (
-                      <ChevronRight size={12} aria-hidden />
-                    )}
-                  </span>
-                </Badge>
-              ) : (
+          {subtasks &&
+            (subtasksShown !== undefined && onSubtasksShownChange ? (
+              // the count as the show/hide button: no hover card, since the subtasks it would list
+              // are the rows under it, a click away
+              <Badge
+                muted
+                icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
+                tabIndex={-1}
+                aria-expanded={subtasksShown}
+                aria-label={`Subtasks, ${subtasks.completed} of ${subtasks.total} done`}
+                data-subtasks-toggle=""
+                onClick={() => onSubtasksShownChange(!subtasksShown)}
+              >
+                <span className={styles.toggle}>
+                  {subtasks.completed}/{subtasks.total}
+                  {subtasksShown ? (
+                    <ChevronDown size={12} aria-hidden />
+                  ) : (
+                    <ChevronRight size={12} aria-hidden />
+                  )}
+                </span>
+              </Badge>
+            ) : (
+              <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
                 <Badge
                   muted
                   icon={
@@ -575,9 +575,8 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
                 >
                   {subtasks.completed}/{subtasks.total}
                 </Badge>
-              )}
-            </PillHoverCard>
-          )}
+              </PillHoverCard>
+            ))}
         </PillStack>
       </div>
       <div className={styles.side} data-side="">
