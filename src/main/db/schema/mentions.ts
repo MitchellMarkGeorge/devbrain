@@ -4,7 +4,7 @@ import type { MentionSourceId, MentionTargetId } from '@common/types';
 /**
  * Which items mention which: one row per source and target, from the `devbrain://` links in a
  * note's file or a task's or project's description (MentionService). Kept by the service on every
- * save, never by the user.
+ * save, never by the user; built once from what was there before (`index_builds`).
  *
  * No foreign keys: the source and the target are each one of several tables (their type is in
  * the id's prefix), so MentionService removes a deleted item's rows itself. A trashed source keeps

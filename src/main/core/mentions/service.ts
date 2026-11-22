@@ -1,5 +1,6 @@
 import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
 import type { Mention, MentionSource, MentionSourceId, MentionTargetId } from '@common/types';
+import { indexBuilds } from '@main/db/schema/index-builds';
 import { mentions } from '@main/db/schema/mentions';
 import { notes } from '@main/db/schema/notes';
 import { projects } from '@main/db/schema/projects';
@@ -171,16 +172,25 @@ export class MentionService {
     return this.list(targetId).length;
   }
 
-  /** whether nothing has been indexed: a workspace from before mentions, or one with none yet */
-  isEmpty(): boolean {
-    return this.db.select({ id: mentions.sourceId }).from(mentions).limit(1).all().length === 0;
+  /**
+   * Whether a rebuild has ever finished in this workspace. Until one has (a workspace from before
+   * mentions), links saved earlier aren't indexed; after it, saves keep the index in step.
+   */
+  isBuilt(): boolean {
+    return (
+      this.db
+        .select({ name: indexBuilds.name })
+        .from(indexBuilds)
+        .where(eq(indexBuilds.name, 'mentions'))
+        .all().length > 0
+    );
   }
 
   /**
    * Indexes every task, project and note again, trashed ones included, reading each note's file.
    * A source saved while the files are read keeps what that save indexed; a note whose file can't
-   * be read keeps its rows. Resolves to the number of rows. One rebuild runs at a time: a call
-   * while one runs gets that one.
+   * be read keeps its rows. Marks the index built (isBuilt) in the same transaction. Resolves to
+   * the number of rows. One rebuild runs at a time: a call while one runs gets that one.
    */
   rebuild(): Promise<number> {
     this.rebuilding ??= this.runRebuild().finally(() => {
@@ -247,6 +257,11 @@ export class MentionService {
             .values(rows.slice(i, i + INSERT_CHUNK))
             .run();
         }
+        const builtAt = new Date();
+        tx.insert(indexBuilds)
+          .values({ name: 'mentions', builtAt })
+          .onConflictDoUpdate({ target: indexBuilds.name, set: { builtAt } })
+          .run();
         return tx.select({ id: mentions.sourceId }).from(mentions).all().length;
       });
     } finally {

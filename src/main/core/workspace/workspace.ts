@@ -357,13 +357,13 @@ export class Workspace {
   }
 
   /**
-   * Builds the mentions index in the background when it is empty: on the first open after mentions
-   * were added, every note's file is read once. One that is empty because nothing mentions
-   * anything is built again on each open, which costs that read and writes nothing. Called by
-   * WorkspaceService.open, like sync.start.
+   * Builds the mentions index in the background if it has never been built: on the first open
+   * after mentions were added, every note's file is read once, for the links written before then.
+   * Every later open finds it built and reads nothing. Called by WorkspaceService.open, like
+   * sync.start.
    */
   startMentions(): void {
-    if (!this.mentions.isEmpty()) return;
+    if (this.mentions.isBuilt()) return;
     this.mentions
       .rebuild()
       .catch((error) => console.error(`Building mentions failed error=${errorClass(error)}`));

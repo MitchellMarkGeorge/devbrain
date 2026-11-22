@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -166,7 +166,6 @@ describe('MentionService', () => {
     const trashed = await workspace.notes.createNote({ content: link('task', target.id) });
     workspace.archive.archiveNote(trashed.id);
     clearIndex();
-    expect(workspace.mentions.isEmpty()).toBe(true);
 
     const rebuilt = workspace.mentions.rebuild();
     // saved while the files are read: the rebuild must keep this, not what it read
@@ -184,20 +183,24 @@ describe('MentionService', () => {
     expect(workspace.mentions.count(target.id)).toBe(3);
   });
 
-  it('builds an empty index when the workspace starts, and leaves a built one alone', async () => {
+  it('builds the index once, when the workspace starts and it never was', async () => {
     const target = workspace.tasks.createTask({ title: 'Target' });
     const note = await workspace.notes.createNote({ content: link('task', target.id) });
     clearIndex();
+    expect(workspace.mentions.isBuilt()).toBe(false);
 
     workspace.startMentions();
     await workspace.mentions.whenIdle();
+    expect(workspace.mentions.isBuilt()).toBe(true);
     expect(mentionsOf(target.id)).toEqual([[note.id, '', '']]);
 
-    // rows that disagree with the files would be rebuilt away; they stay, so nothing ran
-    workspace.mentions.indexSource(note.id, `${link('task', target.id)} changed`);
+    // built: a later start reads nothing, even with no mentions left at all
+    clearIndex();
+    const read = vi.spyOn(workspace.notes, 'readContent');
     workspace.startMentions();
     await workspace.mentions.whenIdle();
-    expect(mentionsOf(target.id)).toEqual([[note.id, '', ' changed']]);
+    expect(read).not.toHaveBeenCalled();
+    expect(mentionsOf(target.id)).toEqual([]);
   });
 });
 
@@ -213,6 +216,7 @@ function stampUpdatedAt(
     .run();
 }
 
+// drops every mention row; whether the index was built (index_builds) is left as it is
 function clearIndex() {
   dbOf(workspace).delete(mentions).run();
 }
