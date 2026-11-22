@@ -102,9 +102,9 @@ export const States: Story = {
 const UNDATED = sampleTask({ title: 'Write the release notes', priority: TaskPriority.MEDIUM });
 
 /**
- * A task without a due date: its date slot is blank at rest, and shows "Set due date" (a quiet
- * calendar-plus opening the date picker) while the row is pointed at or focused. A closed or
- * synced task, or a row the page gives no `onDueDateChange`, stays blank.
+ * A task without a due date: its date slot reads "No date" at rest, and shows "Set due date" in its
+ * place (a quiet calendar-plus opening the date picker) while the row is pointed at or focused. A
+ * closed or synced task, or a row the page gives no `onDueDateChange`, keeps "No date".
  */
 export const NoDueDate: Story = {
   name: 'No due date',
@@ -114,7 +114,7 @@ export const NoDueDate: Story = {
       <TaskRow task={UNDATED} onDueDateChange={() => {}} />
       <Label>Hover: Set due date</Label>
       <TaskRow task={UNDATED} state="hover" onDueDateChange={() => {}} />
-      <Label>Completed: nothing to set</Label>
+      <Label>Completed: nothing to set, keeps No date</Label>
       <TaskRow
         task={{ ...UNDATED, status: TaskStatus.COMPLETED }}
         state="hover"

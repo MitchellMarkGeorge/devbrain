@@ -29,7 +29,14 @@ import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
 import { LinkState, TaskStatus } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import { dueTone, isClosed, isSynced, providerOf, TASK_STATUS_LABELS } from '../../types';
+import {
+  dueTone,
+  isClosed,
+  isSynced,
+  NO_DATE_LABEL,
+  providerOf,
+  TASK_STATUS_LABELS,
+} from '../../types';
 import type { TaskRowData } from './types';
 import type { TaskRowTree } from './tree';
 import styles from './TaskRow.module.css';
@@ -601,13 +608,18 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             tone === 'overdue' && styles.overdue,
           )}
         >
-          {task.dueDate
-            ? formatListDate(task.dueDate)
-            : onDueDateChange &&
-              !isClosed(status) &&
-              task.external?.state !== LinkState.SYNCED && (
-                <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
-              )}
+          {task.dueDate ? (
+            formatListDate(task.dueDate)
+          ) : (
+            <>
+              <span className={styles.noDate}>{NO_DATE_LABEL}</span>
+              {onDueDateChange &&
+                !isClosed(status) &&
+                task.external?.state !== LinkState.SYNCED && (
+                  <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
+                )}
+            </>
+          )}
         </span>
       </div>
     </div>

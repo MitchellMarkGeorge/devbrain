@@ -365,6 +365,14 @@
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
+/* "No date", which gives way to "Set due date" where the task can be dated */
+.noDate {
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.row:is(:hover, :focus-visible, :focus-within, [data-state]) .date:has(.setDue) .noDate,
+.date:has(.setDue[data-popup-open]) .noDate {
+  opacity: 0;
+}
 .row:hover .setDue,
 .row:focus-visible .setDue,
 .row:focus-within .setDue,

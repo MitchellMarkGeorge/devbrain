@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ProjectStatus } from '@common/types';
-import { storyDate } from '../../lib/story-dates';
+import { LinkState, ProjectStatus, Provider } from '@common/types';
+import { storyAgo, storyDate } from '../../lib/story-dates';
 import { AUTH_OVERHAUL } from '../ProjectCard/fixtures';
 import { Folder } from 'lucide-react';
 import { EditorTitle } from '../../editor/EditorContent';
@@ -89,5 +89,23 @@ export const Editable: Story = {
     ),
     duePicker: <DatePicker today={storyDate(0)} onChange={() => {}} />,
     startPicker: <DatePicker today={storyDate(0)} onChange={() => {}} />,
+  },
+};
+
+/** A project synced from Linear: its source pill comes first. */
+export const Synced: Story = {
+  args: {
+    project: {
+      ...AUTH_OVERHAUL.project,
+      external: {
+        provider: Provider.LINEAR,
+        state: LinkState.SYNCED,
+        key: null,
+        url: 'https://linear.app/devbrain/project/auth-overhaul',
+        statusLabel: 'In Progress',
+        priorityLabel: null,
+        lastSyncedAt: storyAgo(3),
+      },
+    },
   },
 };

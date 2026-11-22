@@ -186,6 +186,9 @@ export const PRIORITIES: readonly SettablePriority[] = [
   TaskPriority.LOW,
 ];
 
+/** What a list's date column says for something with no due date (it fits the 60px column) */
+export const NO_DATE_LABEL = 'No date';
+
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   [TaskPriority.HIGH]: 'High',
   [TaskPriority.MEDIUM]: 'Medium',
