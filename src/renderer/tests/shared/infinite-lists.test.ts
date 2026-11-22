@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InfiniteQueryObserver, QueryClient } from '@tanstack/react-query';
-import { taskListQuery, subtasksQuery } from '@renderer/features/tasks/api/queries';
+import { taskListQuery, taskTreeQuery, subtasksQuery } from '@renderer/features/tasks/api/queries';
 import { noteListQuery, noteTasksQuery } from '@renderer/features/notes/api/queries';
 import { projectListQuery, projectNotesQuery } from '@renderer/features/projects/api/queries';
 import { trashListQuery } from '@renderer/features/trash/api/queries';
@@ -12,6 +12,7 @@ import type { TaskId, NoteId, ProjectId } from '@common/ids';
 
 const LISTS = {
   'tasks.list': taskListQuery({ limit: 100 }),
+  'tasks.tree': taskTreeQuery({ limit: 100 }),
   'tasks.subtasks': subtasksQuery('tsk_parent' as TaskId),
   'notes.list': noteListQuery({ limit: 100 }),
   "a note's tasks": noteTasksQuery('nte_note' as NoteId),

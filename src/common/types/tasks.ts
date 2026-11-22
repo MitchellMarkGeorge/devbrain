@@ -75,6 +75,17 @@ export interface TaskListItem extends SubtaskListItem {
   parentTask: TaskSummary | null;
 }
 
+// A row of the task list's tree, from listTaskTree and listSubtree: a task list row placed under
+// its parent. The rows come in tree order: each root (a task whose parent is missing or filtered
+// out), then its subtasks, each one's own subtasks under it, siblings in the list's sort order.
+export interface TaskTreeItem extends TaskListItem {
+  // 0 for a root, 1 for its subtask, 2 for a subtask of that, …
+  depth: number;
+  // on a root whose subtree is too big to come with it: how many matching subtasks it has, which
+  // listSubtree loads when it is expanded; null on every other row, whose subtasks follow it
+  subtreeSize: number | null;
+}
+
 export interface SubtaskProgress {
   completed: number;
   total: number;

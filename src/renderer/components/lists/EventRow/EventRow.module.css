@@ -5,8 +5,7 @@
   gap: var(--space-3);
   min-height: var(--row-height);
   /* the bar sits where a TaskRow's status icon does, so events line up with tasks */
-  padding: 0 var(--space-3) 0 40px;
-  border: 1px solid transparent;
+  padding: 0 var(--space-3) 0 37px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -17,8 +16,9 @@
   background: var(--row-selected);
 }
 .row:focus-visible {
-  border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  box-shadow:
+    inset 0 0 0 1px var(--ring),
+    0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .main {
   flex: 1;

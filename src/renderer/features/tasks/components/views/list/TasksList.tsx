@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useFormat } from '@renderer/components';
-import { taskListQuery } from '../../../api/queries';
+import { taskTreeQuery } from '../../../api/queries';
 import {
   hasFilters,
   taskListInput,
@@ -20,12 +20,14 @@ export interface TasksListProps {
 }
 
 /**
- * The list view (Figma `7155:5231`): one virtualized `TaskList` over `tasks.list`'s pages, loading
- * the next as the end comes near. Subtasks are rows of their own, with their parent's pill.
+ * The list view (Figma `7155:5231`): one virtualized `TaskList` over `tasks.tree`'s pages, loading
+ * the next as the end comes near. Each subtask is under its parent; one whose parent the filter
+ * leaves out is a row of its own, with its parent's pill.
  */
 export function TasksList({ resolved, search, onClearFilters, showProjectPill }: TasksListProps) {
   const { now } = useFormat();
-  const query = useInfiniteQuery(taskListQuery(taskListInput(resolved, now)));
+  const input = useMemo(() => taskListInput(resolved, now), [resolved, now]);
+  const query = useInfiniteQuery(taskTreeQuery(input));
   const tasks = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
   if (query.isPending) return <TasksLoading />;
@@ -34,8 +36,8 @@ export function TasksList({ resolved, search, onClearFilters, showProjectPill }:
     return <TasksEmptyState filtered={hasFilters(search)} onClearFilters={onClearFilters} />;
   return (
     <TaskListFrame
-      loaded={tasks}
       tasks={tasks}
+      input={input}
       showProjectPill={showProjectPill}
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();

@@ -1,15 +1,21 @@
 /*
  * The strokeless 48px row lists share with TaskRow. See docs/design-system/components/ListRow.md
- * and the README's "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ * and the README's "Lists".
+ *
+ * A grid of named areas, as TaskRow's: the selection checkbox, the icon, the title with its excerpt,
+ * and the right side, 8px apart. The icon, the right side and the checkbox are each optional, so
+ * the space between the parts is on the parts, not a column gap: a part left out then takes no room
+ * at all. The checkbox's slot is 24px (the 16px checkbox and the 8px before the icon), so with
+ * the 8px padding the icon starts 32px from the row's edge, as a task row's status icon does.
  */
 .row {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-areas: 'check icon main side';
+  grid-template-columns: 24px auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 36px;
-  border: 1px solid transparent;
+  padding: 0 var(--space-3) 0 8px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -38,16 +44,17 @@
 .row:focus-visible,
 .row[data-state='focus'] {
   z-index: 1;
-  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
 }
 
-/* the selection checkbox: as TaskRow's, it shows on keyboard focus only, not after a click */
+/*
+ * the selection checkbox, 8px from the row's edge: as TaskRow's, it shows on keyboard focus only,
+ * not after a click, and keeps its slot while hidden, so showing it moves nothing
+ */
 .check {
-  position: absolute;
-  top: 50%;
-  left: 8px;
-  margin-top: -8px;
-  display: none;
+  grid-area: check;
+  justify-self: start;
+  visibility: hidden;
 }
 .row:hover .check,
 .row:focus-visible .check,
@@ -55,27 +62,26 @@
 .row[data-state] .check,
 .row[data-selected] .check,
 .row[data-selecting] .check {
-  display: inline-grid;
+  visibility: visible;
 }
 
 /* the glyph sits in the 24px slot of a task row's status button, so lists line up */
 .icon {
-  flex: none;
+  grid-area: icon;
+  margin-right: var(--space-2);
   display: grid;
   place-items: center;
   width: 24px;
   height: 24px;
-  /* 36px from the row's outer edge, past its 1px border, as in TaskRow */
-  margin-left: -1px;
   color: var(--muted-foreground);
 }
 
 .main {
-  flex: 1;
+  grid-area: main;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 .title,
 .excerpt {
@@ -96,7 +102,8 @@
 }
 
 .side {
-  flex: none;
+  grid-area: side;
+  margin-left: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: flex-end;

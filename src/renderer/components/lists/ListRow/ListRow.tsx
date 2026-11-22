@@ -50,7 +50,7 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 }
 
 /**
- * The strokeless 48px row every list shares with `TaskRow`: a selection checkbox in the 36px strip
+ * The strokeless 48px row every list shares with `TaskRow`: a selection checkbox in the 32px strip
  * on the left (on hover, focus and while selecting), a glyph, the title and an optional excerpt,
  * then pills and a quiet meta text on the right. `NoteRow`, `ProjectRow` and Trash's rows are
  * built on it.

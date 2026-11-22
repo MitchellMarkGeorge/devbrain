@@ -339,6 +339,12 @@ export class FakeMain {
         const items = store.list((args.filter ?? {}) as never);
         return [page(typeof args.limit === 'number' ? items.slice(0, args.limit) : items), []];
       }
+      case 'tasks.tree': {
+        const items = store.tree((args.filter ?? {}) as never);
+        return [page(items), []];
+      }
+      case 'tasks.subtree':
+        return [store.subtree(args.id, (args.filter ?? {}) as never), []];
       case 'tasks.get': {
         // as core: a task in the trash too
         const found = store.tasks.find((t) => t.id === args.id);

@@ -104,12 +104,16 @@ function PinnedSelectionBar({ count, onClear }: { count: number; onClear: () => 
   );
 }
 
-/** Figma "Tasks (list)" (7155:5231): open tasks by priority, the fourth row pointed at. */
+/**
+ * Figma "Tasks (list)" (7155:5231): open tasks by priority, the fourth row pointed at. "Mobile
+ * fallback" is drawn under its parent, indented and joined to it (`nested`), where Figma draws it
+ * at the left with its parent's pill.
+ */
 export const TasksList: Story = {
   name: 'Tasks (list)',
   render: () => (
     <TasksFrame view="list">
-      <TaskList tasks={LIST_TASKS} states={{ 3: 'hover' }} />
+      <TaskList tasks={LIST_TASKS} states={{ 3: 'hover' }} nested />
     </TasksFrame>
   ),
 };

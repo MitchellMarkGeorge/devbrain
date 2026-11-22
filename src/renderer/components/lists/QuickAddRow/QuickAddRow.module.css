@@ -2,10 +2,11 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* as a task row's, so what is typed starts where task titles do */
+  gap: var(--space-2);
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 36px;
-  border: 1px solid transparent;
+  /* the icon where a task row's status icon is */
+  padding: 0 var(--space-3) 0 32px;
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -18,7 +19,7 @@
 /* typing: the row tint, outlined in the ring colour like a focused row */
 .row[data-typing] {
   background: var(--row-selected);
-  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
 }
 /* the "+" (rest) or the new task's status icon, in a task row's status slot */
 .icon {
@@ -27,8 +28,6 @@
   place-items: center;
   width: 24px;
   height: 24px;
-  /* 36px from the row's outer edge, past its 1px border, as in TaskRow */
-  margin-left: -1px;
   color: var(--subtle-foreground);
 }
 .input {

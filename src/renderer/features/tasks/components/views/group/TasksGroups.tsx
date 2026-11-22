@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
-import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
+import { TaskPriority, TaskStatus, type TaskTreeItem } from '@common/types';
 import {
   Button,
   GroupHeading,
@@ -12,7 +12,6 @@ import {
   StatusIcon,
   TaskRowSkeleton,
   useFormat,
-  type TaskListGroup,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from '../../../lib/groups';
@@ -23,7 +22,7 @@ import {
   type ResolvedTasksSearch,
   type TasksSearch,
 } from '../../../api/search';
-import { TaskListFrame } from '../TaskListFrame';
+import { TaskListFrame, type TaskListFrameGroup } from '../TaskListFrame';
 import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
 import { useCreateTask } from '../../../hooks/use-create-task';
 import styles from '../TasksView.module.css';
@@ -43,7 +42,7 @@ export interface TasksGroupsProps {
 
 /** What the view knows of a group's rows, from its query. */
 interface GroupState {
-  tasks: TaskListItem[];
+  tasks: TaskTreeItem[];
   pending: boolean;
   error: boolean;
   hasNextPage: boolean;
@@ -244,9 +243,7 @@ export function TasksGroups({
       state.tasks.length === 0
     );
   });
-  const loaded = Object.values(states).flatMap((state) => state?.tasks ?? []);
-
-  const groups: TaskListGroup[] = shown.map((def) => {
+  const groups: TaskListFrameGroup[] = shown.map((def) => {
     const state = states[def.id];
     const isCollapsed = collapsed.includes(def.id);
     const loading = seen.has(def.id) && (!state || state.pending);
@@ -266,6 +263,7 @@ export function TasksGroups({
         />
       ),
       tasks: state?.tasks ?? [],
+      input: taskListInput(resolved, now, def.filter),
       footer: loading ? (
         <TaskRowSkeleton />
       ) : state?.hasNextPage ? (
@@ -307,9 +305,9 @@ export function TasksGroups({
   if (defs.length > 0 && defs.every((def) => states[def.id]?.error)) {
     return (
       <TasksErrorState
-        onRetry={() => queryClient.refetchQueries({ queryKey: trpc.tasks.list.pathKey() })}
+        onRetry={() => queryClient.refetchQueries({ queryKey: trpc.tasks.tree.pathKey() })}
       />
     );
   }
-  return <TaskListFrame loaded={loaded} groups={groups} showProjectPill={showProjectPill} />;
+  return <TaskListFrame groups={groups} showProjectPill={showProjectPill} />;
 }

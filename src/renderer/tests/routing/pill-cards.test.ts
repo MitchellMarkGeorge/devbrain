@@ -13,7 +13,7 @@ const LAUNCH = fakeProject('prj_launch', 'Launch');
 
 afterEach(() => stopApps());
 
-function tasksPage() {
+function tasksPage(search = '') {
   const main = new FakeMain([workspace(WORK, 'Work')], WORK);
   const project = { id: LAUNCH.id as ProjectId, title: LAUNCH.title, color: LAUNCH.color };
   const tasks = [
@@ -44,12 +44,17 @@ function tasksPage() {
     }),
   ];
   main.taskStores.set(WORK, new FakeTasks(tasks, [LAUNCH]));
-  const app = startApp(main, { url: `/app/${WORK}/tasks` });
+  const app = startApp(main, { url: `/app/${WORK}/tasks${search}` });
   return { main, app };
 }
 
 const pill = (text: string) =>
   [...document.querySelectorAll<HTMLElement>('[role="row"] [data-stack] > span > *')].find(
+    (el) => el.textContent === text,
+  );
+// a pill anywhere on the page: a row's or a board card's
+const anyPill = (text: string) =>
+  [...document.querySelectorAll<HTMLElement>('[data-slot="badge"]')].find(
     (el) => el.textContent === text,
   );
 const card = (title: string) => document.querySelector<HTMLElement>(`[aria-label="${title}"]`);
@@ -82,14 +87,26 @@ describe('a pill’s hover card', () => {
     expect(card(title)?.textContent).toContain('Open in Linear');
   });
 
-  it('lists a task’s subtasks on its subtask count, open ones first', async () => {
-    const { main } = tasksPage();
-    await eventually(() => expect(pill('1/2')).toBeDefined());
-    point(pill('1/2')!);
+  it('lists a task’s subtasks on a board card’s subtask count, open ones first', async () => {
+    const { main } = tasksPage('?view=board');
+    await eventually(() => expect(anyPill('1/2')).toBeDefined());
+    point(anyPill('1/2')!);
     const title = '1 of 2 subtasks done';
     await eventually(() => expect(card(title)?.querySelectorAll('li')).toHaveLength(2));
     const items = [...card(title)!.querySelectorAll('li')].map((li) => li.textContent);
     expect(items).toEqual(['Drop the old callbacks', 'Move the scheduler']);
     expect(main.callsTo('tasks.subtasks')[0]?.input).toMatchObject({ id: 'tsk_parent' });
+  });
+
+  it('opens none on the list’s subtask count, which shows and hides the subtasks', async () => {
+    const { main } = tasksPage();
+    await eventually(() => expect(pill('1/2')).toBeDefined());
+    const count = pill('1/2')!;
+    expect(count.hasAttribute('data-subtasks-toggle')).toBe(true);
+    point(count);
+    // longer than the 400 ms a card waits before it opens
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(card('1 of 2 subtasks done')).toBeNull();
+    expect(main.callsTo('tasks.subtasks')).toHaveLength(0);
   });
 });

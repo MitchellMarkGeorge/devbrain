@@ -1,15 +1,27 @@
 /*
  * One task in a strokeless list. See docs/design-system/components/TaskRow.md and the README's
- * "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ * "Lists".
+ *
+ * A grid of named areas: the selection checkbox, the status icon, the title with its pills, and the
+ * right side, 8px apart. With the 8px padding before the 16px checkbox, the status icon starts
+ * 32px from the row's edge.
  */
 .row {
+  --check-inset: 8px;
+  --check-slot: 16px;
+  --row-gap: var(--space-2);
+  --status-size: 24px;
+  /* where the status icon starts (32px): the tree's guides are drawn from it */
+  --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-areas: 'check status title side';
+  /* the status column fits the icon and, in a tree, its indent */
+  grid-template-columns: var(--check-slot) auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  column-gap: var(--row-gap);
   min-height: var(--row-height);
-  padding: 0 var(--space-3) 0 36px;
-  border: 1px solid transparent;
+  padding: 0 var(--space-3) 0 var(--check-inset);
   border-radius: var(--radius-md);
   color: var(--foreground-strong);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
@@ -17,12 +29,93 @@
   cursor: default;
   transition: background-color var(--duration-fast);
 }
-/* a subtask is indented under its parent */
-.subtask {
-  padding-left: 64px;
+/*
+ * A subtask drawn under its parent in the tasks pages' lists (TaskList's `nested`), joined to the
+ * parent's status icon by guide lines. The checkbox stays in the strip, in line with every other
+ * row's.
+ */
+.nested {
+  /*
+   * one level in: the status icon and the gap after it, less the icon's 4px inset around its 16px
+   * glyph, so a subtask's glyph starts exactly where its parent's title does (28px)
+   */
+  --guide-step: calc(var(--status-size) + var(--row-gap) - 4px);
+  /*
+   * where a level's line runs: the centre of the status icon at depth 0 (the strip plus half the
+   * icon: 44px)
+   */
+  --guide-start: calc(var(--row-strip) + var(--status-size) / 2);
+  /* how far a line turns right towards a subtask's icon: up to 4px short of it (12px) */
+  --guide-reach: calc(var(--guide-step) - var(--status-size) / 2 - 4px);
 }
-/* Home: 44px with no selection strip, the status icon 12px in (as Figma's Home draws TaskRow) */
+/* a level in: the status icon moves, the checkbox stays in its column with every other row's */
+.nested .status {
+  margin-left: calc(var(--depth, 0) * var(--guide-step));
+}
+.guides {
+  position: absolute;
+  /* the row's full height, so the lines of neighbouring rows meet */
+  inset: 0 auto 0 0;
+  pointer-events: none;
+}
+.guides > * {
+  position: absolute;
+  left: calc(var(--guide-start) + var(--level) * var(--guide-step));
+  border: 0 solid var(--border-strong);
+}
+/* │ an ancestor's line passing by: it has a later sibling below this row */
+.line {
+  top: 0;
+  bottom: 0;
+  border-left-width: 1px;
+}
+/* └ the last subtask's: from the top of the row, turning into its status icon */
+.elbow {
+  top: 0;
+  height: 50%;
+  width: var(--guide-reach);
+  border-left-width: 1px;
+  border-bottom-width: 1px;
+  border-bottom-left-radius: 6px;
+}
+/* ├ any other subtask's: the line running on down, and a tick off it into its status icon */
+.tee {
+  top: 0;
+  bottom: 0;
+  border-left-width: 1px;
+}
+.tee::after {
+  content: '';
+  position: absolute;
+  /* from just past the line (inside its border), so the two never overlap */
+  left: 0;
+  top: calc(50% - 1px);
+  height: 1px;
+  width: calc(var(--guide-reach) - 1px);
+  border-bottom: 1px solid var(--border-strong);
+}
+/* down from the row's own status icon to its first subtask, starting 2px below its glyph */
+.stem {
+  top: calc(50% + 10px);
+  bottom: 0;
+  border-left-width: 1px;
+}
+
+/* the subtask count as the button that shows and hides them: the count, then its chevron */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.toggle > svg {
+  flex: none;
+  margin-right: -3px;
+}
+
+/* Home: 44px with no checkbox, the status icon 12px in (as Figma's Home draws TaskRow) */
 .compact {
+  grid-template-areas: 'status title side';
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 44px;
   padding: 0 var(--space-4) 0 var(--space-3);
 }
@@ -52,26 +145,26 @@
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
-/* keyboard focus: the hover tint, outlined with the ring colour (a 1px line, no halo) */
+/*
+ * keyboard focus: the hover tint, outlined with the ring colour (a 1px line, no halo). An inset
+ * shadow, as the app's other focus rings are shadows: it takes no room, so the row needs no border
+ */
 .row:focus-visible,
 .row[data-state='focus'] {
   z-index: 1;
-  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
 }
 
 /*
- * the leading strip: the checkbox shows on hover, keyboard focus, and on every row while selecting.
- * Keyboard focus only: a click leaves focus on the checkbox, and it must hide once the pointer leaves.
+ * the selection checkbox, 8px from the row's edge: it shows on hover, keyboard focus, and on every
+ * row while selecting. Keyboard focus only: a click leaves focus on the checkbox, and it must hide
+ * once the pointer leaves. Hidden, it keeps its slot (and leaves the tab order and the
+ * accessibility tree), so showing it moves nothing.
  */
 .check {
-  position: absolute;
-  top: 50%;
-  left: 8px;
-  margin-top: -8px;
-  display: none;
-}
-.subtask .check {
-  left: 36px;
+  grid-area: check;
+  justify-self: start;
+  visibility: hidden;
 }
 .row:hover .check,
 .row:focus-visible .check,
@@ -79,18 +172,16 @@
 .row[data-state] .check,
 .row[data-selected] .check,
 .row[data-selecting] .check {
-  display: inline-grid;
+  visibility: visible;
 }
 
 /* the status icon is a button that opens the status menu */
 .status {
-  flex: none;
+  grid-area: status;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  /* 36px from the row's outer edge, past its 1px border */
-  margin-left: -1px;
+  width: var(--status-size);
+  height: var(--status-size);
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -112,11 +203,11 @@
 
 /* the title first, then its pills */
 .title {
-  flex: 1;
+  grid-area: title;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--row-gap);
 }
 .name {
   min-width: 0;
@@ -238,7 +329,7 @@
 
 /* entity pills, priority and the date on the right; these never give way */
 .side {
-  flex: none;
+  grid-area: side;
   display: flex;
   align-items: center;
   justify-content: flex-end;

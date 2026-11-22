@@ -30,7 +30,11 @@ export const LIST_TASKS: TaskRowData[] = [
     priority: TaskPriority.HIGH,
     dueDate: storyDate(2),
     external: sampleLinear('ENG-128'),
-    parentTask: sampleParent('Implement OAuth2 PKCE flow', TaskStatus.IN_PROGRESS),
+    parentTask: {
+      ...sampleParent('Implement OAuth2 PKCE flow', TaskStatus.IN_PROGRESS),
+      id: 'tsk_eng-124' as TaskId,
+    },
+    depth: 1,
     project: sampleProject('Auth Overhaul', 'blue'),
   }),
   sampleTask({

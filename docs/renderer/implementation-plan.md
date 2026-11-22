@@ -388,6 +388,10 @@ virtualizer that would have to keep its place as rows vanish above it) they neve
 lists stopped loading at ten pages, so the tasks list ended at 1,000 rows. A list scrolled to the end
 of 8,859 tasks refetches 89 pages after a change, about 0.6 s (docs/performance.md).
 
+**The tasks list and group view** read the same way, but through `tasks.tree`: a page is 100
+roots, each with its subtasks under it, so a page holds a little over 100 rows
+([the task list as a tree](task-tree.md)).
+
 **The board** is three of these, one per column, each with its own input (`filter: { status: 1 }`,
 `{ status: 2 }`, `{ status: 3 }`). They're three cache entries, each loading its first page when
 the board opens and more as that column scrolls. A task moved from In progress to Completed is
