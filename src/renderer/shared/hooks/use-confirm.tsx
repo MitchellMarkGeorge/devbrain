@@ -13,7 +13,13 @@ export type ConfirmKind = 'archive' | 'delete';
 
 export type ConfirmOptions = Pick<
   ConfirmDialogProps,
-  'title' | 'description' | 'actionLabel' | 'irreversible' | 'confirmText' | 'cancelLabel'
+  | 'title'
+  | 'description'
+  | 'actionLabel'
+  | 'irreversible'
+  | 'confirmText'
+  | 'cancelLabel'
+  | 'children'
 > & { kind: ConfirmKind };
 
 /**
@@ -46,6 +52,7 @@ export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
               if (!open) resolve(confirmed);
             }}
           >
+            {dialog.children}
             {/* a modal key scope: nothing outside the dialog fires while it is open */}
             <KeyScope name="dialog" />
           </ConfirmDialog>

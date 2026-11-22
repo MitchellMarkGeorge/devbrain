@@ -45,6 +45,25 @@ async function archived(input: object = {}) {
 }
 
 describe('archive', () => {
+  it('previews what moving a task to the trash takes along, changing nothing', async () => {
+    const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
+    const subtask = workspace().tasks.createSubtask(task.id, { title: 'Tag it', dueDate: DUE });
+    const note = await workspace().notes.createNote({ title: 'Ship notes', linkedTaskId: task.id });
+
+    const input = { taskIds: [task.id], projectIds: [], noteIds: [] };
+    expect(await call('archive.previewArchive', input)).toMatchObject({
+      ok: true,
+      data: {
+        tasks: [{ id: subtask.id, title: 'Tag it', status: TaskStatus.NOT_STARTED }],
+        notes: [{ id: note.id, title: 'Ship notes' }],
+      },
+    });
+    expect(await archived()).toEqual([]);
+    expect(code(await call('archive.previewArchive', { ...input, taskIds: ['nope'] }))).toBe(
+      'invalid_input',
+    );
+  });
+
   it('archives a task with its linked note, returning both in changed, and restores them', async () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
     await workspace().notes.createNote({ title: 'Ship notes', linkedTaskId: task.id });

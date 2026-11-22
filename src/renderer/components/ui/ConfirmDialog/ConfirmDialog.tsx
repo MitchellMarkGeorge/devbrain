@@ -35,7 +35,7 @@ export interface ConfirmDialogProps {
    * field
    */
   confirmText?: string;
-  /** more of the body, under the header: a `ConfirmDialogChoices` */
+  /** more of the body, under the header: a `ConfirmDialogChoices` or `ConfirmDialogItems` */
   children?: ReactNode;
   /** the element that opens it; leave it out and control `open` */
   trigger?: ReactElement;
@@ -170,6 +170,47 @@ export function ConfirmDialogChoices<Value extends string>({
           </label>
         ))}
       </RadioGroup>
+    </div>
+  );
+}
+
+export interface ConfirmDialogItem {
+  /** stable across renders: the row's id */
+  key: string;
+  /** a 16px glyph saying what kind of thing it is (a task's status, a note) */
+  icon: ReactNode;
+  label: ReactNode;
+}
+
+export interface ConfirmDialogItemsProps {
+  /** what happens to them, counted: "Also moves 3 subtasks and 1 note" */
+  label: ReactNode;
+  items: readonly ConfirmDialogItem[];
+  /** rows shown before "and 4 more" (6) */
+  max?: number;
+  className?: string;
+}
+
+/**
+ * The other things a confirmation's action reaches (a task's subtasks and notes, moved to the
+ * trash with it): a label over a list of rows, each a 16px icon and a one-line title, the first
+ * `max` of them, then "and N more".
+ */
+export function ConfirmDialogItems({ label, items, max = 6, className }: ConfirmDialogItemsProps) {
+  const shown = items.slice(0, max);
+  const more = items.length - shown.length;
+  return (
+    <div className={cn(styles.choices, className)}>
+      <div className={styles.choicesLabel}>{label}</div>
+      <ul className={styles.items}>
+        {shown.map((item) => (
+          <li key={item.key} className={styles.item}>
+            <span className={styles.itemIcon}>{item.icon}</span>
+            <span className={styles.itemLabel}>{item.label}</span>
+          </li>
+        ))}
+        {more > 0 && <li className={styles.more}>and {more} more</li>}
+      </ul>
     </div>
   );
 }

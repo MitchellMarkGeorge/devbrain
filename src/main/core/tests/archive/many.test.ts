@@ -219,3 +219,54 @@ describe('ArchiveService.deleteMany', () => {
     );
   });
 });
+
+describe('ArchiveService.previewArchive', () => {
+  it('lists the subtasks and notes a task takes along, and leaves out the rows chosen', async () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const b = tasks.createSubtask(parent.id, { title: 'B child', dueDate: TOMORROW });
+    const a = tasks.createSubtask(parent.id, { title: 'A child', dueDate: TOMORROW });
+    const parentNote = await notes.createNote({ title: 'On parent', linkedTaskId: parent.id });
+    const childNote = await notes.createNote({ title: 'On child', linkedTaskId: a.id });
+    await notes.createNote({ title: 'Unrelated' });
+
+    const preview = archive.previewArchive(select({ taskIds: [parent.id, b.id] }));
+
+    expect(preview.tasks).toEqual([{ id: a.id, title: 'A child', status: a.status }]);
+    expect(preview.notes.map((note) => note.id)).toEqual([childNote.id, parentNote.id]);
+    // reads only
+    expect(changes).toEqual([]);
+    expect(trashedIds()).toEqual([]);
+  });
+
+  it('lists what the archive would stamp, and nothing already in the trash', async () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const trashed = tasks.createSubtask(parent.id, { title: 'Trashed', dueDate: TOMORROW });
+    const kept = tasks.createSubtask(parent.id, { title: 'Kept', dueDate: TOMORROW });
+    const trashedNote = await notes.createNote({ title: 'Gone', linkedTaskId: kept.id });
+    archive.archiveTask(trashed.id);
+    archive.archiveNote(trashedNote.id);
+    const project = projects.createProject({ title: 'Gateway' });
+    const projectTask = tasks.createTask({
+      title: 'In it',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const projectNote = await notes.createNote({ title: 'Project note', projectId: project.id });
+
+    const preview = archive.previewArchive(
+      select({ taskIds: [parent.id], projectIds: [project.id] }),
+    );
+
+    expect(sorted(preview.tasks.map((task) => task.id))).toEqual(sorted([kept.id, projectTask.id]));
+    expect(preview.notes.map((note) => note.id)).toEqual([projectNote.id]);
+  });
+
+  it('takes nothing along for notes alone', async () => {
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const note = await notes.createNote({ title: 'Note', linkedTaskId: task.id });
+    expect(archive.previewArchive(select({ noteIds: [note.id] }))).toEqual({
+      tasks: [],
+      notes: [],
+    });
+  });
+});

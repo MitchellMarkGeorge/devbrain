@@ -3,11 +3,11 @@
 The confirmation before a destructive action, as Figma's `ConfirmDialog`: an `AlertDialog` (no ×; it closes through its buttons or Esc), 384px, `popover`, the `edge` outline, 14px corners, `shadow-2xl`.
 
 - Body (16px padding): the title, a question naming the thing (16px medium `foreground-strong`: "Delete task permanently?"), then the consequence in 14px `muted-foreground`, saying what happens to what links to it ("Its task note is kept."), and "This can’t be undone." when it can’t (`irreversible`). Header lines are 6px apart.
-- Optional extras 16px below: `ConfirmDialogChoices` (a 14px medium label over radio cards: 12px padding, 10px corners, `input` fill at 30%, a `border-strong` outline, the chosen one `ring`; each a 14px medium name and a 12px consequence), or `confirmText`, a "Type “SurveyMonkey” to confirm" field that keeps the action disabled until the name matches.
+- Optional extras 16px below: `ConfirmDialogChoices` (a 14px medium label over radio cards: 12px padding, 10px corners, `input` fill at 30%, a `border-strong` outline, the chosen one `ring`; each a 14px medium name and a 12px consequence), `ConfirmDialogItems`, what else the action reaches (moving a task to the trash takes its subtasks and notes): a 14px medium label naming them counted ("Also moves 3 subtasks and 1 note") over a list in the same outlined `input` box, 4px vertical padding, each row 28px with 12px sides: a 16px `muted-foreground` icon, 8px, then a one-line 14px `foreground` title cut with an ellipsis; past `max` (6) rows a 12px `muted-foreground` "and 4 more"; or `confirmText`, a "Type “SurveyMonkey” to confirm" field that keeps the action disabled until the name matches.
 - Footer band (Dialog's): a `ghost` Cancel, then the `destructive` action named verb + noun ("Delete Task", "Disconnect").
 
 Controlled like `Dialog` (`open`, `onOpenChange`, and `onOpenChangeComplete` once its animation ends), so the app shows it with `useModals().open((props) => <ConfirmDialog {...props} …/>)`; the app's `useConfirm()` does that.
 
-Variants in Figma: delete-task, delete-project, delete-note (irreversible), disconnect (choices: keep as local copies / remove them), delete-workspace (type the name).
+Variants in Figma: delete-task, delete-project, delete-note (irreversible), disconnect (choices: keep as local copies / remove them), delete-workspace (type the name). In code only, not yet in Figma: move-to-trash (the items it takes along).
 
-**Base UI:** `AlertDialog` parts via `Dialog`'s `AlertDialog*` exports; `RadioGroup` + `Radio` for the choices (`data-checked`).
+**Base UI:** `AlertDialog` parts via `Dialog`'s `AlertDialog*` exports; `RadioGroup` + `Radio` for the choices (`data-checked`). `ConfirmDialogItems` is plain markup.

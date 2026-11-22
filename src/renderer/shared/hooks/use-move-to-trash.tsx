@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
+import type { TrashSelection } from '@common/types';
 import { toast } from '@renderer/components';
 import { ipc } from '@renderer/ipc';
 import { useUndoStack, type Undoable } from '@renderer/keyboard';
 import { useConfirm } from './use-confirm';
 import { useMutationErrorToast } from '../lib/mutation-errors';
+import { TrashPreview } from '../components/TrashPreview';
 
 /** What can be moved to the trash: a task, project or note, by its prefixed id. */
 export interface TrashItem {
@@ -24,6 +26,16 @@ function describe(items: readonly TrashItem[]): string {
           ? 'projects'
           : 'notes';
   return `${items.length} ${noun}`;
+}
+
+function selectionOf(items: readonly TrashItem[]): TrashSelection {
+  const selection: TrashSelection = { taskIds: [], projectIds: [], noteIds: [] };
+  for (const { id } of items) {
+    if (isId('task', id)) selection.taskIds.push(id);
+    else if (isId('project', id)) selection.projectIds.push(id);
+    else selection.noteIds.push(id as NoteId);
+  }
+  return selection;
 }
 
 async function archive(items: readonly TrashItem[]): Promise<void> {
@@ -46,8 +58,8 @@ async function restore(items: readonly TrashItem[]): Promise<void> {
 }
 
 /**
- * Moves tasks, projects or notes to the trash, asking first when `confirmBeforeArchiving` is on,
- * then shows "Moved to trash · Undo" (Figma `7175:33810`). The undo goes on the app's undo stack
+ * Moves tasks, projects or notes to the trash, asking first when `confirmBeforeArchiving` is on
+ * (listing the subtasks, tasks and notes that go along: `TrashPreview`), then shows "Moved to trash · Undo" (Figma `7175:33810`). The undo goes on the app's undo stack
  * (⌘Z), and the toast's Undo takes back that one change. Resolves to whether they moved. A failure
  * shows the error toast and moves nothing.
  */
@@ -62,8 +74,9 @@ export function useMoveToTrash(): (items: readonly TrashItem[]) => Promise<boole
       const ok = await confirm({
         kind: 'archive',
         title: `Move ${what} to trash?`,
-        description: 'You can restore it from Trash.',
+        description: `You can restore ${items.length === 1 ? 'it' : 'them'} from Trash.`,
         actionLabel: 'Move to Trash',
+        children: <TrashPreview selection={selectionOf(items)} />,
       });
       if (!ok) return false;
       try {

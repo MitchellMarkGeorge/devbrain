@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Circle, FileText } from 'lucide-react';
 import { Button } from '../Button';
-import { ConfirmDialog, ConfirmDialogChoices } from './ConfirmDialog';
+import { Icon } from '../Icon';
+import { ConfirmDialog, ConfirmDialogChoices, ConfirmDialogItems } from './ConfirmDialog';
 
 const meta = {
   title: 'UI/ConfirmDialog',
@@ -87,5 +89,40 @@ export const DeleteWorkspace: Story = {
       'Everything in SurveyMonkey is deleted from this Mac: its tasks, projects, notes, calendars and connected accounts.',
     actionLabel: 'Delete Workspace',
     confirmText: 'SurveyMonkey',
+  },
+};
+
+/** Moving tasks to the trash lists what goes with them: their subtasks and linked notes. */
+export const MoveToTrash: Story = {
+  args: {
+    trigger: <Button variant="destructive">Move to Trash</Button>,
+    title: 'Move 3 tasks to trash?',
+    description: 'You can restore them from Trash.',
+    irreversible: false,
+    actionLabel: 'Move to Trash',
+    children: (
+      <ConfirmDialogItems
+        label="Also moves 6 subtasks and 2 notes"
+        max={6}
+        items={[
+          ...[
+            'Add PKCE verifier',
+            'Rotate refresh tokens',
+            'Handle consent screen errors',
+            'Write migration for token table',
+          ].map((title) => ({ key: title, icon: <Icon icon={Circle} size={16} />, label: title })),
+          ...['OAuth2 PKCE design', 'Token storage notes'].map((title) => ({
+            key: title,
+            icon: <Icon icon={FileText} size={16} />,
+            label: title,
+          })),
+          ...['Update the sign-in docs', 'Remove legacy flow'].map((title) => ({
+            key: title,
+            icon: <Icon icon={Circle} size={16} />,
+            label: title,
+          })),
+        ]}
+      />
+    ),
   },
 };
