@@ -14,6 +14,7 @@ import { KeyScope, useCommands, useListCommands } from '@renderer/keyboard';
 import { parentsIn, subtasksShown, visibleRows, withSubtrees } from '../../lib/tree';
 import { subtreeQuery } from '../../api/queries';
 import type { TaskListInput } from '../../api/search';
+import { useMap } from '@renderer/shared/hooks/use-map';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { TaskMenuItems } from '../menus/TaskMenus';
 import { TasksSelectionBar } from './TasksSelectionBar';
@@ -39,9 +40,9 @@ export interface TaskListFrameProps {
   showProjectPill: boolean;
 }
 
-// the data of each expanded subtree's query; a function outside the component, so React Query
-// keeps the combined result the same between renders while no query's data changes
-const subtreeData = (results: readonly { data?: TaskTreeItem[] }[]) =>
+// the rows of each expanded root's subtree query, undefined while one loads; a function outside
+// the component, so React Query keeps the combined result the same while no query's data changes
+const subtreeRowsOf = (results: readonly { data?: TaskTreeItem[] }[]) =>
   results.map((result) => result.data);
 
 /**
@@ -61,97 +62,111 @@ export function TaskListFrame({
   onEndReached,
   showProjectPill,
 }: TaskListFrameProps) {
-  const list = useRef<TaskListHandle>(null);
+  const listRef = useRef<TaskListHandle>(null);
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
-  const [selected, setSelected] = useState<string[]>([]);
-  // the task whose row was right-clicked: the menu is drawn for it
-  const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
-  // what the user chose for each parent: its subtasks shown or hidden (`subtasksShown`)
-  const [chosen, setChosen] = useState<ReadonlyMap<string, boolean>>(() => new Map());
-  const setShown = (id: string, shown: boolean) =>
-    setChosen((current) => new Map(current).set(id, shown));
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // the task whose row was right-clicked: the context menu is drawn for it
+  const [contextMenuTask, setContextMenuTask] = useState<TaskListItem | null>(null);
+  // what the user chose for each parent, by id: its subtasks shown (true) or hidden (false). A
+  // parent with no entry has its default (`subtasksShown`)
+  const {
+    map: subtaskChoices,
+    set: setSubtasksShown,
+    retain: retainSubtaskChoices,
+  } = useMap<string, boolean>();
 
-  // each list's rows and the input they were read with: the flat list, or each group
-  const lists = useMemo(
+  // each list as core sent it, with the input it was read with: the flat list, or each group
+  const listsFromCore = useMemo(
     () =>
       groups
         ? groups.map((group) => ({ rows: group.tasks, input: group.input }))
         : [{ rows: tasks ?? [], input: input ?? {} }],
     [tasks, input, groups],
   );
-  // the roots sent alone that are shown, each with its list's input: their subtrees load. Kept
-  // the same between renders until the lists or the choices change, so `subtrees` is too
-  const expanded = useMemo(
+  // the roots sent alone (too many subtasks to come inline) that the user has shown, each with
+  // its list's input: their subtrees load. The same array until the lists or the choices change,
+  // so the queries below and `subtreesByRootId` are too
+  const expandedBigRoots = useMemo(
     () =>
-      lists.flatMap((list) =>
+      listsFromCore.flatMap((list) =>
         list.rows
-          .filter((row) => row.subtreeSize !== null && chosen.get(row.id) === true)
+          .filter((row) => row.subtreeSize !== null && subtaskChoices.get(row.id) === true)
           .map((row) => ({ id: row.id, input: list.input })),
       ),
-    [lists, chosen],
+    [listsFromCore, subtaskChoices],
   );
-  // one query per expanded root, in `expanded`'s order; undefined while one loads
-  const loadedSubtrees = useQueries({
-    queries: expanded.map((root) => subtreeQuery(root.id as TaskId, root.input)),
-    combine: subtreeData,
+  // one query per expanded big root, in `expandedBigRoots`' order
+  const loadedSubtreeRows = useQueries({
+    queries: expandedBigRoots.map((root) => subtreeQuery(root.id as TaskId, root.input)),
+    combine: subtreeRowsOf,
   });
-  // each expanded root's loaded rows, by its id
-  const subtrees = useMemo(
+  // each expanded big root's loaded rows, by its id; a root whose rows are loading has none
+  const subtreesByRootId = useMemo(
     () =>
       new Map(
-        expanded.flatMap((root, i) => {
-          const rows = loadedSubtrees[i];
+        expandedBigRoots.flatMap((root, i) => {
+          const rows = loadedSubtreeRows[i];
           return rows ? [[root.id as string, rows] as const] : [];
         }),
       ),
-    [expanded, loadedSubtrees],
+    [expandedBigRoots, loadedSubtreeRows],
   );
 
-  // each list with its loaded subtrees in place, then the rows a reader sees
-  const trees = useMemo(
-    () => lists.map((list) => withSubtrees(list.rows, subtrees)),
-    [lists, subtrees],
+  // each list with its loaded subtrees placed under their roots: every row the frame knows of
+  const fullLists = useMemo(
+    () => listsFromCore.map((list) => withSubtrees(list.rows, subtreesByRootId)),
+    [listsFromCore, subtreesByRootId],
   );
   // The choices of parents no longer in any list (filtered out, trashed, in a subtree folded away)
   // are dropped once the rows change, so one doesn't come back if that parent shows up again.
   // Adjusted while rendering, as React suggests for state that follows props, not in an effect.
-  const [prunedFor, setPrunedFor] = useState(trees);
-  if (prunedFor !== trees) {
-    setPrunedFor(trees);
-    const present = new Set(trees.flat().map((row) => row.id as string));
-    if ([...chosen.keys()].some((id) => !present.has(id))) {
-      setChosen(new Map([...chosen].filter(([id]) => present.has(id))));
-    }
+  const [choicesPrunedFor, setChoicesPrunedFor] = useState(fullLists);
+  if (choicesPrunedFor !== fullLists) {
+    setChoicesPrunedFor(fullLists);
+    const listedIds = new Set(fullLists.flat().map((row) => row.id as string));
+    retainSubtaskChoices((id) => listedIds.has(id));
   }
-  const parents = useMemo(() => new Set(trees.flatMap((rows) => [...parentsIn(rows)])), [trees]);
-  const byId = useMemo(
-    () => new Map(trees.flat().map((task) => [task.id as string, task])),
-    [trees],
+  // the rows that can show or hide subtasks: those with subtasks right below, and big roots
+  const parentIds = useMemo(
+    () => new Set(fullLists.flatMap((rows) => [...parentsIn(rows)])),
+    [fullLists],
   );
-  const shownRows = useMemo(() => trees.map((rows) => visibleRows(rows, chosen)), [trees, chosen]);
-  const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
-  const shownOf = (id: string) => {
-    const row = byId.get(id);
-    return row && parents.has(id) ? subtasksShown(row, chosen) : undefined;
+  const rowsById = useMemo(
+    () => new Map(fullLists.flat().map((task) => [task.id as string, task])),
+    [fullLists],
+  );
+  // each list as drawn: every row but those under a parent whose subtasks are hidden
+  const visibleLists = useMemo(
+    () => fullLists.map((rows) => visibleRows(rows, subtaskChoices)),
+    [fullLists, subtaskChoices],
+  );
+
+  // the listed rows of these tasks, as the actions and the menu take them
+  const taskRowsFor = (items: readonly { id: string }[]) =>
+    items.flatMap((item) => rowsById.get(item.id) ?? []);
+  // whether a parent's subtasks are shown; undefined for a row with none to show or hide
+  const subtasksShownFor = (id: string) => {
+    const row = rowsById.get(id);
+    return row && parentIds.has(id) ? subtasksShown(row, subtaskChoices) : undefined;
   };
-  const clearAfter = (moved: boolean) => {
-    if (moved) setSelected([]);
+  const clearSelectionIfTrashed = (trashed: boolean) => {
+    if (trashed) setSelectedIds([]);
   };
 
-  useListCommands(list, {
+  useListCommands(listRef, {
     open: (task) => openEntity({ id: task.id }),
-    setStatus: (rows, status) => actions.setStatus(full(rows), status),
-    toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
+    setStatus: (rows, status) => actions.setStatus(taskRowsFor(rows), status),
+    toggleFavorite: (rows) => actions.toggleFavorite(taskRowsFor(rows)),
     trash: (rows) => {
-      actions.trash(full(rows)).then(clearAfter);
+      actions.trash(taskRowsFor(rows)).then(clearSelectionIfTrashed);
     },
   });
 
   // → shows the focused row's subtasks under it, ← hides them
-  const focusedParent = () => {
-    const task = list.current?.focusedItem();
-    return task && parents.has(task.id) ? task.id : undefined;
+  const focusedParentId = () => {
+    const task = listRef.current?.focusedItem();
+    return task && parentIds.has(task.id) ? task.id : undefined;
   };
   useCommands([
     {
@@ -159,38 +174,41 @@ export function TaskListFrame({
       title: 'Show subtasks',
       scope: 'list',
       run: () => {
-        const id = focusedParent();
-        if (id) setShown(id, true);
+        const id = focusedParentId();
+        if (id) setSubtasksShown(id, true);
       },
-      enabled: () => focusedParent() !== undefined,
+      enabled: () => focusedParentId() !== undefined,
     },
     {
       id: 'row.collapse',
       title: 'Hide subtasks',
       scope: 'list',
       run: () => {
-        const id = focusedParent();
-        if (id) setShown(id, false);
+        const id = focusedParentId();
+        if (id) setSubtasksShown(id, false);
       },
-      enabled: () => focusedParent() !== undefined,
+      enabled: () => focusedParentId() !== undefined,
     },
   ]);
 
-  const common = {
-    ref: list,
+  // the props the flat and the grouped list share
+  const sharedListProps = {
+    ref: listRef,
     showProject: showProjectPill,
     rowCount,
     onEndReached,
-    selected,
-    onSelectedChange: setSelected,
+    selected: selectedIds,
+    onSelectedChange: setSelectedIds,
     selectionBar: false,
     nested: true,
-    subtasksShown: (task: { id: string }) => shownOf(task.id),
-    onSubtasksShownChange: (task: { id: string }, shown: boolean) => setShown(task.id, shown),
+    subtasksShown: (task: { id: string }) => subtasksShownFor(task.id),
+    onSubtasksShownChange: (task: { id: string }, shown: boolean) =>
+      setSubtasksShown(task.id, shown),
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
-      actions.setStatus(full([task]), status),
+      actions.setStatus(taskRowsFor([task]), status),
     onOpen: (task: { id: string }) => openEntity({ id: task.id }),
-    onDueDateChange: (task: { id: string }, date: Date) => actions.setDueDate(full([task]), date),
+    onDueDateChange: (task: { id: string }, date: Date) =>
+      actions.setDueDate(taskRowsFor([task]), date),
   };
 
   return (
@@ -199,8 +217,8 @@ export function TaskListFrame({
         render={<div className={styles.region} />}
         onContextMenu={(event) => {
           const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
-          const task = row ? (byId.get(row.dataset.taskId ?? '') ?? null) : null;
-          setMenuTask(task);
+          const task = row ? (rowsById.get(row.dataset.taskId ?? '') ?? null) : null;
+          setContextMenuTask(task);
           if (!task) event.preventDefault();
         }}
       >
@@ -208,35 +226,36 @@ export function TaskListFrame({
         <KeyScope name="list" render={<div className={styles.region} />}>
           {groups ? (
             <TaskList
-              {...common}
-              groups={groups.map((group, i) => ({ ...group, tasks: shownRows[i] }))}
-              selecting={selected.length > 0}
+              {...sharedListProps}
+              groups={groups.map((group, i) => ({ ...group, tasks: visibleLists[i] }))}
+              selecting={selectedIds.length > 0}
             />
           ) : (
-            <TaskList {...common} tasks={shownRows[0]} />
+            <TaskList {...sharedListProps} tasks={visibleLists[0]} />
           )}
         </KeyScope>
         <TasksSelectionBar
-          tasks={full(selected.map((id) => ({ id })))}
+          tasks={taskRowsFor(selectedIds.map((id) => ({ id })))}
           actions={actions}
           onClear={() => {
-            setSelected([]);
+            setSelectedIds([]);
             // the bar is going: focus back to the list's focused row
-            list.current?.moveFocus(0);
+            listRef.current?.moveFocus(0);
           }}
         />
       </ContextMenuTrigger>
       <ContextMenuContent>
-        {menuTask && (
+        {contextMenuTask && (
           <TaskMenuItems
-            task={byId.get(menuTask.id) ?? menuTask}
+            task={rowsById.get(contextMenuTask.id) ?? contextMenuTask}
             actions={actions}
-            onOpen={() => openEntity({ id: menuTask.id })}
+            onOpen={() => openEntity({ id: contextMenuTask.id })}
             subtasks={
-              parents.has(menuTask.id)
+              parentIds.has(contextMenuTask.id)
                 ? {
-                    shown: shownOf(menuTask.id) ?? false,
-                    onToggle: () => setShown(menuTask.id, !shownOf(menuTask.id)),
+                    shown: subtasksShownFor(contextMenuTask.id) ?? false,
+                    onToggle: () =>
+                      setSubtasksShown(contextMenuTask.id, !subtasksShownFor(contextMenuTask.id)),
                   }
                 : undefined
             }

@@ -11,8 +11,11 @@ import type { TaskTreeItem } from '@common/types';
  * Whether a row's subtasks are shown: what the user chose, or by default shown for a root whose
  * subtasks came with it and hidden for one sent alone, whose subtasks load when it is expanded.
  */
-export function subtasksShown(row: TaskTreeItem, chosen: ReadonlyMap<string, boolean>): boolean {
-  return chosen.get(row.id) ?? row.subtreeSize === null;
+export function subtasksShown(
+  row: TaskTreeItem,
+  subtaskChoices: ReadonlyMap<string, boolean>,
+): boolean {
+  return subtaskChoices.get(row.id) ?? row.subtreeSize === null;
 }
 
 /** The rows with each loaded subtree placed right after its root (`subtrees`, by root id). */
@@ -39,7 +42,7 @@ export function parentsIn(rows: readonly TaskTreeItem[]): Set<string> {
 /** The rows a reader sees: every row but those under a parent whose subtasks are hidden. */
 export function visibleRows(
   rows: readonly TaskTreeItem[],
-  chosen: ReadonlyMap<string, boolean>,
+  subtaskChoices: ReadonlyMap<string, boolean>,
 ): TaskTreeItem[] {
   const out: TaskTreeItem[] = [];
   // the depth of the hidden parent whose rows are being skipped
@@ -48,7 +51,7 @@ export function visibleRows(
     if (hiddenBelow !== null && row.depth > hiddenBelow) continue;
     hiddenBelow = null;
     out.push(row);
-    if (!subtasksShown(row, chosen)) hiddenBelow = row.depth;
+    if (!subtasksShown(row, subtaskChoices)) hiddenBelow = row.depth;
   }
   return out;
 }

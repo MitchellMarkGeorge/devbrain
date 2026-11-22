@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { ChevronDown, Clock, Plus } from 'lucide-react';
 import type { Provider, SourceSyncStatus } from '@common/types';
@@ -18,6 +18,7 @@ import {
   Page,
 } from '@renderer/components';
 import { events, trpc } from '@renderer/ipc';
+import { useMap } from '@renderer/shared/hooks/use-map';
 import { IntegrationAccount } from '../components/IntegrationAccount';
 import { PROVIDERS, type ProviderEntry } from '../lib/providers';
 import { useConnecting, useIntegrationFlows } from '../hooks/use-integration-flows';
@@ -28,18 +29,20 @@ import styles from '../components/IntegrationsPage.module.css';
  * A source's count is dropped once it is no longer running.
  */
 function useSyncProgress(statuses: readonly SourceSyncStatus[]): ReadonlyMap<string, number> {
-  const [progress, setProgress] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const { map: itemsAppliedBySource, set: setItemsApplied, retain } = useMap<string, number>();
   useEffect(
     () =>
       events.on('sync.progress', ({ sourceId, itemsApplied }) =>
-        setProgress((current) => new Map(current).set(sourceId, itemsApplied)),
+        setItemsApplied(sourceId, itemsApplied),
       ),
-    [],
+    [setItemsApplied],
   );
   const running = new Set(statuses.filter((s) => s.running).map((s) => s.sourceId as string));
-  const stale = [...progress.keys()].some((id) => !running.has(id));
-  if (stale) setProgress(new Map([...progress].filter(([id]) => running.has(id))));
-  return progress;
+  // adjusted while rendering, behind the check, as `useMap` says
+  if ([...itemsAppliedBySource.keys()].some((id) => !running.has(id))) {
+    retain((id) => running.has(id));
+  }
+  return itemsAppliedBySource;
 }
 
 /** "Connect Account": the providers, GitHub coming later (Figma `7165:13363`). */
