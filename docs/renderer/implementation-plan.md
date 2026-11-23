@@ -1438,18 +1438,21 @@ linkedTaskId } })`), separate from the task's event or note link.
      tasks page fills from its URL and the Tasks tab from the project page's (its params beside
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
      groups by status), and New Task and "Add task" file the task in the project.
-   - The Overview follows Linear's project page: the project as a document on the left (at most
-     720px) and a rail of cards on the right (one column, the rail under, below 1180px). The document is the header (the tile in the project's colour, which opens Change
+   - The Overview is one document, in the 720px column a task's and a note's pages use
+     (`PageContent layout="document"`; it was a document beside a rail of cards until Nov 2026).
+     It is the header (the tile in the project's colour beside the name, which opens Change
      colour; the name as an `EditorTitle size="lg"`, saved as a task's title is; status and
-     dates as pills with how long is left; the description), then Open tasks (the soonest due
-     first, eight compact rows without the project pill, an "Add task…" `QuickAddRow` that
-     creates the task in the project, and "N more in Tasks") and Recently completed (three). The
-     rail's cards are Progress (the percent, a bar split by status, and a row per status and
-     for the overdue tasks, each opening the Tasks tab on them) and the latest notes, with "+"
-     for a new one. This replaces Figma's full-width groups (`7159:12540`). With no tasks, Open
-     tasks says "No tasks in this project yet." over the "Add task…" row and Move Tasks Here (the
-     Tasks page's tasks in no project).
-   - `ProjectHeader` takes its tile, name and "time left" as slots (`icon`, `title`, `meta`) and
+     dates as pills; the description), then the at-a-glance card: Progress (the percent and "N
+     of M tasks done") beside Time left ("18 days left" and "Day 25 of 43", `lib/time-left.ts`),
+     over a bar split by status and its legend, a button per status and for the overdue tasks,
+     each opening the Tasks tab on them. Then Open tasks (the soonest due first, eight compact
+     rows without the project pill, an "Add task…" `QuickAddRow` that creates the task in the
+     project, and "N more in Tasks"), Notes (the latest three as small `NoteCard`s, "All notes"
+     and "+"; a dashed "Add a note" `AddSlot` with none) and Recently completed (three). This
+     replaces Figma's full-width groups (`7159:12540`). With no tasks, Open tasks says "No tasks
+     in this project yet." over the "Add task…" row and Move Tasks Here (the Tasks page's tasks
+     in no project), and the card shows only the time left, or is left out.
+   - `ProjectHeader` takes its tile and name as slots (`icon`, `title`; `meta` is quiet text after the pills, which the page leaves to the card) and
      `duePicker`/`startPicker` (clearable dates); its progress pill and "+ Add" are gone. The tabs
      are `Tabs variant="ghost"` (quiet pills with icons, the current one filled, at the card's
      top left; they were underlined, `variant="line" size="lg"`, until Nov 2026). "N overdue" opens the Tasks

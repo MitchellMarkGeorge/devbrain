@@ -1,9 +1,8 @@
 import type { CSSProperties, FocusEvent, KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DateTime } from 'luxon';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { CircleCheck, FileText, Folder, LayoutDashboard, type LucideIcon } from 'lucide-react';
-import { ProjectStatus, type Project } from '@common/types';
+import type { Project } from '@common/types';
 import {
   DatePicker,
   DropdownMenu,
@@ -58,7 +57,8 @@ const TAB_LABELS: Record<ProjectTab, string> = {
  * A project's page (`/app/$workspaceId/projects/$projectId`, Figma `7159:12540`, `7159:13218`,
  * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, as quiet pills at
  * the card's top left:
- * Overview (the project as a document, its tasks under it, and a rail of its progress and notes),
+ * Overview (the project as one document: its header, where it stands, its open tasks, its latest
+ * notes and what was completed recently),
  * Tasks (the tasks views with the project fixed) and Notes (its notes as cards). A synced project's
  * fields are its provider's, so they are read-only here. One in the trash (opened from Trash) is
  * shown read-only under a "This project is in the trash" bar until it is restored. The loader has
@@ -161,8 +161,8 @@ function ProjectPageContent({ project }: { project: Project }) {
 }
 
 /**
- * The overview's header: the tile (Change colour), the name, status, dates with how long is left,
- * and the description, all editable but a synced project's. The name is an `EditorTitle`, saved
+ * The overview's header: the tile (Change colour) beside the name, then status, dates and the
+ * description, all editable but a synced project's. The name is an `EditorTitle`, saved
  * as a task's is: on leaving it or Enter, if it changed and isn't empty; Escape puts it back.
  */
 function ProjectPageHeader({ project }: { project: Project }) {
@@ -242,30 +242,9 @@ function ProjectPageHeader({ project }: { project: Project }) {
           />
         )
       }
-      meta={<TimeLeft project={project} />}
       description={<ProjectDescription project={project} />}
     />
   );
-}
-
-/** How long is left, in whole days ("6 days left", "Due today", "2 days overdue", "Done Nov 12"). */
-function TimeLeft({ project }: { project: Project }) {
-  const { now, formatDate } = useFormat();
-  const { dueDate, status, completedAt } = project;
-  if (status === ProjectStatus.COMPLETED) {
-    return completedAt ? <>Done {formatDate(completedAt)}</> : null;
-  }
-  if (!dueDate) return null;
-  const today = DateTime.fromJSDate(now).startOf('day');
-  const days = Math.round(DateTime.fromJSDate(dueDate).startOf('day').diff(today, 'days').days);
-  if (days < 0) {
-    return (
-      <span className={styles.late}>
-        {-days} {days === -1 ? 'day' : 'days'} overdue
-      </span>
-    );
-  }
-  return <>{days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `${days} days left`}</>;
 }
 
 /** The project's folder in its colour on a tint of it, opening the swatches. */
@@ -282,7 +261,7 @@ function ProjectTile({
   if (disabled) {
     return (
       <span className={styles.tile} style={style}>
-        <Icon icon={Folder} size={20} />
+        <Icon icon={Folder} size={18} />
       </span>
     );
   }
@@ -291,7 +270,7 @@ function ProjectTile({
       <DropdownMenuTrigger
         render={
           <button type="button" className={styles.tile} style={style} aria-label="Change colour">
-            <Icon icon={Folder} size={20} />
+            <Icon icon={Folder} size={18} />
           </button>
         }
       />

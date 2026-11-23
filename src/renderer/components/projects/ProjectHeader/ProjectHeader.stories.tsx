@@ -72,14 +72,14 @@ export const Editable: Story = {
         style={{
           display: 'grid',
           placeItems: 'center',
-          width: 40,
-          height: 40,
-          borderRadius: 10,
+          width: 32,
+          height: 32,
+          borderRadius: 8,
           background: 'color-mix(in oklab, var(--swatch-blue) 14%, transparent)',
           color: 'var(--swatch-blue)',
         }}
       >
-        <Icon icon={Folder} size={20} />
+        <Icon icon={Folder} size={18} />
       </span>
     ),
     title: (

@@ -23,7 +23,7 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
    * "+ Start date"; no dates pill without a due date)
    */
   project: ProjectHeaderData;
-  /** above the name: the project page's tile, its folder in its colour, which opens Change colour */
+  /** before the name: the project page's tile, its folder in its colour, which opens Change colour */
   icon?: ReactNode;
   /**
    * the name: an `EditorTitle` at `size="lg"` the page makes editable; defaults to that title
@@ -46,7 +46,7 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
 }
 
 /**
- * The top of a project's overview, as a document's: the project's tile, the name (30px), its
+ * The top of a project's overview, as a document's: the project's tile beside the name (30px), its
  * properties as pills (where a synced project comes from, status, start → due) with how long is left, then the description.
  */
 export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(function ProjectHeader(
@@ -72,9 +72,11 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
   const dueTone = dateTone(dueDate, now, status === ProjectStatus.COMPLETED);
   return (
     <div ref={ref} aria-labelledby={titleId} className={cn(styles.header, className)} {...props}>
-      {icon != null && <div className={styles.icon}>{icon}</div>}
-      <div id={titleId} className={styles.title}>
-        {title ?? <EditorTitle size="lg">{project.title}</EditorTitle>}
+      <div className={styles.heading}>
+        {icon != null && <div className={styles.icon}>{icon}</div>}
+        <div id={titleId} className={styles.title}>
+          {title ?? <EditorTitle size="lg">{project.title}</EditorTitle>}
+        </div>
       </div>
       <div className={styles.properties}>
         {external && (

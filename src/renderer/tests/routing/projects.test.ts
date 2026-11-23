@@ -134,14 +134,14 @@ describe('a project’s page', () => {
     expect(overview.textContent).toContain('Auth Overhaul');
     expect(overview.textContent).toContain('Active');
     await eventually(() => expect(overview.textContent).toContain('1 of 3 tasks done'));
-    // the progress is the rail's, not a pill in the header
+    // the progress is the at-a-glance card's, not a pill in the header
     expect(overview.textContent).not.toContain('1 of 3 done');
     expect(overview.textContent).toContain('Audit token storage');
     expect(overview.textContent).not.toContain('Unfiled task');
     expect(main.callsTo('recents.recordView').map((call) => call.input)).toEqual([{ id: auth.id }]);
   });
 
-  it('lays the overview out as the work and a rail, with the rest a click away in the Tasks tab', async () => {
+  it('lays the overview out as one document, with the rest a click away in the Tasks tab', async () => {
     const tasks = store();
     for (let i = 1; i <= 8; i++) {
       tasks.tasks.push(fakeTask(`tsk_more${i}`, `Follow-up ${i}`, { projectId: auth.id }));
@@ -154,10 +154,12 @@ describe('a project’s page', () => {
     expect(openTasks.textContent).toContain('Open tasks');
     expect(openTasks.querySelectorAll('[data-task-id]')).toHaveLength(8);
     expect(section('overview-done').textContent).toContain('Draft ADR');
-    // the rail: progress split by status, and the latest notes
-    const rail = app.container.querySelector('[aria-label="Project at a glance"]')!;
-    expect(rail.textContent).toContain('1 of 11 tasks done');
-    expect(rail.textContent).toContain('PKCE design notes');
+    // the card: progress split by status; then the latest notes as cards
+    const glance = app.container.querySelector('[aria-label="Project at a glance"]')!;
+    expect(glance.textContent).toContain('1 of 11 tasks done');
+    await eventually(() =>
+      expect(section('overview-notes').textContent).toContain('PKCE design notes'),
+    );
     click(byText(openTasks, 'button', '2 more in Tasks'));
     await eventually(() =>
       expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=open`),
@@ -183,11 +185,11 @@ describe('a project’s page', () => {
     );
   });
 
-  it('opens the Tasks tab on a status from its Progress row', async () => {
+  it('opens the Tasks tab on a status from the card’s legend', async () => {
     const { app } = open(`/projects/${auth.id}`);
-    const rail = () => app.container.querySelector('[aria-label="Project at a glance"]')!;
-    await eventually(() => expect(rail().textContent).toContain('In progress'));
-    click(byText(rail(), 'button', 'In progress'));
+    const glance = () => app.container.querySelector('[aria-label="Project at a glance"]')!;
+    await eventually(() => expect(glance().textContent).toContain('In progress'));
+    click(byText(glance(), 'button', 'In progress'));
     await eventually(() =>
       expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=in_progress`),
     );
@@ -252,7 +254,7 @@ describe('a project’s page', () => {
     });
   });
 
-  it('opens the overdue tasks from the Progress card, in the list view', async () => {
+  it('opens the overdue tasks from the card’s legend, in the list view', async () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tasks = store();
@@ -265,9 +267,9 @@ describe('a project’s page', () => {
       fakeTask('tsk_today', 'Write the runbook', { projectId: auth.id, dueDate: today }),
     );
     const { app } = open(`/projects/${auth.id}`, tasks);
-    const rail = () => app.container.querySelector('[aria-label="Project at a glance"]')!;
-    await eventually(() => expect(rail().textContent).toContain('1 overdue'));
-    click(byText(rail(), 'button', '1 overdue'));
+    const glance = () => app.container.querySelector('[aria-label="Project at a glance"]')!;
+    await eventually(() => expect(glance().textContent).toContain('1 overdue'));
+    click(byText(glance(), 'button', '1 overdue'));
     await eventually(() =>
       expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&due=overdue&view=list`),
     );

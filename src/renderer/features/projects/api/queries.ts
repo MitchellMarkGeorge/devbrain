@@ -45,11 +45,11 @@ export function overviewDoneTasksQuery(projectId: Project['id']) {
   });
 }
 
-/** The Overview's latest notes: the five most recently edited. */
+/** The Overview's latest notes: the three most recently edited, a row of cards. */
 export function overviewNotesQuery(projectId: Project['id']) {
   return trpc.notes.list.queryOptions({
     filter: { projectId },
     sort: { sortBy: 'updatedAt', direction: 'desc' },
-    limit: 5,
+    limit: 3,
   });
 }

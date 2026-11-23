@@ -4,11 +4,21 @@
   flex-direction: column;
   min-width: 0;
 }
+/* the tile beside the name, centred on its first line (36px) */
+.heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
 .icon {
   display: flex;
-  margin-bottom: var(--space-4);
+  flex: none;
+  align-items: center;
+  height: var(--text-3xl-leading);
 }
 .title {
+  flex: 1 1 auto;
   min-width: 0;
 }
 .properties {
@@ -16,7 +26,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1-5);
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
 }
 .meta {
   display: inline-flex;
