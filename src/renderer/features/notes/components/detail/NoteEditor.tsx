@@ -60,10 +60,12 @@ function NoteEditorLoaded({
   return (
     <WorkspaceRichTextEditor
       label="Note"
-      value={body.value}
-      revision={body.revision}
+      initialValue={body.initialValue}
       onChange={body.onChange}
-      onReady={onReady}
+      onReady={(editor) => {
+        body.onReady(editor);
+        onReady?.(editor);
+      }}
       editable={editable}
       newTaskOptions={{ projectId, linkedNoteId: noteId }}
       openNewTaskDialog={createTask}

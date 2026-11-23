@@ -1,7 +1,7 @@
 import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@tiptap/react';
 import { EditorContent } from '@renderer/components';
 import { Placeholder } from '@tiptap/extensions';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalloutView } from './CalloutView';
 import { CodeBlockView } from './CodeBlockView';
 import { TaskItemView } from './TaskItemView';
@@ -9,23 +9,27 @@ import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillVi
 import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
+import { LoadedMarkdown, markdownOf, setBaseline } from './extensions/loaded-markdown';
 import { createDocumentExtensions } from './markdown';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
 import type { EditorHost, EntityLinkPill } from './types';
 import styles from './RichTextEditor.module.css';
 
+export { loadMarkdown, markdownOf } from './extensions/loaded-markdown';
+
 /**
  * DevBrain's rich text editor: markdown in, markdown out. Used for note bodies, task, project and
  * event descriptions, and (read-only) synced descriptions.
  *
- * - `value` is the markdown as stored. `onChange` hears the markdown after each edit, and never on
- *   load: opening a note and closing it again leaves its file alone. Undoing back to the start
- *   gives back `value` exactly, not the editor's own spelling of it.
- * - A new `value` from outside (a sync, a reattach) replaces the content unless it is what the
- *   editor last sent. A new `revision` makes it take `value` again even when the string is
- *   unchanged. In the app, `value` comes from a content query that only a change from outside the
- *   editor refetches, never its own save (`useEditorAutosave`, docs/editor.md).
+ * - `initialValue` is the markdown as stored, read once, when the editor is made: the editor holds
+ *   its text from then on, and a later `initialValue` changes nothing. `onChange` hears the
+ *   markdown after each edit, and never on load: opening a note and closing it again leaves its
+ *   file alone. Undoing back to the start gives back `initialValue` exactly, not the editor's own
+ *   spelling of it.
+ * - A text from outside (a sync, a reattach) is loaded with `loadMarkdown(editor, text)`, on the
+ *   editor `onReady` gives, which `onChange` doesn't hear either. In the app `useEditorAutosave`
+ *   does it, for a change its content query reports (docs/editor.md).
  * - Links open through `onOpenUrl` (safe http/https only), with ⌘/Ctrl-click while editing and a
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
  * - Each entity link is drawn by `entityPill`, which finds its entity (the app's reads React
@@ -33,10 +37,8 @@ import styles from './RichTextEditor.module.css';
  */
 
 export interface RichTextEditorProps extends EditorHost {
-  value: string;
-  // bumped to make the editor take `value` again although the string is unchanged: a change from
-  // outside back to the very text it was last given (useEditorAutosave bumps it)
-  revision?: number;
+  // the text it starts with, read once
+  initialValue: string;
   onChange?: (markdown: string) => void;
   editable?: boolean;
   placeholder?: string;
@@ -52,8 +54,7 @@ export interface RichTextEditorProps extends EditorHost {
 }
 
 export function RichTextEditor({
-  value,
-  revision,
+  initialValue,
   onChange,
   editable = true,
   placeholder = 'Start writing, or press / for commands…',
@@ -74,20 +75,15 @@ export function RichTextEditor({
       taskItem: TaskItemView,
     }),
     EditorHostExtension,
+    LoadedMarkdown,
     MarkdownClipboard,
     Placeholder.configure({ placeholder }),
     SlashMenu,
     EntityMenu,
   ]);
-  // the markdown the editor holds as `value` gave it, and the value it came from
-  const baseline = useRef<{ value: string; markdown: string } | null>(null);
-  // the markdown the content stands for: `value` as loaded, or the last sent through onChange, so
-  // the parent passing it back is not loaded again
-  const shown = useRef(value);
-
   const editor = useEditor({
     extensions,
-    content: value,
+    content: initialValue,
     contentType: 'markdown',
     editable,
     autofocus: autoFocus ? 'end' : false,
@@ -110,29 +106,19 @@ export function RichTextEditor({
   });
 
   useEffect(() => {
-    const send = () => {
-      const markdown = editor.getMarkdown();
-      // back to how it was loaded: the stored text, unchanged
-      const next = markdown === baseline.current?.markdown ? baseline.current.value : markdown;
-      shown.current = next;
-      onChange?.(next);
-    };
+    // back to how it was loaded, it sends the stored text, unchanged
+    const send = () => onChange?.(markdownOf(editor));
     editor.on('update', send);
     return () => {
       editor.off('update', send);
     };
   }, [editor, onChange]);
 
-  // a value from outside replaces the content, without counting as an edit; what the editor last
-  // sent does not. A new `revision` makes it look again at a `value` whose string is unchanged
+  // the first text, as loaded: before any edit can be sent
+  const [initial] = useState(initialValue);
   useEffect(() => {
-    if (value !== shown.current) {
-      editor.commands.setContent(value, { contentType: 'markdown', emitUpdate: false });
-      shown.current = value;
-      baseline.current = null;
-    }
-    baseline.current ??= { value, markdown: editor.getMarkdown() };
-  }, [editor, value, revision]);
+    if (!editor.storage.loadedMarkdown.baseline) setBaseline(editor, initial);
+  }, [editor, initial]);
 
   useEffect(() => {
     onReady?.(editor);

@@ -591,8 +591,8 @@ function EventDescriptionLoaded({
       <WorkspaceRichTextEditor
         className={styles.description}
         label="Description"
-        value={series ? content : description.value}
-        revision={series ? undefined : description.revision}
+        initialValue={description.initialValue}
+        onReady={description.onReady}
         editable={editable}
         placeholder="Add a description…"
         openNewTaskDialog={createTask}

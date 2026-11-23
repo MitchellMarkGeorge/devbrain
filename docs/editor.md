@@ -11,8 +11,8 @@ const content = useQuery(noteContentQuery(noteId)).data; // primed by the page's
 const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, save);
 <WorkspaceRichTextEditor
   label="Note"
-  value={body.value}
-  revision={body.revision}
+  initialValue={body.initialValue}
+  onReady={body.onReady}
   onChange={body.onChange}
 />;
 ```
@@ -35,11 +35,14 @@ const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, save)
 - `useEditorAutosave` saves 500ms after typing stops, and at once on leaving the page, on the
   window losing focus and when a workspace switch starts. It reads the editor's content query,
   which only a change from outside the editor refetches (below).
+- The editor is **uncontrolled**: `initialValue` is read once, when it is made, and the editor
+  holds its text from then on; a later `initialValue` changes nothing. A text from outside (a sync,
+  a reattach) is loaded with `loadMarkdown(editor, text)`, on the editor `onReady` gives: it
+  replaces the content without counting as an edit, and the next edit starts an undo step of its
+  own. In a page, `useEditorAutosave` does this (below).
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
-  file alone, and undoing back to the start sends `value` exactly as it was stored.
-- A new `value` from outside (a sync, a reattach) replaces the content; the markdown the editor
-  just sent is not loaded again. A new `revision` makes it look at `value` again when
-  the string is unchanged. It holds one text, never a history of what it sent.
+  file alone, and undoing back to the text last loaded sends it exactly as it was stored
+  (`markdownOf`), not in the editor's own spelling.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through
@@ -88,8 +91,12 @@ const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, save)
 Each editor reads its text from a **content query** (`shared/api/content.ts`): a note's
 `notes.readContent`, and for a task, project or event description a query of its own
 (`taskContentQuery`, keyed `[['content', 'task'], { id }]`) that reads the entity's `get` route and
-keeps its `description` (`''` for none). The page's loader primes it, as loaders prime every query
-(the task, project and note pages; the sheets load it as they draw).
+keeps its `description` (`''` for none). The page's loader primes it, as loaders prime every query:
+the note page reads `notes.readContent`, and the task and project pages fill the description's
+query from the entity they read (`primeContent`), so opening the page reads the entity once. That
+is skipped when the content is already cached (it holds the latest save), and when the entity's
+query was invalidated (its text may be older than a save or a sync): the content query is read
+then. The sheets load it as they draw.
 
 - **A save writes the cache itself, and is never refetched.** The hook puts the text, as stored,
   in the content query when it saves (`storeContent`), so leaving the page and coming back shows the
@@ -101,11 +108,11 @@ keeps its `description` (`''` for none). The page's loader primes it, as loaders
   tasks, projects or events, a synced calendar's history fetched for a read, and a reattach. The
   content query refetches then, and the editor follows. There is one window, so every save comes
   from this renderer, and anything else that rewrites the text is from outside by definition.
-- **So the hook holds one text**: its latest save, or the one it was last given. When the content
-  query's text differs from it, the change is from outside: the editor is given it, and
-  `revision` is bumped, which makes the editor load `value` even when the string is the one it was
-  last given (reattaching a task restores Linear's description). Nothing of the editor's own comes
-  back later to be told apart from a change.
+- **So the hook holds one text**: its latest save, or the last text from outside. When the
+  content query's text differs from it, the change is from outside, and the hook loads it into the
+  editor (`loadMarkdown`), unless the editor already shows it. Reattaching a task after an edit
+  restores Linear's description, though it is the very text the editor opened with. Nothing of the
+  editor's own comes back later to be told apart from a change.
 - **A save cancels a refetch in flight** on its content query: one for a change from outside that
   started before the save, whose answer would be older than it. And a note's `readContent` waits
   for the note's queued saves (`NoteService`), so a refetch never reads a file a save is replacing.

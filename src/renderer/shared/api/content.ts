@@ -8,38 +8,64 @@ import { ipc, trpc } from '@renderer/ipc';
 // it (src/renderer/ipc/query-invalidator.ts). Core reports `content` only when something other
 // than the editor rewrote the text (a sync, a reattach); an editor's save writes the cache itself
 // (`useEditorAutosave`), and is never refetched. So they never go stale on their own: a page that
-// mounts one reads the cache, primed by its loader.
+// mounts one reads the cache, primed by its loader (from the entity it read: `primeContent`).
 
 /** A note's markdown, from its file. */
 export function noteContentQuery(id: NoteId) {
   return trpc.notes.readContent.queryOptions({ id }, { staleTime: Infinity });
 }
 
-/** A task's description, `''` for none. */
-export function taskContentQuery(id: TaskId) {
+// the entities whose description an editor shows
+type DescriptionOf = 'task' | 'project' | 'event';
+type DescriptionKey = readonly [readonly ['content', DescriptionOf], { readonly id: string }];
+
+// a description's content query: the entity read through its `get` route, keeping `description`
+function descriptionQuery(
+  of: DescriptionOf,
+  id: string,
+  read: () => Promise<{ description: string | null }>,
+) {
   return queryOptions({
-    queryKey: [['content', 'task'], { id }] as const,
-    queryFn: async () => (await ipc.tasks.get.query({ id })).description ?? '',
+    queryKey: [['content', of], { id }] as DescriptionKey,
+    queryFn: async () => (await read()).description ?? '',
     staleTime: Infinity,
   });
+}
+
+/** A task's description, `''` for none. */
+export function taskContentQuery(id: TaskId) {
+  return descriptionQuery('task', id, () => ipc.tasks.get.query({ id }));
 }
 
 /** A project's description, `''` for none. */
 export function projectContentQuery(id: ProjectId) {
-  return queryOptions({
-    queryKey: [['content', 'project'], { id }] as const,
-    queryFn: async () => (await ipc.projects.get.query({ id })).description ?? '',
-    staleTime: Infinity,
-  });
+  return descriptionQuery('project', id, () => ipc.projects.get.query({ id }));
 }
 
 /** An event's description, `''` for none. */
 export function eventContentQuery(id: EventId) {
-  return queryOptions({
-    queryKey: [['content', 'event'], { id }] as const,
-    queryFn: async () => (await ipc.events.get.query({ id })).description ?? '',
-    staleTime: Infinity,
-  });
+  return descriptionQuery('event', id, () => ipc.events.get.query({ id }));
+}
+
+/**
+ * Primes a description's content query from the entity a page's loader read (`tasks.get`,
+ * `projects.get`, under `entityKey`), so opening the page reads the entity once. Only when the
+ * content isn't cached, as a cached one holds the editor's latest save, and only from an entity
+ * whose query is current: an invalidated one may hold text older than a save or a sync, so the
+ * content query reads it again itself then.
+ */
+export async function primeContent(
+  queryClient: QueryClient,
+  content: ReturnType<typeof descriptionQuery>,
+  entityKey: QueryKey,
+  description: string | null,
+): Promise<void> {
+  if (queryClient.getQueryData(content.queryKey) !== undefined) return;
+  if (queryClient.getQueryState(entityKey)?.isInvalidated) {
+    await queryClient.query({ ...content, staleTime: 'static' });
+    return;
+  }
+  queryClient.setQueryData(content.queryKey, description ?? '');
 }
 
 /**

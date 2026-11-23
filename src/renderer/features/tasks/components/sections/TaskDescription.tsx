@@ -46,8 +46,8 @@ function TaskDescriptionLoaded({
     <WorkspaceRichTextEditor
       className={className}
       label="Description"
-      value={description.value}
-      revision={description.revision}
+      initialValue={description.initialValue}
+      onReady={description.onReady}
       editable={!synced}
       placeholder="Add a description…"
       onChange={description.onChange}

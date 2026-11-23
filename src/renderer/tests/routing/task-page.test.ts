@@ -246,6 +246,78 @@ describe('the task page', () => {
     await eventually(() => expect(description()?.textContent).toBe('From Linear'));
   });
 
+  it('draws its description from the task its loader read, without reading it again', async () => {
+    const main = mainWith(store());
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const contentKey = hashKey(taskContentQuery(parent.id).queryKey);
+    let contentFetches = 0;
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'fetch') return;
+      if (event.query.queryHash === contentKey) contentFetches += 1;
+    });
+    await eventually(() => expect(app.text()).toContain('Replace the implicit flow.'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(contentFetches).toBe(0);
+    unsubscribe();
+  });
+
+  it('shows a synced task’s description once a sync gives it one', async () => {
+    const synced = fakeTask('tsk_synced', 'From Linear', {
+      description: null,
+      external: {
+        provider: Provider.LINEAR,
+        state: LinkState.SYNCED,
+        key: 'MIT-2',
+        url: 'https://linear.app/x/issue/MIT-2',
+        statusLabel: null,
+        priorityLabel: null,
+        lastSyncedAt: new Date(),
+      },
+    });
+    const tasks = new FakeTasks([synced]);
+    const main = mainWith(tasks);
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${synced.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(app.text()).toContain('From Linear'));
+    // none yet: left out
+    expect(description()).toBeNull();
+
+    tasks.patch(synced.id, { description: 'Written in Linear' });
+    main.push('db.changes', { entities: ['task', 'content'] });
+    await eventually(() => expect(description()?.textContent).toBe('Written in Linear'));
+  });
+
+  it('shows a description rewritten from outside while the page was closed', async () => {
+    const tasks = store();
+    const main = mainWith(tasks);
+    // a copy each time, as IPC sends one: never the stored row, which the edits change in place
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(description()?.textContent).toBe('Replace the implicit flow.'));
+
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: WORK } });
+    await eventually(() => expect(description()).toBeNull());
+    // a sync rewrites it meanwhile
+    tasks.patch(parent.id, { description: 'Use PKCE everywhere.' });
+    main.push('db.changes', { entities: ['task', 'content'] });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await app.router.navigate({
+      to: '/app/$workspaceId/tasks/$taskId',
+      params: { workspaceId: WORK, taskId: parent.id },
+    });
+    await eventually(() => expect(description()?.textContent).toBe('Use PKCE everywhere.'));
+  });
+
   it('saves the description without reading it back, and shows the latest save when opened again', async () => {
     const tasks = store();
     const main = mainWith(tasks);

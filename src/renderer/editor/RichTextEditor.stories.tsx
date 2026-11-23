@@ -149,7 +149,7 @@ function Playground({ initial, editable = true, label = 'Note' }: PlaygroundProp
       <RichTextEditor
         {...host}
         label={label}
-        value={value}
+        initialValue={initial}
         editable={editable}
         onChange={(markdown) => {
           setValue(markdown);

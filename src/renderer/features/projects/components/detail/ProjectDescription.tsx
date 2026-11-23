@@ -40,8 +40,8 @@ function ProjectDescriptionLoaded({ project, content }: { project: Project; cont
     <WorkspaceRichTextEditor
       className={styles.description}
       label="Description"
-      value={description.value}
-      revision={description.revision}
+      initialValue={description.initialValue}
+      onReady={description.onReady}
       editable={!synced}
       placeholder="Add a description…"
       onChange={description.onChange}
