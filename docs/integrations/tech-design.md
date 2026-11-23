@@ -638,6 +638,27 @@ How a run walks the calendars: each `pull` asks the source for one page of one c
 
 "Unchanged" is decided by comparing `externalUpdatedAt`. This keeps `updatedAt` stable, so "recently updated" sorting is not flooded every 5 minutes. `createdAt` is set from the provider's creation time.
 
+**Where an item is**
+
+Providers name the ways an item leaves differently: Linear archives closed issues itself and calls a deletion "delete", Trello archives a card by hand, GitHub has no archive at all. So each provider maps its own flags to four states, and sync applies one table to them, whatever the provider calls them (`keepsTask` in `core/sync/presence.ts`).
+
+| State       | Meaning                                 | Open                  | Closed                |
+| ----------- | --------------------------------------- | --------------------- | --------------------- |
+| **live**    | Active, and assigned to the user        | synced                | synced                |
+| **hidden**  | Put away by the provider but kept       | out: trash, `removed` | kept, as last seen    |
+| **deleted** | In the provider's trash, restorable     | out: trash, `removed` | out: trash, `removed` |
+| **gone**    | Permanently deleted: no longer returned | out: trash, `removed` | out: trash, `removed` |
+
+A task no longer assigned to the user is out too, whatever its state. A hidden open item was put away on purpose: in Linear, its project was deleted, which archives the project's issues. A hidden closed one was tidied away by the provider's own schedule (Linear's auto-archive), and stays as the user's record of finished work: sync sees it archived and keeps it as last seen. A deletion is always the user's intent, so a deleted item goes whatever its status.
+
+What a provider reports for each:
+
+- **hidden**: listed and resolved like a live task, with `ExternalTask.hidden` set. `listOpenAssignedTaskIds` leaves hidden tasks out, so reconcile looks up a watched one that became hidden and takes it out.
+- **deleted**: its id in a page's `trashedIds` or a lookup's `gone`.
+- **gone**: not returned, so in a lookup's `gone`.
+
+For Linear: `trashed` is deleted, `archivedAt` without `trashed` is hidden, and an id the API leaves out is gone. Projects follow the same rule through `resolveProjects`: a trashed or missing project is gone, and an archived one is found. Linear only archives closed projects, so none is ever hidden while open. Reattach refuses a task that is hidden while open ("because it was archived") as it refuses a deleted one ("because it was deleted"), and leaves such descendants detached.
+
 **Removal policy**
 
 | Entity  | Has local links or a task note | Action                                                                                                |

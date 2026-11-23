@@ -71,6 +71,7 @@ import {
   SyncSummary,
   TaskPageItems,
 } from './types';
+import { keepsTask } from './presence';
 
 type Tx = BaseSQLiteDatabase<'sync', RunResult>;
 
@@ -102,17 +103,18 @@ export class SyncWriter {
   ) {}
 
   /**
-   * Applies one page: projects first, then tasks parents first, then removals. A task no longer
-   * assigned to the viewer (from TaskSource.resolveTasks) is removed like one in `removedIds`.
+   * Applies one page: projects first, then tasks parents first, then removals. A task sync does not
+   * keep (`keepsTask`: no longer assigned to the viewer, or hidden while open) is removed like one
+   * in `removedIds`.
    */
   applyTaskPage(sourceId: ExternalSourceId, page: TaskPageItems): SyncSummary {
     return this.db.transaction((tx) => {
       const write = new PageWrite(tx, this.search, sourceId, this.now());
       write.upsertProjects(page.projects);
-      write.upsertTasks(page.tasks.filter((task) => task.assignedToViewer));
+      write.upsertTasks(page.tasks.filter(keepsTask));
       write.removeTasks([
         ...page.removedIds,
-        ...page.tasks.filter((task) => !task.assignedToViewer).map((task) => task.externalId),
+        ...page.tasks.filter((task) => !keepsTask(task)).map((task) => task.externalId),
       ]);
       return write.finish();
     });
@@ -121,8 +123,8 @@ export class SyncWriter {
   /**
    * Applies a reconcile pass, in one transaction, in this order:
    *
-   * 1. What the pass resolved, as a page: found and still assigned is upserted (a completion, or a restore of
-   *    a removed link); reassigned or gone is removed.
+   * 1. What the pass resolved, as a page: found and kept (`keepsTask`) is upserted (a completion,
+   *    or a restore of a removed link); reassigned, hidden while open, or gone is removed.
    * 2. Settle: synced task links closed before `settleBefore` stop being watched.
    * 3. Project lifecycle, on the state after 1: a synced project that is gone, or has no synced
    *    tasks left, is detached when it still holds local or detached tasks, and archived with its
@@ -137,10 +139,10 @@ export class SyncWriter {
       const write = new PageWrite(tx, this.search, sourceId, this.now());
       // 1.
       write.upsertProjects(items.projects);
-      write.upsertTasks(items.tasks.filter((task) => task.assignedToViewer));
+      write.upsertTasks(items.tasks.filter(keepsTask));
       write.removeTasks([
         ...items.gone,
-        ...items.tasks.filter((task) => !task.assignedToViewer).map((task) => task.externalId),
+        ...items.tasks.filter((task) => !keepsTask(task)).map((task) => task.externalId),
       ]);
       // 2.
       write.settle(settleBefore);

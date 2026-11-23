@@ -37,6 +37,7 @@ describe('Linear mapper — issues', () => {
       parentTitle: 'Linear sync',
       projectExternalId: '5d2c9e1a-7b40-4c61-9f3e-2a8d1b6c0e01',
       assignedToViewer: true,
+      hidden: false,
     });
   });
 
@@ -52,6 +53,12 @@ describe('Linear mapper — issues', () => {
     const task = toExternalTask(issue(byStateFixture[type]), VIEWER_ID);
     expect(task.status).toBe(status);
     expect(task.statusLabel).toBe(label);
+  });
+
+  it('marks an archived issue hidden: kept by Linear, not deleted', () => {
+    expect(toExternalTask(issue(), VIEWER_ID).hidden).toBe(false);
+    const archived = { ...issueFixture, archivedAt: '2026-11-23T16:39:47.445Z' };
+    expect(toExternalTask(issue(archived), VIEWER_ID).hidden).toBe(true);
   });
 
   it('takes completedAt from Linear for a completed issue only', () => {

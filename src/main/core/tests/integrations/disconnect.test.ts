@@ -107,6 +107,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }
@@ -1005,7 +1006,7 @@ describe('DetachService — kept copies after connecting the same account again'
       failed: [
         {
           taskId: taskIdOf(gone),
-          message: `Task ${gone.key} can't be reattached because it no longer exists`,
+          message: `Task ${gone.key} can't be reattached because it was deleted`,
         },
       ],
     });

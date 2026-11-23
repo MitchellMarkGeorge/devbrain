@@ -83,6 +83,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }
@@ -136,12 +137,13 @@ async function seed(tasks: ExternalTask[], projects: ExternalProject[] = []) {
   expect(result.outcome).toBe(SyncRunOutcome.COMPLETED);
 }
 
-// the snapshot: every remote issue still open and assigned to the viewer
+// the snapshot: every remote issue still open, assigned to the viewer and live (not archived)
 function assignNow() {
   provider.tasks.assigned = [...remoteTasks.values()]
     .filter(
       (task) =>
         task.assignedToViewer &&
+        !task.hidden &&
         task.status !== TaskStatus.COMPLETED &&
         task.status !== TaskStatus.CANCELLED,
     )
@@ -233,6 +235,21 @@ describe('SyncEngine reconcile — removals', () => {
     expect(linkOf(reassigned.externalId)).toMatchObject({ state: LinkState.REMOVED });
     expect(taskOf(kept.externalId).archivedAt).toBeNull();
     expect(sourceRow().lastReconciledAt).toEqual(NOW);
+  });
+
+  it('removes an open issue archived with its deleted project, though it is still assigned', async () => {
+    const kept = issue();
+    const archived = issue();
+    await seed([kept, archived]);
+    // Linear archives a deleted project's issues and drops the project from them
+    remoteTasks.set(archived.externalId, { ...archived, hidden: true, projectExternalId: null });
+
+    const result = await reconcile();
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(taskOf(archived.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(linkOf(archived.externalId)).toMatchObject({ state: LinkState.REMOVED });
+    expect(taskOf(kept.externalId).archivedAt).toBeNull();
   });
 
   it('removes a deleted issue that no longer resolves', async () => {

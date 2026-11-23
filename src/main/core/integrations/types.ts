@@ -36,6 +36,11 @@ export interface ExternalTask {
   parentTitle: string | null;
   projectExternalId: string | null;
   assignedToViewer: boolean; // false in a lookup result means "remove"
+  // Put away by the provider but kept, and not deleted: Linear's archived issues. Sync takes an
+  // open hidden task out (to the trash, its link removed) and keeps a closed one as the user's
+  // record (keepsTask in core/sync/presence.ts). A deleted task is never listed as hidden: a
+  // provider reports its id as trashed or gone instead
+  hidden: boolean;
 }
 
 export interface ExternalProject {

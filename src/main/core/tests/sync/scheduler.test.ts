@@ -864,5 +864,6 @@ function issue(): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
   };
 }

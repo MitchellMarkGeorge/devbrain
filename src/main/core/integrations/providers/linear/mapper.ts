@@ -36,6 +36,9 @@ export function toExternalTask(issue: LinearIssue, viewerId: string): ExternalTa
     parentTitle: issue.parent?.title ?? null,
     projectExternalId: issue.project?.id ?? null,
     assignedToViewer: issue.assignee?.id === viewerId,
+    // Linear archives a closed issue itself after the team's period, and the open issues of a
+    // project the user deleted; a deleted issue is trashed, and never mapped
+    hidden: issue.archivedAt !== null,
   };
 }
 

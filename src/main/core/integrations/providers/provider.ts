@@ -45,7 +45,8 @@ export interface AssignedTaskPage {
   tasks: ExternalTask[];
   // the page's tasks' projects, each once
   projects: ExternalProject[];
-  // tasks on the page that the provider reports as trashed
+  // tasks on the page that the provider reports as deleted (in its trash). A task put away but kept
+  // (archived in Linear) is listed in `tasks` with `hidden` set instead
   trashedIds: string[];
   // items that failed to validate or map; left out of the page
   skipped: number;
@@ -60,7 +61,7 @@ export interface AssignedTaskPage {
 export interface Resolution<T> {
   // valid and not trashed
   found: T[];
-  // missing, or trashed
+  // missing (permanently deleted), or trashed (deleted). A hidden task is found, with `hidden` set
   gone: string[];
   // came back but failed to validate: never reported as gone, so a schema mismatch on our side
   // cannot make an item look deleted
@@ -87,7 +88,8 @@ export interface TaskSource {
     query: AssignedTasksQuery,
     options?: RequestOptions,
   ): Promise<AssignedTaskPage>;
-  // ids of the viewer's open assigned tasks, across every page
+  // ids of the viewer's open assigned tasks that are live, across every page: hidden ones (archived
+  // in Linear) are left out, so reconcile looks them up and takes the open ones out
   listOpenAssignedTaskIds(auth: Auth, options?: RequestOptions): Promise<string[]>;
   // each id sorted into found, gone (missing or trashed) or unreadable, plus the found tasks'
   // projects. A found task with assignedToViewer false has been reassigned. Empty input makes no

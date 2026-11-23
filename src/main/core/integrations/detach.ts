@@ -50,15 +50,17 @@ const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
   [SyncSkipReason.ALREADY_RUNNING]: 'yet. Try again shortly',
   [SyncSkipReason.INITIAL_SYNC_PENDING]: 'yet. Try again shortly',
   [SyncSkipReason.UNSUPPORTED]: 'because its provider has no tasks',
-  [ReattachRefusal.GONE]: 'because it no longer exists',
+  [ReattachRefusal.GONE]: 'because it was deleted',
+  [ReattachRefusal.HIDDEN]: 'because it was archived',
   [ReattachRefusal.UNASSIGNED]: 'because it is no longer assigned to you',
   [ReattachRefusal.UNREADABLE]: 'because its provider returned it unreadable',
   [ReattachRefusal.CHANGED]: 'because it changed while reattaching',
 };
 
-// refusals that a later try would meet again: the issue is gone, or someone else's
+// refusals that a later try would meet again: the issue is deleted, archived, or someone else's
 const FINAL_REFUSALS = new Set<SyncSkipReason | ReattachRefusal>([
   ReattachRefusal.GONE,
+  ReattachRefusal.HIDDEN,
   ReattachRefusal.UNASSIGNED,
 ]);
 

@@ -106,6 +106,7 @@ function issue(id: string, parentExternalId: string | null = null): ExternalTask
     parentTitle: parentExternalId ? `Issue ${parentExternalId}` : null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
   };
 }
 

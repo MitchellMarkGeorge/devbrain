@@ -64,6 +64,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }
@@ -565,6 +566,42 @@ describe('SyncWriter — removed', () => {
     expect(linkOf(trashed.externalId)!.state).toBe(LinkState.REMOVED);
     expect(linkOf(reassigned.externalId)!.state).toBe(LinkState.REMOVED);
     expect(linkOf(kept.externalId)!.state).toBe(LinkState.SYNCED);
+  });
+
+  it('takes out an open task its provider hides, and keeps a closed one as last seen', () => {
+    // Linear archives a deleted project's open issues, and closed issues on its own schedule
+    const open = issue({ title: 'Open, its project deleted' });
+    const done = issue({
+      title: 'Done, tidied away',
+      status: TaskStatus.COMPLETED,
+      completedAt: V1,
+    });
+    writer.applyTaskPage(sourceId, page({ tasks: [open, done] }));
+
+    const summary = writer.applyTaskPage(
+      sourceId,
+      page({
+        tasks: [
+          { ...open, hidden: true, projectExternalId: null, updatedAt: V2 },
+          { ...done, hidden: true, updatedAt: V2 },
+        ],
+      }),
+    );
+
+    expect(summary).toMatchObject({ removed: 1, updated: 1 });
+    expect(linkOf(open.externalId)!.state).toBe(LinkState.REMOVED);
+    expect(taskRow(open.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(linkOf(done.externalId)!.state).toBe(LinkState.SYNCED);
+    expect(taskRow(done.externalId).archivedAt).toBeNull();
+  });
+
+  it('never mirrors an open task first seen hidden', () => {
+    const item = issue({ hidden: true });
+
+    const summary = writer.applyTaskPage(sourceId, page({ tasks: [item] }));
+
+    expect(summary).toMatchObject({ inserted: 0, removed: 0 });
+    expect(linkOf(item.externalId)).toBeUndefined();
   });
 
   it('a removed task that reappears is restored: synced, unarchived, updated, re-indexed', () => {

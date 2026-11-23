@@ -18,6 +18,7 @@ import {
   ReconcilePlan,
   SyncSkipReason,
 } from './types';
+import { keepsTask } from './presence';
 import { SyncWriter } from './writer';
 
 // a detached root task and its detached descendants, by external id, to reattach together
@@ -212,10 +213,10 @@ export class TaskReconciler {
    *    lookups of LOOKUP_BATCH_SIZE), through IntegrationService.withSource. Any provider failure throws
    *    here, before anything is written. Rejected credentials (IntegrationAuthError) move the
    *    integration to needs_reauth first, as in a run.
-   * 3. Per group, in the order given: refuse it when its root came back gone, unreadable or not
-   *    assigned to the viewer; otherwise hand its root and the descendants that came back assigned
-   *    to sync through SyncWriter.reattachTasks, each group in its own transaction. Descendants
-   *    gone, reassigned or unreadable stay detached. A root no longer detached by then (changed
+   * 3. Per group, in the order given: refuse it when its root came back gone, unreadable, not
+   *    assigned to the viewer, or hidden while open; otherwise hand its root and the descendants
+   *    sync keeps (`keepsTask`) to sync through SyncWriter.reattachTasks, each group in its own
+   *    transaction. Descendants gone, reassigned, hidden while open or unreadable stay detached. A root no longer detached by then (changed
    *    while the provider answered) is refused alone.
    *
    * Returns each group's result by its root's external id.
@@ -255,11 +256,14 @@ export class TaskReconciler {
       }
 
       const groupIds = [rootExternalId, ...descendantExternalIds];
+      // what sync would keep (`keepsTask`): a descendant reassigned or hidden while open stays
+      // detached, as it would be taken out
       const assigned = groupIds.flatMap((id) => {
         const task = found.get(id);
-        return task?.assignedToViewer ? [task] : [];
+        return task && keepsTask(task) ? [task] : [];
       });
-      const leftDetached = groupIds.filter((id) => !found.get(id)?.assignedToViewer);
+      const keptIds = new Set(assigned.map((task) => task.externalId));
+      const leftDetached = groupIds.filter((id) => !keptIds.has(id));
       // the projects of this group's tasks, so each write files them as a page would
       const groupProjects = [
         ...new Set(assigned.flatMap((task) => task.projectExternalId ?? [])),
@@ -287,7 +291,8 @@ export class TaskReconciler {
 }
 
 // Why a root can't be reattached from the provider's answer, or null when it can: deleted or
-// trashed, came back unreadable, or no longer assigned to the viewer
+// trashed, came back unreadable, no longer assigned to the viewer, or hidden while open (archived
+// in Linear: its project was deleted)
 function rootRefusal(
   rootExternalId: string,
   found: ReadonlyMap<string, ExternalTask>,
@@ -297,6 +302,7 @@ function rootRefusal(
   const root = found.get(rootExternalId);
   if (!root) return ReattachRefusal.UNREADABLE;
   if (!root.assignedToViewer) return ReattachRefusal.UNASSIGNED;
+  if (!keepsTask(root)) return ReattachRefusal.HIDDEN;
   return null;
 }
 

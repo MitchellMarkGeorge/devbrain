@@ -86,6 +86,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }
@@ -345,7 +346,7 @@ describe('DetachService — reattach', () => {
     tasks.updateTask(id, { title: 'Mine' });
 
     answerLookup([]);
-    await expect(detach.reattachTask(id)).rejects.toThrow(/no longer exists/);
+    await expect(detach.reattachTask(id)).rejects.toThrow(/because it was deleted/);
 
     expect(stateOf(item)).toBe(LinkState.DETACHED);
     expect(taskOf(item.externalId).title).toBe('Mine');
@@ -361,6 +362,29 @@ describe('DetachService — reattach', () => {
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/no longer assigned/);
 
     expect(stateOf(item)).toBe(LinkState.DETACHED);
+    expect(taskOf(item.externalId).archivedAt).toBeNull();
+  });
+
+  it('throws for an open issue archived with its deleted project and leaves the task detached', async () => {
+    const item = issue();
+    await sync(item);
+    detach.detachTask(idOf(item));
+
+    answerLookup([{ ...item, hidden: true }]);
+    await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/because it was archived/);
+
+    expect(stateOf(item)).toBe(LinkState.DETACHED);
+  });
+
+  it('reattaches a completed issue Linear has archived, which sync keeps', async () => {
+    const item = issue();
+    await sync(item);
+    detach.detachTask(idOf(item));
+
+    answerLookup([{ ...item, hidden: true, status: TaskStatus.COMPLETED, completedAt: V1 }]);
+    await detach.reattachTask(idOf(item));
+
+    expect(stateOf(item)).toBe(LinkState.SYNCED);
     expect(taskOf(item.externalId).archivedAt).toBeNull();
   });
 
@@ -405,6 +429,21 @@ describe('DetachService — reattach', () => {
     expect(mirrored.map((row) => row.title)).toEqual(['Launch']);
     expect(taskOf(item.externalId).projectId).toBe(mirrored[0].id);
     expect(moved(-1).changed.sort()).toEqual(['project', 'task']);
+  });
+
+  it('leaves an open descendant archived in Linear detached', async () => {
+    const [root, child, grandchild] = tree();
+    await sync(root, child, grandchild);
+    detach.detachTask(idOf(root));
+
+    answerLookup([root, { ...child, hidden: true }, grandchild]);
+    await detach.reattachTask(idOf(root));
+
+    expect([root, child, grandchild].map(stateOf)).toEqual([
+      LinkState.SYNCED,
+      LinkState.DETACHED,
+      LinkState.SYNCED,
+    ]);
   });
 
   it('leaves a descendant that no longer resolves detached and top-level', async () => {
