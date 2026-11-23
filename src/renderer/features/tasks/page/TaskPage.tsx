@@ -17,6 +17,7 @@ import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
+import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '../api/queries';
@@ -62,6 +63,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   const { canGoBack } = useHistoryPosition();
   const actions = useTaskActions();
   const showError = useMutationErrorToast();
+  const confirmRestore = useConfirmRestore();
   const [adding, setAdding] = useState<AddingProperty>(null);
   const synced = isSynced(task);
   // opened from Trash: shown as it is, read-only, until it's restored
@@ -135,10 +137,14 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
           {trashed && (
             <TrashedNotice
               noun="task"
+              // one sync moved to the trash comes back detached, after asking
               onRestore={() =>
-                ipc.archive.restoreTask
-                  .mutate({ id: task.id })
-                  .catch((error: unknown) => showError(error, 'Couldn’t restore the task'))
+                void confirmRestore([task]).then((ok) => {
+                  if (!ok) return;
+                  ipc.archive.restoreTask
+                    .mutate({ id: task.id })
+                    .catch((error: unknown) => showError(error, 'Couldn’t restore the task'));
+                })
               }
             />
           )}

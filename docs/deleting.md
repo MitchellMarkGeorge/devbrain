@@ -181,6 +181,11 @@ the three kinds.
   same rules hold: a task with an active or synced task below it stays (`keptTaskIds`), a project
   leaves its tasks and notes, and the notes' files go after the commit (`filesNotRemoved`). It
   returns the same `EmptyTrashResult`.
+- **A row sync moved to the trash comes back detached.** Restoring (one row or several) turns a
+  `removed` link among the rows brought back `detached`, in the same transaction
+  (`detachRemovedLinks` in the archive service): restoring is the user taking it back, so sync
+  stops overwriting it if the item returns in the provider, and Reattach hands it back. The
+  renderer asks first, always (`useConfirmRestore`), as Detach does.
 - **One change each.** `restoreMany` sends one `restored`, and `deleteMany` one `emptied` (the
   change for rows deleted from the trash, all or some), as the transaction's last step. Search and
   the `ChangeTracker` handle them as they do for one restore and for Empty Trash.

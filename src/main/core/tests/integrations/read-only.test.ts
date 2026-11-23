@@ -290,6 +290,72 @@ describe('read-only guards — guarded methods', () => {
   });
 });
 
+describe('restoring a row its provider removed', () => {
+  // the link's state, read straight from the table
+  function stateOf(id: TaskId | ProjectId): LinkState | undefined {
+    return db
+      .select({ state: externalLinks.state })
+      .from(externalLinks)
+      .where(
+        id.startsWith('tsk_')
+          ? eq(externalLinks.taskId, id as TaskId)
+          : eq(externalLinks.projectId, id as ProjectId),
+      )
+      .get()?.state;
+  }
+
+  // a task sync moved to the trash, as it does for an issue deleted in Linear
+  function removedTask(title: string, parentTaskId?: TaskId): TaskId {
+    const id = parentTaskId
+      ? insertChild(parentTaskId, title)
+      : tasks.createTask({ title, dueDate: TOMORROW }).id;
+    link(id, LinkState.REMOVED);
+    db.update(tasksTable).set({ archivedAt: SYNCED_AT }).where(eq(tasksTable.id, id)).run();
+    return id;
+  }
+
+  it('detaches a restored task and its removed subtasks, so sync leaves them alone', () => {
+    const parent = removedTask('Gone in Linear');
+    const child = removedTask('Its subtask', parent);
+    const restored = archive.restoreTask(parent);
+    expect(restored.archivedAt).toBeNull();
+    expect(restored.external?.state).toBe(LinkState.DETACHED);
+    expect(stateOf(parent)).toBe(LinkState.DETACHED);
+    expect(stateOf(child)).toBe(LinkState.DETACHED);
+    expect(
+      db.select().from(externalLinks).where(eq(externalLinks.taskId, parent)).get()?.removedAt,
+    ).toBeNull();
+    // the user's own copy now: editable
+    expect(tasks.updateTask(parent, { title: 'Mine now' }).title).toBe('Mine now');
+  });
+
+  it('leaves a restored local task without a link', () => {
+    const task = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
+    expect(archive.restoreTask(task.id).external).toBeNull();
+  });
+
+  it('detaches a restored project and its removed tasks', () => {
+    const project = projects.createProject({ title: 'Retired in Linear' });
+    link(project.id, LinkState.REMOVED);
+    const task = removedTask('Its issue');
+    db.update(tasksTable).set({ projectId: project.id }).where(eq(tasksTable.id, task)).run();
+    archive.archiveProject(project.id);
+    expect(archive.restoreProject(project.id).external?.state).toBe(LinkState.DETACHED);
+    expect(stateOf(task)).toBe(LinkState.DETACHED);
+  });
+
+  it('detaches the removed rows a batch restore brings back, and only those', () => {
+    const removed = removedTask('Gone in Linear');
+    const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    link(detached.id, LinkState.DETACHED);
+    archive.archiveTask(detached.id);
+    archive.restoreMany({ taskIds: [removed, detached.id], projectIds: [], noteIds: [] });
+    expect(stateOf(removed)).toBe(LinkState.DETACHED);
+    expect(stateOf(detached.id)).toBe(LinkState.DETACHED);
+  });
+});
+
 describe('read-only guards — assertEditable', () => {
   it('throws only for a synced link', async () => {
     const synced = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });

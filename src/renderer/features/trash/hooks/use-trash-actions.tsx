@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react';
-import type { ArchivedEntity, EmptyTrashResult, TrashSelection } from '@common/types';
+import type { ArchivedEntity, EmptyTrashResult, ExternalRef, TrashSelection } from '@common/types';
 import { isId } from '@common/ids';
 import { toast } from '@renderer/components';
 import { ipc } from '@renderer/ipc';
 import { useConfirm } from '@renderer/shared/hooks/use-confirm';
+import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 
@@ -12,7 +13,10 @@ import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 // transaction (archive.restoreMany, archive.deleteMany). Each write goes straight to core; what it changed comes back in its `changed`, so
 // the list refetches without help. Deleting asks first when `confirmBeforeDeleting` is on.
 
-export type TrashEntry = Pick<ArchivedEntity, 'id' | 'entityType' | 'title'>;
+// `external`: a task's or project's link, so a restore that detaches it asks first
+export type TrashEntry = Pick<ArchivedEntity, 'id' | 'entityType' | 'title'> & {
+  external?: ExternalRef | null;
+};
 
 const NOUN = { tasks: 'task', projects: 'project', notes: 'note' } as const;
 const PLACE = { tasks: 'Tasks', projects: 'Projects', notes: 'Notes' } as const;
@@ -89,11 +93,14 @@ export function emptyTrashSummary(result: EmptyTrashResult): {
 }
 
 export interface TrashActions {
-  /** restores it, then offers to open it; resolves to whether it is back */
+  /**
+   * restores it, then offers to open it; resolves to whether it is back. One sync moved to the
+   * trash comes back detached, after asking (`useConfirmRestore`)
+   */
   restore(item: TrashEntry): Promise<boolean>;
   /** deletes it for good, after asking; resolves to whether it went */
   remove(item: TrashEntry): Promise<boolean>;
-  /** restores the selected rows, all or none; resolves to whether they are back */
+  /** restores the selected rows, all or none, asking first as `restore` does; resolves to whether they are back */
   restoreAll(items: readonly TrashEntry[]): Promise<boolean>;
   /** deletes the selected rows for good, after asking once; resolves to whether the call went */
   removeAll(items: readonly TrashEntry[]): Promise<boolean>;
@@ -105,6 +112,7 @@ export interface TrashActions {
 
 export function useTrashActions(): TrashActions {
   const confirm = useConfirm();
+  const confirmRestore = useConfirmRestore();
   const showError = useMutationErrorToast();
   const openEntity = useOpenEntity();
 
@@ -114,6 +122,7 @@ export function useTrashActions(): TrashActions {
     const actions: TrashActions = {
       open,
       async restore(item) {
+        if (!(await confirmRestore([item]))) return false;
         try {
           await restore(item);
         } catch (error) {
@@ -149,6 +158,7 @@ export function useTrashActions(): TrashActions {
       },
       async restoreAll(items) {
         if (items.length === 1) return actions.restore(items[0]);
+        if (!(await confirmRestore(items))) return false;
         try {
           await ipc.archive.restoreMany.mutate(selectionOf(items));
         } catch (error) {
@@ -213,5 +223,5 @@ export function useTrashActions(): TrashActions {
       },
     };
     return actions;
-  }, [confirm, showError, open]);
+  }, [confirm, confirmRestore, showError, open]);
 }

@@ -91,7 +91,11 @@ Linear** puts Linear's version back, replacing your edits.
 
 - Changes to your issues arrive at the next sync, every five minutes.
 - An open issue reassigned to someone else, or deleted, leaves DevBrain within half an hour (or at
-  once with **Sync Now**). If it comes back to you later, it comes back with its notes and links.
+  once with **Sync Now**) and goes to the trash. If it comes back to you later, it comes back with
+  its notes and links.
+- To keep one that left, **Restore** it from the trash. It comes back as your own copy, as if you'd
+  detached it, after DevBrain asks: editable, and no longer updated by Linear. If the issue comes
+  back to you, **Reattach to Linear** puts Linear's version back.
 - A completed or cancelled issue stays as it was last seen for 30 days, then stops syncing.
 
 ## Updating the key

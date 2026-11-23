@@ -18,6 +18,7 @@ import {
   Task,
 } from '@common/types';
 import { projects } from '@main/db/schema/projects';
+import { externalLinks } from '@main/db/schema/integrations';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
@@ -133,8 +134,11 @@ export class ArchiveService {
     });
   }
 
+  /**
+   * Restores the task and its whole subtree, as archiveTask archived it. A restored row whose
+   * provider removed it (its link `removed`) comes back detached (`detachRemovedLinks`).
+   */
   restoreTask(id: TaskId): Task {
-    // restores the task and its whole subtree, as archiveTask archived it
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -148,6 +152,7 @@ export class ArchiveService {
         .all();
 
       const updatedTaskIds = updatedTasks.map((t) => t.id);
+      detachRemovedLinks(tx, updatedTaskIds, []);
 
       // restore notes linked to the task and/or any of its subtasks
       const noteIds =
@@ -217,6 +222,7 @@ export class ArchiveService {
         .returning({ id: tasks.id })
         .all()
         .map(({ id }) => id);
+      detachRemovedLinks(tx, updatedTaskIds, [id]);
 
       // restore all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
       const noteIds = tx
@@ -333,6 +339,7 @@ export class ArchiveService {
               .all()
               .map(({ id }) => id);
       const restoredTaskIds = [...projectTaskIds, ...subtreeTaskIds];
+      detachRemovedLinks(tx, restoredTaskIds, projectIds);
 
       // the projects' notes, the notes of every task restored, and the notes chosen
       const noteConditions = [
@@ -814,4 +821,23 @@ function applyArchivePlan(
     tx.update(notes).set({ archivedAt: now }).where(inArray(notes.id, noteIds)).run();
   }
   return { tasks: stamped, ids: { taskIds, noteIds } };
+}
+
+/**
+ * Restoring a row sync moved to the trash (its link `removed`: the item was deleted in the
+ * provider, or left the synced scope) takes it back as the user's own copy: its link becomes
+ * `detached`, as Detach leaves it. Sync then leaves it alone, so an item that comes back in the
+ * provider no longer overwrites what the user changed since; Reattach hands it back. Synced and
+ * detached links are left as they are. The renderer asks before a restore that does this.
+ */
+function detachRemovedLinks(tx: Transaction, taskIds: TaskId[], projectIds: ProjectId[]): void {
+  const rows = [
+    taskIds.length > 0 ? inArray(externalLinks.taskId, taskIds) : undefined,
+    projectIds.length > 0 ? inArray(externalLinks.projectId, projectIds) : undefined,
+  ].filter((condition) => condition !== undefined);
+  if (rows.length === 0) return;
+  tx.update(externalLinks)
+    .set({ state: LinkState.DETACHED, removedAt: null })
+    .where(and(eq(externalLinks.state, LinkState.REMOVED), or(...rows)))
+    .run();
 }
