@@ -405,7 +405,11 @@ describe('SyncEngine — resume and transactions', () => {
       throw new Error('disk full');
     });
     const applied = vi.spyOn(writer, 'applyTaskPage');
-    provider.tasks.script({ tasks: [issue({ title: 'Undone' })], projects: [project()] });
+    const proj = project();
+    provider.tasks.script({
+      tasks: [issue({ title: 'Undone', projectExternalId: proj.externalId })],
+      projects: [proj],
+    });
 
     const result = await engine.runSource(sourceId);
 

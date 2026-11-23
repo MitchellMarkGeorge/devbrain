@@ -370,7 +370,7 @@ A Linear issue becomes a `tasks` row plus an `external_links` row; its project b
 
 - Issues assigned to the connected user that are still open, at any age.
 - Issues assigned to the user that were completed or cancelled in the last 30 days.
-- The Linear project of any mirrored issue. No other projects.
+- The Linear project of any mirrored issue. No other projects. A provider reports the project of every issue it lists, including issues sync then takes out (archived while open, reassigned), so `upsertProjects` brings a project in, or back from `removed` or `detached`, only for an issue it keeps; a project already synced is still refreshed. A project deleted in Linear is therefore never mirrored by a first sync for its archived issues alone.
 
 Open issues are included regardless of age because a 60-day-old open issue is still the user's work. The 30-day window from the brief applies to closed history.
 

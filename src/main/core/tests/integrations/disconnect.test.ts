@@ -464,13 +464,15 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     const filed = project();
     const holding = project();
     const kept = issue({ projectExternalId: holding.externalId });
-    await syncTasks(sourceId, [kept], [filed, holding]);
+    // a provider reports a project for an issue in it; nothing links to this one, so it goes
+    const inFiled = issue({ projectExternalId: filed.externalId });
+    await syncTasks(sourceId, [kept, inFiled], [filed, holding]);
     await notes.createNote({ title: 'Filed', projectId: projectIdOf(filed) });
     await notes.createNote({ title: 'Task note', linkedTaskId: taskIdOf(kept) });
 
     const result = await service.disconnect(id, { keepLocalCopies: false });
 
-    expect(result.deleted).toEqual({ tasks: 0, projects: 0, events: 0 });
+    expect(result.deleted).toEqual({ tasks: 1, projects: 0, events: 0 });
     expect(result.kept).toEqual({ tasks: 1, projects: 2, events: 0 });
     expect(taskRow(taskIdOf(kept))!.projectId).toBe(projectIdOf(holding));
   });

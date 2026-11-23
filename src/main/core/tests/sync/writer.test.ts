@@ -421,7 +421,9 @@ describe('SyncWriter — synced, remote changed', () => {
 
   it('updates a changed project', async () => {
     const proj = project({ title: 'Q3 launch' });
-    writer.applyTaskPage(sourceId, page({ projects: [proj] }));
+    // a provider reports a project for an issue in it
+    const inIt = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [inIt] }));
 
     const summary = writer.applyTaskPage(
       sourceId,
@@ -503,7 +505,8 @@ describe('SyncWriter — detached', () => {
 
   it('reattaches a detached project that returns, refreshed, with its tasks', () => {
     const proj = project({ title: 'Kept locally' });
-    writer.applyTaskPage(sourceId, page({ projects: [proj] }));
+    const before = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [before] }));
     setLinkState(proj.externalId, LinkState.DETACHED);
     const item = issue({ projectExternalId: proj.externalId });
 
@@ -627,7 +630,10 @@ describe('SyncWriter — removed', () => {
 
   it('a removed project that reappears is restored and unarchived', () => {
     const proj = project();
-    writer.applyTaskPage(sourceId, page({ projects: [proj] }));
+    writer.applyTaskPage(
+      sourceId,
+      page({ projects: [proj], tasks: [issue({ projectExternalId: proj.externalId })] }),
+    );
     const projectId = projectIdOf(proj.externalId);
     // what the project lifecycle (feature 11) will do
     db.update(projectsTable).set({ archivedAt: V1 }).where(eq(projectsTable.id, projectId)).run();
@@ -694,6 +700,54 @@ describe('SyncWriter — projects emptied by a run', () => {
     // a middle page: the project looks empty, but a later page may move a task back into it
     writer.applyTaskPage(sourceId, deleteInLinear([a]));
 
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
+  });
+});
+
+describe('SyncWriter — projects mirrored for the tasks kept', () => {
+  // Linear's archived issues of a deleted project still name the project
+  const hiddenIn = (proj: ExternalProject) =>
+    issue({ projectExternalId: proj.externalId, hidden: true });
+
+  it('brings in neither the task nor the project of a page whose only issue is hidden and open', () => {
+    const proj = project({ title: 'Deleted in Linear' });
+
+    const summary = writer.applyTaskPage(
+      sourceId,
+      page({ projects: [proj], tasks: [hiddenIn(proj)] }),
+      { last: true },
+    );
+
+    expect(summary).toMatchObject({ inserted: 0, removed: 0 });
+    expect(count(projectsTable)).toBe(0);
+    expect(count(tasksTable)).toBe(0);
+  });
+
+  it('leaves a detached project detached when only a hidden issue names it', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a] }));
+    setLinkState(proj.externalId, LinkState.DETACHED);
+
+    writer.applyTaskPage(
+      sourceId,
+      page({ projects: [{ ...proj, updatedAt: V2 }], tasks: [hiddenIn(proj)] }),
+    );
+
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.DETACHED);
+  });
+
+  it('still refreshes a synced project a hidden issue brings', () => {
+    const proj = project({ title: 'Launch' });
+    const a = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a] }));
+
+    writer.applyTaskPage(
+      sourceId,
+      page({ projects: [{ ...proj, title: 'Renamed', updatedAt: V2 }], tasks: [hiddenIn(proj)] }),
+    );
+
+    expect(projectRow(projectIdOf(proj.externalId)).title).toBe('Renamed');
     expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
   });
 });
