@@ -564,6 +564,7 @@ function EventDescription({
         className={styles.description}
         label="Description"
         value={series ? (event.description ?? '') : description.value}
+        revision={series ? undefined : description.revision}
         editable={editable}
         placeholder="Add a description…"
         openNewTaskDialog={createTask}

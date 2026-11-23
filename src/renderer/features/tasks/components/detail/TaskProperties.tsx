@@ -387,6 +387,7 @@ export function TaskProperties({
     <>
       {external && (
         <SyncedBadge state={detached ? 'detached' : 'synced'} provider={providerOf(external)}>
+          {detached ? 'Detached from ' : ''}
           {PROVIDER_LABELS[providerOf(external) ?? 'linear']}
           {external.key ? ` · ${external.key}` : ''}
         </SyncedBadge>

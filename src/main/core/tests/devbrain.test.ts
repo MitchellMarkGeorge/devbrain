@@ -49,6 +49,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }

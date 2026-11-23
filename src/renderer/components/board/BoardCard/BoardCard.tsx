@@ -11,7 +11,7 @@ import { SourcePill } from '../../entities/SourcePill';
 import { LinkState, TaskStatus, type TaskListItem } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import { dueTone, isClosed, PRIORITY_LABELS, providerOf } from '../../types';
+import { dueTone, isClosed, isDetached, PRIORITY_LABELS, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
 /** The fields of core's `TaskListItem` a board card reads; pass the row as it is. */
@@ -74,7 +74,9 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   const pills = [
     external?.key && (
       <PillHoverCard key="source" target={{ type: 'source', title: task.title, external }}>
-        <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>
+        <SourcePill provider={providerOf(external)} detached={isDetached(task)}>
+          {external.key}
+        </SourcePill>
       </PillHoverCard>
     ),
     subtasks && (

@@ -27,6 +27,7 @@ import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
+import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
@@ -87,6 +88,7 @@ function ProjectPageContent({ project }: { project: Project }) {
   const actions = useProjectActions();
   const tab = search.tab ?? 'overview';
   const showError = useMutationErrorToast();
+  const confirmRestore = useConfirmRestore();
   // opened from Trash: shown as it is, read-only, until it's restored
   const trashed = project.archivedAt !== null;
 
@@ -140,10 +142,14 @@ function ProjectPageContent({ project }: { project: Project }) {
         <div className={styles.trashedBar}>
           <TrashedNotice
             noun="project"
+            // one sync moved to the trash comes back detached, after asking
             onRestore={() =>
-              ipc.archive.restoreProject
-                .mutate({ id: project.id })
-                .catch((error: unknown) => showError(error, 'Couldn’t restore the project'))
+              void confirmRestore([project]).then((ok) => {
+                if (!ok) return;
+                ipc.archive.restoreProject
+                  .mutate({ id: project.id })
+                  .catch((error: unknown) => showError(error, 'Couldn’t restore the project'));
+              })
             }
           />
         </div>

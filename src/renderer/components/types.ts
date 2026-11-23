@@ -228,6 +228,14 @@ export function isSynced(entity: { external?: Pick<ExternalRef, 'state'> | null 
   return entity.external?.state === LinkState.SYNCED;
 }
 
+/**
+ * A detached entity: the user's own copy of a provider's item, which still remembers where it came
+ * from. Its `SourcePill` fades the mark and dashes the outline.
+ */
+export function isDetached(entity: { external?: Pick<ExternalRef, 'state'> | null }): boolean {
+  return entity.external?.state === LinkState.DETACHED;
+}
+
 /** The logo a synced item's key shows, from its link; undefined for a provider with no logo. */
 export function providerOf(external: Pick<ExternalRef, 'provider'>): Provider | undefined {
   return external.provider === CoreProvider.LINEAR ? 'linear' : undefined;

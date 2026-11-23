@@ -6,6 +6,7 @@ import path from 'node:path';
 import { EventId, ExternalSourceId, generateId, ProjectId, TaskId } from '@common/ids';
 import { integrations, externalSources, externalLinks } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
+import { projects as projectsTable } from '@main/db/schema/projects';
 import { eq, or } from 'drizzle-orm';
 import { createDb } from '../utils';
 import { TaskService } from '../../tasks/service';
@@ -24,7 +25,7 @@ import {
   Task,
   TaskStatus,
 } from '@common/types';
-import { assertEditable } from '../../integrations/refs';
+import { assertEditable, assertNotSynced } from '../../integrations/refs';
 import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
 
 // Read-only guards on synced rows, and local tasks in mirrored projects. Nothing writes links yet
@@ -255,7 +256,16 @@ describe('read-only guards — guarded methods', () => {
     await run(f);
   });
 
-  it.each(cases)('$method succeeds on a removed row', async ({ target, run }) => {
+  // a removed task or project is in the trash, a removed event hidden: read-only, but deletable
+  const deletes = cases.filter((c) => c.method.includes('delete'));
+  const edits = cases.filter((c) => !c.method.includes('delete'));
+
+  it.each(edits)('$method throws on a removed row', async ({ target, run }) => {
+    link(target(f), LinkState.REMOVED);
+    await expect((async () => run(f))()).rejects.toThrow(ExternalReadOnlyError);
+  });
+
+  it.each(deletes)('$method succeeds on a removed row', async ({ target, run }) => {
     link(target(f), LinkState.REMOVED);
     await run(f);
   });
@@ -290,17 +300,111 @@ describe('read-only guards — guarded methods', () => {
   });
 });
 
+describe('restoring a row its provider removed', () => {
+  // the link's state, read straight from the table
+  function stateOf(id: TaskId | ProjectId): LinkState | undefined {
+    return db
+      .select({ state: externalLinks.state })
+      .from(externalLinks)
+      .where(
+        id.startsWith('tsk_')
+          ? eq(externalLinks.taskId, id as TaskId)
+          : eq(externalLinks.projectId, id as ProjectId),
+      )
+      .get()?.state;
+  }
+
+  // a task sync moved to the trash, as it does for an issue deleted in Linear
+  function removedTask(title: string, parentTaskId?: TaskId): TaskId {
+    const id = parentTaskId
+      ? insertChild(parentTaskId, title)
+      : tasks.createTask({ title, dueDate: TOMORROW }).id;
+    link(id, LinkState.REMOVED);
+    db.update(tasksTable).set({ archivedAt: SYNCED_AT }).where(eq(tasksTable.id, id)).run();
+    return id;
+  }
+
+  it('detaches a restored task and its removed subtasks, so sync leaves them alone', () => {
+    const parent = removedTask('Gone in Linear');
+    const child = removedTask('Its subtask', parent);
+    const restored = archive.restoreTask(parent);
+    expect(restored.archivedAt).toBeNull();
+    expect(restored.external?.state).toBe(LinkState.DETACHED);
+    expect(stateOf(parent)).toBe(LinkState.DETACHED);
+    expect(stateOf(child)).toBe(LinkState.DETACHED);
+    expect(
+      db.select().from(externalLinks).where(eq(externalLinks.taskId, parent)).get()?.removedAt,
+    ).toBeNull();
+    // the user's own copy now: editable
+    expect(tasks.updateTask(parent, { title: 'Mine now' }).title).toBe('Mine now');
+  });
+
+  it('leaves a sub-issue sync trashed before its detached parent in the trash, still removed', () => {
+    const parent = tasks.createTask({ title: 'Detached parent', dueDate: TOMORROW });
+    link(parent.id, LinkState.DETACHED);
+    // a sub-issue Linear archived earlier: sync moved it to the trash on its own
+    const child = removedTask('Archived sub-issue', parent.id);
+    archive.archiveTask(parent.id);
+    expect(archive.restoreTask(parent.id).archivedAt).toBeNull();
+    expect(tasks.getById(child, { includeArchived: true }).archivedAt).not.toBeNull();
+    expect(stateOf(child)).toBe(LinkState.REMOVED);
+  });
+
+  it('leaves a restored local task without a link', () => {
+    const task = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
+    expect(archive.restoreTask(task.id).external).toBeNull();
+  });
+
+  it('detaches a restored project, and leaves the removed tasks sync trashed before it', () => {
+    const project = projects.createProject({ title: 'Retired in Linear' });
+    link(project.id, LinkState.REMOVED);
+    // an issue deleted in Linear earlier: sync moved it to the trash on its own
+    const task = removedTask('Its issue');
+    db.update(tasksTable).set({ projectId: project.id }).where(eq(tasksTable.id, task)).run();
+    const mine = tasks.createTask({ title: 'Mine', dueDate: TOMORROW, projectId: project.id });
+    // sync moves a removed project to the trash, with what is in it, at one time
+    const retiredAt = new Date();
+    db.update(projectsTable)
+      .set({ archivedAt: retiredAt })
+      .where(eq(projectsTable.id, project.id))
+      .run();
+    db.update(tasksTable).set({ archivedAt: retiredAt }).where(eq(tasksTable.id, mine.id)).run();
+    expect(archive.restoreProject(project.id).external?.state).toBe(LinkState.DETACHED);
+    expect(tasks.getById(mine.id).archivedAt).toBeNull();
+    // still in the trash and still removed: only restoring it, which asks, detaches it
+    expect(tasks.getById(task, { includeArchived: true }).archivedAt).not.toBeNull();
+    expect(stateOf(task)).toBe(LinkState.REMOVED);
+  });
+
+  it('detaches the removed rows a batch restore brings back, and only those', () => {
+    const removed = removedTask('Gone in Linear');
+    const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    link(detached.id, LinkState.DETACHED);
+    archive.archiveTask(detached.id);
+    archive.restoreMany({ taskIds: [removed, detached.id], projectIds: [], noteIds: [] });
+    expect(stateOf(removed)).toBe(LinkState.DETACHED);
+    expect(stateOf(detached.id)).toBe(LinkState.DETACHED);
+  });
+});
+
 describe('read-only guards — assertEditable', () => {
-  it('throws only for a synced link', async () => {
+  it('throws for a synced or removed link, and assertNotSynced only for a synced one', async () => {
     const synced = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    const removed = tasks.createTask({ title: 'Removed', dueDate: TOMORROW });
     const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     link(synced.id);
+    link(removed.id, LinkState.REMOVED);
     link(detached.id, LinkState.DETACHED);
 
     expect(() => assertEditable(db, synced.id)).toThrow(ExternalReadOnlyError);
+    expect(() => assertEditable(db, removed.id)).toThrow(ExternalReadOnlyError);
     expect(() => assertEditable(db, detached.id)).not.toThrow();
     expect(() => assertEditable(db, local.id)).not.toThrow();
+    expect(() => assertNotSynced(db, synced.id)).toThrow(ExternalReadOnlyError);
+    expect(() => assertNotSynced(db, removed.id)).not.toThrow();
+    expect(() => assertNotSynced(db, detached.id)).not.toThrow();
   });
 
   it('passes an id with no row, leaving not-found to the caller', async () => {

@@ -113,6 +113,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }
@@ -343,15 +344,29 @@ describe('TaskService.deleteTask — synced tasks', () => {
     expect(linkOf(child.externalId)!.state).toBe(LinkState.SYNCED);
   });
 
-  it('refuses a removed task while synced subtasks are still live under it', () => {
+  it('deletes a removed task whose sub-issue stayed, which sync made top-level', () => {
     const parent = issue();
     const child = issue({ parentExternalId: parent.externalId });
     writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
-    // sync archives the parent alone
+    // sync archives the parent alone, and its sub-issue that stays leaves it
     writer.applyTaskPage(sourceId, page({ removedIds: [parent.externalId] }));
     const taskId = linkOf(parent.externalId)!.taskId!;
     const childId = linkOf(child.externalId)!.taskId!;
-    expect(taskRow(taskId)?.archivedAt).not.toBeNull();
+    expect(taskRow(childId)).toMatchObject({ parentTaskId: null, archivedAt: null });
+
+    expect(tasks.deleteTask(taskId).taskIds).toEqual([taskId]);
+    expect(taskRow(childId)).toMatchObject({ archivedAt: null });
+  });
+
+  it('refuses a removed task while a synced task is still live under it', () => {
+    const parent = issue();
+    const child = issue({ parentExternalId: parent.externalId });
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
+    writer.applyTaskPage(sourceId, page({ removedIds: [parent.externalId] }));
+    const taskId = linkOf(parent.externalId)!.taskId!;
+    const childId = linkOf(child.externalId)!.taskId!;
+    // sync no longer leaves one there; the guard holds for one that is, however it got there
+    db.update(tasksTable).set({ parentTaskId: taskId }).where(eq(tasksTable.id, childId)).run();
 
     expect(() => tasks.deleteTask(taskId)).toThrow(NotArchivedError);
     expect(taskRow(childId)).toMatchObject({ archivedAt: null });
@@ -765,10 +780,11 @@ describe('ArchiveService.emptyTrash', () => {
     const parent = issue();
     const child = issue({ parentExternalId: parent.externalId });
     writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
-    // sync archives the parent alone
     writer.applyTaskPage(sourceId, page({ removedIds: [parent.externalId] }));
     const taskId = linkOf(parent.externalId)!.taskId!;
     const childId = linkOf(child.externalId)!.taskId!;
+    // sync makes the sub-issue that stays top-level; the guard holds for one left under it anyway
+    db.update(tasksTable).set({ parentTaskId: taskId }).where(eq(tasksTable.id, childId)).run();
     const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     archive.archiveTask(local.id);
 

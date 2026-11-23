@@ -131,6 +131,20 @@ const bar = () =>
 const select = (title: string) =>
   click(row(title)!.querySelector<HTMLElement>(`[role="checkbox"][aria-label="Select ${title}"]`)!);
 
+// a Linear issue sync moved to the trash (deleted there, or out of what DevBrain syncs)
+const REMOVED = {
+  provider: Provider.LINEAR,
+  state: LinkState.REMOVED,
+  key: 'MIT-135',
+  url: 'https://linear.app/x/issue/MIT-135',
+  statusLabel: null,
+  priorityLabel: null,
+  lastSyncedAt: TRASHED,
+};
+
+// the open confirmation, or null
+const alert = () => document.querySelector<HTMLElement>('[role="alertdialog"]');
+
 const row = (title: string) =>
   [...document.querySelectorAll<HTMLElement>('[data-trash-id]')].find((el) =>
     el.textContent?.includes(title),
@@ -320,6 +334,76 @@ describe('the trash page', () => {
     click(byText(app.container, 'button', 'Restore'));
     await eventually(() => expect(main.callsTo('archive.restoreNote')).toHaveLength(1));
     expect(main.callsTo('notes.updateContent')).toHaveLength(0);
+  });
+
+  it('asks before restoring a task its provider removed, and restores only on Restore', async () => {
+    const { main } = trashPage('', [
+      archived('tsk_gone', 'test 5', { external: REMOVED }),
+      archived('tsk_summary', 'Summarise sprint feedback'),
+    ]);
+    await eventually(() => expect(row('test 5')).toBeDefined());
+    click(byText(row('test 5')!, 'button', 'Restore'));
+    await eventually(() => expect(alert()?.textContent).toContain('Restore as a local copy?'));
+    expect(alert()!.textContent).toContain('Linear no longer syncs “test 5”');
+    expect(alert()!.textContent).toContain('you can reattach it');
+    click(byText(alert()!, 'button', 'Cancel'));
+    await eventually(() => expect(alert()).toBeNull());
+    expect(main.callsTo('archive.restoreTask')).toHaveLength(0);
+
+    click(byText(row('test 5')!, 'button', 'Restore'));
+    await eventually(() => expect(alert()).not.toBeNull());
+    click(byText(alert()!, 'button', 'Restore'));
+    await eventually(() =>
+      expect(main.callsTo('archive.restoreTask').map((call) => call.input)).toEqual([
+        { id: 'tsk_gone' },
+      ]),
+    );
+  });
+
+  it('restores a local or detached row without asking', async () => {
+    const { main } = trashPage('', [
+      archived('tsk_mine', 'Detached already', {
+        external: { ...REMOVED, state: LinkState.DETACHED },
+      }),
+    ]);
+    await eventually(() => expect(row('Detached already')).toBeDefined());
+    click(byText(row('Detached already')!, 'button', 'Restore'));
+    await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
+    expect(alert()).toBeNull();
+  });
+
+  it('asks once before restoring a selection that holds a removed row', async () => {
+    const { main } = trashPage('', [
+      archived('tsk_gone', 'test 5', { external: REMOVED }),
+      archived('tsk_summary', 'Summarise sprint feedback'),
+    ]);
+    await eventually(() => expect(row('test 5')).toBeDefined());
+    select('test 5');
+    select('Summarise sprint feedback');
+    await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
+    click(byText(bar()!, 'button', 'Restore'));
+    await eventually(() =>
+      expect(alert()?.textContent).toContain('Linear no longer syncs “test 5”'),
+    );
+    expect(main.callsTo('archive.restoreMany')).toHaveLength(0);
+    click(byText(alert()!, 'button', 'Restore'));
+    await eventually(() => expect(main.callsTo('archive.restoreMany')).toHaveLength(1));
+  });
+
+  it('asks before restoring a removed task from its page', async () => {
+    const { app, main } = trashPage('', [archived('tsk_gone', 'test 5', { external: REMOVED })]);
+    main.taskStores.set(
+      WORK,
+      new FakeTasks([fakeTask('tsk_gone', 'test 5', { archivedAt: TRASHED, external: REMOVED })]),
+    );
+    await eventually(() => expect(row('test 5')).toBeDefined());
+    click(row('test 5')!);
+    await eventually(() => expect(app.text()).toContain('This task is in the trash'));
+    click(byText(app.container, 'button', 'Restore'));
+    await eventually(() => expect(alert()?.textContent).toContain('Restore as a local copy?'));
+    expect(main.callsTo('archive.restoreTask')).toHaveLength(0);
+    click(byText(alert()!, 'button', 'Restore'));
+    await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
   });
 
   it('restores the selected rows together in one call', async () => {

@@ -34,6 +34,7 @@ import {
   isClosed,
   isSynced,
   NO_DATE_LABEL,
+  isDetached,
   providerOf,
   TASK_STATUS_LABELS,
 } from '../../types';
@@ -541,7 +542,9 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         <PillStack stacked={level === 2}>
           {key && task.external && (
             <PillHoverCard target={{ type: 'source', title: task.title, external: task.external }}>
-              <SourcePill provider={providerOf(task.external)}>{key}</SourcePill>
+              <SourcePill provider={providerOf(task.external)} detached={isDetached(task)}>
+                {key}
+              </SourcePill>
             </PillHoverCard>
           )}
           {parent && (

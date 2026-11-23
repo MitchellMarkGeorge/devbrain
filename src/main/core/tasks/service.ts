@@ -769,8 +769,9 @@ export class TaskService {
    * Deletes an archived task for good (the UI calls archived items "in the trash"; deleting is
    * only offered there), with every task below it at any depth: the `parentTaskId` foreign key
    * cascades. The task and everything below it must be archived, or it throws NotArchivedError:
-   * archiving takes the whole subtree along, but sync archives a removed task on its own and can
-   * leave synced subtasks live under it, which a delete must not take with it.
+   * archiving takes the whole subtree along, and sync, which archives a removed task on its own,
+   * makes its sub-issues that stay top-level. The check guards against a live task below it
+   * anyway, which a delete must not take with it.
    *
    * What only pointed at them is kept, by the foreign keys' `set null`: their task notes lose
    * `linkedTaskId` (so a task still has at most one task note, now none), and nothing else links to

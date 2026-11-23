@@ -64,6 +64,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
     ...overrides,
   };
 }
@@ -567,6 +568,42 @@ describe('SyncWriter — removed', () => {
     expect(linkOf(kept.externalId)!.state).toBe(LinkState.SYNCED);
   });
 
+  it('takes out an open task its provider hides, and keeps a closed one as last seen', () => {
+    // Linear archives a deleted project's open issues, and closed issues on its own schedule
+    const open = issue({ title: 'Open, its project deleted' });
+    const done = issue({
+      title: 'Done, tidied away',
+      status: TaskStatus.COMPLETED,
+      completedAt: V1,
+    });
+    writer.applyTaskPage(sourceId, page({ tasks: [open, done] }));
+
+    const summary = writer.applyTaskPage(
+      sourceId,
+      page({
+        tasks: [
+          { ...open, hidden: true, projectExternalId: null, updatedAt: V2 },
+          { ...done, hidden: true, updatedAt: V2 },
+        ],
+      }),
+    );
+
+    expect(summary).toMatchObject({ removed: 1, updated: 1 });
+    expect(linkOf(open.externalId)!.state).toBe(LinkState.REMOVED);
+    expect(taskRow(open.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(linkOf(done.externalId)!.state).toBe(LinkState.SYNCED);
+    expect(taskRow(done.externalId).archivedAt).toBeNull();
+  });
+
+  it('never mirrors an open task first seen hidden', () => {
+    const item = issue({ hidden: true });
+
+    const summary = writer.applyTaskPage(sourceId, page({ tasks: [item] }));
+
+    expect(summary).toMatchObject({ inserted: 0, removed: 0 });
+    expect(linkOf(item.externalId)).toBeUndefined();
+  });
+
   it('a removed task that reappears is restored: synced, unarchived, updated, re-indexed', () => {
     const item = issue({ title: 'Flaky upload test' });
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
@@ -602,6 +639,62 @@ describe('SyncWriter — removed', () => {
     expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
     expect(projectRow(projectId).archivedAt).toBeNull();
     expect(taskRow(item.externalId).projectId).toBe(projectId);
+  });
+});
+
+describe('SyncWriter — projects emptied by a run', () => {
+  // Deleting a project in Linear archives its open issues and drops the project from them
+  function deleteInLinear(issues: ExternalTask[]): TaskPageItems {
+    return page({
+      tasks: issues.map((item) => ({
+        ...item,
+        hidden: true,
+        projectExternalId: null,
+        updatedAt: V2,
+      })),
+    });
+  }
+
+  it('detaches a project holding your own task on the run’s last page, with its issues out', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    const b = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a, b] }));
+    const projectId = projectIdOf(proj.externalId);
+    const mine = tasks.createTask({ title: 'Mine', projectId });
+
+    const summary = writer.applyTaskPage(sourceId, deleteInLinear([a, b]), { last: true });
+
+    expect(summary).toMatchObject({ removed: 2, changed: ['task', 'project'] });
+    expect([a, b].map((item) => linkOf(item.externalId)!.state)).toEqual([
+      LinkState.REMOVED,
+      LinkState.REMOVED,
+    ]);
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.DETACHED);
+    expect(projectRow(projectId).archivedAt).toBeNull();
+    expect(tasks.getById(mine.id).projectId).toBe(projectId);
+  });
+
+  it('archives an emptied project with nothing of yours in it', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a] }));
+
+    writer.applyTaskPage(sourceId, deleteInLinear([a]), { last: true });
+
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.REMOVED);
+    expect(projectRow(projectIdOf(proj.externalId)).archivedAt).toBeInstanceOf(Date);
+  });
+
+  it('leaves an emptied project alone until the walk’s last page', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a] }));
+
+    // a middle page: the project looks empty, but a later page may move a task back into it
+    writer.applyTaskPage(sourceId, deleteInLinear([a]));
+
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
   });
 });
 
@@ -701,6 +794,43 @@ describe('SyncWriter — subtasks', () => {
     expect(taskRow(child.externalId).parentTaskId).toBeNull();
 
     writer.applyTaskPage(sourceId, page({ tasks: [parent] }));
+
+    expect(taskRow(child.externalId).parentTaskId).toBe(taskIdOf(parent.externalId));
+  });
+
+  it('removing a parent makes its sub-issues that stay top-level, keeping the parent in metadata', () => {
+    const parent = issue();
+    const stays = childOf(parent);
+    const leaves = childOf(parent);
+    const grandchild = childOf(stays);
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, stays, leaves, grandchild] }));
+
+    // Linear's parent reassigned away, or GitHub's deleted: the parent goes, one sub-issue with it
+    const summary = writer.removeTasks(sourceId, [parent.externalId, leaves.externalId]);
+
+    expect(summary).toEqual({ inserted: 0, updated: 1, removed: 2, changed: ['task'] });
+    expect(taskRow(stays.externalId)).toMatchObject({ parentTaskId: null, archivedAt: null });
+    expect(linkOf(stays.externalId)!.metadata).toMatchObject({
+      parentExternalId: parent.externalId,
+    });
+    // a sub-issue that left with it stays under it, in the trash with it
+    expect(taskRow(leaves.externalId).parentTaskId).toBe(taskIdOf(parent.externalId));
+    expect(taskRow(leaves.externalId).archivedAt).toEqual(taskRow(parent.externalId).archivedAt);
+    // the rest of the tree is untouched
+    expect(taskRow(grandchild.externalId).parentTaskId).toBe(taskIdOf(stays.externalId));
+    // on the board, which shows top-level tasks only
+    const board = tasks.listTasks({ excludeSubtasks: true }).items.map((task) => task.id);
+    expect(board).toEqual([taskIdOf(stays.externalId)]);
+  });
+
+  it('a parent that comes back adopts its sub-issues again, though they did not change', () => {
+    const parent = issue();
+    const child = childOf(parent);
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
+    writer.removeTasks(sourceId, [parent.externalId]);
+    expect(taskRow(child.externalId).parentTaskId).toBeNull();
+
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
 
     expect(taskRow(child.externalId).parentTaskId).toBe(taskIdOf(parent.externalId));
   });

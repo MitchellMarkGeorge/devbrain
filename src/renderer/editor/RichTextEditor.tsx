@@ -23,7 +23,8 @@ import styles from './RichTextEditor.module.css';
  *   load: opening a note and closing it again leaves its file alone. Undoing back to the start
  *   gives back `value` exactly, not the editor's own spelling of it.
  * - A new `value` from outside (the file changed on disk, a sync) replaces the content unless it is
- *   what the editor last sent.
+ *   what the editor last sent. A new `revision` makes it take `value` again even when the string
+ *   is unchanged.
  * - Links open through `onOpenUrl` (safe http/https only), with ⌘/Ctrl-click while editing and a
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
  * - Each entity link is drawn by `entityPill`, which finds its entity (the app's reads React
@@ -32,6 +33,9 @@ import styles from './RichTextEditor.module.css';
 
 export interface RichTextEditorProps extends EditorHost {
   value: string;
+  // bumped to make the editor take `value` again although the string is unchanged: a change from
+  // elsewhere back to the very text it was last given (useEditorAutosave keeps it)
+  revision?: number;
   onChange?: (markdown: string) => void;
   editable?: boolean;
   placeholder?: string;
@@ -48,6 +52,7 @@ export interface RichTextEditorProps extends EditorHost {
 
 export function RichTextEditor({
   value,
+  revision,
   onChange,
   editable = true,
   placeholder = 'Start writing, or press / for commands…',
@@ -117,7 +122,8 @@ export function RichTextEditor({
     };
   }, [editor, onChange]);
 
-  // a value from outside replaces the content, without counting as an edit
+  // a value from outside replaces the content, without counting as an edit; what the editor last
+  // sent does not. A new `revision` makes it look again at a `value` whose string is unchanged
   useEffect(() => {
     if (value !== shown.current) {
       editor.commands.setContent(value, { contentType: 'markdown', emitUpdate: false });
@@ -125,7 +131,7 @@ export function RichTextEditor({
       baseline.current = null;
     }
     baseline.current ??= { value, markdown: editor.getMarkdown() };
-  }, [editor, value]);
+  }, [editor, value, revision]);
 
   useEffect(() => {
     onReady?.(editor);

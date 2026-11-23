@@ -16,6 +16,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { runMigrations } from '@main/db/migrate';
 import { InvalidCursorError } from '../../shared/pagination';
 import { tasks as tasksSchema } from '@main/db/schema/tasks';
+import { notes as notesSchema } from '@main/db/schema/notes';
 import { eq } from 'drizzle-orm';
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
@@ -834,7 +835,7 @@ describe('ArchiveService — restoreProject', () => {
     expect(result.map((t) => t.id)).toContain(task.id);
   });
 
-  it('restores tasks that were independently archived before the project', async () => {
+  it('leaves a task trashed on its own before the project in the trash', async () => {
     const project = projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const independentlyArchived = tasks.createTask({
       title: 'Archived independently',
@@ -847,13 +848,35 @@ describe('ArchiveService — restoreProject', () => {
       projectId: project.id,
     });
 
-    // archive one task independently before archiving the project
+    // archive one task independently, a minute before archiving the project
     archive.archiveTask(independentlyArchived.id);
+    db.update(tasksSchema)
+      .set({ archivedAt: new Date(Date.now() - 60_000) })
+      .where(eq(tasksSchema.id, independentlyArchived.id))
+      .run();
     archive.archiveProject(project.id);
     archive.restoreProject(project.id);
 
-    const restoredTask = tasks.getById(projectTask.id);
-    expect(restoredTask.id).toBe(projectTask.id);
+    expect(tasks.getById(projectTask.id).archivedAt).toBeNull();
+    // only what went to the trash with the project comes back
+    expect(
+      tasks.getById(independentlyArchived.id, { includeArchived: true }).archivedAt,
+    ).not.toBeNull();
+  });
+
+  it('leaves a note trashed on its own before the project in the trash', async () => {
+    const project = projects.createProject({ title: 'Project', dueDate: TOMORROW });
+    const earlier = await notesService.createNote({ projectId: project.id });
+    const withProject = await notesService.createNote({ projectId: project.id });
+    archive.archiveNote(earlier.id);
+    db.update(notesSchema)
+      .set({ archivedAt: new Date(Date.now() - 60_000) })
+      .where(eq(notesSchema.id, earlier.id))
+      .run();
+    archive.archiveProject(project.id);
+    archive.restoreProject(project.id);
+    expect(notesService.getById(withProject.id).archivedAt).toBeNull();
+    expect(notesService.getById(earlier.id, { includeArchived: true }).archivedAt).not.toBeNull();
   });
 
   it('restoring a project does not affect tasks from other projects', async () => {

@@ -14,6 +14,7 @@ import {
   NO_DATE_LABEL,
   percentOf,
   PROVIDER_LABELS,
+  isDetached,
   providerOf,
   resolveColor,
 } from '../../types';
@@ -74,7 +75,7 @@ export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function P
       titlePills={
         external && (
           <PillHoverCard target={{ type: 'source', title: project.title, external }}>
-            <SourcePill provider={provider}>
+            <SourcePill provider={provider} detached={isDetached(project)}>
               {provider ? PROVIDER_LABELS[provider] : 'Synced'}
             </SourcePill>
           </PillHoverCard>

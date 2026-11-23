@@ -84,6 +84,33 @@ describe('RichTextEditor', () => {
     expect(editor.state.selection.from).toBe(selection);
   });
 
+  it('takes the same value again on a new revision, after it was edited', () => {
+    const onChange = vi.fn();
+    render({ onChange, value: 'From Linear', revision: 0 });
+    act(() => {
+      editor.chain().focus('end').insertContent(' edited').run();
+    });
+    // the same value and revision: the editor keeps what was typed
+    render({ onChange, value: 'From Linear', revision: 0 });
+    expect(editor.getMarkdown()).toBe('From Linear edited');
+
+    // a change from elsewhere back to the very text it was given (a reattach)
+    render({ onChange, value: 'From Linear', revision: 1 });
+    expect(editor.getMarkdown()).toBe('From Linear');
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps what it holds on a new revision whose value it already shows', () => {
+    render({ value: STORED, revision: 0 });
+    act(() => {
+      editor.chain().focus('end').run();
+    });
+    const selection = editor.state.selection.from;
+    render({ value: STORED, revision: 1 });
+    // a reload would have moved the caret to the start
+    expect(editor.state.selection.from).toBe(selection);
+  });
+
   it('shows an entity link with its current title, and opens it on click', async () => {
     const onOpenEntity = vi.fn();
     render({

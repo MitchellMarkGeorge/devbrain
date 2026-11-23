@@ -18,6 +18,7 @@ import {
 } from '../../shared/errors';
 import Database from 'better-sqlite3';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
+import { notes as notesTable } from '@main/db/schema/notes';
 import { eq } from 'drizzle-orm';
 import { createDb } from '../utils';
 import { InvalidCursorError } from '../../shared/pagination';
@@ -1320,6 +1321,35 @@ describe('ArchiveService — restoreTask', () => {
     archive.archiveTask(taskA.id);
     archive.restoreTask(taskA.id);
     expect(() => notesService.getById(noteB.id)).toThrow(NotFoundError);
+  });
+
+  it('leaves a subtask trashed on its own before the parent in the trash', async () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const earlier = tasks.createSubtask(parent.id, { title: 'Trashed first' });
+    const withIt = tasks.createSubtask(parent.id, { title: 'Went with it' });
+    archive.archiveTask(earlier.id);
+    // a minute before the parent, so its time differs from the parent's
+    db.update(tasksTable)
+      .set({ archivedAt: new Date(Date.now() - 60_000) })
+      .where(eq(tasksTable.id, earlier.id))
+      .run();
+    archive.archiveTask(parent.id);
+    archive.restoreTask(parent.id);
+    expect(tasks.listSubtasks(parent.id).items.map((t) => t.id)).toEqual([withIt.id]);
+    expect(tasks.getById(earlier.id, { includeArchived: true }).archivedAt).not.toBeNull();
+  });
+
+  it('leaves a task note trashed on its own before the task in the trash', async () => {
+    const task = tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
+    const note = await notesService.createNote({ linkedTaskId: task.id });
+    archive.archiveNote(note.id);
+    db.update(notesTable)
+      .set({ archivedAt: new Date(Date.now() - 60_000) })
+      .where(eq(notesTable.id, note.id))
+      .run();
+    archive.archiveTask(task.id);
+    archive.restoreTask(task.id);
+    expect(notesService.getById(note.id, { includeArchived: true }).archivedAt).not.toBeNull();
   });
 
   it('throws NotFoundError for an unknown task id', async () => {

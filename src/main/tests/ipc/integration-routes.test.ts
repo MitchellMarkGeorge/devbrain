@@ -162,6 +162,7 @@ function issue(): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
   };
 }
 
@@ -440,7 +441,7 @@ describe('integrations, kept copies', () => {
 
     expect(data(result)).toMatchObject({
       reattached: 0,
-      failed: [{ message: `Task ${items[0].key} can't be reattached because it no longer exists` }],
+      failed: [{ message: `Task ${items[0].key} can't be reattached because it was deleted` }],
     });
     // the offer, which reads the tasks' links, changed
     expect(result.changed).toEqual(['task']);

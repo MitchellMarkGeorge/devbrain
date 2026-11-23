@@ -330,7 +330,7 @@ describe('the integrations page', () => {
           failed: [
             {
               taskId: 'tsk_gone',
-              message: 'Task ENG-4 can’t be reattached because it no longer exists',
+              message: 'Task ENG-4 can’t be reattached because it was deleted',
             },
           ],
         },
@@ -359,7 +359,7 @@ describe('the integrations page', () => {
     expect(main.callsTo('integrations.reattachKept')[0].input).toEqual({ id: 'int_linear' });
     await eventually(() => expect(document.body.textContent).toContain('2 tasks reattached'));
     expect(document.body.textContent).toContain(
-      '1 task stays local. Task ENG-4 can’t be reattached because it no longer exists.',
+      '1 task stays local. Task ENG-4 can’t be reattached because it was deleted.',
     );
     // the task change refetches the offer, which counts what is left
     await eventually(() =>

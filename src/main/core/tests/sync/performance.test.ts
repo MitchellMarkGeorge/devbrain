@@ -98,6 +98,7 @@ function dataset() {
       parentTitle: parent?.title ?? null,
       projectExternalId: `project-${Math.floor(random() * PROJECTS)}`,
       assignedToViewer: true,
+      hidden: false,
     });
   }
   for (let i = tasks.length - 1; i > 0; i--) {

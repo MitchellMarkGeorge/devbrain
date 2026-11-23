@@ -2,3 +2,12 @@
 .source {
   flex: none;
 }
+/* a detached copy: still where it came from, but loosely: a dashed outline and the mark faded */
+.source[data-detached] {
+  border-style: dashed;
+}
+.fadedMark {
+  display: inline-flex;
+  flex: none;
+  opacity: 0.5;
+}

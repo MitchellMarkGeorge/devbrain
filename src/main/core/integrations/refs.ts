@@ -62,21 +62,48 @@ export function hasLinkInState(entity: LinkedEntity, idColumn: SQLWrapper, state
   return sql`exists (select 1 from ${externalLinks} where ${LINK_COLUMNS[entity]} = ${idColumn} and ${externalLinks.state} = ${state})`;
 }
 
+/** true when the row has a link in one of `states`, read as one query */
+function hasLinkIn(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  id: LinkedEntityId,
+  states: LinkState[],
+): boolean {
+  const column = LINK_COLUMNS[entityOf(id)];
+  const [found] = db.values<[number]>(
+    sql`select exists (select 1 from ${externalLinks} where ${column} = ${id} and ${inArray(externalLinks.state, states)})`,
+  );
+  return found[0] === 1;
+}
+
 /**
- * Throws `ExternalReadOnlyError` when the row is synced from a provider. Detached and removed rows
- * are the user's own and stay editable, as does an id with no row behind it, so callers keep their
- * own not-found handling.
+ * Throws `ExternalReadOnlyError` unless the user may edit the row: it is refused when its provider
+ * owns it (`synced`) or it left the provider (`removed`). A removed task or project is in the trash,
+ * read-only like everything there, until Restore detaches it; a removed event is hidden, kept only
+ * for what links to it. Local and detached rows are the user's own and stay editable, as does an
+ * id with no row behind it, so callers keep their own not-found handling.
  *
- * Services call this before any write a user makes. `SyncWriter` writes synced rows through its own
- * path and skips it. Synchronous, so it also runs inside a transaction (`db` can be one).
+ * Services call this before any edit a user makes. A delete calls `assertNotSynced` instead: a
+ * removed row can be deleted. `SyncWriter` writes synced rows through its own path and skips both.
+ * Synchronous, so it also runs inside a transaction (`db` can be one).
  */
 export function assertEditable(
   db: BaseSQLiteDatabase<'sync', RunResult>,
   id: LinkedEntityId,
 ): void {
-  const isSynced = hasLinkInState(entityOf(id), sql`${id}`, LinkState.SYNCED);
-  const [synced] = db.values<[number]>(sql`select ${isSynced}`);
-  if (synced[0]) throw new ExternalReadOnlyError(id);
+  if (hasLinkIn(db, id, [LinkState.SYNCED, LinkState.REMOVED])) {
+    throw new ExternalReadOnlyError(id);
+  }
+}
+
+/**
+ * Throws `ExternalReadOnlyError` when the row is synced from a provider, which owns it. Before a
+ * delete: a local, detached or removed row is the user's to delete, with nothing recorded for sync.
+ */
+export function assertNotSynced(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  id: LinkedEntityId,
+): void {
+  if (hasLinkIn(db, id, [LinkState.SYNCED])) throw new ExternalReadOnlyError(id);
 }
 
 /** true when a row read with its `external` field is synced, so its provider owns it */
@@ -89,7 +116,10 @@ export function assertRowEditable(row: {
   id: LinkedEntityId;
   external?: ExternalRef | null;
 }): void {
-  if (isSynced(row)) throw new ExternalReadOnlyError(row.id);
+  const state = row.external?.state;
+  if (state === LinkState.SYNCED || state === LinkState.REMOVED) {
+    throw new ExternalReadOnlyError(row.id);
+  }
 }
 
 /** the link columns a ref is read from: select them as one object, and pass it to `toExternalRef` */

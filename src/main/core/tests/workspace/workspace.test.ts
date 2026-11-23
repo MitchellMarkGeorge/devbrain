@@ -1271,6 +1271,7 @@ function issue() {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+    hidden: false,
   };
 }
 

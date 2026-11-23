@@ -12,7 +12,7 @@ The preview that opens on pointing at an entity pill (shadcn's HoverCard): 280px
   - **Note:** "Edited 2h ago · project", then a two-line `subtle-foreground` preview.
   - **Task** (a subtask's parent): priority and due date pills, its subtasks done as the ring pill a task row shows (`ProgressRing` and "3/4", named "3 of 4 subtasks done" for screen readers), then the key. No progress bar: that is a project's.
   - **Subtasks** (a task's subtask count): the 16px `ProgressRing` and "2 of 7 subtasks done" as its name, then its subtasks (`tasks.subtasks`, cancelled ones left out as the count leaves them out), open ones first, each a 12px status icon and its title (12px, `foreground`; a closed one `muted-foreground`), five at most, then "2 more".
-  - **Source** (a synced task's key): the item's state at the provider ("In Review in Linear") and "Synced 5m ago", then "Open in Linear" and "Copy URL" (passed in `actions`).
+  - **Source** (a synced task's key): the item's state at the provider ("In Review in Linear") and "Synced 5m ago", then "Open in Linear" and "Copy URL" (passed in `actions`). A detached one says "Detached from Linear" and "Edits stay in DevBrain" instead: its state there and the last sync no longer apply. The pill in its header is the detached `SourcePill`.
 
 ## In rows and cards
 

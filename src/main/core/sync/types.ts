@@ -168,8 +168,11 @@ export interface SyncRunResult {
 
 // why TaskReconciler.reattachTasks wrote nothing, beyond the reasons a run is skipped for
 export enum ReattachRefusal {
-  // the issue no longer resolves, or resolves to a trashed one
+  // the issue no longer resolves, or resolves to a trashed (deleted) one
   GONE = 'gone',
+  // the issue resolves but is hidden while open (archived in Linear: its project was deleted), so
+  // sync would take it out again
+  HIDDEN = 'hidden',
   // the issue resolves but is assigned to someone else
   UNASSIGNED = 'unassigned',
   // the issue resolves but could not be mapped

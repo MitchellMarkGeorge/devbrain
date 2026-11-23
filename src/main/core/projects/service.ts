@@ -25,6 +25,7 @@ import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import {
   assertEditable,
+  assertNotSynced,
   hasLinkInState,
   withExternalRef,
   withExternalRefs,
@@ -248,7 +249,7 @@ export class ProjectService {
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt === null) throw new NotArchivedError(id);
       // a synced project is never archived; checked anyway, as archive does
-      assertEditable(tx, id);
+      assertNotSynced(tx, id);
 
       // read before the delete clears their project; served by the full project_id indexes
       const unfiledTaskIds = tx

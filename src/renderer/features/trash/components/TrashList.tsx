@@ -10,6 +10,7 @@ import {
   EntityPill,
   PROJECT_STATUS_LABELS,
   ProjectStatusIcon,
+  isDetached,
   providerOf,
   ScrollArea,
   SourcePill,
@@ -182,7 +183,11 @@ function rowOf(item: ArchivedEntity): {
 // a synced item's key ("ENG-124") as its source pill; none for a local one or one with no key
 function keyPill(external: ExternalRef | null): ReactNode {
   if (!external?.key) return undefined;
-  return <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>;
+  return (
+    <SourcePill provider={providerOf(external)} detached={isDetached({ external })}>
+      {external.key}
+    </SourcePill>
+  );
 }
 
 function projectPill(project: ProjectSummary | null): ReactNode {

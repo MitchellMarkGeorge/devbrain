@@ -21,7 +21,7 @@ import {
   shiftByLocalTime,
 } from './recurrence';
 import {
-  assertEditable,
+  assertNotSynced,
   assertRowEditable,
   hasLinkInState,
   withExternalRefs,
@@ -144,7 +144,7 @@ export class EventService {
   deleteEvent(id: EventId): void {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
-    assertEditable(this.db, id);
+    assertNotSynced(this.db, id);
     const { eventIds, keptIds } = this.db.transaction((tx) => {
       // a series takes its own occurrence rows with it, but for linked ones; its cancelled ones
       // cascade

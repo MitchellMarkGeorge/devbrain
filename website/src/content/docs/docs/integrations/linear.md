@@ -34,7 +34,9 @@ Linear organisation.
 | Their sub-issues (also assigned to you), at any depth              | Subtasks                     |
 | The projects of those issues                                       | Projects                     |
 
-A sub-issue whose parent isn't assigned to you comes in as a task of its own. Comments,
+A sub-issue whose parent isn't assigned to you comes in as a task of its own. That includes one
+whose parent leaves later (reassigned to someone else, or deleted) while the sub-issue stays yours:
+it becomes a task of its own then, and goes back under its parent if the parent comes back to you. Comments,
 attachments, labels, cycles, and issues assigned to other people are not brought in.
 
 Each task shows its issue's key (such as **ENG-124**), and its page says when it last synced.
@@ -67,7 +69,8 @@ status maps to **Not started** (Backlog, Planned), **Active** (Started), **On ho
 In the Projects list and at the top of its page, a synced project shows a **Linear** pill. Point at
 it to see when it last synced.
 
-When none of your issues are in a project any more, or it's deleted in Linear, it leaves DevBrain.
+When none of your issues are in a project any more, or it's deleted in Linear, it leaves DevBrain
+at the next sync.
 If you've put your own tasks in it, it stays instead, as a local project of yours.
 
 ## What you can do with them in DevBrain
@@ -87,12 +90,23 @@ You can still:
 longer updated by Linear. Your edits stay in DevBrain; nothing goes back to Linear. **Reattach to
 Linear** puts Linear's version back, replacing your edits.
 
+A detached task keeps its key, so you can tell where it came from, in a pill with a dashed outline
+and a faded Linear logo. Its page says **Detached from Linear** and "Edits stay in DevBrain".
+A project that stays yours after it leaves Linear is shown the same way.
+
 ## When issues change in Linear
 
 - Changes to your issues arrive at the next sync, every five minutes.
-- An open issue reassigned to someone else, or deleted, leaves DevBrain within half an hour (or at
-  once with **Sync Now**). If it comes back to you later, it comes back with its notes and links.
-- A completed or cancelled issue stays as it was last seen for 30 days, then stops syncing.
+- An open issue reassigned to someone else, or any issue you delete, leaves DevBrain within half
+  an hour (or at once with **Sync Now**) and goes to the trash. So do the open issues of a project
+  you delete in Linear, which Linear archives with it. If an issue comes back to you later, it
+  comes back with its notes and links.
+- To keep one that left, **Restore** it from the trash. It comes back as your own copy, as if you'd
+  detached it, after DevBrain asks: editable, and no longer updated by Linear. If the issue comes
+  back to you, **Reattach to Linear** puts Linear's version back.
+- A completed or cancelled issue stays as it was last seen for 30 days, then stops syncing. When
+  Linear archives it later, as it does with finished issues, it stays in DevBrain as your record of
+  the work.
 
 ## Updating the key
 

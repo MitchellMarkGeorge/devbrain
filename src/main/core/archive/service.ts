@@ -18,6 +18,7 @@ import {
   Task,
 } from '@common/types';
 import { projects } from '@main/db/schema/projects';
+import { externalLinks } from '@main/db/schema/integrations';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
@@ -133,36 +134,27 @@ export class ArchiveService {
     });
   }
 
+  /**
+   * Restores the task and what went to the trash with it (`restoreTaskTrashedWith`): the part of
+   * its subtree, and the task notes, stamped with its own `archivedAt`. A subtask trashed on its own
+   * before, by the user or by sync (Linear archiving a sub-issue), stays in the trash. A restored
+   * row its provider removed (its link `removed`) comes back detached (`detachRemovedLinks`).
+   */
   restoreTask(id: TaskId): Task {
-    // restores the task and its whole subtree, as archiveTask archived it
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt === null) throw new NotArchivedError(id);
 
-      const updatedTasks = tx
-        .update(tasks)
-        .set({ archivedAt: null })
-        .where(inArray(tasks.id, subtreeOf(id)))
-        .returning()
-        .all();
-
-      const updatedTaskIds = updatedTasks.map((t) => t.id);
-
-      // restore notes linked to the task and/or any of its subtasks
-      const noteIds =
-        updatedTaskIds.length > 0
-          ? tx
-              .update(notes)
-              .set({ archivedAt: null })
-              .where(inArray(notes.linkedTaskId, updatedTaskIds))
-              .returning({ id: notes.id })
-              .all()
-              .map(({ id }) => id)
-          : [];
+      const { taskIds: updatedTaskIds, noteIds } = restoreTaskTrashedWith(
+        tx,
+        id,
+        existing.archivedAt,
+      );
+      detachRemovedLinks(tx, updatedTaskIds, []);
 
       this.changes.emit({ type: 'restored', taskIds: updatedTaskIds, projectIds: [], noteIds });
-      const [task] = updatedTasks.filter((t) => t.id === id);
+      const task = tx.select().from(tasks).where(eq(tasks.id, id)).get()!;
       return withExternalRef(tx, task);
     });
   }
@@ -193,6 +185,12 @@ export class ArchiveService {
     });
   }
 
+  /**
+   * Restores the project and what went to the trash with it (`restoreProjectTrashedWith`): its tasks,
+   * their task notes and its notes, as archiveProject stamped them. A task or note of the project
+   * trashed on its own before stays in the trash. A restored row its provider removed comes back
+   * detached (`detachRemovedLinks`).
+   */
   restoreProject(id: ProjectId): Project {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
@@ -209,23 +207,13 @@ export class ArchiveService {
         .returning()
         .get();
 
-      // restore all archived tasks (and subtasks) attached to the project
-      const updatedTaskIds = tx
-        .update(tasks)
-        .set({ archivedAt: null })
-        .where(eq(tasks.projectId, id))
-        .returning({ id: tasks.id })
-        .all()
-        .map(({ id }) => id);
-
-      // restore all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
-      const noteIds = tx
-        .update(notes)
-        .set({ archivedAt: null })
-        .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
-        .returning({ id: notes.id })
-        .all()
-        .map(({ id }) => id);
+      // what went to the trash with it, and nothing trashed on its own before
+      const { taskIds: updatedTaskIds, noteIds } = restoreProjectTrashedWith(
+        tx,
+        id,
+        existing.archivedAt,
+      );
+      detachRemovedLinks(tx, updatedTaskIds, [id]);
 
       this.changes.emit({ type: 'restored', taskIds: updatedTaskIds, projectIds: [id], noteIds });
       return withExternalRef(tx, project);
@@ -291,8 +279,8 @@ export class ArchiveService {
    * restored, or none is. Every id is checked first, and one refusal fails the batch:
    * NotFoundError for an unknown id, NotArchivedError for one not in the trash.
    *
-   * Projects go first, each bringing back its tasks and their notes (restoreProject); then the
-   * tasks chosen, each with its subtree and their notes (restoreTask); then the notes chosen. A
+   * Projects go first, each bringing back what went to the trash with it (restoreProject); then the
+   * tasks chosen, each likewise (restoreTask); then the notes chosen. A
    * row an earlier step already brought back (a task of a project also chosen) is restored once,
    * not refused. One `restored` change, with every row restored, is sent as the transaction's last
    * step. A repeated id counts once.
@@ -309,48 +297,55 @@ export class ArchiveService {
       assertInTrash(tx, projects, projectIds);
       assertInTrash(tx, notes, noteIds);
 
+      // each project with what went to the trash with it, read by the time it was trashed
+      const projectTaskIds: TaskId[] = [];
+      const projectNoteIds: NoteId[] = [];
       if (projectIds.length > 0) {
+        const trashed = tx
+          .select({ id: projects.id, archivedAt: projects.archivedAt })
+          .from(projects)
+          .where(inArray(projects.id, projectIds))
+          .all();
         tx.update(projects).set({ archivedAt: null }).where(inArray(projects.id, projectIds)).run();
+        for (const project of trashed) {
+          const restored = restoreProjectTrashedWith(tx, project.id, project.archivedAt!);
+          projectTaskIds.push(...restored.taskIds);
+          projectNoteIds.push(...restored.noteIds);
+        }
       }
-      const projectTaskIds =
-        projectIds.length === 0
-          ? []
-          : tx
-              .update(tasks)
-              .set({ archivedAt: null })
-              .where(and(inArray(tasks.projectId, projectIds), isNotNull(tasks.archivedAt)))
-              .returning({ id: tasks.id })
-              .all()
-              .map(({ id }) => id);
-      const subtreeTaskIds =
-        taskIds.length === 0
-          ? []
-          : tx
-              .update(tasks)
-              .set({ archivedAt: null })
-              .where(and(inArray(tasks.id, subtreeOfAll(taskIds)), isNotNull(tasks.archivedAt)))
-              .returning({ id: tasks.id })
-              .all()
-              .map(({ id }) => id);
+      // each task chosen with what went to the trash with it, unless an earlier step (its project,
+      // or a parent chosen too) already brought it back
+      const subtreeTaskIds: TaskId[] = [];
+      const subtreeNoteIds: NoteId[] = [];
+      for (const taskId of taskIds) {
+        const { archivedAt } = tx
+          .select({ archivedAt: tasks.archivedAt })
+          .from(tasks)
+          .where(eq(tasks.id, taskId))
+          .get()!;
+        if (archivedAt === null) continue;
+        const restored = restoreTaskTrashedWith(tx, taskId, archivedAt);
+        subtreeTaskIds.push(...restored.taskIds);
+        subtreeNoteIds.push(...restored.noteIds);
+      }
       const restoredTaskIds = [...projectTaskIds, ...subtreeTaskIds];
+      detachRemovedLinks(tx, restoredTaskIds, projectIds);
 
-      // the projects' notes, the notes of every task restored, and the notes chosen
-      const noteConditions = [
-        projectIds.length > 0 ? inArray(notes.projectId, projectIds) : undefined,
-        restoredTaskIds.length > 0 ? inArray(notes.linkedTaskId, restoredTaskIds) : undefined,
-        noteIds.length > 0 ? inArray(notes.id, noteIds) : undefined,
-      ].filter((condition) => condition !== undefined);
-      const restoredNoteIds =
-        noteConditions.length === 0
+      // the notes chosen; the projects' and tasks' came back with them above
+      const chosenNoteIds =
+        noteIds.length === 0
           ? []
           : tx
               .update(notes)
               .set({ archivedAt: null })
-              .where(and(or(...noteConditions), isNotNull(notes.archivedAt)))
+              .where(and(inArray(notes.id, noteIds), isNotNull(notes.archivedAt)))
               .returning({ id: notes.id })
               .all()
               .map(({ id }) => id);
 
+      const restoredNoteIds = [
+        ...new Set([...projectNoteIds, ...subtreeNoteIds, ...chosenNoteIds]),
+      ];
       const restored = { taskIds: restoredTaskIds, projectIds, noteIds: restoredNoteIds };
       this.changes.emit({ type: 'restored', ...restored });
       return restored;
@@ -365,8 +360,9 @@ export class ArchiveService {
    * What goes and what stays follows the one-item deletes (docs/deleting.md): foreign keys take a
    * task's subtasks and links along, and clear the project or link of the tasks and notes left.
    * An archived task with an active or synced task anywhere below it is kept (`keptTaskIds`), as
-   * TaskService.deleteTask refuses it: sync can archive a removed Linear task and leave its
-   * synced subtasks live. A synced project is never archived; one would be kept too.
+   * TaskService.deleteTask refuses it, a guard: sync makes a removed task's sub-issues that stay
+   * top-level (SyncWriter's removeTasks), so it leaves none live under it. A synced project is
+   * never archived; one would be kept too.
    *
    * The files go after the commit, each behind its note's queued content saves. One that can't
    * be removed is logged and listed in `filesNotRemoved`; the rest still go, and nothing is
@@ -814,4 +810,90 @@ function applyArchivePlan(
     tx.update(notes).set({ archivedAt: now }).where(inArray(notes.id, noteIds)).run();
   }
   return { tasks: stamped, ids: { taskIds, noteIds } };
+}
+
+/**
+ * Brings back what went to the trash with a task, which archiveTask stamped with the task's own
+ * `archivedAt` (`trashedAt`): the task, the part of its subtree with that time, and the task notes
+ * of those tasks with it too. A subtask or note trashed on its own before has another time, and
+ * stays: one the user trashed, or a sub-issue sync moved to the trash in an earlier run. Returns
+ * the ids restored.
+ */
+function restoreTaskTrashedWith(
+  tx: Transaction,
+  taskId: TaskId,
+  trashedAt: Date,
+): { taskIds: TaskId[]; noteIds: NoteId[] } {
+  const taskIds = tx
+    .update(tasks)
+    .set({ archivedAt: null })
+    .where(and(inArray(tasks.id, subtreeOf(taskId)), eq(tasks.archivedAt, trashedAt)))
+    .returning({ id: tasks.id })
+    .all()
+    .map(({ id }) => id);
+  const noteIds =
+    taskIds.length === 0
+      ? []
+      : tx
+          .update(notes)
+          .set({ archivedAt: null })
+          .where(and(inArray(notes.linkedTaskId, taskIds), eq(notes.archivedAt, trashedAt)))
+          .returning({ id: notes.id })
+          .all()
+          .map(({ id }) => id);
+  return { taskIds, noteIds };
+}
+
+/**
+ * Brings back what went to the trash with a project, which archiveProject stamped with the
+ * project's own `archivedAt` (`trashedAt`): its tasks, its notes, and the task notes of those
+ * tasks. A task or note of the project trashed on its own before (or a task sync moved to the
+ * trash) has another time, and stays. Returns the ids restored.
+ */
+function restoreProjectTrashedWith(
+  tx: Transaction,
+  projectId: ProjectId,
+  trashedAt: Date,
+): { taskIds: TaskId[]; noteIds: NoteId[] } {
+  const taskIds = tx
+    .update(tasks)
+    .set({ archivedAt: null })
+    .where(and(eq(tasks.projectId, projectId), eq(tasks.archivedAt, trashedAt)))
+    .returning({ id: tasks.id })
+    .all()
+    .map(({ id }) => id);
+  const noteIds = tx
+    .update(notes)
+    .set({ archivedAt: null })
+    .where(
+      and(
+        eq(notes.archivedAt, trashedAt),
+        taskIds.length > 0
+          ? or(eq(notes.projectId, projectId), inArray(notes.linkedTaskId, taskIds))
+          : eq(notes.projectId, projectId),
+      ),
+    )
+    .returning({ id: notes.id })
+    .all()
+    .map(({ id }) => id);
+  return { taskIds, noteIds };
+}
+
+/**
+ * Restoring a row sync moved to the trash (its link `removed`: the item was deleted in the
+ * provider, or left the synced scope) takes it back as the user's own copy: its link becomes
+ * `detached`, as Detach leaves it. Sync then leaves it alone, so an item that comes back in the
+ * provider no longer overwrites what the user changed since; Reattach hands it back. Synced and
+ * detached links are left as they are. The renderer asks before a restore that does this.
+ */
+function detachRemovedLinks(tx: Transaction, taskIds: TaskId[], projectIds: ProjectId[]): void {
+  const rows = [
+    taskIds.length > 0 ? inArray(externalLinks.taskId, taskIds) : undefined,
+    projectIds.length > 0 ? inArray(externalLinks.projectId, projectIds) : undefined,
+  ].filter((condition) => condition !== undefined);
+  if (rows.length === 0) return;
+  tx.update(externalLinks)
+    .set({ state: LinkState.DETACHED, removedAt: null })
+    .where(and(eq(externalLinks.state, LinkState.REMOVED), or(...rows)))
+    .run();
 }

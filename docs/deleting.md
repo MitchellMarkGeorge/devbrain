@@ -31,8 +31,9 @@ it.
 | Note    | Its markdown file, after the commit                              | Tasks made from it, subtasks included (`linkedNoteId` set null); the task it was the task note of, which now has none |
 
 - **Only from the trash.** A task needs its whole subtree archived. Archiving takes the subtree
-  along, but sync archives a removed Linear task on its own and can leave synced subtasks live under
-  it; deleting it would take those with it, so it is refused until they are gone too.
+  along. Sync archives a removed Linear task on its own, but makes its sub-issues that stay synced
+  top-level in the same write (`removeTasks`), so none stays live under it. The check stays as a guard: deleting a task would take any
+  live task below it along, so it is refused until they are gone too.
 - The response lists every id removed (a task's whole subtree) and every row that lost a link.
 - **Projects keep their tasks and notes.** They are the user's own work, and a project is a
   grouping. Deleting them too is a delete of each. Archived ones stay archived.
@@ -162,6 +163,32 @@ columns.
 - Core refuses every write to a row in the trash too, not only the inert pages: see "Writes to
   items in the trash" above.
 
+## Restoring
+
+`ArchiveService.restoreTask`, `restoreProject` and `restoreNote` (and `restoreMany`, below) undo a
+move to the trash. Each runs in one transaction and sends one `restored` change as its last step.
+
+- **What comes back is what went.** Moving an item to the trash stamps it, and everything it takes
+  along, with one `archivedAt` (`planArchive` and `applyArchivePlan`): a task takes its subtree and
+  their task notes, a project its tasks, their task notes and its own notes. Restoring brings back
+  only the rows stamped with the chosen item's own `archivedAt`: a task, the part of its subtree
+  and the task notes with that time (`restoreTaskTrashedWith`); a project, its tasks and notes and
+  their task notes with it (`restoreProjectTrashedWith`). A subtask, task or note that went to the
+  trash on its own before, at another time, stays there: the user trashed it separately, and
+  restores it separately. The same goes for a Linear task or sub-issue sync moved to the trash in
+  an earlier run, as Linear archives sub-issues with their parent. Every version of `archiveTask`
+  and `archiveProject` stamped an item and what it took with one time, so this holds for items
+  trashed before the rule too. Sync stamps every task it removes in one run with one time too.
+- **A row sync moved to the trash comes back detached.** Sync moves a task or project to the trash
+  when its provider removes it (an issue deleted in Linear, or out of what DevBrain syncs), with
+  its link `removed`. Restoring it turns that link `detached` in the same transaction
+  (`detachRemovedLinks`): restoring is the user taking it back, so sync stops overwriting it if the
+  item returns in the provider, and Reattach hands it back. The renderer always asks first
+  (`useConfirmRestore`), as Detach does, when an item chosen is `removed`. Since a restore brings
+  back only what went with the item chosen, the `removed` rows it detaches are that item and the
+  sub-issues sync trashed with it in the same run; one trashed on its own is never pulled back
+  unasked.
+
 ## Restore or delete several
 
 `ArchiveService.restoreMany` and `ArchiveService.deleteMany`, exposed as `archive.restoreMany` and
@@ -172,10 +199,10 @@ the three kinds.
 - **All or nothing.** Each runs in one transaction. Every id is checked first: an unknown one
   fails the call with `not_found`, one not in the trash with `not_archived`, and nothing changes.
   An empty selection is refused as invalid input.
-- **Overlaps are resolved in core.** Restoring goes projects first (each with its tasks and their
-  notes, as `restoreProject`), then tasks (each with its subtree and notes, as `restoreTask`), then
-  notes. A row an earlier step already brought back, such as a task of a chosen project, is
-  restored once, not refused. Deleting takes a task's subtree with it, so a chosen subtask goes with
+- **Overlaps are resolved in core.** Restoring goes projects first (each with what went to the
+  trash with it, as `restoreProject`), then tasks (each with its subtree and notes, as
+  `restoreTask`), then notes. A row an earlier step already brought back, such as a task that went
+  to the trash with a chosen project, is restored once, not refused. Deleting takes a task's subtree with it, so a chosen subtask goes with
   its chosen parent.
 - **Deleting is `emptyTrash` limited to the selection.** It uses the same per-kind steps, so the
   same rules hold: a task with an active or synced task below it stays (`keptTaskIds`), a project
