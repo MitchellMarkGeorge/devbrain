@@ -19,12 +19,17 @@ export type RoutePath = {
   [R in keyof Routes & string]: R | `${R}.${keyof Routes[R] & string}`;
 }[keyof Routes & string];
 
+// The renderer's own queries the table below also names: the content queries
+// (src/renderer/shared/api/content.ts), keyed [['content', 'task'], { id }], which read a route of
+// their own entity's router but must not refetch when it changes.
+type RendererQueryPath = 'content';
+
 // The entities each route reads, by router, or by full path to override its router. A route listed
 // nowhere is refetched on every change: correct by default, and a line here makes it cheaper.
 // Read across entities wherever a view shows one entity's rows inside another's. Keyed by
 // RoutePath, so a key naming no route (a typo, or a route renamed or removed) fails to compile.
 export const ENTITIES_READ_BY_ROUTE: Readonly<
-  Partial<Record<RoutePath, readonly ChangedEntity[]>>
+  Partial<Record<RoutePath | RendererQueryPath, readonly ChangedEntity[]>>
 > = {
   app: [],
   settings: ['settings'],
@@ -36,8 +41,12 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   projects: ['project', 'task'],
   // a note row shows its project, its linked task or event (in its calendar's colour)
   notes: ['note', 'task', 'project', 'event', 'calendar'],
-  // a note's markdown, from its file: only a change to the note changes it
-  'notes.readContent': ['note'],
+  // A content query: the text an editor shows, refetched only when core rewrote it from outside
+  // the editor (a sync, a reattach), never for the editor's own save, which writes the cache
+  // itself (docs/editor.md). A note's markdown is notes.readContent; descriptions are under
+  // `content`.
+  'notes.readContent': ['content'],
+  content: ['content'],
   // the calendar view shows only visible calendars
   events: ['event', 'calendar'],
   // a disconnect turns its calendars into local ones

@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import type { TaskId } from '@common/ids';
 import { isId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
+import { taskContentQuery } from '@renderer/shared/api/content';
 import { primeLinks } from '@renderer/shared/api/loaders';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { groupDefs, PRIMED_GROUPS } from '../lib/groups';
@@ -72,14 +73,17 @@ export const parseTaskParams = {
 };
 
 /**
- * The task page: the task (a missing one is the route's not-found) and the event or note it links
- * to, for its pill; its subtasks after.
+ * The task page: the task and its description's content query (a missing task is the route's
+ * not-found), and the event or note it links to, for its pill; its subtasks after.
  */
 export async function loadTask(context: RouterContext, id: TaskId) {
   const { queryClient, trpc } = context;
   let task;
   try {
-    task = await queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime: 'static' });
+    [task] = await Promise.all([
+      queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime: 'static' }),
+      queryClient.query({ ...taskContentQuery(id), staleTime: 'static' }),
+    ]);
   } catch (error) {
     if (ipcErrorCode(error) === 'not_found') throw notFound();
     throw error;

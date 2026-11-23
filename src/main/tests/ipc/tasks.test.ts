@@ -301,7 +301,11 @@ describe('tasks', () => {
     const detached = await mutate<Task>('tasks.detach', { id });
     expect(detached).toMatchObject({ ok: true, data: { id, external: { state: 'detached' } } });
     expect(detached.changed).toContain('task');
-    expect(await mutate('tasks.update', { id, title: 'Mine' })).toMatchObject({
+    expect(detached.changed).not.toContain('content');
+    // an edit, as the description's editor saves it: its task, not its content
+    expect(
+      await mutate('tasks.update', { id, title: 'Mine', description: 'My notes' }),
+    ).toMatchObject({
       ok: true,
       data: { title: 'Mine' },
       changed: ['task'],
@@ -314,7 +318,8 @@ describe('tasks', () => {
       ok: true,
       data: { id, title: 'From Linear', external: { state: 'synced' } },
     });
-    expect(reattached.changed).toContain('task');
+    // its description is Linear's again, which the description's editor must follow
+    expect(reattached.changed).toEqual(expect.arrayContaining(['task', 'content']));
   });
 });
 

@@ -22,9 +22,10 @@ import styles from './RichTextEditor.module.css';
  * - `value` is the markdown as stored. `onChange` hears the markdown after each edit, and never on
  *   load: opening a note and closing it again leaves its file alone. Undoing back to the start
  *   gives back `value` exactly, not the editor's own spelling of it.
- * - A new `value` from outside (the file changed on disk, a sync) replaces the content unless it is
- *   what the editor last sent. A new `revision` makes it take `value` again even when the string
- *   is unchanged.
+ * - A new `value` from outside (a sync, a reattach) replaces the content unless it is what the
+ *   editor last sent. A new `revision` makes it take `value` again even when the string is
+ *   unchanged. In the app, `value` comes from a content query that only a change from outside the
+ *   editor refetches, never its own save (`useEditorAutosave`, docs/editor.md).
  * - Links open through `onOpenUrl` (safe http/https only), with ⌘/Ctrl-click while editing and a
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
  * - Each entity link is drawn by `entityPill`, which finds its entity (the app's reads React
@@ -34,7 +35,7 @@ import styles from './RichTextEditor.module.css';
 export interface RichTextEditorProps extends EditorHost {
   value: string;
   // bumped to make the editor take `value` again although the string is unchanged: a change from
-  // elsewhere back to the very text it was last given (useEditorAutosave keeps it)
+  // outside back to the very text it was last given (useEditorAutosave bumps it)
   revision?: number;
   onChange?: (markdown: string) => void;
   editable?: boolean;

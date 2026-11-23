@@ -5,9 +5,10 @@ descriptions, and read-only synced descriptions. It is built on [TipTap](https:/
 (ProseMirror) with TipTap's own markdown package, `@tiptap/markdown`: markdown in, markdown out.
 
 ```tsx
-// in a page: the editor acting in the open workspace (shared/components/WorkspaceRichTextEditor.tsx)
-// saved as it is typed, without its own save's refetch putting older text back (shared/hooks/use-autosave.ts)
-const body = useEditorAutosave(content, (markdown) => save(markdown));
+// in a page: the editor acting in the open workspace (shared/components/WorkspaceRichTextEditor.tsx),
+// reading its content query (shared/api/content.ts) and saved as it is typed (shared/hooks/use-autosave.ts)
+const content = useQuery(noteContentQuery(noteId)).data; // primed by the page's loader
+const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, save);
 <WorkspaceRichTextEditor
   label="Note"
   value={body.value}
@@ -32,19 +33,12 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   changed: TipTap renders node views through portals inside the editor, so a pill is an ordinary
   component under the app's `QueryClientProvider`, re-rendered by its own query.
 - `useEditorAutosave` saves 500ms after typing stops, and at once on leaving the page, on the
-  window losing focus and when a workspace switch starts. A save makes core report the entity
-  changed, so the text is refetched; by then more may have been typed. The editor is only handed
-  a change from elsewhere: a text it didn't save, and not the one it holds (its latest save, or
-  what it was last given). So its own save coming back never overwrites what was typed since.
-  Taking a change bumps `revision`, which makes the editor load `value` even when the string is the
-  one it was last given (reattaching a task restores Linear's description). The hook remembers only
-  the saves still on their way back, not every text it saved: when one comes back, the older ones
-  go, since a newer refetch cancels the one before it.
-
+  window losing focus and when a workspace switch starts. It reads the editor's content query,
+  which only a change from outside the editor refetches (below).
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
   file alone, and undoing back to the start sends `value` exactly as it was stored.
-- A new `value` from outside (the file changed on disk, a sync) replaces the content; the markdown
-  the editor just sent is not loaded again. A new `revision` makes it look at `value` again when
+- A new `value` from outside (a sync, a reattach) replaces the content; the markdown the editor
+  just sent is not loaded again. A new `revision` makes it look at `value` again when
   the string is unchanged. It holds one text, never a history of what it sent.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
@@ -88,6 +82,37 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   `shared` doesn't import); without it the menu has no Task. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
+
+## Content queries, and what a save refetches
+
+Each editor reads its text from a **content query** (`shared/api/content.ts`): a note's
+`notes.readContent`, and for a task, project or event description a query of its own
+(`taskContentQuery`, keyed `[['content', 'task'], { id }]`) that reads the entity's `get` route and
+keeps its `description` (`''` for none). The page's loader primes it, as loaders prime every query
+(the task, project and note pages; the sheets load it as they draw).
+
+- **A save writes the cache itself, and is never refetched.** The hook puts the text, as stored,
+  in the content query when it saves (`storeContent`), so leaving the page and coming back shows the
+  latest save, even one still on its way to main. The save reports its entity (`task`, `note`,
+  `project`, `event`), which refetches the lists, search, pills and the entity's own `get`, but
+  not the content query, which reads only `content`
+  ([ipc/design.md](ipc/design.md#invalidation-in-the-renderer)).
+- **Core reports `content` only for a rewrite from outside the editor**: a sync page that wrote
+  tasks, projects or events, a synced calendar's history fetched for a read, and a reattach. The
+  content query refetches then, and the editor follows. There is one window, so every save comes
+  from this renderer, and anything else that rewrites the text is from outside by definition.
+- **So the hook holds one text**: its latest save, or the one it was last given. When the content
+  query's text differs from it, the change is from outside: the editor is given it, and
+  `revision` is bumped, which makes the editor load `value` even when the string is the one it was
+  last given (reattaching a task restores Linear's description). Nothing of the editor's own comes
+  back later to be told apart from a change.
+- **A save cancels a refetch in flight** on its content query: one for a change from outside that
+  started before the save, whose answer would be older than it. And a note's `readContent` waits
+  for the note's queued saves (`NoteService`), so a refetch never reads a file a save is replacing.
+- A recurring event's description saves once you leave the editor, through the question of which
+  occurrences; the event that then holds it gets the text in its content query once saved.
+- A note file edited on disk by another app is not followed: nothing watches the files, and the
+  content queries don't refetch on focus.
 
 ## The note format
 

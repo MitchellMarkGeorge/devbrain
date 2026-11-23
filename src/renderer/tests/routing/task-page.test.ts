@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { hashKey } from '@tanstack/react-query';
 import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
 import { LinkState, Provider, TaskPriority, TaskStatus } from '@common/types';
+import { queryClient } from '@renderer/ipc';
+import { taskContentQuery } from '@renderer/shared/api/content';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
@@ -222,7 +225,7 @@ describe('the task page', () => {
         description: 'From Linear',
         external: external(LinkState.SYNCED),
       }),
-      ['task'],
+      ['task', 'content'],
     ]);
     const app = startApp(main, { url: `/app/${WORK}/tasks/${detached.id}` });
     const description = () =>
@@ -241,6 +244,54 @@ describe('the task page', () => {
     click(await menuItem('Reattach to Linear'));
     await eventually(() => expect(main.callsTo('tasks.reattach')).toHaveLength(1));
     await eventually(() => expect(description()?.textContent).toBe('From Linear'));
+  });
+
+  it('saves the description without reading it back, and shows the latest save when opened again', async () => {
+    const tasks = store();
+    const main = mainWith(tasks);
+    // a copy each time, as IPC sends one: never the stored row, which the edits change in place
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(description()?.textContent).toBe('Replace the implicit flow.'));
+    // the fetches of the description's content query from now on
+    const contentKey = hashKey(taskContentQuery(parent.id).queryKey);
+    let contentFetches = 0;
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'fetch') return;
+      if (event.query.queryHash === contentKey) contentFetches += 1;
+    });
+
+    const editor = (description() as unknown as { editor: Editor }).editor;
+    editor.chain().focus('end').insertContent(' Use PKCE.').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(1));
+    // the save reports the task, which refetches it, but not its description
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(contentFetches).toBe(0);
+
+    // typed, then left with the save still on its way, and opened again
+    const release = main.hold('tasks.update');
+    editor.chain().focus('end').insertContent(' Drop the implicit flow.').run();
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: WORK } });
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(2));
+    await app.router.navigate({
+      to: '/app/$workspaceId/tasks/$taskId',
+      params: { workspaceId: WORK, taskId: parent.id },
+    });
+    await eventually(() =>
+      expect(description()?.textContent).toBe(
+        'Replace the implicit flow. Use PKCE. Drop the implicit flow.',
+      ),
+    );
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(contentFetches).toBe(0);
+    unsubscribe();
   });
 
   it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {

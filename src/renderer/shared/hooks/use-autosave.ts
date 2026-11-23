@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { storeContent } from '@renderer/shared/api/content';
 import { useSwitchingWorkspace } from '@renderer/app/hooks/use-switching-workspace';
 
 // Saving what is typed in an editor (a note's body, a task's description) as it is typed: one save
@@ -50,49 +52,59 @@ export function useAutosave<T>(save: (value: T) => void, delay = 500) {
   return { schedule, flush };
 }
 
+// An editor's latest save, as stored, and how many it has made. Written as it saves, outside any
+// render; a render only reads it.
+class SaveLog {
+  count = 0;
+  text = '';
+
+  record(text: string): void {
+    this.count += 1;
+    this.text = text;
+  }
+}
+
 /**
- * An editor's text saved as it is typed, without the save's own refetch overwriting what was
- * typed since. `remote` is the text as the cache holds it (a note's `notes.readContent`, a task's
- * `description`), which a save refetches: by the time that answer arrives the user may have typed
- * more, and handing it to the editor would put the older text back.
+ * An editor's text saved as it is typed. `queryKey` is the editor's content query
+ * (`shared/api/content.ts`) and `remote` the text it holds, which changes in only two ways:
  *
- * So `value` (what the editor is given) follows `remote` only on a change from elsewhere (the file
- * edited on disk, a sync, a reattach, another window): a text this editor didn't save, and not
- * the one it holds, as far as the hook knows (its latest save, or the text it was last given).
- * Its own saves coming back leave `value` alone, and the editor keeps what it holds. Following one
- * bumps `revision`, which makes the editor take `value` even when the string is the one it was
- * last given (a reattach restoring the provider's description). Pass `value`, `revision` and
- * `onChange` to the editor. A `save` that stores the text in another form (a blank description as
- * none) returns that form, so it is known as its own when it comes back.
+ * - a save of this editor: `save` stores the text and returns it as stored, if that differs (a
+ *   blank description as `''`), and the hook writes that into the content query itself
+ *   (`storeContent`). Core reports the save's entity (`task`, `note`), never `content`, so the
+ *   query is not refetched: nothing of the editor's own comes back to it later.
+ * - a change from outside the editor (a sync, a reattach), which core reports as `content`, and
+ *   the query refetches.
  *
- * It remembers only the saves still on their way back, not every text it ever saved: when one
- * comes back, the older ones go, as a newer refetch cancels the one before it (React Query's
- * `invalidateQueries`), so an older save can't come back after a newer one.
+ * So the hook holds one text: the latest it saved, or the one it was last given. When `remote`
+ * differs from it, the text changed from outside: `value` follows it and `revision` is bumped,
+ * which makes the editor load `value` even when the string is the one it was last given (a
+ * reattach restoring the provider's description). Pass `value`, `revision` and `onChange` to the
+ * editor.
  */
 export function useEditorAutosave(
+  queryKey: QueryKey,
   remote: string,
   save: (text: string) => string | void,
   delay?: number,
 ): { value: string; revision: number; onChange: (text: string) => void; flush: () => void } {
-  // this editor's saves since `value` last followed `remote`, oldest first, each as typed and as
-  // stored; trimmed as they come back, so it holds the one or two still on their way
-  const [saves] = useState<string[][]>(() => []);
-  const [followed, setFollowed] = useState({ value: remote, revision: 0 });
+  const queryClient = useQueryClient();
+  const [saves] = useState(() => new SaveLog());
+  // the text given to the editor, and the number of saves made before it was
+  const [followed, setFollowed] = useState({ value: remote, revision: 0, saves: 0 });
 
-  const own = saves.findIndex((texts) => texts.includes(remote));
-  if (own >= 0) {
-    // its own save coming back: the older ones can no longer come back
-    saves.splice(0, own);
-  } else if (remote !== (saves.at(-1)?.[0] ?? followed.value)) {
-    // a change from elsewhere, compared with what the editor holds: its latest save, or the text
-    // it was last given
-    saves.splice(0);
-    setFollowed(({ revision }) => ({ value: remote, revision: revision + 1 }));
+  // what the editor holds, as far as the hook knows: its latest save, unless it was given a text
+  // since
+  const held = saves.count > followed.saves ? saves.text : followed.value;
+  if (remote !== held) {
+    // React draws again at once, before this render's output is used
+    setFollowed({ value: remote, revision: followed.revision + 1, saves: saves.count });
   }
 
   const { schedule, flush } = useAutosave((text: string) => {
-    const stored = save(text);
-    saves.push(stored === undefined || stored === text ? [text] : [text, stored]);
+    const stored = save(text) ?? text;
+    // before the cache: a render that sees the save there sees it here too
+    saves.record(stored);
+    storeContent(queryClient, queryKey, stored);
   }, delay);
   return { value: followed.value, revision: followed.revision, onChange: schedule, flush };
 }

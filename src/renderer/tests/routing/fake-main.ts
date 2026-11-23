@@ -400,7 +400,8 @@ export class FakeMain {
         const state = path === 'tasks.detach' ? LinkState.DETACHED : LinkState.SYNCED;
         return [
           store.patch(found.id, { external: found.external && { ...found.external, state } }),
-          ['task'],
+          // a reattach writes the provider's fields over the task, as main reports it
+          path === 'tasks.detach' ? ['task'] : ['task', 'content'],
         ];
       }
       case 'archive.archiveNote':

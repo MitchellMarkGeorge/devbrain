@@ -1,6 +1,6 @@
 import { useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   CalendarDays,
@@ -38,6 +38,7 @@ import {
   useWorkspaceShell,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
+import { eventContentQuery, storeContent } from '@renderer/shared/api/content';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
@@ -211,11 +212,17 @@ function EventSheetBody({
   const shown = shownTiming(event, occurrence);
   const { formatTime } = useFormat();
   const actions = useEventActions();
+  const queryClient = useQueryClient();
 
   const edit = (patch: EventPatch, summary?: string) =>
     actions.edit(target, patch, {
       summary,
       onSaved: (saved, scope) => {
+        // a series' description, saved once its editor is left: the event now holding it reads
+        // it from its content query (a one-off's is written there as it saves)
+        if (occurrence && patch.description !== undefined) {
+          storeContent(queryClient, eventContentQuery(saved.id).queryKey, saved.description ?? '');
+        }
         if (saved.id !== event.id) {
           onShowEvent(saved.id, saved.recurrenceRule ? saved.startAt : undefined);
         } else if (scope === 'all' && target.occurrenceStart && patch.startAt) {
@@ -517,6 +524,11 @@ function SyncHint({
   );
 }
 
+// a blank description is stored as none, which reads as ''
+function storedDescription(markdown: string): string {
+  return markdown.trim() === '' ? '' : markdown;
+}
+
 function CalendarBar({ color }: { color: string | undefined }) {
   return (
     <span className={styles.calendarBar} aria-hidden>
@@ -526,44 +538,60 @@ function CalendarBar({ color }: { color: string | undefined }) {
 }
 
 /**
- * The description, in the editor. A one-off saves as you type; a series saves once you leave the
- * editor, so the question of which occurrences is asked once for the edit, not per pause.
+ * The description, in the editor, read from its content query. A one-off saves as you type; a
+ * series saves once you leave the editor, so the question of which occurrences is asked once for
+ * the edit, not per pause (the event that then holds it has the text put in its content query
+ * once saved: see `edit` above).
  */
-function EventDescription({
+function EventDescription(props: {
+  event: Event;
+  editable: boolean;
+  series: boolean;
+  onSave: (description: string) => void;
+}) {
+  const content = useQuery(eventContentQuery(props.event.id));
+  if (content.data === undefined) return null;
+  return <EventDescriptionLoaded {...props} content={content.data} />;
+}
+
+function EventDescriptionLoaded({
   event,
+  content,
   editable,
   series,
   onSave,
 }: {
   event: Event;
+  content: string;
   editable: boolean;
   series: boolean;
   onSave: (description: string) => void;
 }) {
   const pending = useRef<string | null>(null);
   const createTask = useCreateTask();
-  const toDescription = (markdown: string) => (markdown.trim() === '' ? '' : markdown);
-  const description = useEditorAutosave(event.description ?? '', (markdown) => {
-    if (series) return;
-    const stored = toDescription(markdown);
-    onSave(stored);
-    return stored;
-  });
-  if (!editable && !event.description) return null;
+  const description = useEditorAutosave(
+    eventContentQuery(event.id).queryKey,
+    content,
+    (markdown) => {
+      if (series) return;
+      const stored = storedDescription(markdown);
+      onSave(stored);
+      return stored;
+    },
+  );
+  if (!editable && !content) return null;
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     const markdown = pending.current;
     pending.current = null;
-    if (markdown !== null && markdown !== (event.description ?? '')) {
-      onSave(toDescription(markdown));
-    }
+    if (markdown !== null && markdown !== content) onSave(storedDescription(markdown));
   };
   return (
     <div onBlur={series ? onBlur : undefined}>
       <WorkspaceRichTextEditor
         className={styles.description}
         label="Description"
-        value={series ? (event.description ?? '') : description.value}
+        value={series ? content : description.value}
         revision={series ? undefined : description.revision}
         editable={editable}
         placeholder="Add a description…"
