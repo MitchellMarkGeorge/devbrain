@@ -705,6 +705,43 @@ describe('SyncWriter — subtasks', () => {
     expect(taskRow(child.externalId).parentTaskId).toBe(taskIdOf(parent.externalId));
   });
 
+  it('removing a parent makes its sub-issues that stay top-level, keeping the parent in metadata', () => {
+    const parent = issue();
+    const stays = childOf(parent);
+    const leaves = childOf(parent);
+    const grandchild = childOf(stays);
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, stays, leaves, grandchild] }));
+
+    // Linear's parent reassigned away, or GitHub's deleted: the parent goes, one sub-issue with it
+    const summary = writer.removeTasks(sourceId, [parent.externalId, leaves.externalId]);
+
+    expect(summary).toEqual({ inserted: 0, updated: 1, removed: 2, changed: ['task'] });
+    expect(taskRow(stays.externalId)).toMatchObject({ parentTaskId: null, archivedAt: null });
+    expect(linkOf(stays.externalId)!.metadata).toMatchObject({
+      parentExternalId: parent.externalId,
+    });
+    // a sub-issue that left with it stays under it, in the trash with it
+    expect(taskRow(leaves.externalId).parentTaskId).toBe(taskIdOf(parent.externalId));
+    expect(taskRow(leaves.externalId).archivedAt).toEqual(taskRow(parent.externalId).archivedAt);
+    // the rest of the tree is untouched
+    expect(taskRow(grandchild.externalId).parentTaskId).toBe(taskIdOf(stays.externalId));
+    // on the board, which shows top-level tasks only
+    const board = tasks.listTasks({ excludeSubtasks: true }).items.map((task) => task.id);
+    expect(board).toEqual([taskIdOf(stays.externalId)]);
+  });
+
+  it('a parent that comes back adopts its sub-issues again, though they did not change', () => {
+    const parent = issue();
+    const child = childOf(parent);
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
+    writer.removeTasks(sourceId, [parent.externalId]);
+    expect(taskRow(child.externalId).parentTaskId).toBeNull();
+
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
+
+    expect(taskRow(child.externalId).parentTaskId).toBe(taskIdOf(parent.externalId));
+  });
+
   it('a sub-issue moved to the top level loses its parent', () => {
     const parent = issue();
     const child = childOf(parent);

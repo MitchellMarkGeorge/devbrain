@@ -508,6 +508,59 @@ describe("migration 0027 — Linear's no priority", () => {
   });
 });
 
+describe('migration 0028 — synced sub-issues of a parent that is not synced', () => {
+  it('makes the live synced tasks under a removed or detached parent top-level, leaving the rest', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(27) });
+    sqlite.exec(`
+      INSERT INTO tasks (id, title, archived_at) VALUES
+        ('tsk_removed', 'Parent reassigned away', 1000),
+        ('tsk_restored', 'Parent restored from the trash', NULL),
+        ('tsk_synced', 'Synced parent', NULL),
+        ('tsk_local', 'Local parent', NULL);
+      INSERT INTO tasks (id, title, parent_task_id, archived_at) VALUES
+        ('tsk_stays', 'Still assigned', 'tsk_removed', NULL),
+        ('tsk_left', 'Left with it', 'tsk_removed', 1000),
+        ('tsk_under_restored', 'Under the restored one', 'tsk_restored', NULL),
+        ('tsk_under_synced', 'Under a synced parent', 'tsk_synced', NULL),
+        ('tsk_detached_child', 'Detached, under the removed one', 'tsk_removed', NULL),
+        ('tsk_local_child', 'Local subtask', 'tsk_local', NULL);
+    `);
+    const link = (task: string, state: string) =>
+      `INSERT INTO external_links (id, provider, task_id, external_id, external_url,
+         external_updated_at, state, metadata, last_synced_at)
+       VALUES ('lnk_${task}', 'linear', '${task}', '${task}', 'https://linear.app/${task}', 1000,
+         '${state}', '{}', 1000);`;
+    sqlite.exec(`
+      ${link('tsk_removed', 'removed')}
+      ${link('tsk_restored', 'detached')}
+      ${link('tsk_synced', 'synced')}
+      ${link('tsk_stays', 'synced')}
+      ${link('tsk_left', 'removed')}
+      ${link('tsk_under_restored', 'synced')}
+      ${link('tsk_under_synced', 'synced')}
+      ${link('tsk_detached_child', 'detached')}
+    `);
+
+    runMigrations(sqlite, db, migrationsUpTo(28));
+
+    expect(
+      sqlite
+        .prepare(
+          `SELECT id, parent_task_id FROM tasks WHERE parent_task_id IS NOT NULL ORDER BY id`,
+        )
+        .all(),
+    ).toEqual([
+      // the detached and local subtasks are the user's own, and the one in the trash left with it
+      { id: 'tsk_detached_child', parent_task_id: 'tsk_removed' },
+      { id: 'tsk_left', parent_task_id: 'tsk_removed' },
+      { id: 'tsk_local_child', parent_task_id: 'tsk_local' },
+      { id: 'tsk_under_synced', parent_task_id: 'tsk_synced' },
+    ]);
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {

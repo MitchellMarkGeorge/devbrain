@@ -555,7 +555,11 @@ class PageWrite {
    * 1. Find their synced task links; other ids (detached, already removed, never mirrored) are
    *    ignored.
    * 2. Archive the tasks and mark their links `removed`.
-   * 3. Drop the tasks from search.
+   * 3. Make their sub-issues that stay (still synced) top-level: a synced task sits under a synced
+   *    parent or none, as upsertTasks writes it. A provider can remove a parent and keep its
+   *    sub-issues (Linear's parent reassigned away, GitHub's parent deleted). Each child's link
+   *    keeps the parent's id, so adoptChildren puts it back if the parent returns.
+   * 4. Drop the tasks from search.
    */
   removeTasks(externalIds: string[]): void {
     if (externalIds.length === 0) return;
@@ -589,7 +593,19 @@ class PageWrite {
         ),
       )
       .run();
-    // 3. removed rows are no longer searchable; a restore re-indexes them
+    // 3. sub-issues removed in this call are archived above, so only those that stay move
+    this.updated += this.tx
+      .update(tasks)
+      .set({ parentTaskId: null })
+      .where(
+        and(
+          inArray(tasks.parentTaskId, taskIds),
+          isNull(tasks.archivedAt),
+          hasLinkInState('task', tasks.id, LinkState.SYNCED),
+        ),
+      )
+      .run().changes;
+    // 4. removed rows are no longer searchable; a restore re-indexes them
     this.search.removeFromIndex(taskIds);
     this.removed += taskIds.length;
     this.changed.add(SyncEntityType.TASK);

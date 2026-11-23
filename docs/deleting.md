@@ -31,8 +31,10 @@ it.
 | Note    | Its markdown file, after the commit                              | Tasks made from it, subtasks included (`linkedNoteId` set null); the task it was the task note of, which now has none |
 
 - **Only from the trash.** A task needs its whole subtree archived. Archiving takes the subtree
-  along, but sync archives a removed Linear task on its own and can leave synced subtasks live under
-  it; deleting it would take those with it, so it is refused until they are gone too.
+  along. Sync archives a removed Linear task on its own, but makes its sub-issues that stay synced
+  top-level in the same write (`removeTasks`; migration 0028 did the same for those left under one
+  before), so none stays live under it. The check stays as a guard: deleting a task would take any
+  live task below it along, so it is refused until they are gone too.
 - The response lists every id removed (a task's whole subtree) and every row that lost a link.
 - **Projects keep their tasks and notes.** They are the user's own work, and a project is a
   grouping. Deleting them too is a delete of each. Archived ones stay archived.

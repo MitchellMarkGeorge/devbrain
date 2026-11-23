@@ -34,7 +34,9 @@ Linear organisation.
 | Their sub-issues (also assigned to you), at any depth              | Subtasks                     |
 | The projects of those issues                                       | Projects                     |
 
-A sub-issue whose parent isn't assigned to you comes in as a task of its own. Comments,
+A sub-issue whose parent isn't assigned to you comes in as a task of its own. That includes one
+whose parent leaves later (reassigned to someone else, or deleted) while the sub-issue stays yours:
+it becomes a task of its own then, and goes back under its parent if the parent comes back to you. Comments,
 attachments, labels, cycles, and issues assigned to other people are not brought in.
 
 Each task shows its issue's key (such as **ENG-124**), and its page says when it last synced.

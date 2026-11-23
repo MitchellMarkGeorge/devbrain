@@ -360,8 +360,9 @@ export class ArchiveService {
    * What goes and what stays follows the one-item deletes (docs/deleting.md): foreign keys take a
    * task's subtasks and links along, and clear the project or link of the tasks and notes left.
    * An archived task with an active or synced task anywhere below it is kept (`keptTaskIds`), as
-   * TaskService.deleteTask refuses it: sync can archive a removed Linear task and leave its
-   * synced subtasks live. A synced project is never archived; one would be kept too.
+   * TaskService.deleteTask refuses it, a guard: sync makes a removed task's sub-issues that stay
+   * top-level (SyncWriter's removeTasks), so it leaves none live under it. A synced project is
+   * never archived; one would be kept too.
    *
    * The files go after the commit, each behind its note's queued content saves. One that can't
    * be removed is logged and listed in `filesNotRemoved`; the rest still go, and nothing is
