@@ -6,6 +6,8 @@ import Database from 'better-sqlite3';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { NoteId, ProjectId, TaskId } from '@common/ids';
 import type { TrashSelection } from '@common/types';
+import { eq } from 'drizzle-orm';
+import { tasks as tasksSchema } from '@main/db/schema/tasks';
 import { createDb } from '../utils';
 import { ArchiveService, type ArchiveChange } from '../../archive/service';
 import { NoteService } from '../../notes/service';
@@ -107,6 +109,39 @@ describe('ArchiveService.restoreMany', () => {
     expect(sorted(trashedIds())).toEqual(
       sorted([t.parent.id, t.child.id, t.childNote.id, t.loose.id]),
     );
+  });
+
+  it('brings back only what went to the trash with each chosen project', async () => {
+    const project = projects.createProject({ title: 'Gateway' });
+    const earlier = tasks.createTask({
+      title: 'Trashed first',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const withIt = tasks.createTask({
+      title: 'Went with it',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const other = projects.createProject({ title: 'Billing' });
+    const otherTask = tasks.createTask({
+      title: 'Billing task',
+      dueDate: TOMORROW,
+      projectId: other.id,
+    });
+    archive.archiveTask(earlier.id);
+    // a minute before the projects, so its time differs from theirs
+    db.update(tasksSchema)
+      .set({ archivedAt: new Date(Date.now() - 60_000) })
+      .where(eq(tasksSchema.id, earlier.id))
+      .run();
+    archive.archiveProject(project.id);
+    archive.archiveProject(other.id);
+
+    const result = archive.restoreMany(select({ projectIds: [project.id, other.id] }));
+
+    expect(sorted(result.taskIds)).toEqual(sorted([withIt.id, otherTask.id]));
+    expect(trashedIds()).toEqual([earlier.id]);
   });
 
   it('restores nothing when one row is missing or not in the trash', async () => {

@@ -335,14 +335,19 @@ describe('restoring a row its provider removed', () => {
     expect(archive.restoreTask(task.id).external).toBeNull();
   });
 
-  it('detaches a restored project and its removed tasks', () => {
+  it('detaches a restored project, and leaves the removed tasks sync trashed before it', () => {
     const project = projects.createProject({ title: 'Retired in Linear' });
     link(project.id, LinkState.REMOVED);
+    // an issue deleted in Linear earlier: sync moved it to the trash on its own
     const task = removedTask('Its issue');
     db.update(tasksTable).set({ projectId: project.id }).where(eq(tasksTable.id, task)).run();
+    const mine = tasks.createTask({ title: 'Mine', dueDate: TOMORROW, projectId: project.id });
     archive.archiveProject(project.id);
     expect(archive.restoreProject(project.id).external?.state).toBe(LinkState.DETACHED);
-    expect(stateOf(task)).toBe(LinkState.DETACHED);
+    expect(tasks.getById(mine.id).archivedAt).toBeNull();
+    // still in the trash and still removed: only restoring it, which asks, detaches it
+    expect(tasks.getById(task, { includeArchived: true }).archivedAt).not.toBeNull();
+    expect(stateOf(task)).toBe(LinkState.REMOVED);
   });
 
   it('detaches the removed rows a batch restore brings back, and only those', () => {

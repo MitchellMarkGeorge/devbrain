@@ -162,6 +162,30 @@ columns.
 - Core refuses every write to a row in the trash too, not only the inert pages: see "Writes to
   items in the trash" above.
 
+## Restoring
+
+`ArchiveService.restoreTask`, `restoreProject` and `restoreNote` (and `restoreMany`, below) undo a
+move to the trash. Each runs in one transaction and sends one `restored` change as its last step.
+
+- **What comes back is what went.** Moving an item to the trash stamps it, and everything it takes
+  along, with one `archivedAt` (`planArchive` and `applyArchivePlan`): a task takes its subtree and
+  their task notes, a project its tasks, their task notes and its own notes. A task brings back its
+  whole subtree and the notes linked to it. A project brings back only the tasks and notes stamped
+  with its own `archivedAt` (`restoreTrashedWith`). A task or note of the project that went to the
+  trash on its own before, at another time, stays there: the user trashed it separately, and
+  restores it separately. That includes a Linear task sync moved to the trash, below. Every
+  version of `archiveProject` stamped the project and what it took with one time, so this holds for
+  projects trashed before the rule too.
+- **A row sync moved to the trash comes back detached.** Sync moves a task or project to the trash
+  when its provider removes it (an issue deleted in Linear, or out of what DevBrain syncs), with
+  its link `removed`. Restoring it turns that link `detached` in the same transaction
+  (`detachRemovedLinks`): restoring is the user taking it back, so sync stops overwriting it if the
+  item returns in the provider, and Reattach hands it back. The renderer always asks first
+  (`useConfirmRestore`), as Detach does, when an item chosen is `removed`. A project brings back
+  only what went with it, so it never pulls back a `removed` task trashed on its own. A task still
+  brings back its whole subtree, whenever each part went: a `removed` subtask under a detached
+  task (Detach leaves those as they are) comes back detached without the dialog naming it.
+
 ## Restore or delete several
 
 `ArchiveService.restoreMany` and `ArchiveService.deleteMany`, exposed as `archive.restoreMany` and
@@ -172,20 +196,15 @@ the three kinds.
 - **All or nothing.** Each runs in one transaction. Every id is checked first: an unknown one
   fails the call with `not_found`, one not in the trash with `not_archived`, and nothing changes.
   An empty selection is refused as invalid input.
-- **Overlaps are resolved in core.** Restoring goes projects first (each with its tasks and their
-  notes, as `restoreProject`), then tasks (each with its subtree and notes, as `restoreTask`), then
-  notes. A row an earlier step already brought back, such as a task of a chosen project, is
-  restored once, not refused. Deleting takes a task's subtree with it, so a chosen subtask goes with
+- **Overlaps are resolved in core.** Restoring goes projects first (each with what went to the
+  trash with it, as `restoreProject`), then tasks (each with its subtree and notes, as
+  `restoreTask`), then notes. A row an earlier step already brought back, such as a task that went
+  to the trash with a chosen project, is restored once, not refused. Deleting takes a task's subtree with it, so a chosen subtask goes with
   its chosen parent.
 - **Deleting is `emptyTrash` limited to the selection.** It uses the same per-kind steps, so the
   same rules hold: a task with an active or synced task below it stays (`keptTaskIds`), a project
   leaves its tasks and notes, and the notes' files go after the commit (`filesNotRemoved`). It
   returns the same `EmptyTrashResult`.
-- **A row sync moved to the trash comes back detached.** Restoring (one row or several) turns a
-  `removed` link among the rows brought back `detached`, in the same transaction
-  (`detachRemovedLinks` in the archive service): restoring is the user taking it back, so sync
-  stops overwriting it if the item returns in the provider, and Reattach hands it back. The
-  renderer asks first, always (`useConfirmRestore`), as Detach does.
 - **One change each.** `restoreMany` sends one `restored`, and `deleteMany` one `emptied` (the
   change for rows deleted from the trash, all or some), as the transaction's last step. Search and
   the `ChangeTracker` handle them as they do for one restore and for Empty Trash.
