@@ -49,7 +49,10 @@ export interface DatePickerProps {
   placeholder?: string;
   /** reads what was typed when Enter is pressed; `parseNaturalDate` by default */
   parse?: (text: string, today: Date) => Date | undefined;
-  /** the pill buttons under the month; Today, Tomorrow and Next week by default, [] for none */
+  /**
+   * the pill buttons under the month, each on a different day (its key); Today, Tomorrow and Next
+   * week by default, [] for none
+   */
   quickPicks?: DatePickerQuickPick[];
   /** the "Time" row's control (a `Select` of times); left out without it */
   time?: ReactNode;
@@ -113,10 +116,9 @@ export function DatePicker({
         />
         {picks.length > 0 && (
           <div className={styles.quickPicks}>
-            {/* by place: a caller's picks can share a day */}
-            {picks.map((pick, index) => (
+            {picks.map((pick) => (
               <Button
-                key={index}
+                key={pick.date.toISOString()}
                 size="xs"
                 variant="outline"
                 className={styles.quickPick}

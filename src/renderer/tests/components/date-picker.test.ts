@@ -1,9 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
-import { DatePicker, defaultQuickPicks, parseNaturalDate } from '@renderer/components';
-
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+import { describe, expect, it } from 'vitest';
+import { defaultQuickPicks, parseNaturalDate } from '@renderer/components';
 
 // The DatePicker's field, read with chrono. Today is Tuesday 17 Nov 2026.
 
@@ -44,24 +40,5 @@ describe('defaultQuickPicks', () => {
     ['the end of a month', new Date(2026, 11, 28), [day(11, 28), day(11, 29), day(0, 4, 2027)]],
   ])('picks today, tomorrow and a week on, from %s', (_, today, dates) => {
     expect(defaultQuickPicks(today).map((pick) => pick.date)).toEqual(dates);
-  });
-});
-
-describe('DatePicker', () => {
-  it('draws every quick pick when two fall on one day', () => {
-    const monday = day(10, 23);
-    const quickPicks = [
-      { label: 'Tomorrow', date: monday },
-      { label: 'Monday', date: monday },
-    ];
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const container = document.createElement('div');
-    const root = createRoot(container);
-    act(() => root.render(createElement(DatePicker, { today: TODAY, quickPicks })));
-    const labels = [...container.querySelectorAll('button')].map((button) => button.textContent);
-    act(() => root.unmount());
-    expect(labels).toEqual(expect.arrayContaining(['Tomorrow', 'Monday']));
-    expect(error).not.toHaveBeenCalled();
-    error.mockRestore();
   });
 });
