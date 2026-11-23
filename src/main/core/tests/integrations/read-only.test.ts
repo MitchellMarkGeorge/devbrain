@@ -329,6 +329,17 @@ describe('restoring a row its provider removed', () => {
     expect(tasks.updateTask(parent, { title: 'Mine now' }).title).toBe('Mine now');
   });
 
+  it('leaves a sub-issue sync trashed before its detached parent in the trash, still removed', () => {
+    const parent = tasks.createTask({ title: 'Detached parent', dueDate: TOMORROW });
+    link(parent.id, LinkState.DETACHED);
+    // a sub-issue Linear archived earlier: sync moved it to the trash on its own
+    const child = removedTask('Archived sub-issue', parent.id);
+    archive.archiveTask(parent.id);
+    expect(archive.restoreTask(parent.id).archivedAt).toBeNull();
+    expect(tasks.getById(child, { includeArchived: true }).archivedAt).not.toBeNull();
+    expect(stateOf(child)).toBe(LinkState.REMOVED);
+  });
+
   it('leaves a restored local task without a link', () => {
     const task = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     archive.archiveTask(task.id);

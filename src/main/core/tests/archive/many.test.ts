@@ -144,6 +144,31 @@ describe('ArchiveService.restoreMany', () => {
     expect(trashedIds()).toEqual([earlier.id]);
   });
 
+  it('restores a chosen subtask trashed before its chosen parent, and each with what went with it', async () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const earlier = tasks.createSubtask(parent.id, { title: 'Trashed first', dueDate: TOMORROW });
+    const other = tasks.createSubtask(parent.id, {
+      title: 'Also trashed first',
+      dueDate: TOMORROW,
+    });
+    archive.archiveTask(earlier.id);
+    archive.archiveTask(other.id);
+    db.update(tasksSchema)
+      .set({ archivedAt: new Date(Date.now() - 60_000) })
+      .where(eq(tasksSchema.id, earlier.id))
+      .run();
+    db.update(tasksSchema)
+      .set({ archivedAt: new Date(Date.now() - 120_000) })
+      .where(eq(tasksSchema.id, other.id))
+      .run();
+    archive.archiveTask(parent.id);
+
+    const result = archive.restoreMany(select({ taskIds: [parent.id, earlier.id] }));
+
+    expect(sorted(result.taskIds)).toEqual(sorted([parent.id, earlier.id]));
+    expect(trashedIds()).toEqual([other.id]);
+  });
+
   it('restores nothing when one row is missing or not in the trash', async () => {
     const t = await trashSome();
     const live = tasks.createTask({ title: 'Live', dueDate: TOMORROW });

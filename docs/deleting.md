@@ -169,22 +169,24 @@ move to the trash. Each runs in one transaction and sends one `restored` change 
 
 - **What comes back is what went.** Moving an item to the trash stamps it, and everything it takes
   along, with one `archivedAt` (`planArchive` and `applyArchivePlan`): a task takes its subtree and
-  their task notes, a project its tasks, their task notes and its own notes. A task brings back its
-  whole subtree and the notes linked to it. A project brings back only the tasks and notes stamped
-  with its own `archivedAt` (`restoreTrashedWith`). A task or note of the project that went to the
+  their task notes, a project its tasks, their task notes and its own notes. Restoring brings back
+  only the rows stamped with the chosen item's own `archivedAt`: a task, the part of its subtree
+  and the task notes with that time (`restoreTaskTrashedWith`); a project, its tasks and notes and
+  their task notes with it (`restoreProjectTrashedWith`). A subtask, task or note that went to the
   trash on its own before, at another time, stays there: the user trashed it separately, and
-  restores it separately. That includes a Linear task sync moved to the trash, below. Every
-  version of `archiveProject` stamped the project and what it took with one time, so this holds for
-  projects trashed before the rule too.
+  restores it separately. The same goes for a Linear task or sub-issue sync moved to the trash in
+  an earlier run, as Linear archives sub-issues with their parent. Every version of `archiveTask`
+  and `archiveProject` stamped an item and what it took with one time, so this holds for items
+  trashed before the rule too. Sync stamps every task it removes in one run with one time too.
 - **A row sync moved to the trash comes back detached.** Sync moves a task or project to the trash
   when its provider removes it (an issue deleted in Linear, or out of what DevBrain syncs), with
   its link `removed`. Restoring it turns that link `detached` in the same transaction
   (`detachRemovedLinks`): restoring is the user taking it back, so sync stops overwriting it if the
   item returns in the provider, and Reattach hands it back. The renderer always asks first
-  (`useConfirmRestore`), as Detach does, when an item chosen is `removed`. A project brings back
-  only what went with it, so it never pulls back a `removed` task trashed on its own. A task still
-  brings back its whole subtree, whenever each part went: a `removed` subtask under a detached
-  task (Detach leaves those as they are) comes back detached without the dialog naming it.
+  (`useConfirmRestore`), as Detach does, when an item chosen is `removed`. Since a restore brings
+  back only what went with the item chosen, the `removed` rows it detaches are that item and the
+  sub-issues sync trashed with it in the same run; one trashed on its own is never pulled back
+  unasked.
 
 ## Restore or delete several
 
