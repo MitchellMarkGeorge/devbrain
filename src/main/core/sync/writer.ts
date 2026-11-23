@@ -105,9 +105,15 @@ export class SyncWriter {
   /**
    * Applies one page: projects first, then tasks parents first, then removals. A task sync does not
    * keep (`keepsTask`: no longer assigned to the viewer, or hidden while open) is removed like one
-   * in `removedIds`.
+   * in `removedIds`. The `last` page of a run's walk, once every page is applied, then retires the
+   * projects left with no synced tasks (`retireEmptyProjects`), so a project whose issues all left
+   * goes in the same run as they do, not at the next reconcile pass.
    */
-  applyTaskPage(sourceId: ExternalSourceId, page: TaskPageItems): SyncSummary {
+  applyTaskPage(
+    sourceId: ExternalSourceId,
+    page: TaskPageItems,
+    { last = false }: { last?: boolean } = {},
+  ): SyncSummary {
     return this.db.transaction((tx) => {
       const write = new PageWrite(tx, this.search, sourceId, this.now());
       write.upsertProjects(page.projects);
@@ -116,6 +122,7 @@ export class SyncWriter {
         ...page.removedIds,
         ...page.tasks.filter((task) => !keepsTask(task)).map((task) => task.externalId),
       ]);
+      if (last) write.retireEmptyProjects();
       return write.finish();
     });
   }
@@ -126,9 +133,9 @@ export class SyncWriter {
    * 1. What the pass resolved, as a page: found and kept (`keepsTask`) is upserted (a completion,
    *    or a restore of a removed link); reassigned, hidden while open, or gone is removed.
    * 2. Settle: synced task links closed before `settleBefore` stop being watched.
-   * 3. Project lifecycle, on the state after 1: a synced project that is gone, or has no synced
-   *    tasks left, is detached when it still holds local or detached tasks, and archived with its
-   *    link `removed` otherwise.
+   * 3. Project lifecycle, on the state after 1: a synced project that is gone
+   *    (`retireGoneProjects`), or has no synced tasks left (`retireEmptyProjects`), is detached
+   *    when it still holds local or detached tasks, and archived with its link `removed` otherwise.
    */
   applyReconcile(
     sourceId: ExternalSourceId,
@@ -146,8 +153,9 @@ export class SyncWriter {
       ]);
       // 2.
       write.settle(settleBefore);
-      // 3.
-      write.retireProjects(items.goneProjects);
+      // 3. gone first: their synced tasks move out, so the empty check doesn't find them again
+      write.retireGoneProjects(items.goneProjects);
+      write.retireEmptyProjects();
       return write.finish();
     });
   }
@@ -653,65 +661,97 @@ class PageWrite {
   }
 
   /**
-   * The project lifecycle. Runs after the call's task changes, so "no synced tasks" is read on
-   * the final state.
+   * The project lifecycle, for projects the provider no longer has: deleted (trashed) or
+   * permanently deleted, as a reconcile pass's lookup found them.
    *
-   * 1. Find this source's synced projects that left scope, in one query: gone in the provider, or
-   *    with no synced tasks left in them. Usually it finds none, and nothing else runs.
-   * 2. A gone project's synced tasks follow the provider, which no longer has the project, so
-   *    they lose it. (Tasks that moved elsewhere were already moved by the upsert.)
-   * 3. One still holding local or detached tasks is detached: a normal local project, where the
-   *    user's own tasks keep their home. Any other one is archived, not deleted, so notes filed
-   *    under it keep their link, and its link is marked `removed`.
+   * 1. Find this source's synced projects among `goneExternalIds`. Usually none, and nothing else
+   *    runs.
+   * 2. Their synced tasks follow the provider, which no longer has the project, so they lose it.
+   *    (Tasks that moved elsewhere were already moved by the upsert.)
+   * 3. Retire each (`retire`).
    */
-  retireProjects(goneExternalIds: string[]): void {
-    const gone = new Set(goneExternalIds);
-    // live synced tasks in the project the outer row links to; a synced task is never archived,
-    // and saying so lets idx_tasks_project_id serve this
-    const syncedTasksIn = (projectId: SQLWrapper) =>
-      and(
-        eq(tasks.projectId, projectId),
-        isNull(tasks.archivedAt),
-        hasLinkInState('task', tasks.id, LinkState.SYNCED),
-      );
-
-    // 1. served by idx_external_links_source_id_state, with one seek per project for its tasks
-    const empty = notExists(
-      this.tx.select({ id: tasks.id }).from(tasks).where(syncedTasksIn(externalLinks.projectId)),
-    );
-    const leaving = this.tx
-      .select({
-        id: externalLinks.id,
-        externalId: externalLinks.externalId,
-        projectId: externalLinks.projectId,
-      })
+  retireGoneProjects(goneExternalIds: string[]): void {
+    if (goneExternalIds.length === 0) return;
+    // 1.
+    const gone = this.tx
+      .select(this.retiringColumns)
       .from(externalLinks)
       .where(
         and(
           eq(externalLinks.sourceId, this.sourceId),
           eq(externalLinks.state, LinkState.SYNCED),
           isNotNull(externalLinks.projectId),
-          gone.size > 0 ? or(inArray(externalLinks.externalId, [...gone]), empty) : empty,
+          inArray(externalLinks.externalId, goneExternalIds),
         ),
       )
       .all();
-    if (leaving.length === 0) return;
+    if (gone.length === 0) return;
+
+    // 2. a synced task cannot live in a local or archived project
+    for (const link of gone) {
+      const moved = this.tx
+        .update(tasks)
+        .set({ projectId: null })
+        .where(syncedTasksIn(sql`${link.projectId}`))
+        .run().changes;
+      if (moved > 0) this.changed.add(SyncEntityType.TASK);
+    }
+    // 3.
+    this.retire(gone);
+  }
+
+  /**
+   * The project lifecycle, for projects left with no synced tasks: all of them moved out, were
+   * taken out (reassigned, deleted, archived while open), or lost the project, as Linear's issues
+   * do when the project is deleted. Runs after the call's task changes, so "no synced tasks" is
+   * read on the final state: at the end of a reconcile pass, and on the last page of a run's walk,
+   * once every page is applied (never between pages, where a project can look empty while its
+   * tasks move).
+   *
+   * 1. Find this source's synced projects with no live synced task in them, in one query. Usually
+   *    none, and nothing else runs.
+   * 2. Retire each (`retire`).
+   */
+  retireEmptyProjects(): void {
+    // 1. served by idx_external_links_source_id_state, with one seek per project for its tasks
+    const empty = this.tx
+      .select(this.retiringColumns)
+      .from(externalLinks)
+      .where(
+        and(
+          eq(externalLinks.sourceId, this.sourceId),
+          eq(externalLinks.state, LinkState.SYNCED),
+          isNotNull(externalLinks.projectId),
+          notExists(
+            this.tx
+              .select({ id: tasks.id })
+              .from(tasks)
+              .where(syncedTasksIn(externalLinks.projectId)),
+          ),
+        ),
+      )
+      .all();
+    // 2.
+    if (empty.length > 0) this.retire(empty);
+  }
+
+  // what retiring a project reads of its link
+  private readonly retiringColumns = {
+    id: externalLinks.id,
+    projectId: externalLinks.projectId,
+  };
+
+  /**
+   * Retires synced projects that left scope, gone or empty: one still holding local or detached
+   * tasks is detached, a normal local project where the user's own tasks keep their home. Any other
+   * one is archived, not deleted, so notes filed under it keep their link, and its link is marked
+   * `removed`.
+   */
+  private retire(links: { id: ExternalLinkId; projectId: ProjectId | null }[]): void {
     const archived: ProjectId[] = [];
-
-    for (const link of leaving) {
+    for (const link of links) {
       const projectId = link.projectId!;
-
-      // 2. a synced task cannot live in a local or archived project; an empty project has none
-      if (gone.has(link.externalId)) {
-        const moved = this.tx
-          .update(tasks)
-          .set({ projectId: null })
-          .where(syncedTasksIn(sql`${projectId}`))
-          .run().changes;
-        if (moved > 0) this.changed.add(SyncEntityType.TASK);
-      }
-
-      // 3. live tasks that are not synced are local or detached; a removed task is archived
+      // live tasks that are not synced are local or detached; a removed task is archived
       const keeps = this.tx
         .select({ id: tasks.id })
         .from(tasks)
@@ -1618,4 +1658,14 @@ function parentsFirst(items: ExternalTask[]): ExternalTask[] {
   };
   items.forEach(visit);
   return ordered;
+}
+
+// live synced tasks in the project `projectId` names (a column of an outer row, or a bound id); a
+// synced task is never archived, and saying so lets idx_tasks_project_id serve this
+function syncedTasksIn(projectId: SQLWrapper) {
+  return and(
+    eq(tasks.projectId, projectId),
+    isNull(tasks.archivedAt),
+    hasLinkInState('task', tasks.id, LinkState.SYNCED),
+  );
 }

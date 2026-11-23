@@ -829,16 +829,24 @@ describe('IntegrationService — connecting the same account again', () => {
     expect(after.projects.map((row) => row.id)).toEqual(before.projects.map((row) => row.id));
     expect(after.links.map((link) => link.id)).toEqual(before.links.map((link) => link.id));
     expect(after.links.every((link) => link.sourceId === second.sourceId)).toBe(true);
-    // the project was detached by the disconnect, so it is reattached as it returns; the tasks
-    // stay the user's copies until reattached
-    expect(linkOf(mirrored)!.state).toBe(LinkState.SYNCED);
+    // the tasks stay the user's copies until reattached, and so does the project: it holds no
+    // synced task, only a detached copy, so the run's end leaves it detached
     expect(linkOf(loose)!.state).toBe(LinkState.DETACHED);
+    expect(linkOf(mirrored)!.state).toBe(LinkState.DETACHED);
 
     linear.tasks.respondToLookup = ({ externalIds }) => ({
       tasks: externalIds.includes(loose.externalId) ? [{ ...loose, title: 'Fresh' }] : [],
     });
     const reattached = await detach.reattachTask(taskIdOf(loose));
     expect(reattached).toMatchObject({ title: 'Fresh', external: { state: LinkState.SYNCED } });
+
+    // reattaching its task brings the project back into scope, synced again
+    linear.tasks.respondToLookup = ({ externalIds }) => ({
+      tasks: externalIds.includes(inProject.externalId) ? [inProject] : [],
+      projects: [mirrored],
+    });
+    await detach.reattachTask(taskIdOf(inProject));
+    expect(linkOf(mirrored)!.state).toBe(LinkState.SYNCED);
   });
 
   it('reconnect after remove: kept copies are matched and deleted items come back once', async () => {

@@ -41,7 +41,8 @@ export class TaskSyncer implements Syncer {
     return {
       cursor,
       pull: (current) => this.pull(auth, current, signal),
-      apply: (page) => this.writer.applyTaskPage(sourceId, page),
+      // the walk's last page retires the projects its pages left empty
+      apply: (page) => this.writer.applyTaskPage(sourceId, page, { last: page.done }),
     };
   }
 

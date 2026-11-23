@@ -642,6 +642,62 @@ describe('SyncWriter — removed', () => {
   });
 });
 
+describe('SyncWriter — projects emptied by a run', () => {
+  // Deleting a project in Linear archives its open issues and drops the project from them
+  function deleteInLinear(issues: ExternalTask[]): TaskPageItems {
+    return page({
+      tasks: issues.map((item) => ({
+        ...item,
+        hidden: true,
+        projectExternalId: null,
+        updatedAt: V2,
+      })),
+    });
+  }
+
+  it('detaches a project holding your own task on the run’s last page, with its issues out', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    const b = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a, b] }));
+    const projectId = projectIdOf(proj.externalId);
+    const mine = tasks.createTask({ title: 'Mine', projectId });
+
+    const summary = writer.applyTaskPage(sourceId, deleteInLinear([a, b]), { last: true });
+
+    expect(summary).toMatchObject({ removed: 2, changed: ['task', 'project'] });
+    expect([a, b].map((item) => linkOf(item.externalId)!.state)).toEqual([
+      LinkState.REMOVED,
+      LinkState.REMOVED,
+    ]);
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.DETACHED);
+    expect(projectRow(projectId).archivedAt).toBeNull();
+    expect(tasks.getById(mine.id).projectId).toBe(projectId);
+  });
+
+  it('archives an emptied project with nothing of yours in it', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a] }));
+
+    writer.applyTaskPage(sourceId, deleteInLinear([a]), { last: true });
+
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.REMOVED);
+    expect(projectRow(projectIdOf(proj.externalId)).archivedAt).toBeInstanceOf(Date);
+  });
+
+  it('leaves an emptied project alone until the walk’s last page', () => {
+    const proj = project();
+    const a = issue({ projectExternalId: proj.externalId });
+    writer.applyTaskPage(sourceId, page({ projects: [proj], tasks: [a] }));
+
+    // a middle page: the project looks empty, but a later page may move a task back into it
+    writer.applyTaskPage(sourceId, deleteInLinear([a]));
+
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
+  });
+});
+
 describe('SyncWriter — search rebuild', () => {
   it('rebuilding gives the index sync left: inserted, updated, removed, restored and retired', () => {
     const kept = project({ title: 'Platform' });
