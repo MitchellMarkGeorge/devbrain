@@ -116,8 +116,9 @@ export class SyncWriter {
   ): SyncSummary {
     return this.db.transaction((tx) => {
       const write = new PageWrite(tx, this.search, sourceId, this.now());
-      write.upsertProjects(page.projects);
-      write.upsertTasks(page.tasks.filter(keepsTask));
+      const kept = page.tasks.filter(keepsTask);
+      write.upsertProjects(page.projects, kept);
+      write.upsertTasks(kept);
       write.removeTasks([
         ...page.removedIds,
         ...page.tasks.filter((task) => !keepsTask(task)).map((task) => task.externalId),
@@ -145,8 +146,9 @@ export class SyncWriter {
     return this.db.transaction((tx) => {
       const write = new PageWrite(tx, this.search, sourceId, this.now());
       // 1.
-      write.upsertProjects(items.projects);
-      write.upsertTasks(items.tasks.filter(keepsTask));
+      const kept = items.tasks.filter(keepsTask);
+      write.upsertProjects(items.projects, kept);
+      write.upsertTasks(kept);
       write.removeTasks([
         ...items.gone,
         ...items.tasks.filter((task) => !keepsTask(task)).map((task) => task.externalId),
@@ -222,7 +224,7 @@ export class SyncWriter {
 
       // 3.
       const write = new PageWrite(tx, this.search, sourceId, this.now());
-      write.upsertProjects(items.projects);
+      write.upsertProjects(items.projects, items.tasks);
       write.upsertTasks(items.tasks);
       return { ...write.finish(), reattached, promoted };
     });
@@ -373,19 +375,30 @@ class PageWrite {
    * Upserts the page's projects by the link-state table. Runs before `upsertTasks`, so the tasks
    * in the same page can find their project.
    *
+   * A project is mirrored for the tasks sync keeps (`tasks`, those being written alongside): one
+   * that none of them is in is not brought in, nor back. A provider reports the project of every
+   * task it lists, including tasks sync then takes out (hidden while open, reassigned): Linear's
+   * archived issues of a deleted project still name it. Mirroring it then would only add an empty
+   * project, or revive a removed or detached one, for the lifecycle to retire again. A project
+   * already synced is still refreshed, whatever brought it.
+   *
    * 1. Look up the existing links for every project in one query.
-   * 2. Per project: no link → insert; synced and unchanged → touch only; otherwise (changed,
-   *    removed, or detached) → update and restore. A project is only ever detached by sync, when
-   *    it left scope still holding the user's tasks, so it is reattached the moment it returns.
+   * 2. Per project: no link → insert, if a kept task is in it; synced and unchanged → touch only;
+   *    synced and changed → update; removed or detached → update and restore, if a kept task is in
+   *    it. A project is only ever detached by sync, when it left scope still holding the user's
+   *    tasks, so it is reattached the moment one of its tasks returns.
    * 3. Index everything inserted or updated in one batch.
    */
-  upsertProjects(items: ExternalProject[]): void {
+  upsertProjects(items: ExternalProject[], tasks: readonly ExternalTask[]): void {
+    // the projects the kept tasks are in: the only ones brought in or back
+    const needed = new Set(tasks.flatMap((task) => task.projectExternalId ?? []));
     // 1. existing links, by external id
     const links = this.findLinks(items.map((item) => item.externalId));
     const written: Project[] = [];
 
     for (const item of items) {
       const link = links.get(item.externalId);
+      if (!needed.has(item.externalId) && link?.state !== LinkState.SYNCED) continue;
       // what both the insert and the update write to the link
       const linkFields = {
         ...this.linkFields(item, null),
