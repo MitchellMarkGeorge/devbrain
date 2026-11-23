@@ -60,6 +60,7 @@ function NoteEditorLoaded({
     <WorkspaceRichTextEditor
       label="Note"
       value={body.value}
+      revision={body.revision}
       onChange={body.onChange}
       onReady={onReady}
       editable={editable}

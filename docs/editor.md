@@ -8,7 +8,12 @@ descriptions, and read-only synced descriptions. It is built on [TipTap](https:/
 // in a page: the editor acting in the open workspace (shared/components/WorkspaceRichTextEditor.tsx)
 // saved as it is typed, without its own save's refetch putting older text back (shared/hooks/use-autosave.ts)
 const body = useEditorAutosave(content, (markdown) => save(markdown));
-<WorkspaceRichTextEditor label="Note" value={body.value} onChange={body.onChange} />;
+<WorkspaceRichTextEditor
+  label="Note"
+  value={body.value}
+  revision={body.revision}
+  onChange={body.onChange}
+/>;
 ```
 
 - `WorkspaceRichTextEditor` is `RichTextEditor` with the app's pills and actions: its pills are
@@ -29,16 +34,18 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
 - `useEditorAutosave` saves 500ms after typing stops, and at once on leaving the page, on the
   window losing focus and when a workspace switch starts. A save makes core report the entity
   changed, so the text is refetched; by then more may have been typed. The editor is only handed
-  a text it never saved itself (a change from elsewhere), so its own save coming back never
-  overwrites what was typed since. What it was handed last moves with each save, so a change from
-  elsewhere back to the text it opened with (reattaching a task restores Linear's description)
-  still reaches it.
+  a change from elsewhere: a text it didn't save, and not the one it holds (its latest save, or
+  what it was last given). So its own save coming back never overwrites what was typed since.
+  Taking a change bumps `revision`, which makes the editor load `value` even when the string is the
+  one it was last given (reattaching a task restores Linear's description). The hook remembers only
+  the saves still on their way back, not every text it saved: when one comes back, the older ones
+  go, since a newer refetch cancels the one before it.
 
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
   file alone, and undoing back to the start sends `value` exactly as it was stored.
-- A new `value` from outside (the file changed on disk, a sync) replaces the content; markdown the
-  editor sent itself is not loaded again: what it just sent, or an older text it sent since `value`
-  last caught up (a save handed back after more was typed).
+- A new `value` from outside (the file changed on disk, a sync) replaces the content; the markdown
+  the editor just sent is not loaded again. A new `revision` makes it look at `value` again when
+  the string is unchanged. It holds one text, never a history of what it sent.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through

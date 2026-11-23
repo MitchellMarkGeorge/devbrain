@@ -30,6 +30,7 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
       className={className}
       label="Description"
       value={description.value}
+      revision={description.revision}
       editable={!synced}
       placeholder="Add a description…"
       onChange={description.onChange}

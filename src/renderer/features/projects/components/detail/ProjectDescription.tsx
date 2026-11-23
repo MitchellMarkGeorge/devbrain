@@ -31,6 +31,7 @@ export function ProjectDescription({ project }: { project: Project }) {
       className={styles.description}
       label="Description"
       value={description.value}
+      revision={description.revision}
       editable={!synced}
       placeholder="Add a description…"
       onChange={description.onChange}

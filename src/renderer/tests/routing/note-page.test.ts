@@ -153,6 +153,33 @@ describe('the note page', () => {
     );
   });
 
+  it('takes a change made elsewhere back to a text it saved earlier', async () => {
+    const { main, app, store } = notePage('Draft');
+    await eventually(() => expect(app.text()).toContain('Draft'));
+    const editor = editorOf(app.container);
+    const saved = () =>
+      main
+        .callsTo('notes.updateContent')
+        .map((call) => (call.input as { content: string }).content);
+    const reads = () => main.callsTo('notes.readContent').length;
+
+    editor.chain().focus('end').insertContent(' one').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(saved()).toEqual(['Draft one']));
+    editor.chain().focus('end').insertContent(' two').run();
+    window.dispatchEvent(new Event('blur'));
+    const readsBefore = reads();
+    await eventually(() => expect(saved()).toEqual(['Draft one', 'Draft one two']));
+    // the save's refetch has come back: the hook has seen its own echo
+    await eventually(() => expect(reads()).toBeGreaterThan(readsBefore));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // the file reverted on disk to the first save: a change from elsewhere, not an echo
+    store.contents.set(NOTE, 'Draft one');
+    await queryClient.invalidateQueries();
+    await eventually(() => expect(editor.getMarkdown()).toBe('Draft one'));
+  });
+
   it('saves what is still pending when the window loses focus', async () => {
     const { main, app } = notePage('Draft');
     await eventually(() => expect(app.text()).toContain('Draft'));
