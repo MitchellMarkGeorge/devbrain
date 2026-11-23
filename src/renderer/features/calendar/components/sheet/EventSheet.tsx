@@ -569,7 +569,7 @@ function EventDescriptionLoaded({
 }) {
   const pending = useRef<string | null>(null);
   const createTask = useCreateTask();
-  const description = useEditorAutosave(
+  const { initialValue, editor, onChange } = useEditorAutosave(
     eventContentQuery(event.id).queryKey,
     content,
     (markdown) => {
@@ -591,14 +591,14 @@ function EventDescriptionLoaded({
       <WorkspaceRichTextEditor
         className={styles.description}
         label="Description"
-        initialValue={description.initialValue}
-        onReady={description.onReady}
+        initialValue={initialValue}
+        ref={editor}
         editable={editable}
         placeholder="Add a description…"
         openNewTaskDialog={createTask}
         onChange={(markdown) => {
           if (series) pending.current = markdown;
-          else description.onChange(markdown);
+          else onChange(markdown);
         }}
       />
     </div>

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
-import type { Editor } from '@tiptap/core';
-import { loadMarkdown, markdownOf } from '@renderer/editor/RichTextEditor';
+import type { RichTextEditorHandle } from '@renderer/editor/RichTextEditor';
 import { storeContent } from '@renderer/shared/api/content';
 import { useSwitchingWorkspace } from '@renderer/app/hooks/use-switching-workspace';
 
@@ -67,8 +66,8 @@ export function useAutosave<T>(save: (value: T) => void, delay = 500) {
  *
  * The editor is uncontrolled: it starts from `initialValue` and holds its text from then on. The
  * hook keeps one text, its latest save or the last text from outside, and when `remote` differs
- * from it, loads `remote` into the editor (`loadMarkdown`), unless the editor already shows it.
- * Pass `initialValue`, `onReady` and `onChange` to the editor.
+ * from it, loads `remote` into the editor through its handle (`load`), unless the editor already
+ * shows it. Pass `initialValue`, `onChange`, and `editor` as its `ref`, to the editor.
  */
 export function useEditorAutosave(
   queryKey: QueryKey,
@@ -77,31 +76,24 @@ export function useEditorAutosave(
   delay?: number,
 ): {
   initialValue: string;
-  onReady: (editor: Editor) => void;
+  editor: RefObject<RichTextEditorHandle>;
   onChange: (text: string) => void;
   flush: () => void;
 } {
   const queryClient = useQueryClient();
   const [initialValue] = useState(remote);
-  const editor = useRef<Editor | null>(null);
+  const editor = useRef<RichTextEditorHandle>(null);
   // the latest text saved, or the last one from outside
   const held = useRef(remote);
 
-  // The editor reports itself before this runs, as a child's effects run first: also one made in
-  // this very commit (a synced description, left out while empty, that a sync has just filled).
-  // One left out since (emptied) is destroyed.
+  // React sets the editor's handle before it runs effects: also for one made in this very commit
+  // (a synced description, left out while empty, that a sync has just filled). One left out since
+  // (emptied) has none.
   useEffect(() => {
     if (remote === held.current) return;
     held.current = remote;
-    const current = editor.current;
-    if (current && !current.isDestroyed && markdownOf(current) !== remote) {
-      loadMarkdown(current, remote);
-    }
+    if (editor.current && editor.current.markdown() !== remote) editor.current.load(remote);
   }, [remote]);
-
-  const onReady = useCallback((instance: Editor) => {
-    editor.current = instance;
-  }, []);
 
   const { schedule, flush } = useAutosave((text: string) => {
     const stored = save(text) ?? text;
@@ -109,5 +101,5 @@ export function useEditorAutosave(
     held.current = stored;
     storeContent(queryClient, queryKey, stored);
   }, delay);
-  return { initialValue, onReady, onChange: schedule, flush };
+  return { initialValue, editor, onChange: schedule, flush };
 }

@@ -33,24 +33,28 @@ function TaskDescriptionLoaded({
   const showError = useMutationErrorToast();
   const createTask = useCreateTask();
   const synced = isSynced(task);
-  const description = useEditorAutosave(taskContentQuery(task.id).queryKey, content, (markdown) => {
-    const blank = markdown.trim() === '';
-    ipc.tasks.update
-      .mutate({ id: task.id, description: blank ? null : markdown })
-      .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
-    // a blank description is stored as none, and comes back as ''
-    return blank ? '' : markdown;
-  });
+  const { initialValue, editor, onChange } = useEditorAutosave(
+    taskContentQuery(task.id).queryKey,
+    content,
+    (markdown) => {
+      const blank = markdown.trim() === '';
+      ipc.tasks.update
+        .mutate({ id: task.id, description: blank ? null : markdown })
+        .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
+      // a blank description is stored as none, and comes back as ''
+      return blank ? '' : markdown;
+    },
+  );
   if (synced && !content) return null;
   return (
     <WorkspaceRichTextEditor
       className={className}
       label="Description"
-      initialValue={description.initialValue}
-      onReady={description.onReady}
+      initialValue={initialValue}
+      ref={editor}
       editable={!synced}
       placeholder="Add a description…"
-      onChange={description.onChange}
+      onChange={onChange}
       newTaskOptions={{ projectId: task.projectId }}
       openNewTaskDialog={createTask}
     />

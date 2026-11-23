@@ -52,20 +52,22 @@ function NoteEditorLoaded({
   const createTask = useCreateTask();
   // a task made from the note's text is linked to the note, in its project (the page has read it)
   const projectId = useQuery(trpc.notes.get.queryOptions({ id: noteId })).data?.projectId;
-  const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, (markdown) => {
-    ipc.notes.updateContent
-      .mutate({ id: noteId, content: markdown })
-      .catch((error: unknown) => showError(error, 'Couldn’t save the note'));
-  });
+  const { initialValue, editor, onChange } = useEditorAutosave(
+    noteContentQuery(noteId).queryKey,
+    content,
+    (markdown) => {
+      ipc.notes.updateContent
+        .mutate({ id: noteId, content: markdown })
+        .catch((error: unknown) => showError(error, 'Couldn’t save the note'));
+    },
+  );
   return (
     <WorkspaceRichTextEditor
       label="Note"
-      initialValue={body.initialValue}
-      onChange={body.onChange}
-      onReady={(editor) => {
-        body.onReady(editor);
-        onReady?.(editor);
-      }}
+      initialValue={initialValue}
+      onChange={onChange}
+      ref={editor}
+      onReady={onReady}
       editable={editable}
       newTaskOptions={{ projectId, linkedNoteId: noteId }}
       openNewTaskDialog={createTask}

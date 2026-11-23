@@ -27,7 +27,7 @@ function ProjectDescriptionLoaded({ project, content }: { project: Project; cont
   const createTask = useCreateTask();
   const synced = isSynced(project);
   const queryKey = projectContentQuery(project.id).queryKey;
-  const description = useEditorAutosave(queryKey, content, (markdown) => {
+  const { initialValue, editor, onChange } = useEditorAutosave(queryKey, content, (markdown) => {
     const blank = markdown.trim() === '';
     ipc.projects.update
       .mutate({ id: project.id, description: blank ? null : markdown })
@@ -40,11 +40,11 @@ function ProjectDescriptionLoaded({ project, content }: { project: Project; cont
     <WorkspaceRichTextEditor
       className={styles.description}
       label="Description"
-      initialValue={description.initialValue}
-      onReady={description.onReady}
+      initialValue={initialValue}
+      ref={editor}
       editable={!synced}
       placeholder="Add a description…"
-      onChange={description.onChange}
+      onChange={onChange}
       newTaskOptions={{ projectId: project.id }}
       openNewTaskDialog={createTask}
     />

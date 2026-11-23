@@ -8,12 +8,16 @@ descriptions, and read-only synced descriptions. It is built on [TipTap](https:/
 // in a page: the editor acting in the open workspace (shared/components/WorkspaceRichTextEditor.tsx),
 // reading its content query (shared/api/content.ts) and saved as it is typed (shared/hooks/use-autosave.ts)
 const content = useQuery(noteContentQuery(noteId)).data; // primed by the page's loader
-const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, save);
+const { initialValue, editor, onChange } = useEditorAutosave(
+  noteContentQuery(noteId).queryKey,
+  content,
+  save,
+);
 <WorkspaceRichTextEditor
   label="Note"
-  initialValue={body.initialValue}
-  onReady={body.onReady}
-  onChange={body.onChange}
+  initialValue={initialValue}
+  ref={editor}
+  onChange={onChange}
 />;
 ```
 
@@ -37,12 +41,17 @@ const body = useEditorAutosave(noteContentQuery(noteId).queryKey, content, save)
   which only a change from outside the editor refetches (below).
 - The editor is **uncontrolled**: `initialValue` is read once, when it is made, and the editor
   holds its text from then on; a later `initialValue` changes nothing. A text from outside (a sync,
-  a reattach) is loaded with `loadMarkdown(editor, text)`, on the editor `onReady` gives: it
-  replaces the content without counting as an edit, and the next edit starts an undo step of its
-  own. In a page, `useEditorAutosave` does this (below).
+  a reattach) is loaded through its handle, its `ref` (`RichTextEditorHandle.load`): it replaces
+  the content without counting as an edit, and the next edit starts an undo step of its own. In a
+  page, `useEditorAutosave` does this (below). Destructure what the hook returns: React's lint
+  takes an object one of whose values is passed as a `ref` for a ref, and refuses to read it
+  while rendering.
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
-  file alone, and undoing back to the text last loaded sends it exactly as it was stored
-  (`markdownOf`), not in the editor's own spelling.
+  file alone, and undoing back to the text last loaded sends it exactly as it was stored, not in
+  the editor's own spelling: markdown has several spellings for one thing (`* one` and `- one`)
+  and the editor writes only its own, so it remembers the text it loaded and its own markdown for
+  it (its baseline), and sends the stored text while the content is still that (see "What a save
+  changes"). `RichTextEditorHandle.markdown()` gives the same text.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through
@@ -110,7 +119,7 @@ then. The sheets load it as they draw.
   from this renderer, and anything else that rewrites the text is from outside by definition.
 - **So the hook holds one text**: its latest save, or the last text from outside. When the
   content query's text differs from it, the change is from outside, and the hook loads it into the
-  editor (`loadMarkdown`), unless the editor already shows it. Reattaching a task after an edit
+  editor (its handle's `load`), unless the editor already shows it (its handle's `markdown()`). Reattaching a task after an edit
   restores Linear's description, though it is the very text the editor opened with. Nothing of the
   editor's own comes back later to be told apart from a change.
 - **A save cancels a refetch in flight** on its content query: one for a change from outside that

@@ -1,5 +1,9 @@
-import { useCallback } from 'react';
-import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
+import { forwardRef, useCallback } from 'react';
+import {
+  RichTextEditor,
+  type RichTextEditorHandle,
+  type RichTextEditorProps,
+} from '@renderer/editor/RichTextEditor';
 import type { EditorHost } from '@renderer/editor/types';
 import { useOpenEntity } from '../hooks/use-open-entity';
 import {
@@ -28,11 +32,10 @@ export interface WorkspaceRichTextEditorProps extends Omit<
  * task (`openNewTaskDialog`) with them filled in. Every page's editor is one;
  * Storybook and the editor's tests render RichTextEditor with their own host.
  */
-export function WorkspaceRichTextEditor({
-  newTaskOptions,
-  openNewTaskDialog,
-  ...props
-}: WorkspaceRichTextEditorProps) {
+export const WorkspaceRichTextEditor = forwardRef<
+  RichTextEditorHandle,
+  WorkspaceRichTextEditorProps
+>(function WorkspaceRichTextEditor({ newTaskOptions, openNewTaskDialog, ...props }, ref) {
   const workspace = useWorkspaceEditorHost(newTaskOptions, openNewTaskDialog);
   const openEntity = useOpenEntity();
   const onOpenEntity = useCallback<NonNullable<EditorHost['onOpenEntity']>>(
@@ -43,8 +46,9 @@ export function WorkspaceRichTextEditor({
     <RichTextEditor
       {...props}
       {...workspace}
+      ref={ref}
       entityPill={WorkspaceEntityPill}
       onOpenEntity={onOpenEntity}
     />
   );
-}
+});

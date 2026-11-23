@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Editor } from '@tiptap/core';
 import { TaskStatus } from '@common/types';
 import {
-  loadMarkdown,
-  markdownOf,
   RichTextEditor,
+  type RichTextEditorHandle,
   type RichTextEditorProps,
 } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
@@ -20,6 +19,8 @@ const STORED = '* one\n* two\n\n__bold__ & <b>raw</b>';
 let container: HTMLDivElement;
 let root: Root;
 let editor: Editor;
+// the editor's handle, as a page holds it
+const handle = createRef<RichTextEditorHandle>();
 
 function render(props: Partial<RichTextEditorProps>) {
   act(() => {
@@ -27,6 +28,7 @@ function render(props: Partial<RichTextEditorProps>) {
       createElement(RichTextEditor, {
         initialValue: STORED,
         label: 'Note',
+        ref: handle,
         onReady: (instance: Editor) => (editor = instance),
         ...props,
       }),
@@ -79,7 +81,7 @@ describe('RichTextEditor', () => {
     expect(editor.state.selection.from).toBe(selection);
   });
 
-  it('loads a text from outside without reporting it as an edit, and undoes back to it exactly', () => {
+  it('loads a text from outside through its handle, without reporting it as an edit, and undoes back to it exactly', () => {
     const onChange = vi.fn();
     render({ onChange, initialValue: 'From Linear' });
     act(() => {
@@ -88,11 +90,11 @@ describe('RichTextEditor', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
 
     // a reattach restores the provider's text: the very text the editor opened with
-    act(() => loadMarkdown(editor, STORED));
+    act(() => handle.current!.load(STORED));
     expect(editor.getMarkdown()).toBe('- one\n- two\n\n**bold** & <b>raw</b>');
     expect(onChange).toHaveBeenCalledTimes(1);
     // it stands for the text as given, not the editor's spelling of it
-    expect(markdownOf(editor)).toBe(STORED);
+    expect(handle.current!.markdown()).toBe(STORED);
 
     act(() => {
       editor.chain().focus('end').insertContent('!').run();
