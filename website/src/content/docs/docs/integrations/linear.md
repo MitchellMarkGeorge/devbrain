@@ -69,7 +69,8 @@ status maps to **Not started** (Backlog, Planned), **Active** (Started), **On ho
 In the Projects list and at the top of its page, a synced project shows a **Linear** pill. Point at
 it to see when it last synced.
 
-When none of your issues are in a project any more, or it's deleted in Linear, it leaves DevBrain.
+When none of your issues are in a project any more, or it's deleted in Linear, it leaves DevBrain
+at the next sync.
 If you've put your own tasks in it, it stays instead, as a local project of yours.
 
 ## What you can do with them in DevBrain

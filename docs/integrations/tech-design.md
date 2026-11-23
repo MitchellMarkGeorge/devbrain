@@ -150,9 +150,10 @@ interface Provider {
 interface TaskSource {
   // one page of the viewer's assigned tasks matching the query
   getAssignedTaskPage(auth: Auth, query: AssignedTasksQuery): Promise<AssignedTaskPage>;
-  // ids of the viewer's open assigned tasks
+  // ids of the viewer's open assigned tasks that are live: hidden (archived) ones left out
   listOpenAssignedTaskIds(auth: Auth): Promise<string[]>;
-  // each id sorted into found, gone (missing or trashed) or unreadable, plus the found tasks' projects
+  // each id sorted into found (hidden ones too, flagged), gone (missing or trashed) or unreadable,
+  // plus the found tasks' projects
   resolveTasks(auth: Auth, ids: string[]): Promise<TaskResolution>;
   resolveProjects(auth: Auth, ids: string[]): Promise<Resolution<ExternalProject>>;
 }
@@ -166,7 +167,7 @@ interface AssignedTasksQuery {
 interface AssignedTaskPage {
   tasks: ExternalTask[];
   projects: ExternalProject[]; // the page's tasks' projects, each once
-  trashedIds: string[];
+  trashedIds: string[]; // deleted (in the provider's trash); hidden ones are in tasks, flagged
   skipped: number;
   latestChange: string | null; // latest updatedAt or archivedAt on the page (archiving counts)
   nextPageToken: string | null;
@@ -402,7 +403,7 @@ The raw label is kept, so "Urgent" still displays as urgent.
 
 **Local tasks in mirrored projects.** A local task can be created in, or moved into, a mirrored project. This covers work only the user is tracking alongside the team's issues. Such a task is local in every respect: editable, never sent to Linear, and untouched by sync. It counts in the project's stats and is marked as local in the project view.
 
-**Project lifecycle.** A mirrored project leaves scope when it is deleted or removed in Linear, or when none of the user's mirrored issues belong to it any more. What happens next depends on whether it holds local or detached tasks.
+**Project lifecycle.** A mirrored project leaves scope when it is deleted in Linear (gone), or when none of the user's synced issues belong to it any more (empty). Sync checks each where it can tell: the empty check (`SyncWriter.retireEmptyProjects`) reads DevBrain's own rows, so it runs on the last page of every completed run's walk, once every page is applied, and at the end of each reconcile pass. Never between pages, where a project can look empty while its issues move. The gone check (`retireGoneProjects`) needs the provider's answer, so only the reconcile pass runs it, first: a gone project's synced issues move out of it, then it is retired. Deleting a project in Linear archives its issues and drops the project from them, so it is usually found empty by the run that sees its issues change, without waiting for reconcile. What happens next depends on whether it holds local or detached tasks.
 
 - **It holds local or detached tasks: the project is detached.** Its link moves to `detached` and it becomes a normal local project: editable, no longer updated by sync, with a "Detached from Linear" badge. The user's own tasks keep their home.
 - **It holds none: the project is archived.** Its link is marked `removed`. It is archived, not deleted, so notes filed under it keep their link.
@@ -459,7 +460,7 @@ Local subtasks inherit links from their parent. External subtasks do not; each c
 - **Detach** sets the link state to `detached`. The row becomes a normal local task: editable, archivable, skipped by sync. The badge changes to "Detached from ENG-123". Detaching a parent detaches its subtree.
 - **Reattach** sets the state back to `synced` and forces a refresh of that one issue. Local edits to provider-owned fields are overwritten, after a confirmation. Links and the task note are kept.
 - A detached task stays in its mirrored project and counts as a reason to keep that project.
-- Reattach fails with a clear message if the issue no longer exists or the integration is gone.
+- Reattach fails with a clear message if the issue was deleted ("because it was deleted"), archived while open ("because it was archived": see "Where an item is"), is no longer assigned to the user, or the integration is gone. A completed issue Linear archived can be reattached, as sync keeps it.
 
 ## External events
 
@@ -583,7 +584,7 @@ The UI shows "Syncing Linear, 150 issues so far" during the first pass. Items ap
 
 **Incremental sync (Linear)**
 
-One query per run: issues assigned to the viewer with `updatedAt` or `archivedAt` greater than the cursor, archived ones included. It catches new assignments, edits, completions and trashing; trashing archives an issue without changing `updatedAt`, so the `archivedAt` check is what sees it, and the trashed issue comes back flagged and is removed. The cursor is stored with a 60-second overlap; upserts are idempotent, so re-reading a few items is harmless.
+One query per run: issues assigned to the viewer with `updatedAt` or `archivedAt` greater than the cursor, archived ones included. It catches new assignments, edits, completions, deletions and archiving; deleting (trashing) or archiving sets `archivedAt` without changing `updatedAt`, so the `archivedAt` check is what sees them. A deleted issue comes back flagged `trashed` and is removed; an archived one comes back `hidden`, and is removed while open and kept once closed ("Where an item is"). The walk's last page then retires the projects its pages left empty. The cursor is stored with a 60-second overlap; upserts are idempotent, so re-reading a few items is harmless.
 
 This query cannot see an issue that was reassigned away or deleted, because such an issue no longer matches the assignee filter. Nor can it see an issue restored from the trash: restoring clears `archivedAt` and leaves `updatedAt` unchanged, so nothing about the issue is newer than the cursor. Those are found by the reconcile pass below, not by querying mirrored ids on every run. An id list sent every 5 minutes would grow with the user's history.
 
@@ -605,17 +606,17 @@ The watched set is therefore the open assigned issues DevBrain mirrors. Issues c
 2. Compare with the watched links: `synced`, not settled, and open locally. Closed tasks are never compared, even those closed in the last 30 days. A watched link missing from the snapshot is a candidate. In the other direction, a snapshot id with no `synced` link (its link is `removed`, or it has none) is a returning issue, such as one restored from the trash. `detached` links are skipped either way.
 3. Fetch the candidates and returning issues by id, in batches of 100, including archived issues.
 4. Fetch the source's mirrored projects by id, in batches of 100, on every pass. Incremental sync queries issues only and sees a project only inside a changed issue, so this is what brings in a project renamed, given a new status or dates, or deleted while its issues stay the same.
-5. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link. Fetched projects are updated, and those that no longer resolve are retired like empty ones.
-6. Archive mirrored projects that no longer have tasks, and mark closed issues past the 30-day window as settled.
+5. Apply the result: completed or cancelled issues are updated, reassigned ones and open ones archived (hidden) are removed, ids that no longer resolve or come back trashed were deleted and are removed, and returning issues are upserted, which restores a `removed` link. Fetched projects are updated.
+6. Mark closed issues past the 30-day window as settled, then retire projects: those that no longer resolve or come back trashed (`retireGoneProjects`), then those with no synced issues left (`retireEmptyProjects`, which the incremental run also does).
 
 Cost scales with the number of open assigned issues and mirrored projects, not with everything ever mirrored. Most passes find no candidates, so after the snapshot they make one request, for the projects, and none for a source that mirrors no projects.
 
-| Linear run  | When                                                                              | Catches                                                                                                                              |
-| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Incremental | Every 5 minutes, on focus                                                         | New assignments, edits, completions, trashing                                                                                        |
-| Reconcile   | Every 30 minutes, on workspace open, on "Sync now", when a source resumes syncing | Open issues reassigned away or deleted; restored from the trash; empty projects, project edits and deletions; trashing as a backstop |
+| Linear run  | When                                                                              | Catches                                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Incremental | Every 5 minutes, on focus                                                         | New assignments, edits, completions, deletions and archiving; projects left empty                                              |
+| Reconcile   | Every 30 minutes, on workspace open, on "Sync now", when a source resumes syncing | Open issues reassigned away, deleted or archived; restored from the trash; project edits and deletions; the rest as a backstop |
 
-The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand, and so does a source resuming after being switched off or reconnected, when the gap can be much longer than 30 minutes. A project edited or deleted in Linear while its issues stay the same also shows within 30 minutes.
+The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand, and so does a source resuming after being switched off or reconnected, when the gap can be much longer than 30 minutes. A project edited in Linear while its issues stay the same also shows within 30 minutes. A deleted one usually leaves with its issues, in the run that sees them archived; one deleted while its issues somehow keep it waits for the reconcile pass's gone check.
 
 **Initial and incremental sync (Google Calendar)**
 
@@ -748,6 +749,7 @@ interface ExternalTask {
   parentTitle: string | null;
   projectExternalId: string | null;
   assignedToViewer: boolean; // false in a resolved task means "remove"
+  hidden: boolean; // put away by the provider but kept (Linear: archived); see "Where an item is"
 }
 
 interface ExternalProject {
@@ -908,6 +910,7 @@ Checked against each provider's documentation on 6 October 2026. Items marked "f
 | Pagination            | `first` and `after`; `pageInfo { hasNextPage endCursor }`; default page size 50                                                                                                                                                                                                                                                                                               | [Pagination](https://linear.app/developers/pagination)              |
 | Ordering              | `orderBy: updatedAt` or `createdAt` (default)                                                                                                                                                                                                                                                                                                                                 | [Pagination](https://linear.app/developers/pagination)              |
 | Archived items        | Hidden unless `includeArchived: true` is passed                                                                                                                                                                                                                                                                                                                               | [Getting started](https://linear.app/developers/graphql)            |
+| Archive and delete    | Linear archives closed issues itself, after the team's period, and a deleted project's issues, open ones too, dropping the project from them; nothing can be archived by hand. Deleting an issue or project puts it in Recently deleted for 30 days (`trashed`, with `archivedAt` set), then removes it for good. See "Where an item is"                                      |
 | Filters               | `state: { type: { in: [...] } }`, `updatedAt: { gt: "<ISO>" }`, `id: { in: [...] }`, `or: [...]`; several fields in one filter are combined with AND                                                                                                                                                                                                                          | [Filtering](https://linear.app/developers/filtering)                |
 | Relative dates        | ISO 8601 durations, such as `completedAt: { gt: "-P30D" }`                                                                                                                                                                                                                                                                                                                    | [Filtering](https://linear.app/developers/filtering)                |
 | OAuth endpoints       | Authorize `https://linear.app/oauth/authorize`; token `https://api.linear.app/oauth/token`; revoke `https://api.linear.app/oauth/revoke`                                                                                                                                                                                                                                      | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
