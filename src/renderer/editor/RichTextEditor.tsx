@@ -22,8 +22,9 @@ import styles from './RichTextEditor.module.css';
  * - `value` is the markdown as stored. `onChange` hears the markdown after each edit, and never on
  *   load: opening a note and closing it again leaves its file alone. Undoing back to the start
  *   gives back `value` exactly, not the editor's own spelling of it.
- * - A new `value` from outside (the file changed on disk, a sync) replaces the content unless it is
- *   what the editor last sent.
+ * - A new `value` from outside (the file changed on disk, a sync) replaces the content unless the
+ *   editor sent it: what it last sent, or an older text it sent since `value` last caught up (a
+ *   save handed back after more was typed).
  * - Links open through `onOpenUrl` (safe http/https only), with ⌘/Ctrl-click while editing and a
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
  * - Each entity link is drawn by `entityPill`, which finds its entity (the app's reads React
@@ -78,6 +79,10 @@ export function RichTextEditor({
   // the markdown the content stands for: `value` as loaded, or the last sent through onChange, so
   // the parent passing it back is not loaded again
   const shown = useRef(value);
+  // every markdown sent through onChange since `value` last caught up with `shown`: the parent may
+  // pass back one it saved before more was typed, which is the editor's own and older, not a
+  // change from elsewhere
+  const sent = useRef(new Set<string>());
 
   const editor = useEditor({
     extensions,
@@ -109,6 +114,7 @@ export function RichTextEditor({
       // back to how it was loaded: the stored text, unchanged
       const next = markdown === baseline.current?.markdown ? baseline.current.value : markdown;
       shown.current = next;
+      sent.current.add(next);
       onChange?.(next);
     };
     editor.on('update', send);
@@ -117,11 +123,15 @@ export function RichTextEditor({
     };
   }, [editor, onChange]);
 
-  // a value from outside replaces the content, without counting as an edit
+  // a value from outside replaces the content, without counting as an edit; one the editor sent
+  // itself, now or before what was typed since, does not
   useEffect(() => {
-    if (value !== shown.current) {
+    if (value === shown.current) {
+      sent.current.clear();
+    } else if (!sent.current.has(value)) {
       editor.commands.setContent(value, { contentType: 'markdown', emitUpdate: false });
       shown.current = value;
+      sent.current.clear();
       baseline.current = null;
     }
     baseline.current ??= { value, markdown: editor.getMarkdown() };

@@ -195,6 +195,54 @@ describe('the task page', () => {
     expect(properties.querySelector('[aria-label="Low priority"]')).toBeNull();
   });
 
+  it('shows the provider’s description again at once when a task is reattached after an edit', async () => {
+    const external = (state: LinkState) => ({
+      provider: Provider.LINEAR,
+      state,
+      key: 'MIT-1',
+      url: 'https://linear.app/x/issue/MIT-1',
+      statusLabel: null,
+      priorityLabel: null,
+      lastSyncedAt: new Date(),
+    });
+    const detached = fakeTask('tsk_mine', 'Detached task', {
+      description: 'From Linear',
+      external: external(LinkState.DETACHED),
+    });
+    const tasks = new FakeTasks([detached]);
+    const main = mainWith(tasks);
+    // a copy each time, as IPC sends one: never the stored row, which the edits change in place
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    // reattaching puts Linear's description back: the very text the page opened with
+    main.routes.set('tasks.reattach', () => [
+      tasks.patch(detached.id, {
+        description: 'From Linear',
+        external: external(LinkState.SYNCED),
+      }),
+      ['task'],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${detached.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(description()?.textContent).toBe('From Linear'));
+
+    (description() as unknown as { editor: Editor }).editor
+      .chain()
+      .focus('end')
+      .insertContent(' edited')
+      .run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(1));
+
+    click(document.querySelector('[aria-label="More actions"]'));
+    click(await menuItem('Reattach to Linear'));
+    await eventually(() => expect(main.callsTo('tasks.reattach')).toHaveLength(1));
+    await eventually(() => expect(description()?.textContent).toBe('From Linear'));
+  });
+
   it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {
     const linked = fakeTask('tsk_linked', 'Write the guide', {
       linkedNoteId: 'nte_guide' as never,

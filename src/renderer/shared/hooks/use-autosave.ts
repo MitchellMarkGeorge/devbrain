@@ -57,8 +57,10 @@ export function useAutosave<T>(save: (value: T) => void, delay = 500) {
  * more, and handing it to the editor would put the older text back.
  *
  * So `value` (what the editor is given) follows `remote` only when it changes to a text this
- * editor never saved: a change from elsewhere (the file edited on disk, a sync, another window).
- * Its own saves coming back leave `value` alone, and the editor keeps what it holds. Pass
+ * editor never saved: a change from elsewhere (the file edited on disk, a sync, a reattach,
+ * another window). Its own saves coming back leave `value` alone, and the editor keeps what it
+ * holds. Each save also moves `value` to the text saved, which the editor already shows, so a
+ * change from elsewhere back to the text it opened with still reaches it. Pass
  * `onChange` to the editor. A `save` that stores the text in another form (a blank description as
  * none) returns that form, so it is known as its own when it comes back.
  */
@@ -78,6 +80,10 @@ export function useEditorAutosave(
     saved.add(text);
     const stored = save(text);
     if (stored !== undefined) saved.add(stored);
+    // `value` moves to what the editor holds, which it already shows, so it doesn't load it again.
+    // Left at the text it opened with, a change from elsewhere back to that very text (a reattach
+    // restoring the provider's description) would equal `value` and never reach the editor
+    setValue(text);
   }, delay);
   return { value, onChange: schedule, flush };
 }

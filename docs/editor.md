@@ -30,12 +30,15 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   window losing focus and when a workspace switch starts. A save makes core report the entity
   changed, so the text is refetched; by then more may have been typed. The editor is only handed
   a text it never saved itself (a change from elsewhere), so its own save coming back never
-  overwrites what was typed since.
+  overwrites what was typed since. What it was handed last moves with each save, so a change from
+  elsewhere back to the text it opened with (reattaching a task restores Linear's description)
+  still reaches it.
 
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
   file alone, and undoing back to the start sends `value` exactly as it was stored.
-- A new `value` from outside (the file changed on disk, a sync) replaces the content; the markdown
-  the editor just sent is not loaded again.
+- A new `value` from outside (the file changed on disk, a sync) replaces the content; markdown the
+  editor sent itself is not loaded again: what it just sent, or an older text it sent since `value`
+  last caught up (a save handed back after more was typed).
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through
