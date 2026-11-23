@@ -8,7 +8,7 @@ import { PROJECT_STATUS_LABELS, ProjectStatusIcon } from '../../entities/Project
 import { useFormat } from '../../lib/format';
 import { PillHoverCard } from '../../entities/EntityHoverCard';
 import { SourcePill } from '../../entities/SourcePill';
-import { dateTone, PROVIDER_LABELS, providerOf } from '../../types';
+import { dateTone, isDetached, PROVIDER_LABELS, providerOf } from '../../types';
 import styles from './ProjectHeader.module.css';
 
 /** The fields of core's `Project` the header reads. */
@@ -79,7 +79,7 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
       <div className={styles.properties}>
         {external && (
           <PillHoverCard target={{ type: 'source', title: project.title, external }}>
-            <SourcePill provider={provider}>
+            <SourcePill provider={provider} detached={isDetached(project)}>
               {provider ? PROVIDER_LABELS[provider] : 'Synced'}
             </SourcePill>
           </PillHoverCard>

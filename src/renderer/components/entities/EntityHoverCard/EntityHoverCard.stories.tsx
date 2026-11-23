@@ -160,6 +160,29 @@ export const Source: Story = {
   },
 };
 
+/** A detached task's key: it no longer follows Linear, so no status there and no sync time. */
+export const DetachedSource: Story = {
+  args: {
+    defaultOpen: true,
+    entity: {
+      type: 'source',
+      title: 'Fix the token refresh race',
+      external: { ...LINEAR, state: LinkState.DETACHED },
+    },
+    actions: (
+      <>
+        <Button size="xs" icon={ExternalLink}>
+          Open in Linear
+        </Button>
+        <Button size="xs" variant="ghost" icon={Copy}>
+          Copy URL
+        </Button>
+      </>
+    ),
+    children: <SourcePill detached>ENG-124</SourcePill>,
+  },
+};
+
 const SUBTASKS = {
   type: 'subtasks',
   subtaskProgress: { completed: 2, total: 7 },

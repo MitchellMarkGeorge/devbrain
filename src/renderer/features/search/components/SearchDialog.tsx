@@ -37,6 +37,7 @@ import {
   EmptyState,
   Icon,
   Kbd,
+  isDetached,
   providerOf,
   resolveColor,
   SourcePill,
@@ -511,5 +512,9 @@ function entityIcon(
 // a synced item's key ("ENG-124") as its source pill; none for a local one or one with no key
 function sourcePill(external: ExternalRef | null | undefined): ReactNode {
   if (!external?.key) return undefined;
-  return <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>;
+  return (
+    <SourcePill provider={providerOf(external)} detached={isDetached({ external })}>
+      {external.key}
+    </SourcePill>
+  );
 }

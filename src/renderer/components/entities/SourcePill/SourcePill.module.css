@@ -2,3 +2,16 @@
 .source {
   flex: none;
 }
+/* a detached copy: the provider's mark at half strength, then an unlink glyph, 2px apart */
+.detachedMarks {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+.detachedMarks > :first-child {
+  opacity: 0.5;
+}
+.unlink {
+  color: var(--muted-foreground);
+}

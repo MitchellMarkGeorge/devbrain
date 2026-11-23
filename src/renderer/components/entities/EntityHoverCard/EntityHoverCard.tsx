@@ -36,6 +36,7 @@ import {
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
   PROVIDER_LABELS,
+  isDetached,
   providerOf,
   resolveColor,
   subtasksDoneLabel,
@@ -57,7 +58,7 @@ export type HoverCardEntity =
   /** its priority, due date, subtasks done (a ring pill) and key as pills */
   | ({ type: 'task' } & Pick<Task, 'title' | 'status' | 'priority' | 'dueDate'> & {
         subtaskProgress?: SubtaskProgress | null;
-        external?: Pick<ExternalRef, 'provider' | 'key'> | null;
+        external?: Pick<ExternalRef, 'provider' | 'key' | 'state'> | null;
       })
   /** when it was edited, its project and its first lines */
   | ({ type: 'note' } & Pick<NoteListItem, 'title' | 'preview' | 'updatedAt'> & {
@@ -70,7 +71,7 @@ export type HoverCardEntity =
     >)
   /** a synced task's key: its status in the provider and when it last synced */
   | ({ type: 'source' } & Pick<Task, 'title'> & {
-        external: Pick<ExternalRef, 'provider' | 'key' | 'statusLabel' | 'lastSyncedAt'>;
+        external: Pick<ExternalRef, 'provider' | 'key' | 'state' | 'statusLabel' | 'lastSyncedAt'>;
       })
   /**
    * a task's subtask count: how many are done, then its subtasks (`tasks.subtasks`, cancelled ones
@@ -218,7 +219,9 @@ function usePartsOf(entity: HoverCardEntity): Parts {
               </EntityPill>
             )}
             {entity.external?.key && (
-              <SourcePill provider={providerOf(entity.external)}>{entity.external.key}</SourcePill>
+              <SourcePill provider={providerOf(entity.external)} detached={isDetached(entity)}>
+                {entity.external.key}
+              </SourcePill>
             )}
           </>
         ),
@@ -257,6 +260,12 @@ function usePartsOf(entity: HoverCardEntity): Parts {
       const { external } = entity;
       const provider = providerOf(external);
       const name = provider ? PROVIDER_LABELS[provider] : undefined;
+      // a detached copy no longer follows its provider: its status there and the last sync are stale
+      if (isDetached(entity)) {
+        return {
+          meta: [name ? `Detached from ${name}` : 'Detached', 'Edits stay in DevBrain'],
+        };
+      }
       return {
         meta: [
           external.statusLabel &&
