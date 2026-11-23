@@ -204,6 +204,13 @@
       "when": 1795413221494,
       "tag": "0028_top_level_synced_subtasks_of_unsynced_parents",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1795446176209,
+      "tag": "0029_detach_removed_rows_restored_from_the_trash",
+      "breakpoints": true
     }
   ]
 }

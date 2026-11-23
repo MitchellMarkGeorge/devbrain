@@ -561,6 +561,50 @@ describe('migration 0028 — synced sub-issues of a parent that is not synced', 
   });
 });
 
+describe('migration 0029 — removed rows restored from the trash', () => {
+  it('detaches the removed tasks and projects out of the trash, leaving the rest', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(28) });
+    sqlite.exec(`
+      INSERT INTO projects (id, title, archived_at) VALUES
+        ('prj_restored', 'Restored the old way', NULL),
+        ('prj_trashed', 'In the trash', 1000);
+      INSERT INTO tasks (id, title, archived_at) VALUES
+        ('tsk_restored', 'test 5', NULL),
+        ('tsk_trashed', 'In the trash', 1000),
+        ('tsk_synced', 'Synced', NULL);
+      INSERT INTO events (id, title, start_at, end_at) VALUES ('evt_hidden', 'Hidden', 1000, 2000);
+    `);
+    const link = (column: string, id: string, state: string) =>
+      `INSERT INTO external_links (id, provider, ${column}, external_id, external_url,
+         external_updated_at, state, metadata, last_synced_at, removed_at)
+       VALUES ('lnk_${id}', 'linear', '${id}', '${id}', 'https://linear.app/${id}', 1000,
+         '${state}', '{}', 1000, ${state === 'removed' ? 2000 : 'NULL'});`;
+    sqlite.exec(`
+      ${link('project_id', 'prj_restored', 'removed')}
+      ${link('project_id', 'prj_trashed', 'removed')}
+      ${link('task_id', 'tsk_restored', 'removed')}
+      ${link('task_id', 'tsk_trashed', 'removed')}
+      ${link('task_id', 'tsk_synced', 'synced')}
+      ${link('event_id', 'evt_hidden', 'removed')}
+    `);
+
+    runMigrations(sqlite, db, migrationsUpTo(29));
+
+    expect(
+      sqlite.prepare(`SELECT id, state, removed_at FROM external_links ORDER BY id`).all(),
+    ).toEqual([
+      { id: 'lnk_evt_hidden', state: 'removed', removed_at: 2000 },
+      { id: 'lnk_prj_restored', state: 'detached', removed_at: null },
+      { id: 'lnk_prj_trashed', state: 'removed', removed_at: 2000 },
+      { id: 'lnk_tsk_restored', state: 'detached', removed_at: null },
+      { id: 'lnk_tsk_synced', state: 'synced', removed_at: null },
+      { id: 'lnk_tsk_trashed', state: 'removed', removed_at: 2000 },
+    ]);
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {
