@@ -114,11 +114,11 @@ export function RichTextEditor({
     };
   }, [editor, onChange]);
 
-  // the first text, as loaded: before any edit can be sent
-  const [initial] = useState(initialValue);
+  // the first text, as loaded, before any edit can be sent; set once, so a later `initialValue`
+  // changes nothing
   useEffect(() => {
-    if (!editor.storage.loadedMarkdown.baseline) setBaseline(editor, initial);
-  }, [editor, initial]);
+    if (!editor.storage.loadedMarkdown.baseline) setBaseline(editor, initialValue);
+  }, [editor, initialValue]);
 
   useEffect(() => {
     onReady?.(editor);
