@@ -32,8 +32,7 @@ it.
 
 - **Only from the trash.** A task needs its whole subtree archived. Archiving takes the subtree
   along. Sync archives a removed Linear task on its own, but makes its sub-issues that stay synced
-  top-level in the same write (`removeTasks`; migration 0028 did the same for those left under one
-  before), so none stays live under it. The check stays as a guard: deleting a task would take any
+  top-level in the same write (`removeTasks`), so none stays live under it. The check stays as a guard: deleting a task would take any
   live task below it along, so it is refused until they are gone too.
 - The response lists every id removed (a task's whole subtree) and every row that lost a link.
 - **Projects keep their tasks and notes.** They are the user's own work, and a project is a
