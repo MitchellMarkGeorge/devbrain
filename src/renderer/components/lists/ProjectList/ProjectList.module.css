@@ -13,10 +13,6 @@
   /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
   overflow-anchor: none;
 }
-/* the rows show focus; the list itself never draws a ring */
-.viewport.viewport:focus-visible {
-  outline: none;
-}
 /*
  * The whole list's height, so the scrollbar is the whole list's. Only the rows in view are drawn,
  * in normal flow in index order, after a padding of the space the rows above them would take.

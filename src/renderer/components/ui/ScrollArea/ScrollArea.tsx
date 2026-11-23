@@ -28,6 +28,11 @@ export interface ScrollAreaProps extends BaseScrollArea.Root.Props {
    * a scrollbar along the bottom edge; content taller than the area is cut)
    */
   orientation?: 'vertical' | 'horizontal';
+  /**
+   * whether keyboard focus on the scrolling element draws a 1px ring inside the area's edge (the
+   * default); `false` for a widget whose own parts show focus, such as a list's rows
+   */
+  focusRing?: boolean;
 }
 
 /**
@@ -49,6 +54,7 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
     viewportRef,
     viewportProps,
     orientation = 'vertical',
+    focusRing = true,
     className,
     children,
     ...props
@@ -59,7 +65,11 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
   useContentResize(viewport);
   const setViewport = useMemo(() => mergeRefs(viewport, viewportRef), [viewportRef]);
   return (
-    <BaseScrollArea.Root ref={ref} className={mergeClassName(styles.root, className)} {...props}>
+    <BaseScrollArea.Root
+      ref={ref}
+      className={mergeClassName(cn(styles.root, !focusRing && styles.ringless), className)}
+      {...props}
+    >
       <BaseScrollArea.Viewport
         {...viewportProps}
         onFocus={(event) => {

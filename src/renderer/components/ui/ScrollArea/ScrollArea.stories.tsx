@@ -66,3 +66,34 @@ export const Horizontal: Story = {
     </ScrollArea>
   ),
 };
+
+/**
+ * Keyboard focus (Tab to the area; this story focuses it as it opens): a 1px `ring` line inside
+ * its edge, as a focused row draws, over the content, so a tinted row doesn't cover it. A click
+ * on the content focuses the area without it.
+ */
+export const KeyboardFocus: Story = {
+  render: (args) => (
+    <ScrollArea
+      {...args}
+      style={box}
+      viewportRef={(viewport) => viewport?.focus({ preventScroll: true })}
+      viewportProps={{ tabIndex: 0 }}
+    >
+      <div style={{ padding: '8px 0' }}>
+        {Array.from({ length: 30 }, (_, i) => (
+          <p
+            key={i}
+            style={{
+              margin: 0,
+              padding: '8px 16px',
+              background: i < 3 ? 'var(--row-selected)' : undefined,
+            }}
+          >
+            Item {i + 1}
+          </p>
+        ))}
+      </div>
+    </ScrollArea>
+  ),
+};

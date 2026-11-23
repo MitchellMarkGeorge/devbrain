@@ -183,6 +183,8 @@ function NoteListInner<Note extends NoteListRow>(
       style={style}
       viewportRef={listRef}
       viewportClassName={styles.viewport}
+      // the rows show focus; the list itself never draws a ring
+      focusRing={false}
       viewportProps={{
         role: 'grid',
         'aria-multiselectable': true,
