@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNaturalDate } from '@renderer/components';
+import { defaultQuickPicks, parseNaturalDate } from '@renderer/components';
 
 // The DatePicker's field, read with chrono. Today is Tuesday 17 Nov 2026.
 
@@ -30,5 +30,15 @@ describe('parseNaturalDate', () => {
     expect(parseNaturalDate('', TODAY)).toBeUndefined();
     expect(parseNaturalDate('   ', TODAY)).toBeUndefined();
     expect(parseNaturalDate('whenever', TODAY)).toBeUndefined();
+  });
+});
+
+describe('defaultQuickPicks', () => {
+  it.each([
+    ['a Tuesday', TODAY, [day(10, 17), day(10, 18), day(10, 24)]],
+    ['a Sunday', new Date(2026, 10, 22, 9), [day(10, 22), day(10, 23), day(10, 29)]],
+    ['the end of a month', new Date(2026, 11, 28), [day(11, 28), day(11, 29), day(0, 4, 2027)]],
+  ])('picks today, tomorrow and a week on, from %s', (_, today, dates) => {
+    expect(defaultQuickPicks(today).map((pick) => pick.date)).toEqual(dates);
   });
 });

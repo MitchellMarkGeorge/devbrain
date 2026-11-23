@@ -14,15 +14,14 @@ export interface DatePickerQuickPick {
   date: Date;
 }
 
-/** Today, Tomorrow and Next week (the coming Monday), from `today`. */
+/** Today, Tomorrow and Next week (the same weekday a week on), from `today`. */
 export function defaultQuickPicks(today: Date): DatePickerQuickPick[] {
   const day = (offset: number) =>
     new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-  const toMonday = (8 - today.getDay()) % 7 || 7;
   return [
     { label: 'Today', date: day(0) },
     { label: 'Tomorrow', date: day(1) },
-    { label: 'Next week', date: day(toMonday) },
+    { label: 'Next week', date: day(7) },
   ];
 }
 
@@ -50,7 +49,10 @@ export interface DatePickerProps {
   placeholder?: string;
   /** reads what was typed when Enter is pressed; `parseNaturalDate` by default */
   parse?: (text: string, today: Date) => Date | undefined;
-  /** the pill buttons under the month; Today, Tomorrow and Next week by default, [] for none */
+  /**
+   * the pill buttons under the month, each on a different day (its key); Today, Tomorrow and Next
+   * week by default, [] for none
+   */
   quickPicks?: DatePickerQuickPick[];
   /** the "Time" row's control (a `Select` of times); left out without it */
   time?: ReactNode;

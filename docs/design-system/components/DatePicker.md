@@ -4,7 +4,7 @@ Figma's `DatePicker`, 248px, for a Start date or Due date: the picker a task's d
 
 - A natural-language field (8px around it): "Tomorrow, next Fri, Jun 30…"; Enter reads it with `parseNaturalDate`, built on [chrono](https://github.com/wanasit/chrono) as chrono reads it, looking forward (tomorrow, in 3 days, next friday, Jun 30, an ISO date; a typed time is dropped), or your `parse`.
 - The month, 12px around it: `Calendar`'s `picker` variant (‹ June 2026 ›, the month centred in 14px medium). Today is the `now-indicator` square, the chosen day `secondary` with a `border-strong` outline, outside days `subtle-foreground`.
-- Quick picks 12px below, 6px apart: pill-shaped `outline` xs buttons (Today, Tomorrow, Next week).
+- Quick picks 12px below, 6px apart: pill-shaped `outline` xs buttons (Today, Tomorrow, Next week: the same weekday a week on).
 - Optional time row (12px × 8px): "Time" in 12px `muted-foreground`, then a `Select` of times with a clock icon.
 - Optional footer (8px × 6px): ghost xs "+ Add start date" (turns the due date into a range) and "Clear" on the right.
 
