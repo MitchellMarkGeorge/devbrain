@@ -391,14 +391,16 @@ class PageWrite {
    */
   upsertProjects(items: ExternalProject[], tasks: readonly ExternalTask[]): void {
     // the projects the kept tasks are in: the only ones brought in or back
-    const needed = new Set(tasks.flatMap((task) => task.projectExternalId ?? []));
+    const projectsWithKeptTasks = new Set(
+      tasks.map((task) => task.projectExternalId).filter((id) => id != null),
+    );
     // 1. existing links, by external id
     const links = this.findLinks(items.map((item) => item.externalId));
     const written: Project[] = [];
 
     for (const item of items) {
       const link = links.get(item.externalId);
-      if (!needed.has(item.externalId) && link?.state !== LinkState.SYNCED) continue;
+      if (!projectsWithKeptTasks.has(item.externalId) && link?.state !== LinkState.SYNCED) continue;
       // what both the insert and the update write to the link
       const linkFields = {
         ...this.linkFields(item, null),
