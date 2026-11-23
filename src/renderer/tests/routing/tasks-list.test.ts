@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
-import { fakeTask, FakeTasks } from './fake-tasks';
+import { fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The tasks page's list and group views: rows from tasks.list, the toolbar in the URL, the list
@@ -223,6 +223,31 @@ describe('Create task', () => {
       status: TaskStatus.NOT_STARTED,
     });
     await eventually(() => expect(app.text()).toContain('Write the docs'));
+  });
+
+  it('has no New Task in the toolbar, and files a task from C in the filtered project', async () => {
+    const auth = fakeProject('prj_auth', 'Auth Overhaul');
+    const main = new FakeMain([workspace(WORK, 'Work')], WORK);
+    main.taskStores.set(
+      WORK,
+      new FakeTasks([fakeTask('tsk_pkce', 'Implement PKCE flow', { projectId: auth.id })], [auth]),
+    );
+    const app = startApp(main, { url: `/app/${WORK}/tasks?project=${auth.id}` });
+    await eventually(() => expect(row('Implement PKCE flow')).toBeDefined());
+    expect(byText(app.container, 'button', 'New Task')).toBeNull();
+    key(document.body, 'c');
+    const title = () => document.querySelector<HTMLInputElement>('input[aria-label="Title"]');
+    await eventually(() => expect(title()).not.toBeNull());
+    const input = title()!;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    setValue.call(input, 'Rotate keys');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    click(byText(document.body, 'button', 'Create Task'));
+    await eventually(() => expect(main.callsTo('tasks.create')).toHaveLength(1));
+    expect(main.callsTo('tasks.create')[0].input).toMatchObject({
+      title: 'Rotate keys',
+      projectId: auth.id,
+    });
   });
 });
 

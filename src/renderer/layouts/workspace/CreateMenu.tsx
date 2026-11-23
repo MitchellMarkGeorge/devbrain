@@ -15,7 +15,7 @@ import {
 import { trpc } from '@renderer/ipc';
 import { useCreateNote } from '@renderer/features/notes/hooks/use-create-note';
 import { useCreateProject } from '@renderer/features/projects/hooks/use-create-project';
-import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
+import { useCreateTaskHere } from '@renderer/features/tasks/hooks/use-create-task';
 import { useCreateEvent } from '@renderer/features/calendar/hooks/use-create-event';
 import {
   defaultDurationMinutes,
@@ -26,7 +26,7 @@ import { dateParam } from '@renderer/shared/lib/calendar';
 
 /**
  * The title bar's New: "+", opening New task (C), New note (N) and New project, then New event, in
- * that order on every page. Each opens what the app's own key or page button does: Create task, a
+ * that order on every page. Each opens what the app's own key or page button does: Create task (in the page's project), a
  * new note, Create project, and New event from the next hour today, whose toast opens the event in
  * the calendar.
  */
@@ -35,7 +35,7 @@ export function CreateMenu() {
   const navigate = useNavigate();
   const { now } = useFormat('minute');
   const settings = useQuery(trpc.settings.get.queryOptions()).data;
-  const createTask = useCreateTask();
+  const createTaskHere = useCreateTaskHere();
   const createNote = useCreateNote();
   const createProject = useCreateProject();
   const createEvent = useCreateEvent(
@@ -53,7 +53,7 @@ export function CreateMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger render={<IconButton size="sm" tone="muted" icon={Plus} label="New" />} />
       <DropdownMenuContent align="start">
-        <DropdownMenuItem icon={CircleCheck} shortcut="C" onClick={() => createTask()}>
+        <DropdownMenuItem icon={CircleCheck} shortcut="C" onClick={createTaskHere}>
           New task
         </DropdownMenuItem>
         <DropdownMenuItem icon={FileText} shortcut="N" onClick={() => createNote()}>
