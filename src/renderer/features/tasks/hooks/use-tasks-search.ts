@@ -21,7 +21,7 @@ export interface TasksSearchState {
   setSearch: (patch: Partial<TasksSearch>, options?: SetTasksSearchOptions) => void;
   /**
    * The project the views are fixed to (a project's Tasks tab): the Filter menu has no project,
-   * Group by no "Project", and a group's or column's add files the task there.
+   * Group by no "Project", and New Task files the task there.
    */
   project?: ProjectId;
 }

@@ -1,14 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpDown, Group, Kanban, List, ListFilter } from 'lucide-react';
+import { ArrowUpDown, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 
 /*
  * Figma: v2 Screens › Tasks › "Tasks (list)" toolbar (7155:6011, 1184px) and its compact window
  * "1 · Tasks list — toolbar values hidden" (7608:44196, 904px). A 46px strip: 24px sides, 12px
- * below, items 8px apart; Filter on the left, then Sort and the view switcher on the right. No New
- * Task: C and the title bar's "+" create one, in the filtered project. A narrow window hides the
- * toolbar buttons' values.
+ * below, items 8px apart; Filter on the left, then Sort, the view switcher and New Task on the
+ * right. A narrow window hides the toolbar buttons' values.
  */
 
 function TasksToolbar({ compact = false }: { compact?: boolean }) {
@@ -40,6 +39,9 @@ function TasksToolbar({ compact = false }: { compact?: boolean }) {
           { value: 'board', icon: Kanban },
         ]}
       />
+      <Button variant="outline" icon={Plus}>
+        New Task
+      </Button>
     </div>
   );
 }
@@ -52,7 +54,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Tasks (list): "Filter Open", "Sort Priority", the List / Group / Board switcher */
+/** Tasks (list): "Filter Open", "Sort Priority", the List / Group / Board switcher, New Task */
 export const Wide: Story = { render: () => <TasksToolbar /> };
 
 /** A compact window: the toolbar buttons keep their labels and drop their values */

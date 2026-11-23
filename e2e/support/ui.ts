@@ -57,11 +57,10 @@ export interface NewTask {
   project?: string;
 }
 
-/** Creates a task from the title bar's New › New task, on the Tasks page; ends there. */
+/** Creates a task from the Tasks page's New Task dialog; ends on the Tasks page. */
 export async function createTask(window: Page, task: NewTask): Promise<void> {
   await goTo(window, 'Tasks');
-  await window.getByRole('button', { name: 'New', exact: true }).click();
-  await window.getByRole('menuitem', { name: /^New task/ }).click();
+  await window.getByRole('main').getByRole('button', { name: 'New Task' }).first().click();
   const dialog = window.getByRole('dialog', { name: 'New task' });
   await dialog.getByRole('textbox', { name: 'Title' }).fill(task.title);
   if (task.due !== undefined) {

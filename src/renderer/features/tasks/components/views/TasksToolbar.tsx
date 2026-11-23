@@ -43,6 +43,7 @@ import {
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ProjectItems } from '../menus/TaskMenus';
+import { useCreateTask } from '../../hooks/use-create-task';
 import { useProjectOptions } from '../../hooks/use-project-options';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
 import {
@@ -442,10 +443,7 @@ export function TasksToolbarStart({
   );
 }
 
-/**
- * Sort and the list / grouped / board toggle. No New Task: C and the title bar's "+" open it, in
- * the project filter's project (`useCreateTaskHere`), and each group and column has its own add.
- */
+/** Sort, the list / grouped / board toggle, and New Task (with the project filter's project). */
 export function TasksToolbarEnd({
   resolved,
   setSearch,
@@ -453,6 +451,7 @@ export function TasksToolbarEnd({
   resolved: ResolvedTasksSearch;
   setSearch: SetSearch;
 }) {
+  const createTask = useCreateTask();
   return (
     <>
       {resolved.view !== 'board' && <SortMenu resolved={resolved} setSearch={setSearch} />}
@@ -472,6 +471,20 @@ export function TasksToolbarEnd({
           />
         ))}
       </ToggleGroup>
+      <Button
+        variant="outline"
+        icon={Plus}
+        onClick={() =>
+          createTask({
+            defaults: {
+              projectId:
+                resolved.project && resolved.project !== 'none' ? resolved.project : undefined,
+            },
+          })
+        }
+      >
+        New Task
+      </Button>
     </>
   );
 }

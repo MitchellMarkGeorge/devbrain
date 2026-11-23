@@ -311,13 +311,10 @@ describe('a project’s page', () => {
     expect(byText(document.body, '[role="menuitem"]', 'Project')).toBeNull();
   });
 
-  it('files a task created from its Tasks tab, with C, in the project', async () => {
+  it('files a task created from its Tasks tab in the project', async () => {
     const { app, main } = open(`/projects/${auth.id}?tab=tasks`);
     await eventually(() => expect(app.text()).toContain('Audit token storage'));
-    expect(byText(app.container, 'button', 'New Task')).toBeNull();
-    document.body.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'c', bubbles: true, cancelable: true }),
-    );
+    click(byText(app.container, 'button', 'New Task'));
     const title = () => document.querySelector<HTMLInputElement>('input[aria-label="Title"]');
     await eventually(() => expect(title()).not.toBeNull());
     typeInto(title()!, 'Rotate keys');
