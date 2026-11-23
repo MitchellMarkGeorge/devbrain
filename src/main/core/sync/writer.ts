@@ -32,7 +32,7 @@ import {
   notExists,
   or,
   sql,
-  SQLWrapper,
+  SQL,
 } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { alias, BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
@@ -687,15 +687,20 @@ class PageWrite {
       .all();
     if (gone.length === 0) return;
 
-    // 2. a synced task cannot live in a local or archived project
-    for (const link of gone) {
-      const moved = this.tx
-        .update(tasks)
-        .set({ projectId: null })
-        .where(syncedTasksIn(sql`${link.projectId}`))
-        .run().changes;
-      if (moved > 0) this.changed.add(SyncEntityType.TASK);
-    }
+    // 2. a synced task cannot live in a local or archived project; one statement for them all
+    const moved = this.tx
+      .update(tasks)
+      .set({ projectId: null })
+      .where(
+        syncedTasksWhere(
+          inArray(
+            tasks.projectId,
+            gone.map((link) => link.projectId!),
+          ),
+        ),
+      )
+      .run().changes;
+    if (moved > 0) this.changed.add(SyncEntityType.TASK);
     // 3.
     this.retire(gone);
   }
@@ -726,7 +731,7 @@ class PageWrite {
             this.tx
               .select({ id: tasks.id })
               .from(tasks)
-              .where(syncedTasksIn(externalLinks.projectId)),
+              .where(syncedTasksWhere(eq(tasks.projectId, externalLinks.projectId))),
           ),
         ),
       )
@@ -1660,11 +1665,12 @@ function parentsFirst(items: ExternalTask[]): ExternalTask[] {
   return ordered;
 }
 
-// live synced tasks in the project `projectId` names (a column of an outer row, or a bound id); a
-// synced task is never archived, and saying so lets idx_tasks_project_id serve this
-function syncedTasksIn(projectId: SQLWrapper) {
+// live synced tasks whose project meets `inProject` (an `eq` to an outer row's column, or an
+// `inArray` of ids); a synced task is never archived, and saying so lets idx_tasks_project_id
+// serve either
+function syncedTasksWhere(inProject: SQL) {
   return and(
-    eq(tasks.projectId, projectId),
+    inProject,
     isNull(tasks.archivedAt),
     hasLinkInState('task', tasks.id, LinkState.SYNCED),
   );
