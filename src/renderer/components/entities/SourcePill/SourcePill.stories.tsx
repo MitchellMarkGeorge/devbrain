@@ -26,7 +26,7 @@ export const Providers: Story = {
   ),
 };
 
-/** A detached copy: the mark at half strength, then an unlink glyph. Its tooltip says "Detached". */
+/** A detached copy: the mark at half strength and a dashed outline. Its tooltip says "Detached". */
 export const Detached: Story = {
   render: () => (
     <Flex gap="2" align="center">

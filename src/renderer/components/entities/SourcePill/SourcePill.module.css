@@ -2,16 +2,12 @@
 .source {
   flex: none;
 }
-/* a detached copy: the provider's mark at half strength, then an unlink glyph, 2px apart */
-.detachedMarks {
+/* a detached copy: still where it came from, but loosely: a dashed outline and the mark faded */
+.source[data-detached] {
+  border-style: dashed;
+}
+.fadedMark {
   display: inline-flex;
   flex: none;
-  align-items: center;
-  gap: var(--space-0-5);
-}
-.detachedMarks > :first-child {
   opacity: 0.5;
-}
-.unlink {
-  color: var(--muted-foreground);
 }

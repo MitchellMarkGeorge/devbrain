@@ -1,6 +1,5 @@
 import { forwardRef } from 'react';
 import { cva } from 'class-variance-authority';
-import { Unlink } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Badge, type BadgeProps } from '../../ui/Badge';
 import { ProviderLogo } from '../ProviderLogo';
@@ -16,7 +15,7 @@ export interface SourcePillProps extends Omit<
   /** linear by default */
   provider?: Provider;
   /**
-   * a detached copy (`isDetached`): the mark at half strength, then an unlink glyph, and
+   * a detached copy (`isDetached`): the mark at half strength and a dashed outline, and
    * "detached" in its tooltip and accessible name
    */
   detached?: boolean;
@@ -41,9 +40,8 @@ export const SourcePill = forwardRef<HTMLElement, SourcePillProps>(function Sour
       data-detached={detached || undefined}
       icon={
         detached ? (
-          <span className={styles.detachedMarks}>
+          <span className={styles.fadedMark}>
             <ProviderLogo provider={provider} size={12} />
-            <Unlink size={12} aria-hidden className={styles.unlink} />
           </span>
         ) : (
           <ProviderLogo provider={provider} size={12} />

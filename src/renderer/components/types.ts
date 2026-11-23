@@ -230,7 +230,7 @@ export function isSynced(entity: { external?: Pick<ExternalRef, 'state'> | null 
 
 /**
  * A detached entity: the user's own copy of a provider's item, which still remembers where it came
- * from. Its `SourcePill` fades the mark and adds an unlink glyph.
+ * from. Its `SourcePill` fades the mark and dashes the outline.
  */
 export function isDetached(entity: { external?: Pick<ExternalRef, 'state'> | null }): boolean {
   return entity.external?.state === LinkState.DETACHED;

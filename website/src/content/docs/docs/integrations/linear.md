@@ -89,8 +89,8 @@ You can still:
 longer updated by Linear. Your edits stay in DevBrain; nothing goes back to Linear. **Reattach to
 Linear** puts Linear's version back, replacing your edits.
 
-A detached task keeps its key, so you can tell where it came from, with a faded Linear logo and a
-broken-link icon in its pill. Its page says **Detached from Linear** and "Edits stay in DevBrain".
+A detached task keeps its key, so you can tell where it came from, in a pill with a dashed outline
+and a faded Linear logo. Its page says **Detached from Linear** and "Edits stay in DevBrain".
 A project that stays yours after it leaves Linear is shown the same way.
 
 ## When issues change in Linear
