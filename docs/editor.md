@@ -232,19 +232,42 @@ the file, with the blank lines around it:
   can't be lined up with the document: a definition inside a quote or a list item (it would go
   with that block), or line ends that mix `\r\n` and `\n`.
 
-The editor's own spelling, used for every block it writes anew:
+A block that is written anew keeps the markers it was read with, where markdown has more than
+one (`extensions/markup.ts`): each is a `markup` attribute on the node or mark, null for the
+editor's own spelling, and never drawn or read from HTML. The extensions are left as they are: the
+manager wraps their parse and render handlers as it registers them, so the UI's versions (the code
+block's view) keep markers too.
+
+- `*` and `+` bullets, in bullet and to-do lists (an item added to a `*` list gets a `*`);
+- `1)` numbers;
+- `__bold__` and `_italic_`;
+- an underlined (setext) heading, with its underline as it was;
+- `***` and `___` rules;
+- `~~~` and longer fences, and code indented four spaces.
+
+Written back, a marker can read as something else where it now stands (`_it_s` is no emphasis,
+`*it*s` is), so a rewritten block with any marker is read back on its own, and written in the
+editor's spelling if it reads differently. Content made in the editor has no markers, so it gets
+the editor's spelling, as does a document written whole (`serialize`: no map, or a seam that
+misreads), which `stripMarkup` gives.
+
+The editor's own spelling, used for new content and for a document written whole:
 
 - one blank line between blocks (a heading straight above its paragraph gets one), and inside a
   collapsible section around its body;
 - `<br>` outside a table cell becomes two trailing spaces, GFM's line break;
-- `-` bullets (`*` and `+` become `-`), `**bold**` and `*italic*` (not `__` and `_`);
+- `-` bullets, `1.` numbers, `**bold**` and `*italic*`, `#` headings, `---` rules and ` ``` `
+  fences;
 - tables padded into columns;
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
   and `x < y` stay as written.
 
-Keeping a block also keeps meaning the editor's spelling would lose: two lists side by side that
-differ only in their bullet (`*` then `+`) are two lists, but written both with `-` and a blank
-line between, they read back as one.
+An edited block still gets the editor's spelling for what has no marker attribute: its tables are
+padded, its escapes and `<br>` written as above.
+
+Keeping a block, or its markers, also keeps meaning the editor's spelling would lose: two lists
+side by side that differ only in their bullet (`*` then `+`) are two lists, but written both with
+`-` and a blank line between, they read back as one.
 
 `src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged,
 and what a save keeps when one block changed; add a case there when a new kind of content must
@@ -262,7 +285,9 @@ A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left
 `raw-html.ts`); check first that GitHub renders it, so the format stays readable there.
 
 1. `markdownTokenizer` for its syntax (inline or block), `parseMarkdown` to make the node from the
-   token, and `renderMarkdown` to write it back exactly;
+   token, and `renderMarkdown` to write it back exactly (where its syntax has several spellings,
+   an entry in `MARKUP` in `extensions/markup.ts`, which reads the one used from the token and
+   writes it back);
 2. `parseHTML`/`renderHTML` for copy and paste;
 3. for a React view, `addNodeView()` with `ReactNodeViewRenderer`, as `EntityPillView.tsx` does.
 

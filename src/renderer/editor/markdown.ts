@@ -27,6 +27,7 @@ import {
 } from './extensions/html-elements';
 import { RawHtmlBlock, RawHtmlInline } from './extensions/raw-html';
 import { SafeLink } from './extensions/safe-link';
+import { MarkdownMarkup, hasMarkup, stripMarkup, withMarkupHandlers } from './extensions/markup';
 
 /**
  * The editor's document model: which markdown it reads and how it writes it back. Every editor in
@@ -78,6 +79,8 @@ export function createDocumentExtensions(
     DetailsContent,
     RawHtmlBlock,
     RawHtmlInline,
+    // the markers blocks and marks were written with (`*` bullets, `__bold__`)
+    MarkdownMarkup,
     DocumentMarkdown.configure({ markedOptions: { gfm: true } }),
   ];
 }
@@ -242,6 +245,9 @@ function withFinalNewline(markdown: string, text: string, children: ProseMirrorN
   if (!text.endsWith('\n') || markdown === '' || markdown.endsWith('\n')) return markdown;
   return last && !isEmptyParagraph(last) ? markdown + '\n' : markdown;
 }
+
+// the handlers already made to keep markers
+const wrapped = new WeakSet<object>();
 
 class DocumentMarkdownManager extends MarkdownManager {
   constructor(options: ConstructorParameters<typeof MarkdownManager>[0]) {
@@ -466,6 +472,41 @@ class DocumentMarkdownManager extends MarkdownManager {
     return withFinalNewline(markdown, source.text, children);
   }
 
+  // each extension's handlers, made to keep the markers it was written with (markup.ts)
+  override registerExtension(extension: Parameters<MarkdownManager['registerExtension']>[0]): void {
+    super.registerExtension(extension);
+    const self = this as unknown as {
+      registry: Map<string, Parameters<typeof withMarkupHandlers>[0][]>;
+      nodeTypeRegistry: Map<string, Parameters<typeof withMarkupHandlers>[0][]>;
+    };
+    // the spec it just added, under its token's name or its node's
+    const specs = [...self.registry.values(), ...self.nodeTypeRegistry.values()].flat();
+    const spec = specs.find(
+      (candidate) => candidate.nodeName === extension.name && !wrapped.has(candidate),
+    );
+    if (spec) {
+      wrapped.add(spec);
+      withMarkupHandlers(spec);
+    }
+  }
+
+  /** `doc` in the editor's own spelling, without the markers it was read with (markup.ts). */
+  override serialize(doc: JSONContent): string {
+    return super.serialize(stripMarkup(doc));
+  }
+
+  // A block written anew, with the markers it was read with, where it reads back as itself with
+  // them (`_it_s` would not); in the editor's spelling otherwise.
+  private writeBlock(node: ProseMirrorNode): string {
+    const json: JSONContent = { type: 'doc', content: [node.toJSON()] };
+    if (!hasMarkup(json)) return this.serialize(json);
+    const markdown = super.serialize(json);
+    const expected = node.type.schema.topNodeType.create(null, node);
+    return this.parseDocument(node.type.schema, markdown).eq(expected)
+      ? markdown
+      : this.serialize(json);
+  }
+
   /** `text` read as the editor would hold it. */
   parseDocument(schema: Schema, text: string): ProseMirrorNode {
     return schema.topNodeType.create(null, blocksFromJSON(schema, this.parse(text).content ?? []));
@@ -557,7 +598,7 @@ class DocumentMarkdownManager extends MarkdownManager {
         for (let k = index - emptySince; k < index; k++) pushEmpty(k);
         last = null;
         emptySince = 0;
-        const markdown = this.serialize({ type: 'doc', content: [children[index].toJSON()] });
+        const markdown = this.writeBlock(children[index]);
         pieces.push({
           before: gap ? text.slice(...gap) : separator(),
           text: markdown,
@@ -722,7 +763,13 @@ class DocumentMarkdownManager extends MarkdownManager {
 // Markdown with DocumentMarkdownManager in place of TipTap's own manager
 const DocumentMarkdown = Markdown.extend({
   onBeforeCreate(event) {
+    // TipTap's own reads the first content as markdown with its manager: it is read with this one
+    // instead, which keeps the markers it was written with (markup.ts)
+    const { options } = this.editor;
+    const contentType = options.contentType;
+    options.contentType = undefined;
     this.parent?.(event);
+    options.contentType = contentType;
     const manager = new DocumentMarkdownManager({
       indentation: this.options.indentation,
       marked: this.options.marked,
@@ -731,6 +778,10 @@ const DocumentMarkdown = Markdown.extend({
     });
     this.storage.manager = manager;
     this.editor.markdown = manager;
+    if (contentType === 'markdown' && typeof options.content === 'string') {
+      const json = manager.parse(options.content);
+      if (json.content?.length) options.content = json;
+    }
   },
 });
 

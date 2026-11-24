@@ -62,13 +62,31 @@ describe('RichTextEditor', () => {
     act(() => {
       editor.chain().focus('end').insertContent('!').run();
     });
-    // only the edited paragraph is written in the editor's spelling: the list is kept as written
-    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n\n**bold** & <b>raw</b>!');
+    // only the edited paragraph is written anew, with its own markers: the list is kept as written
+    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n\n__bold__ & <b>raw</b>!');
 
     act(() => {
       editor.commands.undo();
     });
     expect(onChange).toHaveBeenLastCalledWith(STORED);
+  });
+
+  it('writes an item added to a list with the list’s own bullet, and a new list with its own', () => {
+    const onChange = vi.fn();
+    render({ onChange });
+    // at the end of "two"
+    act(() => {
+      editor.chain().focus(13).splitListItem('listItem').insertContent('three').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n* three\n\n__bold__ & <b>raw</b>');
+    act(() => {
+      const item = { type: 'paragraph', content: [{ type: 'text', text: 'new' }] };
+      const list = { type: 'bulletList', content: [{ type: 'listItem', content: [item] }] };
+      editor.commands.insertContentAt(editor.state.doc.content.size, list);
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      '* one\n* two\n* three\n\n__bold__ & <b>raw</b>\n\n- new',
+    );
   });
 
   it('takes its first text only: the text it holds is its own from then on', () => {

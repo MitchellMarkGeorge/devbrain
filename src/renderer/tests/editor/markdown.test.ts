@@ -9,6 +9,7 @@ import {
   serializeMarkdown,
 } from '@renderer/editor/markdown';
 import { highlightToText } from '@renderer/editor/highlight';
+import { stripMarkup } from '@renderer/editor/extensions/markup';
 import { kbdVariants } from '@renderer/components/ui/Kbd';
 
 // Notes are markdown files, so loading one into the editor and saving it must give the file back.
@@ -296,7 +297,8 @@ describe('saving what was read', () => {
     expect(blockTypes(`- Item\n\n    indented code`)).toEqual(['bulletList']);
     const saved = serializeKeepingSource(text, doc);
     expect(saved).toBe(serializeMarkdown(doc));
-    expect(parseMarkdown(saved)).toEqual(doc);
+    // a list and the code, fenced: the markers it was read with (four spaces' indent) are gone
+    expect(blockTypes(saved)).toEqual(['bulletList', 'codeBlock']);
   });
 
   it('keeps two lists that differ only in their bullet apart, which its own spelling can’t', () => {
@@ -442,6 +444,87 @@ describe('saving what was read', () => {
     expect(normalizeMarkdown(once)).not.toBe(once);
     const doc = edit(once, 0, paragraph('Edited again'));
     expect(serializeKeepingSource(once, doc)).toBe(once.replace('Edited', 'Edited again'));
+  });
+});
+
+describe('keeping markers in an edited block', () => {
+  // the source as read, with `zq` added to the text of the top-level block `index`
+  function typed(text: string, index: number): JSONContent {
+    const doc = parseMarkdown(text);
+    const add = (node: JSONContent): JSONContent | null => {
+      if (node.type === 'text') return { ...node, text: `${node.text}zq` };
+      const content = node.content ?? [];
+      for (let k = content.length - 1; k >= 0; k--) {
+        const changed = add(content[k]);
+        if (changed) return { ...node, content: content.map((c, j) => (j === k ? changed : c)) };
+      }
+      return null;
+    };
+    const content = [...(doc.content ?? [])];
+    content[index] = add(content[index])!;
+    return { ...doc, content };
+  }
+  const kept = (text: string, index: number) => serializeKeepingSource(text, typed(text, index));
+
+  it('writes an edited block with the markers it was read with', () => {
+    expect(kept('* one\n* two\n\nEnd', 0)).toBe('* one\n* twozq\n\nEnd');
+    expect(kept('+ [ ] one\n+ [x] two\n\nEnd', 0)).toBe('+ [ ] one\n+ [x] twozq\n\nEnd');
+    expect(kept('1) one\n2) two\n\nEnd', 0)).toBe('1) one\n2) twozq\n\nEnd');
+    expect(kept('__Bold__ and _italic_ text\n\nEnd', 0)).toBe(
+      '__Bold__ and _italic_ textzq\n\nEnd',
+    );
+    expect(kept('Title\n=====\n\nEnd', 0)).toBe('Titlezq\n=====\n\nEnd');
+    expect(kept('Part\n---\n\nEnd', 0)).toBe('Partzq\n---\n\nEnd');
+    expect(kept('~~~ts\nconst a = 1;\n~~~\n\nEnd', 0)).toBe('~~~ts\nconst a = 1;zq\n~~~\n\nEnd');
+    expect(kept('Code:\n\n    const a = 1;\n    a += 1;\n\nEnd', 1)).toBe(
+      'Code:\n\n    const a = 1;\n    a += 1;zq\n\nEnd',
+    );
+    // nested lists keep their own
+    expect(kept('* one\n  + nested\n\nEnd', 0)).toBe('* one\n  + nestedzq\n\nEnd');
+  });
+
+  it('keeps a moved rule as it was written', () => {
+    const text = 'One\n\n***\n\nTwo';
+    const doc = parseMarkdown(text);
+    const [one, rule, two] = doc.content ?? [];
+    expect(serializeKeepingSource(text, { ...doc, content: [one, two, rule] })).toBe(
+      'One\n\nTwo\n\n***',
+    );
+  });
+
+  it('writes new content in the editor’s own spelling', () => {
+    const text = '* one\n\nEnd';
+    const doc = parseMarkdown(text);
+    const added = parseMarkdown('* new\n\n__bold__').content ?? [];
+    // made in the editor, not read: no markers
+    const fresh = added.map((node) =>
+      JSON.parse(JSON.stringify(node).replace(/,?"markup":"[^"]*"/g, '')),
+    );
+    expect(
+      serializeKeepingSource(text, { ...doc, content: [...(doc.content ?? []), ...fresh] }),
+    ).toBe('* one\n\nEnd\n\n- new\n\n**bold**');
+  });
+
+  it('writes a block in the editor’s spelling where its markers would read differently', () => {
+    // `_it_s` is no emphasis: the closing `_` is inside a word
+    const text = '_it_ s\n\nEnd';
+    const doc = parseMarkdown(text);
+    const [para, end] = doc.content ?? [];
+    const joined = { ...para, content: [para.content![0], { type: 'text', text: 's' }] };
+    const saved = serializeKeepingSource(text, { ...doc, content: [joined, end] });
+    expect(saved).toBe('*it*s\n\nEnd');
+    expect(parseMarkdown(saved)).toEqual(stripMarkup({ ...doc, content: [joined, end] }));
+  });
+
+  it('keeps two lists that differ in their bullet apart when one is edited', () => {
+    const text = '* Star\n+ Plus\n\nPara';
+    expect(kept(text, 0)).toBe('* Starzq\n+ Plus\n\nPara');
+  });
+
+  it('writes the editor’s own spelling where it writes the whole document', () => {
+    expect(normalizeMarkdown('* one\n\n__two__ _three_\n\n***')).toBe(
+      '- one\n\n**two** *three*\n\n---',
+    );
   });
 });
 
