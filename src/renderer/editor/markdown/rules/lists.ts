@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/core';
+import { markupOf, withMarkup } from '../markup';
 import type {
   MarkdownRule,
   MarkdownToken,
@@ -12,6 +13,11 @@ import type {
  * Bullet, numbered and to-do lists, read and written as TipTap's list extensions did: `marked`
  * reads bullet lists; numbered lists and to-do lists have tokenizers of their own, which read
  * `a.`, `i.` and `A)` numbering and nest items by their indent.
+ *
+ * A list keeps the marker it was written with when it isn't the editor's, in its `markup`
+ * attribute (markup.ts): `*` or `+` for a bullet or to-do list, `)` for a numbered one, and `X`
+ * on a to-do item checked with a capital. An item is written with its list's marker, so one added
+ * to a list takes it.
  */
 
 // ---- writing an item: its first paragraph after the marker, the rest indented under it
@@ -233,6 +239,8 @@ interface OrderedItem {
   content: string;
   contentLines: string[];
   raw: string;
+  // `.` or `)` after the number
+  delimiter: string;
 }
 
 // the numbered items at the start of `lines`, flat, and how many lines they took
@@ -244,7 +252,7 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
     const line = lines[index];
     const match = line.match(ORDERED_LIST_ITEM);
     if (!match) break;
-    const [, indent, marker, , content] = match;
+    const [, indent, marker, delimiter, content] = match;
     const indentLevel = indent.length;
     const number = parseInt(marker, 10);
     const markerType = Number.isNaN(number) ? detectMarkerType(marker) : undefined;
@@ -281,6 +289,7 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
       content: contentLines.join('\n').trim(),
       contentLines,
       raw: itemLines.join('\n'),
+      delimiter,
     });
     consumed = next;
     index = next;
@@ -355,6 +364,7 @@ function buildNestedStructure(
         ordered: true,
         start: nested[0].number,
         typeMarker: nested[0].type,
+        delimiter: nested[0].delimiter,
         items: buildNestedStructure(nested, Math.min(...nested.map((n) => n.indent)), lexer),
         raw: nested.map((n) => n.raw).join('\n'),
       });
@@ -485,6 +495,8 @@ function parseTaskItems(
       mainContent: data.mainContent,
       indentLevel: data.indentLevel,
       checked: data.checked,
+      bullet: itemMatch[2],
+      checkedMark: itemMatch[3],
       text: data.mainContent,
       tokens: lexer.inlineTokens(data.mainContent),
       nestedTokens,
@@ -533,9 +545,21 @@ function isSameLineOrderedListToken(token: MarkdownToken): boolean {
 function listItemPrefix(context: RenderContext): string {
   if (context.parentType === 'orderedList') {
     const start = (context.meta.parentAttrs?.start as number) || 1;
-    return listMarker(context.meta.parentAttrs?.type, start - 1 + (context.index || 0), '. ');
+    const delimiter = markupOf(context.meta.parentAttrs) === ')' ? ') ' : '. ';
+    return listMarker(context.meta.parentAttrs?.type, start - 1 + (context.index || 0), delimiter);
   }
-  return '- ';
+  return `${bulletOf(context)} `;
+}
+
+// the bullet of the list an item is in: the one it was written with, or the editor's `-`
+function bulletOf(context: RenderContext): string {
+  const markup = markupOf(context.meta.parentAttrs);
+  return markup === '*' || markup === '+' ? markup : '-';
+}
+
+// the bullet a list was read with, when it isn't the editor's
+function bulletMarkup(bullet: unknown): string | null {
+  return bullet === '*' || bullet === '+' ? bullet : null;
 }
 
 export const listRules: Record<string, MarkdownRule> = {
@@ -544,7 +568,12 @@ export const listRules: Record<string, MarkdownRule> = {
     token: 'list',
     parse: (token, helpers) => {
       if (token.type !== 'list' || token.ordered) return [];
-      return { type: 'bulletList', content: token.items ? helpers.parseChildren(token.items) : [] };
+      const content = token.items ? helpers.parseChildren(token.items) : [];
+      // `marked` starts a new list where the bullet changes, so the first item's is the list's
+      const bullet = bulletMarkup((token.items?.[0]?.raw || token.raw || '').trimStart()[0]);
+      return bullet
+        ? { type: 'bulletList', attrs: { markup: bullet }, content }
+        : { type: 'bulletList', content };
     },
     render: (node, h) => (node.content ? h.renderChildren(node.content, '\n') : ''),
     indentsContent: true,
@@ -611,6 +640,9 @@ export const listRules: Record<string, MarkdownRule> = {
       const attrs: Record<string, unknown> = {};
       if (start !== 1) attrs.start = start;
       if (token.typeMarker) attrs.type = token.typeMarker;
+      // `1)`: read by the tokenizer here, or from the first item where `marked` read the list
+      const delimiter = token.delimiter ?? /^\s*\w+([.)])/.exec(token.raw || '')?.[1];
+      if (delimiter === ')') attrs.markup = ')';
       return Object.keys(attrs).length > 0
         ? { type: 'orderedList', attrs, content }
         : { type: 'orderedList', content };
@@ -631,6 +663,7 @@ export const listRules: Record<string, MarkdownRule> = {
           ordered: true,
           start: items[0]?.number || 1,
           typeMarker: items[0]?.type,
+          delimiter: items[0]?.delimiter,
           items: listItems,
           raw: lines.slice(0, consumed).join('\n'),
         };
@@ -641,7 +674,13 @@ export const listRules: Record<string, MarkdownRule> = {
 
   taskList: {
     name: 'taskList',
-    parse: (token, h) => h.createNode('taskList', {}, h.parseChildren(token.items || [])),
+    // the bullet is the first item's, which the tokenizer (or `parseList`, parser.ts) put on it
+    parse: (token, h) =>
+      h.createNode(
+        'taskList',
+        withMarkup({}, bulletMarkup(token.items?.[0]?.bullet)),
+        h.parseChildren(token.items || []),
+      ),
     render: (node, h) => (node.content ? h.renderChildren(node.content, '\n') : ''),
     tokenizer: {
       name: 'taskList',
@@ -670,10 +709,17 @@ export const listRules: Record<string, MarkdownRule> = {
       if (token.nestedTokens && token.nestedTokens.length > 0) {
         content.push(...h.parseChildren(token.nestedTokens));
       }
-      return h.createNode('taskItem', { checked: token.checked || false }, content);
+      // `[X]`, kept for as long as the item is checked
+      const markup = token.checked && token.checkedMark === 'X' ? 'X' : null;
+      return h.createNode(
+        'taskItem',
+        withMarkup({ checked: token.checked || false }, markup),
+        content,
+      );
     },
-    render: (node, h) => {
-      const prefix = `- [${node.attrs?.checked ? 'x' : ' '}] `;
+    render: (node, h, context) => {
+      const checked = markupOf(node.attrs) === 'X' ? 'X' : 'x';
+      const prefix = `${bulletOf(context)} [${node.attrs?.checked ? checked : ' '}] `;
       return renderNestedContent(node, h, prefix, { indentMainContent: true });
     },
   },

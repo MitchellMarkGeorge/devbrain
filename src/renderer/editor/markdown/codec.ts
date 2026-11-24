@@ -66,8 +66,14 @@ export class MarkdownCodec {
     return this.read(markdown).doc;
   }
 
+  /** `doc` in the editor's own spelling, whatever markers it was read with (markup.ts). */
   serialize(doc: JSONContent): string {
     return this.serializer.serialize(doc);
+  }
+
+  /** `doc` with each node and mark written with the marker it was read with. */
+  serializeWithMarkup(doc: JSONContent): string {
+    return this.serializer.serialize(doc, { withMarkup: true });
   }
 
   /**

@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core';
 import type { Node as ProseMirrorNode, Schema } from '@tiptap/pm/model';
+import { hasMarkup, stripMarkup } from './markup';
 import type { MarkdownSource, SourceBlock } from './source';
 
 /**
@@ -14,13 +15,13 @@ import type { MarkdownSource, SourceBlock } from './source';
  * in the editor's spelling, as if there were no source.
  */
 
-/** Why a document was written whole, in the editor's spelling. */
+/** Why none of the source's text was kept, and the whole document written anew. */
 export type WholeReason =
-  // the text has no source map (source.ts, `UnmappedReason`)
+  // the text has no source map (source.ts, `UnmappedReason`): in the editor's spelling
   | 'no-source'
-  // no block is still as it was read
+  // no block is still as it was read: each written with the markers it was read with
   | 'nothing-kept'
-  // what keeping wrote read back as another document
+  // what keeping wrote read back as another document: in the editor's spelling
   | 'readback-mismatch';
 
 export interface KeptWriting {
@@ -32,6 +33,8 @@ export interface KeptWriting {
 /** What keeping needs of the codec: the editor's spelling of a document, and how a text reads. */
 export interface KeepingCodec {
   serialize(doc: JSONContent): string;
+  // with each node and mark written with the marker it was read with (markup.ts)
+  serializeWithMarkup(doc: JSONContent): string;
   parse(markdown: string): JSONContent;
 }
 
@@ -185,10 +188,26 @@ export function writeKeeping(
   const writing = new Keeping(codec, doc, source);
   // a text of blank lines alone, still the empty paragraphs it was read as
   if (writing.isBlankSource) return { markdown: source.text, whole: null };
-  if (!writing.keepsAny) return whole('nothing-kept');
-  // the source's own text around a block written anew first, then a blank line
-  const markdown = writing.write(true) ?? writing.write(false);
-  return markdown === null ? whole('readback-mismatch') : { markdown, whole: null };
+  // every block changed: all written anew, still with the markers they were read with
+  if (!writing.keepsAny) return { markdown: writing.writeAnew(), whole: 'nothing-kept' };
+  // The source's own text around a block written anew first, then a blank line; and the new
+  // blocks with the markers they were read with first, then in the editor's spelling (two
+  // `*` lists side by side read as one, a `*` list after a `-` list as another).
+  const attempts = [
+    { inPlace: true, markers: true },
+    { inPlace: false, markers: true },
+    { inPlace: false, markers: false },
+  ];
+  const tried = new Set<string>();
+  for (const attempt of attempts) {
+    const written = writing.write(attempt.inPlace, attempt.markers);
+    if (tried.has(written.markdown)) continue;
+    tried.add(written.markdown);
+    if (writing.readsAs(written.markdown, written.expected)) {
+      return { markdown: written.markdown, whole: null };
+    }
+  }
+  return whole('readback-mismatch');
 }
 
 class Keeping {
@@ -317,12 +336,14 @@ class Keeping {
   }
 
   /**
-   * The document written keeping its stretches of the source, or null when that reads back as
-   * another document. With `inPlace`, a block written anew where the source had another is given
-   * the source's own text around it (`### Notes` straight above a list stays so when the list
-   * changes); without, a blank line.
+   * The document written keeping its stretches of the source, and what that text must read as,
+   * block for block (`readsAs`). With `inPlace`, a block written anew where the source had
+   * another is given the source's own text around it (`### Notes` straight above a list stays so
+   * when the list changes); without, a blank line. With `markers`, a block written anew keeps the
+   * markers it was read with (`*` bullets, `__bold__`), where they read as the editor's own
+   * spelling of it does; without, it is written in the editor's spelling.
    */
-  write(inPlace: boolean): string | null {
+  write(inPlace: boolean, markers: boolean): { markdown: string; expected: ProseMirrorNode[] } {
     const { source, items, slices } = this;
     const { text, between, lineEnd } = source;
     const blankLine = '\n\n';
@@ -374,12 +395,12 @@ class Keeping {
       const separators = this.separators(run, left, right, inPlace);
       if (separators.leftBetween !== null) out += writeBetween(separators.leftBetween);
       else if (left) out += own(blankLine);
-      out += own(this.codec.serialize({ type: 'doc', content: run.map((node) => node.toJSON()) }));
+      out += own(this.runMarkdown(run, markers));
       if (separators.rightBetween !== null) {
         out += writeBetween(separators.rightBetween);
         if (!right) tailWritten = true;
       } else if (right) out += own(blankLine);
-      expected.push(...this.readAlone(run));
+      expected.push(...this.readAlone(run, markers));
       at = end;
     }
     if (this.tailKept) out += writeBetween(slices.length);
@@ -396,7 +417,81 @@ class Keeping {
     if (!tailWritten && endsLine(out) && last && !isEmptyParagraph(last)) out += lineEnd;
     const withDefinitions = this.withDefinitions(out, written);
     if (withDefinitions !== out) out = withDefinitions + (endsLine(withDefinitions) ? lineEnd : '');
-    return this.readsAs(out, expected) ? out : null;
+    return { markdown: out, expected };
+  }
+
+  /**
+   * The whole document written anew, when none of its blocks is as it was read (a note of one
+   * paragraph, edited): each block with the markers it was read with where they can stand, the
+   * source's line ends, and its final newline.
+   */
+  writeAnew(): string {
+    const { text, lineEnd } = this.source;
+    const markdown = this.runMarkdown(this.children, true);
+    const last = this.children.at(-1);
+    const endsLine = /\n$/.test(text) && markdown !== '' && last && !isEmptyParagraph(last);
+    const written = endsLine ? `${markdown}\n` : markdown;
+    return lineEnd === '\n' ? written : written.replace(/\n/g, lineEnd);
+  }
+
+  // A run of blocks written anew, a blank line between them. With `markers`, each block that
+  // was read with markers keeps them where that changes nothing but its spelling.
+  private runMarkdown(run: ProseMirrorNode[], markers: boolean): string {
+    const content = run.map((node) => (markers ? this.withSafeMarkup(node) : node.toJSON()));
+    return markers
+      ? this.codec.serializeWithMarkup({ type: 'doc', content })
+      : this.codec.serialize({ type: 'doc', content });
+  }
+
+  // the blocks already checked for `withSafeMarkup`
+  private readonly safeMarkup = new WeakMap<ProseMirrorNode, JSONContent>();
+
+  /**
+   * A block as it is written with markers: with the ones it was read with when, written with
+   * them, it still reads as the block it is, or at least as the editor's own spelling of it
+   * reads (a paragraph being typed ends with a space, which neither reads back); without them
+   * otherwise. A marker can read differently where it now stands: `_it_s` is no emphasis,
+   * `*it*s` is; an underline under two lines of text makes both the heading.
+   */
+  private withSafeMarkup(node: ProseMirrorNode): JSONContent {
+    const known = this.safeMarkup.get(node);
+    if (known) return known;
+    const json = node.toJSON() as JSONContent;
+    let safe = json;
+    if (hasMarkup(json)) {
+      const doc = { type: 'doc', content: [json] };
+      const marked = this.codec.serializeWithMarkup(doc);
+      const plain = this.codec.serialize(doc);
+      const readsAsItself = () => {
+        const read = this.readPlain(marked);
+        return (
+          read?.length === 1 && read[0].eq(asBlock(this.schema.nodeFromJSON(stripMarkup(json))))
+        );
+      };
+      if (marked !== plain && !readsAsItself() && !this.readSame(marked, plain)) {
+        safe = stripMarkup(json);
+      }
+    }
+    this.safeMarkup.set(node, safe);
+    return safe;
+  }
+
+  // a text's blocks without the markers they are written with, or null when it can't be read
+  private readPlain(markdown: string): ProseMirrorNode[] | null {
+    try {
+      return (this.codec.parse(markdown).content ?? []).map((node) =>
+        asBlock(this.schema.nodeFromJSON(stripMarkup(node))),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  // whether two texts read as the same blocks, whatever markers each is written with
+  private readSame(a: string, b: string): boolean {
+    const [first, second] = [this.readPlain(a), this.readPlain(b)];
+    if (!first || !second) return false;
+    return first.length === second.length && first.every((node, k) => node.eq(second[k]));
   }
 
   // The `between` text that holds definitions next to one of two kept blocks that the document
@@ -476,7 +571,7 @@ class Keeping {
   // paragraphs as the editor's spelling of it reads. It is what the output must read as there,
   // so keeping text never changes how new blocks read, whether or not they read as they are held
   // (`word ` loses its last space; two lists side by side read as one).
-  private readAlone(run: ProseMirrorNode[]): ProseMirrorNode[] {
+  private readAlone(run: ProseMirrorNode[], markers: boolean): ProseMirrorNode[] {
     const read: ProseMirrorNode[] = [];
     for (let at = 0; at < run.length; ) {
       if (isEmptyParagraph(run[at])) {
@@ -486,8 +581,7 @@ class Keeping {
       }
       let end = at;
       while (end < run.length && !isEmptyParagraph(run[end])) end += 1;
-      const content = run.slice(at, end).map((node) => node.toJSON());
-      const markdown = this.codec.serialize({ type: 'doc', content });
+      const markdown = this.runMarkdown(run.slice(at, end), markers);
       if (isBlank(markdown)) {
         // blocks the editor writes as nothing (a heading with no text yet): between two blocks
         // their blank lines read as empty paragraphs, one more than alone
@@ -506,7 +600,8 @@ class Keeping {
     );
   }
 
-  private readsAs(markdown: string, expected: ProseMirrorNode[]): boolean {
+  /** Whether `markdown` reads as `expected`, block for block. */
+  readsAs(markdown: string, expected: ProseMirrorNode[]): boolean {
     try {
       const read = this.read(markdown);
       return read.length === expected.length && read.every((node, k) => node.eq(expected[k]));

@@ -6,13 +6,12 @@ markdown layer (`src/renderer/editor/markdown/`) from its first step, parity wit
 `@tiptap/markdown`, to a first-class layer that keeps each file's own text, and through what it
 needs to be production ready.
 
-> **Status:** milestone 0 (parity) is done (PR #256). Milestone 1 (the source map, PR #257) and
-> milestone 2 (saving what was read) are built on it: a save rewrites only the blocks that
-> changed. Milestones 3–5 are to do. The reference for the layer as built is `docs/editor.md`
-> ("The markdown layer", "The source map", "What a save changes"); this plan is kept for the
-> reasoning and the steps. The prototype on `claude/markdown-block-preservation` is the
-> behavioural reference for milestone 3: its tests carry over, its TipTap-specific plumbing does
-> not.
+> **Status:** milestone 0 (parity) is done (PR #256). Milestones 1 (the source map, PR #257),
+> 2 (saving what was read, PR #259) and 3 (markers in edited blocks) are built on it: a save
+> rewrites only the blocks that changed, and those keep the markers they were written with.
+> Milestones 4–5 are to do. The reference for the layer as built is `docs/editor.md` ("The
+> markdown layer", "The source map", "What a save changes"); this plan is kept for the reasoning
+> and the steps.
 
 ## Goals
 
@@ -333,59 +332,83 @@ it read the same with its markers" belongs. Inherited, and now confined to the e
 linked image (`[![badge][img]][url]`) reads as the image alone, so editing its paragraph drops
 the link.
 
-### Milestone 3: markers in edited blocks
+### Milestone 3: markers in edited blocks (built)
 
-An edited block keeps the spelling it was read with.
+An edited block keeps the spelling it was read with. `docs/editor.md` ("What a save changes")
+lists the markers as built; this section keeps the steps and what turned out different.
 
-1. **The attribute.** A `DocumentMarkup` extension adds a `markup` attribute (default `null`,
+1. **The attribute.** `DocumentMarkup` (`markup.ts`) adds a `markup` attribute (default `null`,
    `rendered: false`, `keepOnSplit: true`, `parseHTML: () => null`) to the nodes and marks that
-   have markers, through `addGlobalAttributes` (public). `null` is the editor's own spelling.
-   Add it to `createDocumentExtensions()`.
-2. **In the rules.** Each rule with a marker reads it in `parse` and writes it in `render`; there
-   is no wrapper. `marked`'s own tokens carry it in `raw`. The tokens our tokenizers make don't:
-   a to-do item's `raw` is `''`, and the numbered list's tokenizer drops the delimiter. Those
-   tokenizers (`lists.ts`) already match the bullet, the checkbox and the delimiter, so they put
-   them on the token (`bullet`, `checkedMark`, `delimiter`). A mixed list split by `parseList`
-   passes the bullet on to each part. The markers, and where each is read from:
+   have markers (`MARKUP_TYPES`), through `addGlobalAttributes`. `null` is the editor's own
+   spelling. It is one of `createDocumentExtensions()`.
+2. **In the rules.** Each rule with a marker reads it in `parse` and writes it in `render`;
+   there is no wrapper. `marked`'s own tokens carry it in `raw`. The to-do list's tokenizer and
+   `parseList` put `bullet` and `checkedMark` on each to-do item's token, and the numbered
+   list's tokenizer puts `delimiter` on the list's. A list's marker is on the list, and an item
+   is written with its list's, so an item added with Enter takes it.
 
-   | Node / mark      | `markup`                                  | Read from             |
-   | ---------------- | ----------------------------------------- | --------------------- |
-   | `bulletList`     | `*` or `+`                                | the first item's raw  |
-   | `taskList`       | `*` or `+`                                | the tokenizer's token |
-   | `orderedList`    | `)`                                       | the tokenizer's token |
-   | `taskItem`       | `X` (checked written in capitals)         | the tokenizer's token |
-   | `heading`        | `setext:<underline>` or closing `#`s      | the heading's raw     |
-   | `horizontalRule` | the line                                  | the token's raw       |
-   | `codeBlock`      | the fence (`~~~`, ` ```` `) or `indented` | the token's raw       |
-   | `bold`, `italic` | `__`, `_`                                 | the token's raw       |
-   | `strike`         | `~`                                       | the token's raw       |
-   | `hardBreak`      | `\` or `<br>`                             | the token's raw       |
+   | Node / mark      | `markup`                                  | Read from                  |
+   | ---------------- | ----------------------------------------- | -------------------------- |
+   | `bulletList`     | `*` or `+`                                | the first item's raw       |
+   | `taskList`       | `*` or `+`                                | the first item's token     |
+   | `orderedList`    | `)`                                       | the tokenizer's token      |
+   | `taskItem`       | `X` (checked written in capitals)         | the item's token           |
+   | `heading`        | `setext:<underline>` or its closing `#`s  | the heading's raw          |
+   | `horizontalRule` | the line                                  | the token's raw            |
+   | `codeBlock`      | the fence (`~~~`, ` ```` `) or `indented` | the token's raw, its style |
+   | `bold`, `italic` | `__`, `_`                                 | the token's raw            |
+   | `strike`         | `~`                                       | the token's raw            |
+   | `hardBreak`      | `\` or the tag (`<br>`, `<br/>`)          | the token's raw            |
 
-   Marks carry their marker on the mark, so `serializer.ts`'s `renderMark` passes the mark's
-   attributes as today. A list's marker is on the list, so an item added with Enter writes the
-   list's bullet.
-
-3. **Checked on write.** A marker can read differently where it now stands (`_it_s` is no
-   emphasis, `*it*s` is; a `*` list next to a `-` list is two lists, but next to a `*` list it
-   would join it). Each new block that holds any `markup` is read back alone, and with its
-   neighbours at the seams (milestone 2's check covers that); if it reads differently, it is
-   written with its markup stripped (`stripMarkup(node)`: the editor's spelling).
+3. **Checked on write.** `Keeping.withSafeMarkup` (`keeping.ts`): a new block that holds any
+   `markup` is written with it and read back alone; if that reads as neither the block nor the
+   editor's own spelling of it, it is written with its markup stripped. A save then tries, in
+   turn: the source's text around new blocks and their markers; a blank line around them and
+   their markers; a blank line and the editor's spelling; the whole document. The whole-output
+   check decides each (a `*` list put next to another `*` list would join it).
 4. **Where the editor's spelling is used:** new content (the attribute is null), a document
-   written whole (no map, or a failed check), the clipboard, `editor.getMarkdown()`,
-   `serializeMarkdown()` and `normalizeMarkdown()` (so `markdown.test.ts`'s expectations that
-   `* Star bullet` normalises to `- Star bullet` still hold).
-5. **Schema impact.** A new attribute changes the editor's JSON: `getJSON()` gains `markup: null`
-   on those nodes and marks. Check every place that compares or stores JSON (tests with
-   `toEqual` on parsed JSON, `turn-into-task.ts`, the clipboard) and update the expectations that
-   must change, listing them in the PR.
+   written whole for want of a map or after a failed check, the clipboard (copy, and paste: pasted markdown is read without its markers),
+   `editor.getMarkdown()`, `serializeMarkdown()` and `normalizeMarkdown()`. `codec.serialize`
+   strips markup; `codec.serializeWithMarkup` writes it.
+5. **Schema impact.** `getJSON()` has `markup: null` on those nodes and marks; `parse()` gives
+   the attribute only where the text used a marker. No test that compares JSON needed changing.
 
-Tests: port the prototype's `describe('keeping markers in an edited block')`, and
-`rich-text-editor.test.ts`'s "writes an item added to a list with the list's own bullet". Add a
-case per marker in the table: read, edited, written back with the marker; and one where the
-marker would misread.
+**What turned out different from the plan:**
 
-Done when: those pass, the fixtures' `mixed-spellings.md` keeps every marker through an edit of
-each block, and `docs/editor.md` lists the markers.
+- **A marker is safe when the block reads as itself with it, or as the editor's spelling
+  reads.** The plan compared with the block alone, which a block being typed fails whatever its
+  markers (`word ` loses its space), and comparing with the editor's spelling alone refuses a
+  marker that is more right than it: a ``fence around code that holds a` line, which
+  three backticks would close early (an inherited fault of the editor's spelling, see below).
+- **Each rule also checks its marker can stand** (an underline only under one line of text of
+  its level, indented code only with no language and outside a list item, a fence no line of the
+  code closes), so most cases never reach the read-back.
+- **A note whose every block changed keeps its markers.** Milestone 2 wrote it whole in the
+  editor's spelling (`nothing-kept`); a note of one `*` list would have lost its bullets on the
+  first edit. It is now written anew with its blocks' markers, the file's line ends and its
+  final newline. A text with no map, and one whose check failed, are still written in the
+  editor's spelling.
+- **Pasted markdown takes no markers** (the open question): it isn't the note's text.
+- **A line break in a table cell has no marker:** it is always `<br>` there.
+- **Indented code in a list item is fenced** when its list is rewritten: the editor writes an
+  item's code on the line after its text, where four more spaces would read as that text.
+- **Two expectations changed,** both to the stored spelling: `rich-text-editor.test.ts`'s edit
+  now sends `__bold__ & <b>raw</b>!`, and a block moved past another is written `__Two__`.
+
+Tests: `describe('keeping markers in an edited block')` in `markdown.test.ts` (a case per marker:
+read, edited, written back, with both line ends; markers that would misread; nested lists;
+`mixed-spellings.md` with each block edited) and `rich-text-editor.test.ts` ("writes an item
+added to a list with the list's own bullet").
+
+Corpus (`docs/` and the `README.md` files under `node_modules`): `parse()` gives the JSON it
+gave before but for the `markup` attribute, and `normalizeMarkdown` the same text, on every file
+with both line ends. Of the 19,585 saves of milestone 2's run, 313 edited a block that held
+markers and kept its text: 312 kept every marker, one was written in the editor's spelling. The
+whole-document writes are the same 58.
+
+Found on the way, inherited and left for milestone 4: the editor's spelling fences code with
+three backticks whatever the code holds, so a code block with a ``` line in it is written
+wrongly unless it was read with a longer fence (which it now keeps).
 
 ### Milestone 4: production hardening
 
@@ -412,6 +435,10 @@ each block, and `docs/editor.md` lists the markers.
      taken out again (commit `9804a39`, reverted on `claude/markdown-source-map`): it reads the
      block as a code block and takes a `~~~` fence's indentation off its lines, which `marked`
      does only for a ``` fence. It changes parity for that input: list it if it goes in.
+   - Fence a code block with more backticks than any run its code starts a line with: three
+     are written whatever the code holds, so code with a ``` line reads back cut short (a block
+     read with a longer fence keeps it since milestone 3; one made in the editor doesn't have
+     one). A parity change: list it.
    - Audit the ports for other inherited edge cases (`taskItem` builds a text node with
      `createNode('text', { text })`, which makes an attribute, not text; unreachable today).
 2. **Properties, not just cases.** Add property tests (add `fast-check` as a dev dependency):
@@ -493,10 +520,11 @@ spelling, a marker case.
 - **Equality is structural.** Two blocks equal by `Node.eq` but written differently in the file
   (`*a*` and `_a_` before markers exist) are matched as kept. That is correct (both read the
   same), but moving one onto the other's position keeps the moved one's spelling. Fine.
-- **Paste with markers?** Should markdown pasted into a note keep its markers? Probably not (the
-  pasted text isn't the file's), but decide in milestone 3.
-- **`markup` in JSON.** Milestone 3 adds an attribute to stored JSON nowhere (notes are stored as
-  markdown), but tests and `turn-into-task.ts` compare JSON. Audit before merging.
+- **Paste with markers?** Decided in milestone 3: no. Pasted markdown is read without its
+  markers, as the pasted text isn't the file's.
+- **`markup` in JSON.** Audited in milestone 3: nothing stores the editor's JSON (notes are
+  stored as markdown), `turn-into-task.ts` reads text and one attribute, and no test that
+  compares JSON needed changing.
 - **`marked` upgrades.** Pin the minor version; an upgrade re-runs the corpus script and the
   parity of `parse` before merging, as `tanstack-behaviour.test.ts` does for routing.
 

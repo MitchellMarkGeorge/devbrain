@@ -20,9 +20,11 @@ import { RawHtmlBlock, RawHtmlInline } from '../extensions/raw-html';
 import { SafeLink } from '../extensions/safe-link';
 import { MarkdownCodec, type MarkdownReading } from './codec';
 import { DocumentMarkdown } from './extension';
+import { DocumentMarkup } from './markup';
 
 export { escapeLineStart, relaxEntities } from './serializer';
 export { MarkdownCodec, type MarkdownReading } from './codec';
+export { hasMarkup, stripMarkup } from './markup';
 export type { Definition, MarkdownSource, SourceBlock, UnmappedReason } from './source';
 
 /**
@@ -77,6 +79,7 @@ export function createDocumentExtensions(
     DetailsContent,
     RawHtmlBlock,
     RawHtmlInline,
+    DocumentMarkup,
     DocumentMarkdown,
   ];
 }

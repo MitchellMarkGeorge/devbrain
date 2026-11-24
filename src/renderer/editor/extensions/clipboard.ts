@@ -2,6 +2,7 @@ import { Extension, type Editor } from '@tiptap/core';
 import { Fragment, Slice, type Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+import { stripMarkup } from '../markdown/markup';
 
 /**
  * Copy and paste in markdown, so notes move between DevBrain, GitHub, VS Code and chat apps intact.
@@ -34,7 +35,8 @@ export function looksLikeMarkdown(text: string): boolean {
 // the markdown as a slice that pastes like copied content: open at both ends, so a single line
 // joins the paragraph it lands in
 function markdownSlice(editor: Editor, text: string): Slice | null {
-  const json = editor.storage.documentMarkdown.codec.parse(text);
+  // in the editor's own spelling: the markers of a pasted text are not the note's
+  const json = stripMarkup(editor.storage.documentMarkdown.codec.parse(text));
   if (!json.content?.length) return null;
   const doc = editor.schema.nodeFromJSON(json);
   return Slice.maxOpen(doc.content);

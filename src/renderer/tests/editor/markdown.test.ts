@@ -3,11 +3,13 @@ import { Editor, getSchema, type JSONContent } from '@tiptap/core';
 import {
   MarkdownCodec,
   createDocumentExtensions,
+  hasMarkup,
   normalizeMarkdown,
   parseMarkdown,
   readMarkdown,
   relaxEntities,
   serializeMarkdown,
+  stripMarkup,
 } from '@renderer/editor/markdown';
 import type { MarkdownSource, SourceBlock } from '@renderer/editor/markdown';
 import { highlightToText } from '@renderer/editor/highlight';
@@ -161,6 +163,238 @@ describe('markdown round trip', () => {
       ].join('\n'),
     );
     expect(normalizeMarkdown(first)).toBe(first);
+  });
+});
+
+// An edited block keeps the spelling it was read with (docs/editor.md, "What a save changes"):
+// each marker is in the `markup` attribute of its node or mark (markup.ts).
+describe('keeping markers in an edited block', () => {
+  // the source as read, with `zq` added to the last text of the top-level block `index`
+  function typed(text: string, index: number): JSONContent {
+    const doc = parseMarkdown(text);
+    const add = (node: JSONContent): JSONContent | null => {
+      if (node.type === 'text') return { ...node, text: `${node.text}zq` };
+      const content = node.content ?? [];
+      for (let k = content.length - 1; k >= 0; k--) {
+        const changed = add(content[k]);
+        if (changed) return { ...node, content: content.map((c, j) => (j === k ? changed : c)) };
+      }
+      return null;
+    };
+    const content = [...(doc.content ?? [])];
+    content[index] = add(content[index])!;
+    return { ...doc, content };
+  }
+  const kept = (text: string, index: number) => writeKeepingSource(text, typed(text, index));
+  const markupsOf = (text: string) => {
+    const found: string[] = [];
+    const walk = (node: JSONContent) => {
+      if (node.attrs?.markup) found.push(`${node.type}:${node.attrs.markup}`);
+      node.marks?.forEach(
+        (mark) => mark.attrs?.markup && found.push(`${mark.type}:${mark.attrs.markup}`),
+      );
+      node.content?.forEach(walk);
+    };
+    walk(parseMarkdown(text));
+    return found;
+  };
+
+  // each marker: the text, what it reads as, and the text with its first block typed in
+  const MARKERS: [string, string, string[], string][] = [
+    ['a `*` bullet', '* one\n* two\n\nEnd', ['bulletList:*'], '* one\n* twozq\n\nEnd'],
+    ['a `+` bullet', '+ one\n+ two\n\nEnd', ['bulletList:+'], '+ one\n+ twozq\n\nEnd'],
+    [
+      'a to-do list’s bullet and `[X]`',
+      '+ [ ] one\n+ [X] two\n\nEnd',
+      ['taskList:+', 'taskItem:X'],
+      '+ [ ] one\n+ [X] twozq\n\nEnd',
+    ],
+    ['`1)` numbers', '1) one\n2) two\n\nEnd', ['orderedList:)'], '1) one\n2) twozq\n\nEnd'],
+    [
+      '`__bold__`, `_italic_` and `~strike~`',
+      '__Bold__, _italic_ and ~struck~ text\n\nEnd',
+      ['bold:__', 'italic:_', 'strike:~'],
+      '__Bold__, _italic_ and ~struck~ textzq\n\nEnd',
+    ],
+    [
+      'an underlined title',
+      'Title\n=====\n\nEnd',
+      ['heading:setext:====='],
+      'Titlezq\n=====\n\nEnd',
+    ],
+    ['an underlined section', 'Part\n---\n\nEnd', ['heading:setext:---'], 'Partzq\n---\n\nEnd'],
+    ['a heading’s closing `#`s', '## Part ##\n\nEnd', ['heading:##'], '## Partzq ##\n\nEnd'],
+    [
+      'a `~~~` fence',
+      '~~~ts\nconst a = 1;\n~~~\n\nEnd',
+      ['codeBlock:~~~'],
+      '~~~ts\nconst a = 1;zq\n~~~\n\nEnd',
+    ],
+    [
+      'a longer fence',
+      '````md\n```\ninner\n```\n````\n\nEnd',
+      ['codeBlock:````'],
+      '````md\n```\ninner\n```zq\n````\n\nEnd',
+    ],
+    [
+      'a `\\` line break and a `<br>`',
+      'one\\\ntwo<br>three\n\nEnd',
+      ['hardBreak:\\', 'hardBreak:<br>'],
+      'one\\\ntwo<br>threezq\n\nEnd',
+    ],
+  ];
+
+  it.each(MARKERS)(
+    'reads %s, and writes it back when its block is edited',
+    (_, text, markups, edited) => {
+      expect(markupsOf(text)).toEqual(markups);
+      expect(kept(text, 0)).toEqual({ markdown: edited, whole: null });
+      // and with Windows line ends
+      const windows = (markdown: string) => markdown.replace(/\n/g, '\r\n');
+      expect(kept(windows(text), 0)).toEqual({ markdown: windows(edited), whole: null });
+      // what was saved reads with the same markers
+      expect(markupsOf(edited)).toEqual(markups);
+    },
+  );
+
+  it('keeps indented code indented, and a nested list its own bullet', () => {
+    const code = 'Code:\n\n    const a = 1;\n    a += 1;\n\nEnd';
+    expect(markupsOf(code)).toEqual(['codeBlock:indented']);
+    expect(kept(code, 1).markdown).toBe('Code:\n\n    const a = 1;\n    a += 1;zq\n\nEnd');
+    expect(kept('* one\n  + nested\n\nEnd', 0).markdown).toBe('* one\n  + nestedzq\n\nEnd');
+    expect(kept('1) one\n   - [X] nested\n\nEnd', 0).markdown).toBe(
+      '1) one\n   - [X] nestedzq\n\nEnd',
+    );
+  });
+
+  it('keeps the markers of a note whose every block changed', () => {
+    // a note of one list: edited, nothing of its text is kept, and it is still a `*` list
+    expect(kept('* one\n* __two__\n', 0)).toEqual({
+      markdown: '* one\n* __twozq__\n',
+      whole: 'nothing-kept',
+    });
+    expect(kept('Title\r\n=====\r\n', 0).markdown).toBe('Titlezq\r\n=====\r\n');
+  });
+
+  it('keeps a rule as it was written when the blocks around it move', () => {
+    const text = 'One\n\n* * *\n\nTwo';
+    expect(markupsOf(text)).toEqual(['horizontalRule:* * *']);
+    const doc = parseMarkdown(text);
+    const [one, rule, two] = doc.content ?? [];
+    expect(serializeKeepingSource(text, { ...doc, content: [two, rule, one] })).toBe(
+      'Two\n\n* * *\n\nOne',
+    );
+  });
+
+  it('gives no marker to what is written the editor’s way', () => {
+    const own = [
+      '- one\n- [x] two',
+      '1. one',
+      '**bold** *italic* ~~struck~~',
+      '# Title',
+      '---',
+      '```ts\ncode\n```',
+      'one  \ntwo',
+      '| a |\n| - |\n| b<br>c |',
+    ];
+    for (const text of own) expect(markupsOf(text)).toEqual([]);
+  });
+
+  it('writes new content, and a document written whole, in the editor’s own spelling', () => {
+    // made in the editor, not read: no markers
+    const text = '* one\n\nEnd';
+    const doc = parseMarkdown(text);
+    const fresh = (parseMarkdown('* new\n\n__bold__').content ?? []).map(stripMarkup);
+    expect(
+      serializeKeepingSource(text, { ...doc, content: [...(doc.content ?? []), ...fresh] }),
+    ).toBe('* one\n\nEnd\n\n- new\n\n**bold**');
+    // read with markers, and written whole
+    const others =
+      '* one\n\n__two__ _three_ ~four~\n\n***\n\nTitle\n===\n\n~~~\ncode\n~~~\n\n1) a\n\n+ [X] b';
+    const editors =
+      '- one\n\n**two** *three* ~~four~~\n\n---\n\n# Title\n\n```\ncode\n```\n\n1. a\n\n- [x] b';
+    expect(normalizeMarkdown(others)).toBe(editors);
+    expect(serializeMarkdown(parseMarkdown(others))).toBe(editors);
+    expect(hasMarkup(parseMarkdown(others))).toBe(true);
+    expect(hasMarkup(stripMarkup(parseMarkdown(others)))).toBe(false);
+    expect(hasMarkup(parseMarkdown(editors))).toBe(false);
+  });
+
+  it('writes a block in the editor’s spelling where its markers would read differently', () => {
+    // `_it_s` is no emphasis: the closing `_` is inside a word
+    const text = '_it_ s\n\nEnd';
+    const doc = parseMarkdown(text);
+    const [para, end] = doc.content ?? [];
+    const joined = { ...para, content: [para.content![0], { type: 'text', text: 's' }] };
+    const saved = writeKeepingSource(text, { ...doc, content: [joined, end] });
+    expect(saved).toEqual({ markdown: '*it*s\n\nEnd', whole: null });
+    expect(
+      documentSchema
+        .nodeFromJSON(parseMarkdown(saved.markdown))
+        .eq(documentSchema.nodeFromJSON(stripMarkup({ ...doc, content: [joined, end] }))),
+    ).toBe(true);
+
+    // an underline under two lines of text would make both the heading
+    const title = 'Title\n=====\n\nEnd';
+    const [heading, last] = parseMarkdown(title).content ?? [];
+    const twoLines = {
+      ...heading,
+      content: [...heading.content!, { type: 'hardBreak' }, { type: 'text', text: 'more' }],
+    };
+    expect(serializeKeepingSource(title, { type: 'doc', content: [twoLines, last] })).toBe(
+      '# Title  \nmore\n\nEnd',
+    );
+    // an underline says its level: a title made a section takes `#`s
+    const section = { ...heading, attrs: { ...heading.attrs, level: 3 } };
+    expect(serializeKeepingSource(title, { type: 'doc', content: [section, last] })).toBe(
+      '### Title\n\nEnd',
+    );
+    // a fence a line of the code would close
+    const fenced = '~~~\ncode\n~~~\n\nEnd';
+    const [block] = parseMarkdown(fenced).content ?? [];
+    const closing = { ...block, content: [{ type: 'text', text: 'code\n~~~\nmore' }] };
+    const written = serializeKeepingSource(fenced, { type: 'doc', content: [closing, last] });
+    expect(written).toBe('```\ncode\n~~~\nmore\n```\n\nEnd');
+    // indented code given a language is fenced
+    const indented = 'Code:\n\n    a = 1\n\nEnd';
+    const [intro, code] = parseMarkdown(indented).content ?? [];
+    const inPython = { ...code, attrs: { ...code.attrs, language: 'py' } };
+    expect(
+      serializeKeepingSource(indented, { type: 'doc', content: [intro, inPython, last] }),
+    ).toBe('Code:\n\n```py\na = 1\n```\n\nEnd');
+  });
+
+  it('keeps two lists that differ in their bullet apart when one is edited', () => {
+    const text = '* Star\n+ Plus\n\nPara';
+    expect(kept(text, 0).markdown).toBe('* Starzq\n+ Plus\n\nPara');
+    expect(kept(text, 1).markdown).toBe('* Star\n+ Pluszq\n\nPara');
+  });
+
+  it('keeps every marker of a note written every other way, whichever block is edited', () => {
+    const [, text] = Object.entries(
+      import.meta.glob<string>('./fixtures/real-world/mixed-spellings.md', {
+        query: '?raw',
+        import: 'default',
+        eager: true,
+      }),
+    )[0];
+    // (indented code in a list item is fenced when its list is rewritten: it would read as text)
+    const kept = (markdown: string) =>
+      markupsOf(markdown).filter((markup) => markup !== 'codeBlock:indented');
+    const markups = kept(text);
+    expect(markups).not.toEqual([]);
+    const blocks = parseMarkdown(text).content ?? [];
+    let edited = 0;
+    blocks.forEach((block, index) => {
+      const doc = typed(text, index);
+      if (!doc.content![index] || JSON.stringify(doc.content![index]) === JSON.stringify(block))
+        return;
+      const saved = writeKeepingSource(text, doc);
+      expect(saved.whole).toBeNull();
+      expect(kept(saved.markdown), `block ${index}: ${saved.markdown}`).toEqual(markups);
+      edited += 1;
+    });
+    expect(edited).toBeGreaterThan(5);
   });
 });
 
@@ -569,8 +803,9 @@ describe('saving what was read', () => {
     // blocks are matched in the order they were read: of two that swap places one is kept
     const text = '* One\n\n\n__Two__';
     const [one, two] = parseMarkdown(text).content ?? [];
+    // (written anew with the markers it was read with)
     expect(serializeKeepingSource(text, { type: 'doc', content: [two, one] })).toBe(
-      '**Two**\n\n* One',
+      '__Two__\n\n* One',
     );
   });
 

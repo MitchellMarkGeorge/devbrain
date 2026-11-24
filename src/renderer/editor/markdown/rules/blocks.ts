@@ -1,3 +1,4 @@
+import { markupOf, withMarkup } from '../markup';
 import type { MarkdownRule } from '../types';
 
 /** The document, paragraphs, headings, quotes, rules, code blocks, line breaks and text. */
@@ -5,6 +6,40 @@ import type { MarkdownRule } from '../types';
 // an empty paragraph after another empty one; one alone is written as nothing, a blank line
 const EMPTY_PARAGRAPH = '&nbsp;';
 const NBSP = '\u00A0';
+
+// ---- the markers a block keeps in its `markup` attribute (markup.ts)
+
+// a heading written as a line of text over an underline: `setext:` and the underline
+const SETEXT = 'setext:';
+const INDENTED = 'indented';
+const FENCE = /^(?:`{3,}|~{3,})$/;
+const RULE_LINE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
+
+// an underlined heading's underline, or the `#`s an ATX heading was closed with
+function headingMarkup(raw: string): string | null {
+  const text = raw.trimEnd();
+  const underline = /\n {0,3}(=+|-+)$/.exec(text)?.[1];
+  if (underline) return SETEXT + underline;
+  return /^ {0,3}#{1,6}[ \t]/.test(text) ? (/[ \t](#+)$/.exec(text)?.[1] ?? null) : null;
+}
+
+// a code block's fence when it isn't three backticks, or that it was indented
+function codeBlockMarkup(token: { raw: string; codeBlockStyle?: string }): string | null {
+  const fence = /^(`{3,}|~{3,})/.exec(token.raw)?.[1];
+  if (fence) return fence === '```' ? null : fence;
+  return token.codeBlockStyle === 'indented' ? INDENTED : null;
+}
+
+// whether a line of `code` would close a block fenced with `fence`
+function closesFence(code: string, fence: string): boolean {
+  const closing = new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[ \\t]*$`);
+  return code.split('\n').some((line) => closing.test(line));
+}
+
+// a backtick fence can't have a backtick in its info string
+function fenceFits(fence: string, language: string): boolean {
+  return fence[0] !== '`' || !language.includes('`');
+}
 
 export const blockRules: Record<string, MarkdownRule> = {
   doc: {
@@ -55,13 +90,21 @@ export const blockRules: Record<string, MarkdownRule> = {
     parse: (token, helpers) =>
       helpers.createNode(
         'heading',
-        { level: token.depth || 1 },
+        withMarkup({ level: token.depth || 1 }, headingMarkup(token.raw)),
         helpers.parseInline(token.tokens || []),
       ),
     render: (node, h) => {
       const level = node.attrs?.level ? parseInt(node.attrs.level, 10) : 1;
       if (!node.content) return '';
-      return `${'#'.repeat(level)} ${h.renderChildren(node.content)}`;
+      const title = h.renderChildren(node.content);
+      const markup = markupOf(node.attrs);
+      const underline = markup?.startsWith(SETEXT) ? markup.slice(SETEXT.length) : null;
+      // an underline says its level (`=` is 1, `-` is 2), and is under one line of text
+      if (underline && (underline[0] === '=' ? 1 : 2) === level && /^[^\n]*\S[^\n]*$/.test(title)) {
+        return `${title}\n${underline}`;
+      }
+      const closing = markup && /^#+$/.test(markup) && title.trim() !== '' ? ` ${markup}` : '';
+      return `${'#'.repeat(level)} ${title}${closing}`;
     },
   },
 
@@ -86,8 +129,18 @@ export const blockRules: Record<string, MarkdownRule> = {
   horizontalRule: {
     name: 'horizontalRule',
     token: 'hr',
-    parse: (_token, helpers) => helpers.createNode('horizontalRule'),
-    render: () => '---',
+    parse: (token, helpers) => {
+      const line = token.raw.trim();
+      return helpers.createNode(
+        'horizontalRule',
+        withMarkup(undefined, line === '---' ? null : line),
+      );
+    },
+    // the line as it was written (`***`, `___`, `- - -`), where it is still a rule's
+    render: (node) => {
+      const markup = markupOf(node.attrs);
+      return markup && RULE_LINE.test(markup) ? markup : '---';
+    },
   },
 
   codeBlock: {
@@ -104,21 +157,46 @@ export const blockRules: Record<string, MarkdownRule> = {
       }
       return helpers.createNode(
         'codeBlock',
-        { language: token.lang || null },
+        withMarkup({ language: token.lang || null }, codeBlockMarkup(token)),
         token.text ? [helpers.createTextNode(token.text)] : [],
       );
     },
-    render: (node, h) => {
+    render: (node, h, context) => {
       const language = node.attrs?.language || '';
+      // in a list item code follows the item's text on the next line, where indented code
+      // would read as more of that text: there it is always fenced
+      const inItem = context.parentType === 'listItem' || context.parentType === 'taskItem';
+      const markup = inItem && markupOf(node.attrs) === INDENTED ? null : markupOf(node.attrs);
       if (!node.content) return `\`\`\`${language}\n\n\`\`\``;
-      return [`\`\`\`${language}`, h.renderChildren(node.content), '```'].join('\n');
+      const code = h.renderChildren(node.content);
+      // indented, as it was: only code with no language, which starts and ends with a line of text
+      if (markup === INDENTED && !language && /^\S[^]*\S$|^\S$/.test(code.replace(/^ +/, ''))) {
+        return code
+          .split('\n')
+          .map((line) => (line.trim() === '' ? '' : `    ${line}`))
+          .join('\n');
+      }
+      // its own fence (`~~~`, or a longer one), unless a line of the code would close it
+      const fence =
+        markup && FENCE.test(markup) && !closesFence(code, markup) && fenceFits(markup, language)
+          ? markup
+          : '```';
+      return [`${fence}${language}`, code, fence].join('\n');
     },
   },
 
   hardBreak: {
     name: 'hardBreak',
     token: 'br',
-    parse: () => ({ type: 'hardBreak' }),
-    render: () => '  \n',
+    // `marked`'s break is two spaces or a backslash before the line end; `<br>` is html-elements.ts's
+    parse: (token) => {
+      const markup = token.raw.startsWith('\\') ? '\\' : /^<br/i.test(token.raw) ? token.raw : null;
+      return markup ? { type: 'hardBreak', attrs: { markup } } : { type: 'hardBreak' };
+    },
+    render: (node) => {
+      const markup = markupOf(node.attrs);
+      if (markup === '\\') return '\\\n';
+      return markup && /^<br\s*\/?>$/i.test(markup) ? markup : '  \n';
+    },
   },
 };

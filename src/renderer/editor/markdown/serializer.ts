@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 import type { Schema } from '@tiptap/pm/model';
 import { encodeEntities } from './entities';
+import { stripMarkup } from './markup';
 import type { RuleTable } from './rules';
 import type { RenderContext, RenderHelpers } from './types';
 
@@ -142,9 +143,17 @@ export class MarkdownSerializer {
     this.markRanks = new Map(Object.keys(schema.marks).map((name, index) => [name, index]));
   }
 
-  serialize(doc: JSONContent | JSONContent[] | null | undefined): string {
+  /**
+   * `doc` as markdown. In the editor's own spelling unless `withMarkup`: then each node and mark
+   * is written with the marker it was read with (markup.ts).
+   */
+  serialize(
+    doc: JSONContent | JSONContent[] | null | undefined,
+    { withMarkup = false }: { withMarkup?: boolean } = {},
+  ): string {
     if (!doc) return '';
-    const result = this.renderNodes(doc, Array.isArray(doc) ? undefined : doc);
+    const written = withMarkup ? doc : Array.isArray(doc) ? doc.map(stripMarkup) : stripMarkup(doc);
+    const result = this.renderNodes(written, Array.isArray(written) ? undefined : written);
     return this.isEmptyOutput(result) ? '' : result;
   }
 

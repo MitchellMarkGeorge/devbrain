@@ -142,10 +142,11 @@ reads and writes every note exactly as that package did (checked against it on t
 extension and command APIs (`getSchema`, `setContent`, an extension's storage and commands) and
 `marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
 
-What is left to build on it (keeping an edited block's markers) and what it needs to be
-production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its first two
-steps are built: reading a text gives its source map ("The source map", below), and a save
-writes the document keeping the text of every block that didn't change ("What a save changes").
+What it still needs to be production ready:
+[editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its first three steps are built:
+reading a text gives its source map ("The source map", below), a save writes the document keeping
+the text of every block that didn't change, and a block that did change keeps the markers it was
+written with ("What a save changes").
 
 - `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `read(markdown)` gives
   the document an editor loads and the text's source map; `parseDocument` is that document alone,
@@ -184,6 +185,10 @@ writes the document keeping the text of every block that didn't change ("What a 
 - `source.ts`: `MarkdownSource`, the source map, made from what `read` gives.
 - `keeping.ts`: `writeKeeping`, a document written keeping the text of its source
   (`codec.writeKeeping`, `codec.serializeKeeping`).
+- `markup.ts`: `DocumentMarkup`, the `markup` attribute a node or mark keeps its marker in
+  (`*` bullets, `__bold__`, an underlined heading), with `stripMarkup` and `hasMarkup`. The
+  rules read and write it; `codec.serialize` writes the editor's own spelling whatever markers a
+  document has, `codec.serializeWithMarkup` writes them.
 - `serializer.ts`: JSON to markdown. It writes a run of text's marks itself, opening and closing
   each where its span starts and ends: the higher priority mark outside (a link around its bold
   text), spaces moved out of a mark's edges, and a mark that has to reopen where two overlap
@@ -368,18 +373,51 @@ Here `!` was typed after "text": the paragraph is written anew (`**bold**`), and
   written again with a blank line around each new block, and if that still reads differently the
   whole document is written in the editor's spelling. Kept text never changes what a note means.
 
-The whole document is written in the editor's spelling (`KeptWriting.whole` says why) when the
-text has no source map (`no-source`; "The source map" lists the reasons), when no block is as it
-was read (`nothing-kept`), and when the check fails (`readback-mismatch`). On `docs/` and the
-READMEs in `node_modules`, editing, removing and adding a block throughout (19,588 saves) kept
-the text in 99.7%; the rest, nearly all a removal that brings two lists together (which the editor's spelling reads as one list), were written whole.
+None of the text is kept, and the whole document is written anew (`KeptWriting.whole` says
+why), in three cases. In the editor's spelling: when the text has no source map (`no-source`;
+"The source map" lists the reasons), and when the check fails (`readback-mismatch`). With the
+markers its blocks were read with (below), the file's line ends and its final newline: when no
+block is as it was read (`nothing-kept`, a note of one paragraph being edited). On `docs/` and the
+READMEs in `node_modules`, editing, removing and adding a block throughout (19,585 saves) kept
+the text in 99.7%; the rest, nearly all a removal that brings two lists together (which the
+editor's spelling reads as one list), were written whole.
 
-A block written anew, and a document written whole, use the editor's spelling:
+**A block written anew keeps the markers it was read with.** Where markdown has more than one
+spelling and the text used another than the editor's, the node or mark keeps it in a `markup`
+attribute (`markup.ts`; null for the editor's own spelling, which everything made in the editor
+has), set by the rule that reads it and written back by the same rule:
 
-- one blank line between blocks (a heading straight above its paragraph gets one), and inside a
-  collapsible section around its body;
-- `<br>` outside a table cell becomes two trailing spaces, GFM's line break;
-- `-` bullets (`*` and `+` become `-`), `**bold**` and `*italic*` (not `__` and `_`);
+| Node or mark               | `markup`                          | Written                                 |
+| -------------------------- | --------------------------------- | --------------------------------------- |
+| `bulletList`, `taskList`   | `*` or `+`                        | each item's bullet; a new item takes it |
+| `orderedList`              | `)`                               | `1)` for `1.`                           |
+| `taskItem`                 | `X`                               | `[X]` while it is checked               |
+| `heading`                  | `setext:=====`, `setext:---`      | the text over its underline, as long    |
+| `heading`                  | `##` (closing `#`s)               | `## Title ##`                           |
+| `horizontalRule`           | the line (`***`, `___`, `* * *`)  | that line                               |
+| `codeBlock`                | the fence (`~~~`, ` ```` `)       | that fence                              |
+| `codeBlock`                | `indented`                        | each line indented four spaces          |
+| `bold`, `italic`, `strike` | `__`, `_`, `~`                    | `__bold__`, `_italic_`, `~struck~`      |
+| `hardBreak`                | `\`, or the tag (`<br>`, `<br/>`) | `\` at the line's end, or the tag       |
+
+- The attribute is never drawn, read from HTML or copied: the clipboard, `editor.getMarkdown()`,
+  `serializeMarkdown`, `normalizeMarkdown` and a document written whole for want of a map or
+  after a failed check use the editor's spelling, and pasted markdown is read without its markers (it isn't the note's text).
+- A marker is written only where it can stand: an underline under one line of text of its own
+  level (a title made a section takes `#`s), a fence no line of the code would close, indented
+  code with no language and outside a list item, a `<br>` outside a table cell (in a cell a line
+  break is always `<br>`, and has no marker).
+- **A marker never changes what a block reads as.** A block with markers is written with them,
+  read back, and compared with the block: `_it_s` is no emphasis where `*it*s` is, so that
+  paragraph is written in the editor's spelling. So is every new block of a save whose markers
+  would join it to a neighbour (a `*` list put next to another `*` list).
+
+Besides its markers, a block written anew, and all of a document written whole, are in the
+editor's spelling:
+
+- one blank line between the blocks inside it, and around a collapsible section's body;
+- `-` bullets, `1.` numbers, `**bold**`, `*italic*`, `~~struck~~`, `#` headings, `---`, three
+  backticks, two trailing spaces for a line break: what a marker above would have kept;
 - tables padded into columns;
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
   and `x < y` stay as written;
@@ -387,10 +425,12 @@ A block written anew, and a document written whole, use the editor's spelling:
   `[text](url)`, and its definition stays in the file.
 
 Blocks are matched in order, so of two blocks that swap places one is kept and the other written
-anew. A list is one block: editing one item rewrites the list.
+anew (with its markers). A list is one block: editing one item rewrites the list, with its
+bullets.
 
 `src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged
-("markdown round trip") and what a save keeps ("saving what was read");
+("markdown round trip"), what a save keeps ("saving what was read") and each marker ("keeping
+markers in an edited block");
 `markdown-keeping.test.ts` edits, removes and adds a block at every place in each real-world
 fixture, with both line ends. Add a case when a new kind of content must survive.
 
@@ -402,7 +442,10 @@ kind of element is a TipTap node (or mark) with:
 
 1. a `MarkdownRule` exported beside it: a `tokenizer` for its syntax (inline or block) if `marked`
    doesn't read it, `parse` to make the node from the token, and `render` to write it back exactly.
-   List it in `DOCUMENT_RULES` (`markdown/rules/index.ts`), minding the order there;
+   List it in `DOCUMENT_RULES` (`markdown/rules/index.ts`), minding the order there. If its
+   syntax has more than one spelling, add it to `MARKUP_TYPES` (`markdown/markup.ts`), read the
+   marker in `parse` (`withMarkup`) and write it in `render` (`markupOf`), checking there that
+   it can stand, and add a row to the markers' test;
 2. `parseHTML`/`renderHTML` for copy and paste;
 3. for a React view, `addNodeView()` with `ReactNodeViewRenderer`, as `EntityPillView.tsx` does.
 

@@ -288,7 +288,8 @@ export class MarkdownParser {
       let processed = item;
       if (isTask) {
         const lines = (item.raw || item.text || '').split('\n');
-        const mainContent = lines[0].match(/^\s*[-+*]\s+\[([ xX])\]\s+(.*)$/)?.[2] ?? '';
+        const [, bullet, checkedMark, mainContent = ''] =
+          lines[0].match(/^\s*([-+*])\s+\[([ xX])\]\s+(.*)$/) ?? [];
         let nestedTokens: MarkdownToken[] = [];
         const nestedLines = lines.slice(1);
         if (nestedLines.join('\n').trim()) {
@@ -307,6 +308,9 @@ export class MarkdownParser {
           raw: '',
           mainContent,
           checked: checked ?? false,
+          // the markers the to-do list's own tokenizer puts on its items (rules/lists.ts)
+          bullet,
+          checkedMark,
           text: mainContent,
           tokens: this.tokenizeInline(mainContent),
           nestedTokens,

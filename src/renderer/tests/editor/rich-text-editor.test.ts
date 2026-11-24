@@ -62,8 +62,9 @@ describe('RichTextEditor', () => {
     act(() => {
       editor.chain().focus('end').insertContent('!').run();
     });
-    // only the paragraph that changed is written anew: the list keeps its `*` bullets
-    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n\n**bold** & <b>raw</b>!');
+    // only the paragraph that changed is written anew, with the `__` it was read with; the
+    // list keeps its `*` bullets
+    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n\n__bold__ & <b>raw</b>!');
     // the editor's own spelling of the whole document is still there to ask for
     expect(editor.getMarkdown()).toBe('- one\n- two\n\n**bold** & <b>raw</b>!');
 
@@ -102,6 +103,31 @@ describe('RichTextEditor', () => {
       while (editor.can().undo()) editor.commands.undo();
     });
     expect(onChange).toHaveBeenLastCalledWith(stored);
+  });
+
+  it("writes an item added to a list with the list's own bullet, and new blocks with the editor's", () => {
+    const onChange = vi.fn();
+    render({ onChange });
+    // Enter at the end of "two", then type
+    act(() => {
+      editor.chain().setTextSelection(13).splitListItem('listItem').insertContent('three').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n* three\n\n__bold__ & <b>raw</b>');
+
+    // a list made in the editor has no marker of its own
+    act(() => {
+      editor
+        .chain()
+        .focus('end')
+        .insertContent([{ type: 'paragraph', content: [{ type: 'text', text: 'new' }] }])
+        .toggleBulletList()
+        .run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      '* one\n* two\n* three\n\n__bold__ & <b>raw</b>\n\n- new',
+    );
+    // and the whole document is still there in the editor's spelling
+    expect(editor.getMarkdown()).toBe('- one\n- two\n- three\n\n**bold** & <b>raw</b>\n\n- new');
   });
 
   it('keeps the text of a note loaded through the handle, an image alone on its line too', () => {
