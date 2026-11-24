@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Editor } from '@tiptap/react';
 import type { NoteId } from '@common/ids';
 import { ipc, trpc } from '@renderer/ipc';
@@ -6,12 +6,14 @@ import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRi
 import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
+import { noteContentQuery } from '../../api/queries';
 
 /**
  * A note's body in the rich text editor: its markdown from `notes.readContent` (primed by the
  * route's loader), saved through `notes.updateContent` 500ms after typing stops, and at once on
- * leaving the page, on the window losing focus and on a workspace switch. The save's own refetch
- * never replaces what was typed after it; a change from elsewhere (the file edited on disk) does.
+ * leaving the page, on the window losing focus and on a workspace switch. Each save writes the
+ * markdown into the query's cache, and nothing refetches it, so a save never reads the file back
+ * and the note opened again shows its latest save (`noteContentQuery`).
  * Key it by the note's id, so a save still pending goes to the note it was typed for. Not
  * `editable`, it only shows the note (one in the trash).
  */
@@ -24,7 +26,7 @@ export function NoteEditor({
   onReady?: (editor: Editor) => void;
   editable?: boolean;
 }) {
-  const content = useQuery(trpc.notes.readContent.queryOptions({ id: noteId }));
+  const content = useQuery(noteContentQuery(noteId));
   if (content.data === undefined) return null;
   return (
     <NoteEditorLoaded
@@ -51,17 +53,23 @@ function NoteEditorLoaded({
   const createTask = useCreateTask();
   // a task made from the note's text is linked to the note, in its project (the page has read it)
   const projectId = useQuery(trpc.notes.get.queryOptions({ id: noteId })).data?.projectId;
-  const body = useEditorAutosave(content, (markdown) => {
-    ipc.notes.updateContent
+  const queryClient = useQueryClient();
+  const { initialValue, editor, onChange } = useEditorAutosave(content, (markdown) => {
+    const { queryKey } = noteContentQuery(noteId);
+    queryClient.setQueryData(queryKey, markdown);
+    // a read already on its way would answer with the text before this save; cancelled, the query
+    // keeps the state of its last write, this one
+    void queryClient.cancelQueries({ queryKey, exact: true });
+    return ipc.notes.updateContent
       .mutate({ id: noteId, content: markdown })
       .catch((error: unknown) => showError(error, 'Couldn’t save the note'));
   });
   return (
     <WorkspaceRichTextEditor
       label="Note"
-      value={body.value}
-      revision={body.revision}
-      onChange={body.onChange}
+      initialValue={initialValue}
+      ref={editor}
+      onChange={onChange}
       onReady={onReady}
       editable={editable}
       newTaskOptions={{ projectId, linkedNoteId: noteId }}

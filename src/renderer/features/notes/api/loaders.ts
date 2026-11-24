@@ -4,7 +4,7 @@ import { isId, type NoteId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
 import { primeLinks } from '@renderer/shared/api/loaders';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import { noteListQuery, noteTasksQuery } from './queries';
+import { noteContentQuery, noteListQuery, noteTasksQuery } from './queries';
 import { noteListInput, resolveNotesSearch, type NotesSearch } from './search';
 
 // What the notes routes load before their first frame (routes/app/$workspaceId/notes/): they only
@@ -42,7 +42,7 @@ export async function loadNote(context: RouterContext, id: NoteId) {
   try {
     [note] = await Promise.all([
       queryClient.query({ ...trpc.notes.get.queryOptions({ id }), staleTime: 'static' }),
-      queryClient.query({ ...trpc.notes.readContent.queryOptions({ id }), staleTime: 'static' }),
+      queryClient.query({ ...noteContentQuery(id), staleTime: 'static' }),
     ]);
   } catch (error) {
     if (ipcErrorCode(error) === 'not_found') throw notFound();

@@ -155,8 +155,8 @@ describe('the reads table', () => {
       'event',
       'calendar',
     ]);
-    // a note's content reads only the note, though the rest of its router reads more
-    expect(entitiesReadBy(['notes', 'readContent'])).toEqual(['note']);
+    // a note's markdown reads nothing: only its editor rewrites it, writing the cache itself
+    expect(entitiesReadBy(['notes', 'readContent'])).toEqual([]);
     expect(entitiesReadBy(['unknown', 'list'])).toBe('everything');
     expect(entitiesReadBy(['app', 'version'])).toEqual([]);
   });

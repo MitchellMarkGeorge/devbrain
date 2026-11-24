@@ -31,7 +31,7 @@ async function render(onOpenEntity = vi.fn(), value = 'See [Old title](devbrain:
         QueryClientProvider,
         { client: queryClient },
         createElement(RichTextEditor, {
-          value,
+          initialValue: value,
           label: 'Note',
           entityPill: WorkspaceEntityPill,
           onOpenEntity,

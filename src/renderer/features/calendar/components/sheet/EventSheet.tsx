@@ -538,17 +538,17 @@ function EventDescription({
   event: Event;
   editable: boolean;
   series: boolean;
-  onSave: (description: string) => void;
+  onSave: (description: string) => Promise<unknown>;
 }) {
   const pending = useRef<string | null>(null);
   const createTask = useCreateTask();
   const toDescription = (markdown: string) => (markdown.trim() === '' ? '' : markdown);
-  const description = useEditorAutosave(event.description ?? '', (markdown) => {
-    if (series) return;
-    const stored = toDescription(markdown);
-    onSave(stored);
-    return stored;
-  });
+  const { initialValue, editor, onChange } = useEditorAutosave(
+    event.description ?? '',
+    // a series' description is saved on leaving the editor, not as it is typed
+    (markdown) => (series ? undefined : onSave(toDescription(markdown))),
+    { stored: toDescription },
+  );
   if (!editable && !event.description) return null;
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
@@ -563,14 +563,14 @@ function EventDescription({
       <WorkspaceRichTextEditor
         className={styles.description}
         label="Description"
-        value={series ? (event.description ?? '') : description.value}
-        revision={series ? undefined : description.revision}
+        initialValue={initialValue}
+        ref={editor}
         editable={editable}
         placeholder="Add a description…"
         openNewTaskDialog={createTask}
         onChange={(markdown) => {
           if (series) pending.current = markdown;
-          else description.onChange(markdown);
+          else onChange(markdown);
         }}
       />
     </div>

@@ -17,26 +17,31 @@ export function ProjectDescription({ project }: { project: Project }) {
   const showError = useMutationErrorToast();
   const createTask = useCreateTask();
   const synced = isSynced(project);
-  const description = useEditorAutosave(project.description ?? '', (markdown) => {
-    const blank = markdown.trim() === '';
-    ipc.projects.update
-      .mutate({ id: project.id, description: blank ? null : markdown })
-      .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
-    // a blank description is stored as none, and comes back as ''
-    return blank ? '' : markdown;
-  });
+  const { initialValue, editor, onChange } = useEditorAutosave(
+    project.description ?? '',
+    (markdown) =>
+      ipc.projects.update
+        .mutate({ id: project.id, description: storedDescription(markdown) || null })
+        .catch((error: unknown) => showError(error, 'Couldn’t save the description')),
+    { stored: storedDescription },
+  );
   if (synced && !project.description) return null;
   return (
     <WorkspaceRichTextEditor
       className={styles.description}
       label="Description"
-      value={description.value}
-      revision={description.revision}
+      initialValue={initialValue}
+      ref={editor}
       editable={!synced}
       placeholder="Add a description…"
-      onChange={description.onChange}
+      onChange={onChange}
       newTaskOptions={{ projectId: project.id }}
       openNewTaskDialog={createTask}
     />
   );
+}
+
+// a blank description is stored as none, and comes back as ''
+function storedDescription(markdown: string): string {
+  return markdown.trim() === '' ? '' : markdown;
 }

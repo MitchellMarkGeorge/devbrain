@@ -243,6 +243,108 @@ describe('the task page', () => {
     await eventually(() => expect(description()?.textContent).toBe('From Linear'));
   });
 
+  it('shows a synced task’s description once a sync gives it one', async () => {
+    const synced = fakeTask('tsk_synced', 'From Linear', {
+      description: null,
+      external: {
+        provider: Provider.LINEAR,
+        state: LinkState.SYNCED,
+        key: 'MIT-2',
+        url: 'https://linear.app/x/issue/MIT-2',
+        statusLabel: null,
+        priorityLabel: null,
+        lastSyncedAt: new Date(),
+      },
+    });
+    const tasks = new FakeTasks([synced]);
+    const main = mainWith(tasks);
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${synced.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(app.text()).toContain('From Linear'));
+    // none yet: left out
+    expect(description()).toBeNull();
+
+    tasks.patch(synced.id, { description: 'Written in Linear' });
+    main.push('db.changes', { entities: ['task'] });
+    await eventually(() => expect(description()?.textContent).toBe('Written in Linear'));
+  });
+
+  it('shows a description rewritten from outside while the page was closed', async () => {
+    const tasks = store();
+    const main = mainWith(tasks);
+    // a copy each time, as IPC sends one: never the stored row, which the edits change in place
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(description()?.textContent).toBe('Replace the implicit flow.'));
+
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: WORK } });
+    await eventually(() => expect(description()).toBeNull());
+    // a sync rewrites it meanwhile
+    tasks.patch(parent.id, { description: 'Use PKCE everywhere.' });
+    main.push('db.changes', { entities: ['task'] });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await app.router.navigate({
+      to: '/app/$workspaceId/tasks/$taskId',
+      params: { workspaceId: WORK, taskId: parent.id },
+    });
+    await eventually(() => expect(description()?.textContent).toBe('Use PKCE everywhere.'));
+  });
+
+  it('keeps what was typed when a save’s refetch answers while a later save is on its way', async () => {
+    const tasks = store();
+    const main = mainWith(tasks);
+    // a copy each time, as IPC sends one, of the task as it was when the read came in; held back
+    // while `held` is set
+    let held: Promise<void> | null = null;
+    main.routes.set('tasks.get', async (args) => {
+      const read = structuredClone(tasks.tasks.find((t) => t.id === args.id));
+      if (held) await held;
+      return [read, []];
+    });
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(description()?.textContent).toBe('Replace the implicit flow.'));
+    const editor = (description() as unknown as { editor: Editor }).editor;
+
+    // the first save's refetch reads "… one", and is held
+    let answer!: () => void;
+    held = new Promise<void>((resolve) => (answer = resolve));
+    const reads = main.callsTo('tasks.get').length;
+    editor.chain().focus('end').insertContent(' one').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('tasks.get').length).toBeGreaterThan(reads));
+
+    // a second save is on its way when the first one's refetch answers
+    const release = main.hold('tasks.update');
+    editor.chain().focus('end').insertContent(' two').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(2));
+    held = null;
+    answer();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one two');
+
+    release();
+    await eventually(() =>
+      expect(tasks.tasks.find((t) => t.id === parent.id)?.description).toBe(
+        'Replace the implicit flow. one two',
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one two');
+  });
+
   it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {
     const linked = fakeTask('tsk_linked', 'Write the guide', {
       linkedNoteId: 'nte_guide' as never,

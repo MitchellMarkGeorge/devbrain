@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
 import { TaskStatus, type NoteListItem } from '@common/types';
 import { queryClient } from '@renderer/ipc';
+import { noteContentQuery } from '@renderer/features/notes/api/queries';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
@@ -46,6 +47,10 @@ function notePage(
   const app = startApp(main, { url: `/app/${WORK}/notes/${id}` });
   return { main, app, store };
 }
+
+// the markdown of each save, in order
+const savedTexts = (main: FakeMain) =>
+  main.callsTo('notes.updateContent').map((call) => (call.input as { content: string }).content);
 
 const editorOf = (container: HTMLElement) =>
   (
@@ -120,27 +125,70 @@ describe('the note page', () => {
     );
   });
 
-  it('saves the body as it is typed, and never puts back older text from its own save', async () => {
+  it('saves the body as it is typed, without reading it back', async () => {
     const { main, app, store } = notePage('Draft');
     await eventually(() => expect(app.text()).toContain('Draft'));
     const editor = editorOf(app.container);
+    const reads = main.callsTo('notes.readContent').length;
 
-    // the save's refetch is held until more has been typed
-    const release = main.hold('notes.readContent');
     editor.chain().focus('end').insertContent(' one').run();
-    await eventually(() =>
-      expect(main.callsTo('notes.updateContent').map((call) => call.input)).toEqual([
-        { id: NOTE, content: 'Draft one' },
-      ]),
-    );
-    await eventually(() => expect(main.callsTo('notes.readContent').length).toBeGreaterThan(1));
+    await eventually(() => expect(savedTexts(main)).toEqual(['Draft one']));
     editor.chain().focus('end').insertContent(' two').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(savedTexts(main)).toEqual(['Draft one', 'Draft one two']));
+    // each save reports the note, which refetches the note's rows, never its markdown: the save
+    // wrote it to the cache
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(main.callsTo('notes.readContent')).toHaveLength(reads);
+    expect(editor.getMarkdown()).toBe('Draft one two');
+    expect(store.contents.get(NOTE)).toBe('Draft one two');
+    expect(queryClient.getQueryData(noteContentQuery(NOTE).queryKey)).toBe('Draft one two');
+  });
+
+  it('keeps what was typed when a read of the file answers after a save', async () => {
+    const { main, app, store } = notePage('Draft');
+    await eventually(() => expect(app.text()).toContain('Draft'));
+    const editor = editorOf(app.container);
+    const reads = main.callsTo('notes.readContent').length;
+
+    // the markdown is read (nothing in the app reads it again today), and the answer held back
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    main.routes.set('notes.readContent', async () => {
+      const read = store.contents.get(NOTE);
+      await answered;
+      return [read, []];
+    });
+    void queryClient.invalidateQueries();
+    await eventually(() => expect(main.callsTo('notes.readContent')).toHaveLength(reads + 1));
+
+    editor.chain().focus('end').insertContent(' one').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(savedTexts(main)).toEqual(['Draft one']));
+    // the read answers "Draft", older than the save: the save cancelled it
+    answer();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Draft one');
+  });
+
+  it('shows the latest save when the note is opened again', async () => {
+    const { main, app } = notePage('Draft');
+    await eventually(() => expect(app.text()).toContain('Draft'));
+    const reads = main.callsTo('notes.readContent').length;
+    // the save is still on its way when the note is opened again
+    const release = main.hold('notes.updateContent');
+    editorOf(app.container).chain().focus('end').insertContent(' one').run();
+
+    // leaving saves what is pending
+    await app.router.navigate({ to: '/app/$workspaceId/notes', params: { workspaceId: WORK } });
+    await eventually(() => expect(main.callsTo('notes.updateContent')).toHaveLength(1));
+    await app.router.navigate({
+      to: '/app/$workspaceId/notes/$noteId',
+      params: { workspaceId: WORK, noteId: NOTE },
+    });
+    await eventually(() => expect(editorOf(app.container).getMarkdown()).toBe('Draft one'));
     release();
-    // the refetch answers "Draft one"; the editor keeps what was typed after it
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(editor.getMarkdown()).toBe('Draft one two');
-    await eventually(() => expect(store.contents.get(NOTE)).toBe('Draft one two'));
-    expect(editor.getMarkdown()).toBe('Draft one two');
+    expect(main.callsTo('notes.readContent')).toHaveLength(reads);
   });
 
   it('takes a change made elsewhere (the file edited on disk)', async () => {
@@ -157,24 +205,17 @@ describe('the note page', () => {
     const { main, app, store } = notePage('Draft');
     await eventually(() => expect(app.text()).toContain('Draft'));
     const editor = editorOf(app.container);
-    const saved = () =>
-      main
-        .callsTo('notes.updateContent')
-        .map((call) => (call.input as { content: string }).content);
-    const reads = () => main.callsTo('notes.readContent').length;
 
     editor.chain().focus('end').insertContent(' one').run();
     window.dispatchEvent(new Event('blur'));
-    await eventually(() => expect(saved()).toEqual(['Draft one']));
+    await eventually(() => expect(savedTexts(main)).toEqual(['Draft one']));
     editor.chain().focus('end').insertContent(' two').run();
     window.dispatchEvent(new Event('blur'));
-    const readsBefore = reads();
-    await eventually(() => expect(saved()).toEqual(['Draft one', 'Draft one two']));
-    // the save's refetch has come back: the hook has seen its own echo
-    await eventually(() => expect(reads()).toBeGreaterThan(readsBefore));
+    await eventually(() => expect(savedTexts(main)).toEqual(['Draft one', 'Draft one two']));
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // the file reverted on disk to the first save: a change from elsewhere, not an echo
+    // the file reverted on disk to the first save: a change from elsewhere, though the editor
+    // saved that very text before
     store.contents.set(NOTE, 'Draft one');
     await queryClient.invalidateQueries();
     await eventually(() => expect(editor.getMarkdown()).toBe('Draft one'));

@@ -36,8 +36,12 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   projects: ['project', 'task'],
   // a note row shows its project, its linked task or event (in its calendar's colour)
   notes: ['note', 'task', 'project', 'event', 'calendar'],
-  // a note's markdown, from its file: only a change to the note changes it
-  'notes.readContent': ['note'],
+  // a note's markdown, from its file: refetched by no change. The note's editor is the only thing
+  // that rewrites an existing note's markdown (sync, reattach, a rename's front matter, imports
+  // and duplicates leave it alone or make new notes), and its saves write this cache themselves,
+  // so a save never reads the file back (docs/editor.md). Anything that comes to rewrite it from
+  // outside (a file watcher) must name an entity here.
+  'notes.readContent': [],
   // the calendar view shows only visible calendars
   events: ['event', 'calendar'],
   // a disconnect turns its calendars into local ones

@@ -331,6 +331,11 @@ to override its router (`integrations.previewDisconnect`, which counts synced ro
 Its keys are typed by `RoutePath`, every path in `AppRouter`, so a key naming no route fails to
 compile. Read the file for the current table.
 
+One route reads nothing: `notes.readContent`, a note's markdown. Its editor is the only thing that
+rewrites an existing note's markdown, and writes each save into the cache itself, so a save never
+reads the file back ([editor.md](../editor.md#saves-and-changes-from-outside)). A core path that
+comes to rewrite a note's markdown from outside its editor must change that line.
+
 `onChanged(entities)` makes one `invalidateQueries` call whose predicate matches every cached
 query whose route reads one of the entities. React Query refetches the mounted ones and marks the
 rest stale; the promise resolves once the refetches have landed. A route missing from the table
@@ -397,7 +402,9 @@ The renderer starts a switch by navigating to a page of the other workspace; its
    already hold none). A new type a route returns goes in `src/common/types`, not in core.
 3. **If the service emits nothing for the write,** add an `onChange` to the service, following
    `CLAUDE.md`'s "Change events", not to the route. A new change type also needs its mapping in
-   the `ChangeTracker`, and a new kind of row a new `ChangedEntity`.
+   the `ChangeTracker`, and a new kind of row a new `ChangedEntity`. A write that rewrites an
+   existing note's markdown must also make `notes.readContent` read its entity, which it doesn't
+   today (see [Invalidation in the renderer](#invalidation-in-the-renderer)).
 4. **Add the router to `ENTITIES_READ_BY_ROUTE`** with the entities its queries read, including
    other entities they show (a project's stats count tasks). A full path overrides its router for
    one query that reads more.

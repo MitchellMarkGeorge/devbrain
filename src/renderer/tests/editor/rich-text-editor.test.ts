@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Editor } from '@tiptap/core';
 import { TaskStatus } from '@common/types';
-import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
+import {
+  RichTextEditor,
+  type RichTextEditorHandle,
+  type RichTextEditorProps,
+} from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
 import { EditorEntityPill } from '@renderer/editor/EntityPillView';
 
@@ -15,13 +19,16 @@ const STORED = '* one\n* two\n\n__bold__ & <b>raw</b>';
 let container: HTMLDivElement;
 let root: Root;
 let editor: Editor;
+// the editor's handle, as a page holds it
+const handle = createRef<RichTextEditorHandle>();
 
 function render(props: Partial<RichTextEditorProps>) {
   act(() => {
     root.render(
       createElement(RichTextEditor, {
-        value: STORED,
+        initialValue: STORED,
         label: 'Note',
+        ref: handle,
         onReady: (instance: Editor) => (editor = instance),
         ...props,
       }),
@@ -63,58 +70,45 @@ describe('RichTextEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith(STORED);
   });
 
-  it('loads a new value from outside without reporting it as an edit', () => {
-    const onChange = vi.fn();
-    render({ onChange });
-    render({ onChange, value: '# Changed on disk' });
-    expect(container.querySelector('h1')?.textContent).toBe('Changed on disk');
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it('does not reload the markdown it just sent', () => {
-    let latest = STORED;
-    const onChange = vi.fn((markdown: string) => (latest = markdown));
-    render({ onChange });
+  it('takes its first text only: the text it holds is its own from then on', () => {
+    render({});
     act(() => {
       editor.chain().focus('end').insertContent('!').run();
     });
     const selection = editor.state.selection.from;
-    render({ onChange, value: latest });
-    // a reload would have moved the caret to the start
+    render({ initialValue: '# Something else' });
+    expect(editor.getMarkdown()).toBe('- one\n- two\n\n**bold** & <b>raw</b>!');
     expect(editor.state.selection.from).toBe(selection);
   });
 
-  it('takes the same value again on a new revision, after it was edited', () => {
+  it('loads a text from outside through its handle, without reporting it as an edit, and undoes back to it exactly', () => {
     const onChange = vi.fn();
-    render({ onChange, value: 'From Linear', revision: 0 });
+    render({ onChange, initialValue: 'From Linear' });
     act(() => {
       editor.chain().focus('end').insertContent(' edited').run();
     });
-    // the same value and revision: the editor keeps what was typed
-    render({ onChange, value: 'From Linear', revision: 0 });
-    expect(editor.getMarkdown()).toBe('From Linear edited');
-
-    // a change from elsewhere back to the very text it was given (a reattach)
-    render({ onChange, value: 'From Linear', revision: 1 });
-    expect(editor.getMarkdown()).toBe('From Linear');
     expect(onChange).toHaveBeenCalledTimes(1);
-  });
 
-  it('keeps what it holds on a new revision whose value it already shows', () => {
-    render({ value: STORED, revision: 0 });
+    // a reattach restores the provider's text: the very text the editor opened with
+    act(() => handle.current!.load(STORED));
+    expect(editor.getMarkdown()).toBe('- one\n- two\n\n**bold** & <b>raw</b>');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    // it stands for the text as given, not the editor's spelling of it
+    expect(handle.current!.markdown()).toBe(STORED);
+
     act(() => {
-      editor.chain().focus('end').run();
+      editor.chain().focus('end').insertContent('!').run();
     });
-    const selection = editor.state.selection.from;
-    render({ value: STORED, revision: 1 });
-    // a reload would have moved the caret to the start
-    expect(editor.state.selection.from).toBe(selection);
+    act(() => {
+      editor.commands.undo();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(STORED);
   });
 
   it('shows an entity link with its current title, and opens it on click', async () => {
     const onOpenEntity = vi.fn();
     render({
-      value: 'See [Old title](devbrain://task/tsk_1)',
+      initialValue: 'See [Old title](devbrain://task/tsk_1)',
       entityPill: (props) =>
         createElement(EditorEntityPill, {
           ...props,
@@ -149,7 +143,7 @@ describe('RichTextEditor', () => {
 
   it('never lets a link navigate, and opens it through onOpenUrl on a click when read-only', () => {
     const onOpenUrl = vi.fn();
-    render({ value: '[docs](https://example.com/docs)', editable: false, onOpenUrl });
+    render({ initialValue: '[docs](https://example.com/docs)', editable: false, onOpenUrl });
     expect(clickLink().defaultPrevented).toBe(true);
     expect(onOpenUrl).toHaveBeenCalledWith('https://example.com/docs');
     expect(container.querySelector('a')!.getAttribute('target')).toBeNull();
@@ -157,7 +151,7 @@ describe('RichTextEditor', () => {
 
   it('opens a link on ⌘/Ctrl-click while editing; a plain click only places the caret', () => {
     const onOpenUrl = vi.fn();
-    render({ value: '[docs](https://example.com/docs)', onOpenUrl });
+    render({ initialValue: '[docs](https://example.com/docs)', onOpenUrl });
     expect(clickLink().defaultPrevented).toBe(true);
     expect(onOpenUrl).not.toHaveBeenCalled();
     expect(clickLink({ ctrlKey: true }).defaultPrevented).toBe(true);
@@ -165,7 +159,7 @@ describe('RichTextEditor', () => {
   });
 
   it('opens the design system\'s slash menu on "/", without Task, and runs the picked command', async () => {
-    render({ value: '' });
+    render({ initialValue: '' });
     await act(async () => {
       editor.chain().focus().insertContent('/coll').run();
       await new Promise((resolve) => setTimeout(resolve, 120));
@@ -197,7 +191,7 @@ describe('RichTextEditor', () => {
         (item) => item.textContent,
       );
     const openNewTask = vi.fn();
-    render({ value: '', openNewTask });
+    render({ initialValue: '', openNewTask });
     await act(async () => {
       editor.commands.setContent('- [ ] Call Ana about the launch', {
         contentType: 'markdown',
@@ -220,7 +214,7 @@ describe('RichTextEditor', () => {
       { type: 'task' as const, id: 'tsk_1', title: 'Fix login', status: TaskStatus.IN_PROGRESS },
       { type: 'note' as const, id: 'nte_1', title: 'Login notes' },
     ]);
-    render({ value: '', searchEntities });
+    render({ initialValue: '', searchEntities });
     await act(async () => {
       editor.chain().focus().insertContent('@login').run();
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -244,12 +238,12 @@ describe('RichTextEditor', () => {
 
   it('keeps the last results in the "@" menu while the next search runs', async () => {
     const found = [{ type: 'task' as const, id: 'tsk_1', title: 'Fix login' }];
-    let release: (value: typeof found) => void = () => {};
+    let release: (initialValue: typeof found) => void = () => {};
     const searchEntities = vi
       .fn()
       .mockResolvedValueOnce(found)
       .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));
-    render({ value: '', searchEntities });
+    render({ initialValue: '', searchEntities });
     const menuText = () => document.querySelector('[aria-label="Mention"]')?.textContent ?? '';
     await act(async () => {
       editor.chain().focus().insertContent('@log').run();
@@ -274,7 +268,7 @@ describe('RichTextEditor', () => {
   });
 
   it("inserts a Note callout from the slash menu, drawn by the design system's Callout", async () => {
-    render({ value: '' });
+    render({ initialValue: '' });
     await act(async () => {
       editor.chain().focus().insertContent('/callout').run();
       await new Promise((resolve) => setTimeout(resolve, 120));
@@ -297,7 +291,7 @@ describe('RichTextEditor', () => {
   });
 
   it('names the open menu and its highlighted item on the editor, for a screen reader', async () => {
-    render({ value: '' });
+    render({ initialValue: '' });
     const dom = editor.view.dom;
     await act(async () => {
       editor.chain().focus().insertContent('/head').run();
@@ -327,7 +321,7 @@ describe('RichTextEditor', () => {
   });
 
   it('closes the link editor when focus goes back to the text, so the format toolbar returns', async () => {
-    render({ value: 'Some text to link' });
+    render({ initialValue: 'Some text to link' });
     await act(async () => {
       editor.chain().focus().setTextSelection({ from: 6, to: 10 }).run();
       // TipTap focuses on the next animation frame: wait for it, or that focus arriving after the
@@ -355,7 +349,7 @@ describe('RichTextEditor to-dos', () => {
   const boxes = () => [...container.querySelectorAll<HTMLElement>('[role="checkbox"]')];
 
   it('draws each with the Checkbox, as the list item itself', async () => {
-    render({ value: TODOS });
+    render({ initialValue: TODOS });
     await act(async () => {});
     expect(boxes().map((box) => box.getAttribute('aria-checked'))).toEqual(['false', 'true']);
     expect(boxes()[0].getAttribute('aria-label')).toBe('To-do: Write tests');
@@ -367,7 +361,7 @@ describe('RichTextEditor to-dos', () => {
 
   it('ticks and unticks a to-do into the markdown', async () => {
     const onChange = vi.fn();
-    render({ value: TODOS, onChange });
+    render({ initialValue: TODOS, onChange });
     await act(async () => {});
     act(() => boxes()[0].click());
     expect(onChange).toHaveBeenLastCalledWith('- [x] Write tests\n- [x] Ship it');
@@ -378,7 +372,7 @@ describe('RichTextEditor to-dos', () => {
 
   it("leaves a read-only note's to-dos as they are", async () => {
     const onChange = vi.fn();
-    render({ value: TODOS, onChange, editable: false });
+    render({ initialValue: TODOS, onChange, editable: false });
     await act(async () => {});
     act(() => boxes()[0].click());
     expect(onChange).not.toHaveBeenCalled();
