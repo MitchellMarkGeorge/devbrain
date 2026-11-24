@@ -1,6 +1,7 @@
-import { commands, Extension } from '@tiptap/core';
+import { commands, Extension, type JSONContent } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { MarkdownCodec } from './codec';
+import { stripMarkup } from './markup';
 import type { MarkdownSource } from './source';
 
 declare module '@tiptap/core' {
@@ -13,6 +14,17 @@ declare module '@tiptap/core' {
      * that changed written anew (`codec.writeKeeping`).
      */
     saveMarkdown: () => string;
+    /**
+     * Markdown from outside the note as content to put in it (DocumentMarkdown): the document
+     * it reads as, without the markers it was written with (`*` bullets, `__bold__`), which are
+     * not the note's own. A paste reads with it.
+     */
+    markdownToContent: (markdown: string) => JSONContent;
+    /**
+     * A piece of content (a document, or some of its nodes) as markdown in the editor's own
+     * spelling (DocumentMarkdown). A copy writes with it.
+     */
+    contentToMarkdown: (content: JSONContent | JSONContent[]) => string;
   }
   interface EditorOptions {
     /** `markdown` reads a string `content` as markdown (DocumentMarkdown). */
@@ -43,12 +55,19 @@ interface LoadedMarkdown {
 }
 
 /**
- * The editor's markdown, with DevBrain's markdown layer (codec.ts): `editor.getMarkdown()`, the
- * codec in `editor.storage.documentMarkdown` for anything else to read or write markdown with
- * (the clipboard), and `contentType: 'markdown'`, which reads a string as markdown: the editor's
- * first `content`, and `setContent`'s. Either way the document is loaded as the codec's JSON, through
- * TipTap's own `setContent`, and the text is remembered with its source map, for
- * `editor.saveMarkdown()` to write the content keeping it.
+ * The editor's markdown, with DevBrain's markdown layer (codec.ts), as methods on the editor:
+ *
+ * - `getMarkdown()`: the whole document in the editor's own spelling;
+ * - `saveMarkdown()`: the markdown to store, keeping the text the document was loaded from;
+ * - `markdownToContent(text)` and `contentToMarkdown(content)`: markdown from outside as
+ *   content to insert, and content as markdown to hand out (the clipboard's paste and copy).
+ *
+ * And `contentType: 'markdown'`, which reads a string as markdown: the editor's first `content`,
+ * and `setContent`'s. Either way the document is loaded as the codec's JSON, through TipTap's own
+ * `setContent`, and the text is remembered with its source map, for `saveMarkdown()`.
+ *
+ * The codec itself is in `editor.storage.documentMarkdown`, for what needs more than these (a
+ * text's source map).
  */
 export const DocumentMarkdown = Extension.create<Record<string, never>, DocumentMarkdownStorage>({
   name: 'documentMarkdown',
@@ -93,6 +112,9 @@ export const DocumentMarkdown = Extension.create<Record<string, never>, Document
       if (editor.state.doc.eq(loaded.doc)) return loaded.text;
       return codec.serializeKeeping(editor.state.doc, loaded.source);
     };
+    editor.markdownToContent = (markdown) => stripMarkup(codec.parse(markdown));
+    editor.contentToMarkdown = (content) =>
+      codec.serialize(Array.isArray(content) ? { type: 'doc', content } : content);
     // the document is made from the options after this hook
     const { content, contentType } = editor.options;
     if (contentType === 'markdown' && typeof content === 'string') {

@@ -388,7 +388,10 @@ lists the markers as built; this section keeps the steps and what turned out dif
   first edit. It is now written anew with its blocks' markers, the file's line ends and its
   final newline. A text with no map, and one whose check failed, are still written in the
   editor's spelling.
-- **Pasted markdown takes no markers** (the open question): it isn't the note's text.
+- **Pasted markdown takes no markers** (the open question): it isn't the note's text. The
+  clipboard reads and writes through two methods on the editor, `markdownToContent` (which
+  strips the markers) and `contentToMarkdown`, in place of the codec in the extension's
+  storage, so that rule is in one place.
 - **A line break in a table cell has no marker:** it is always `<br>` there.
 - **Indented code has no marker.** It was built (`indented` on `codeBlock`, written back as
   four spaces a line) and taken out again: `@tiptap/markdown` never wrote indented code either,

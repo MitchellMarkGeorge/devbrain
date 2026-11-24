@@ -154,15 +154,24 @@ written with ("What a save changes").
   `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s schema, with no
   editor.
 - `extension.ts`: `DocumentMarkdown`, the last of `createDocumentExtensions()`, plugs a codec into
-  each editor: `editor.getMarkdown()` (the whole document in the editor's spelling),
-  `editor.storage.documentMarkdown.codec` (the clipboard reads and writes with it), and
-  `contentType: 'markdown'`, which reads a string as markdown for the editor's first `content` and
-  for `setContent`. Either way the text is read with `codec.read` and loaded as JSON (a text with
-  no blocks, only link definitions, loads as a paragraph showing its lines), and the text, its
-  source map and the document it loaded as are kept in the extension's storage (`loaded`).
-  `editor.saveMarkdown()` is the markdown to store: the loaded text itself
-  while the document is still the one loaded, and `codec.serializeKeeping` once it is edited.
-  `RichTextEditor` sends that. A `setContent` of anything but markdown forgets the loaded text.
+  each editor, as methods on the editor, so nothing outside the layer reaches into it:
+
+  | Method                              | Gives                                                                                              |
+  | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+  | `editor.getMarkdown()`              | the whole document in the editor's spelling                                                        |
+  | `editor.saveMarkdown()`             | the markdown to store: the loaded text while the document is the one loaded, kept text once edited |
+  | `editor.markdownToContent(text)`    | markdown from outside as content to insert, without its markers (a paste)                          |
+  | `editor.contentToMarkdown(content)` | a document or some nodes as markdown in the editor's spelling (a copy)                             |
+
+  And `contentType: 'markdown'`, which reads a string as markdown for the editor's first `content`
+  and for `setContent`. Either way the text is read with `codec.read` and loaded as JSON (a text
+  with no blocks, only link definitions, loads as a paragraph showing its lines), and the text,
+  its source map and the document it loaded as are kept in the extension's storage (`loaded`),
+  for `saveMarkdown()` (`codec.serializeKeeping`). `RichTextEditor` sends what that gives. A
+  `setContent` of anything but markdown forgets the loaded text. The codec itself is
+  `editor.storage.documentMarkdown.codec`, for what needs more than the methods (a text's source
+  map).
+
 - `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
   global one, so nothing else that uses `marked` changes how notes read, and an editor adds
   nothing to it: the tokenizers are fixed, added once. Each token keeps its `raw` source text.
@@ -399,7 +408,8 @@ has), set by the rule that reads it and written back by the same rule:
 | `bold`, `italic`, `strike` | `__`, `_`, `~`                    | `__bold__`, `_italic_`, `~struck~`      |
 | `hardBreak`                | `\`, or the tag (`<br>`, `<br/>`) | `\` at the line's end, or the tag       |
 
-- The attribute is never drawn, read from HTML or copied: the clipboard, `editor.getMarkdown()`,
+- The attribute is never drawn, read from HTML or copied: the clipboard
+  (`editor.contentToMarkdown`, and `editor.markdownToContent` for a paste), `editor.getMarkdown()`,
   `serializeMarkdown`, `normalizeMarkdown` and a document written whole for want of a map or
   after a failed check use the editor's spelling, and pasted markdown is read without its
   markers (it isn't the note's text).
