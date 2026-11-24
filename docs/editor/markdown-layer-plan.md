@@ -118,10 +118,14 @@ that uses a definition only reads as a link while the definition is in the file 
 
 ### Behaviours around the text
 
-- **Line ends:** `\n` and `\r\n`; mixed line ends get no map (whole-document write).
-- **Byte-order mark:** a leading U+FEFF is kept (strip before parsing, put back on write). Check
-  how `notes.readContent` hands it over first (main strips front matter before the editor sees
-  the text; the editor never sees front matter).
+- **Line ends:** `\n` and `\r\n`; mixed line ends, and any lone `\r` (which `marked` also reads
+  as a line end), get no map (whole-document write).
+- **Byte-order mark:** kept like any other character of the first block's slice; no special
+  handling. A note's file starts with its front matter, which main takes off
+  (`notes.readContent`), so a mark there never reaches the editor. A text that does start with
+  one (a description from a provider) reads today with the mark as text (`\uFEFF# T` is a
+  paragraph, not a heading); stripping it would change how such a text reads, so it is left
+  alone.
 - **Tabs and indentation** inside kept slices are untouched; edited blocks use the editor's.
 - **Trailing whitespace** inside kept slices is untouched (it can be meaningful: `  ` breaks).
 - **Undo:** undoing back to the loaded content writes the loaded text exactly, by the same rule
@@ -150,23 +154,43 @@ Know, for a loaded text, which slice of it each top-level block was read from.
    document and, per top-level token, `{ token, from, to, nodes }`: the token's offsets in the
    normalised text and the JSON nodes it produced (zero for a definition or a space token's
    separator, several for a list split by `parseList`, empty paragraphs for blank lines).
-   `parse()` stays, built on `read()`. Offsets are the running sum of `raw` lengths: `marked`
-   advances by `raw.length`, so the raws of the top-level tokens concatenate to the normalised
-   text. Assert that invariant in a test over the fixtures and the corpus; the tokenizers of ours
-   that build `raw` themselves (`orderedList`, `taskList`, `table`, `callout`, `details`) are
-   where it could break.
+   `parse()` stays, built on `read()`. Offsets come from finding each token's `raw` in the
+   normalised text, from the end of the token before it. The raws do **not** always concatenate
+   to the text: `marked` reads a link definition whose label is already defined and emits no
+   token for it (GitHub's `[//]: # (…)` comments, in `github-pr-body.md`; 3 of 995 files
+   checked). So where the text at the cursor is not the next raw, the gap before it must be
+   nothing but definition lines and blank lines, and becomes "between" text; anything else in a
+   gap means no map. Test it over the fixtures and the corpus; the tokenizers of ours that build
+   `raw` themselves (`orderedList`, `taskList`, `table`, `callout`, `details`) are the other
+   place it could break (none did on the corpus).
 2. **Blank lines.** `extractAbsorbedBlankLines` moves a block's trailing blank lines into a space
    token: compute offsets after it, so a block's slice ends at its last non-blank line and the
    blank lines are "between" text. Empty paragraphs made from a space token have no slice: they
    are matched as empty paragraphs (equal to any other), and written as blank lines.
-3. **`MarkdownSource`** (`source.ts`): `{ text, lineEnd: '\n' | '\r\n', bom: boolean,
-blocks: Array<{ from, to, node } | null>, between: string[], definitions: Definition[],
-finalNewline }`, built from `read()`'s output and the schema (`schema.nodeFromJSON` per block,
-   so blocks compare with `Node.eq`). `between[i]` is the exact text between block `i - 1` and
+3. **`MarkdownSource`** (`source.ts`), built from `read()`'s output and the schema
+   (`schema.nodeFromJSON` per block, so blocks compare with `Node.eq`):
+
+   ```ts
+   interface MarkdownSource {
+     text: string; // as loaded
+     lineEnd: '\n' | '\r\n';
+     blocks: ({ from: number; to: number; node: ProseMirrorNode } | null)[];
+     between: string[];
+     definitions: Definition[];
+   }
+   ```
+
+   `between[i]` is the exact text between block `i - 1` and
    block `i` (with `between[0]` before the first and `between[n]` after the last).
+
 4. **No map** when the text can't be lined up: line ends that mix `\r\n` and `\n`; a definition
-   inside a quote or list item (it would move with the block); a block whose JSON fails
-   `nodeFromJSON().check()`. `source` is then `null`, and saves write the whole document.
+   inside a quote or list item (it would move with the block: a label in the lexer's `links`
+   with no top-level `def` token and no gap that defines it); a gap that holds anything but
+   definitions (step 1). `source` is then `null`, and saves write the whole document. Don't
+   validate blocks with `check()`: a paragraph that holds only an image reads as a bare
+   `imageLink` at the top level (inherited from TipTap's paragraph rule), which the schema
+   doesn't allow in a document but the editor holds and writes back; it must keep its slice like
+   any block (milestone 4 decides whether to make it a paragraph).
 5. **Links:** keep the lexer's `tokens.links` (public on `marked`'s token list) in the source, for
    milestone 2's definition handling.
 6. **Codec API:** `codec.read(markdown): { doc: JSONContent, source: MarkdownSource | null }`,
@@ -174,7 +198,8 @@ finalNewline }`, built from `read()`'s output and the schema (`schema.nodeFromJS
 
 Tests (`markdown.test.ts`, a new `describe('reading the source')`):
 
-- raws concatenate to the text, for every fixture, with `\n` and `\r\n`;
+- the slices and the text between them concatenate to the text, for every fixture, with `\n`
+  and `\r\n`, and with a label defined twice;
 - each fixture's blocks, sliced out of the text and read alone, give the same node (or note the
   exceptions: an indented code block or lazy line that only reads as it does after its neighbour);
 - no map for mixed line ends and for a definition inside a list item.
@@ -187,8 +212,10 @@ the corpus: re-run the parity test from `accded7` locally), and the docs describ
 Write a document keeping every unchanged block's slice.
 
 1. **Matching.** `serializeKeeping(doc, source)` (`keeping.ts`): match the document's top-level
-   children against `source.blocks` in order (LCS on `Node.eq`; empty paragraphs match blank-line
-   runs). A matched block is **kept**; an unmatched one is **new** (edited, added or moved).
+   children against `source.blocks` in order: take the common prefix and suffix first (an edit
+   usually leaves all but one block), then a longest common subsequence on `Node.eq` over what is
+   left, so a long note costs a comparison per block, not per pair. Empty paragraphs match
+   blank-line runs. A matched block is **kept**; an unmatched one is **new** (edited, added or moved).
 2. **Writing.** Walk the document:
    - two kept blocks that were neighbours in the file: the file's `between` text, then the slice;
    - a kept block after a new one, or a new block after anything: the new block's markdown from
@@ -197,7 +224,7 @@ Write a document keeping every unchanged block's slice.
      stays so when the list changes);
    - the text before the first block and after the last, when those blocks are kept;
    - the file's final newline; its line ends (`\n` → `\r\n` on the whole output when the file
-     used `\r\n`); its byte-order mark.
+     used `\r\n`).
 3. **Seams.** Where a kept block meets a new one, or a block moved from elsewhere, read the two
    back together (the slice, the text between, the new markdown): if they don't read as the two
    nodes (`First\n* a` turned paragraph joins the paragraphs; an indented code block after a new
@@ -247,20 +274,25 @@ An edited block keeps the spelling it was read with.
    `rendered: false`, `keepOnSplit: true`, `parseHTML: () => null`) to the nodes and marks that
    have markers, through `addGlobalAttributes` (public). `null` is the editor's own spelling.
    Add it to `createDocumentExtensions()`.
-2. **In the rules.** Each rule with a marker reads it from `token.raw` in `parse` and writes it in
-   `render`; there is no wrapper. The markers, and where each is read from:
+2. **In the rules.** Each rule with a marker reads it in `parse` and writes it in `render`; there
+   is no wrapper. `marked`'s own tokens carry it in `raw`. The tokens our tokenizers make don't:
+   a to-do item's `raw` is `''`, and the numbered list's tokenizer drops the delimiter. Those
+   tokenizers (`lists.ts`) already match the bullet, the checkbox and the delimiter, so they put
+   them on the token (`bullet`, `checkedMark`, `delimiter`). A mixed list split by `parseList`
+   passes the bullet on to each part. The markers, and where each is read from:
 
-   | Node / mark              | `markup`                                  | Read from               |
-   | ------------------------ | ----------------------------------------- | ----------------------- |
-   | `bulletList`, `taskList` | `*` or `+`                                | the first item's raw    |
-   | `orderedList`            | `)`                                       | the first item's marker |
-   | `taskItem`               | `X` (checked written in capitals)         | the item's raw          |
-   | `heading`                | `setext:<underline>` or closing `#`s      | the heading's raw       |
-   | `horizontalRule`         | the line                                  | the token's raw         |
-   | `codeBlock`              | the fence (`~~~`, ` ```` `) or `indented` | the token's raw         |
-   | `bold`, `italic`         | `__`, `_`                                 | the token's raw         |
-   | `strike`                 | `~`                                       | the token's raw         |
-   | `hardBreak`              | `\` or `<br>`                             | the token's raw         |
+   | Node / mark      | `markup`                                  | Read from             |
+   | ---------------- | ----------------------------------------- | --------------------- |
+   | `bulletList`     | `*` or `+`                                | the first item's raw  |
+   | `taskList`       | `*` or `+`                                | the tokenizer's token |
+   | `orderedList`    | `)`                                       | the tokenizer's token |
+   | `taskItem`       | `X` (checked written in capitals)         | the tokenizer's token |
+   | `heading`        | `setext:<underline>` or closing `#`s      | the heading's raw     |
+   | `horizontalRule` | the line                                  | the token's raw       |
+   | `codeBlock`      | the fence (`~~~`, ` ```` `) or `indented` | the token's raw       |
+   | `bold`, `italic` | `__`, `_`                                 | the token's raw       |
+   | `strike`         | `~`                                       | the token's raw       |
+   | `hardBreak`      | `\` or `<br>`                             | the token's raw       |
 
    Marks carry their marker on the mark, so `serializer.ts`'s `renderMark` passes the mark's
    attributes as today. A list's marker is on the list, so an item added with Enter writes the
@@ -299,6 +331,10 @@ each block, and `docs/editor.md` lists the markers.
      paragraph, which `renderNestedContent` can't write. Make `parseOrderedListItems` give it an
      empty paragraph, as the bullet item does (`ensureLeadingParagraph`). This changes parity for
      that input: list it.
+   - Decide the image-only paragraph: it reads as a bare `imageLink` among the document's
+     blocks, which the schema doesn't allow (the editor holds it all the same). Reading it as a
+     paragraph holding the image writes the same markdown and gives a valid document; it changes
+     the JSON for that input, so list it, and check the caret and deletion around it either way.
    - Audit the ports for other inherited edge cases (`taskItem` builds a text node with
      `createNode('text', { text })`, which makes an attribute, not text; unreachable today).
 2. **Properties, not just cases.** Add property tests (add `fast-check` as a dev dependency):
@@ -307,7 +343,9 @@ each block, and `docs/editor.md` lists the markers.
      equals `doc`;
    - for any text and any single-block edit, `serializeKeeping` reads back as the edited
      document and keeps the text outside the block.
-     Seed the generators with the fixtures' blocks.
+
+   Seed the generators with the fixtures' blocks.
+
 3. **Corpus check as a script.** Keep a corpus run outside CI (`npm run markdown:corpus`): reads
    every `.md` under a directory, checks the invariants above and the round trip, and reports
    files that fall back to whole-document writes and why. Run it on `docs/`, the
@@ -316,7 +354,10 @@ each block, and `docs/editor.md` lists the markers.
 4. **Performance budget.** On a 3,000-line note, a save (keeping write + read-back check) under
    20 ms in the renderer, load under 100 ms (today: load 88 ms, plain serialize 10 ms). Measures:
    - cache each top-level block's markdown by node identity (`WeakMap<Node, string>`): ProseMirror
-     nodes are immutable, so an edit re-serialises only the blocks it touched;
+     nodes are immutable, so an edit re-serialises only the blocks it touched. The serializer
+     takes JSON, so a block is serialised from `node.toJSON()` on a miss. Leave empty paragraphs
+     out of the cache: what one writes depends on the block before it (`&nbsp;` after another
+     empty one);
    - check only the edited region on read-back, falling back to the whole document only when a
      seam is unsure (keep a full check behind a debug flag for the corpus script);
    - add the 150/750/3,000-line timings to `docs/performance.md`, with how to reproduce them.
