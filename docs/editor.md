@@ -258,6 +258,10 @@ the layer no longer has:
   numbered list ends where the delimiter changes, as a bullet list does where the bullet does.
 - **`<` stays `&lt;` where a `>` follows it in its block:** `marked` reads no emphasis between a
   `<` with no space after it and the next `>`.
+- **A code block whose fence is indented is read.** A fence up to three spaces in (at the top
+  level, or four spaces or a tab under a bullet, past the item's text) read as nothing, and the
+  code was gone when its block was rewritten. Its lines lose the fence's indentation, and it is
+  written back with the fence at the block's own indent.
 - **The blank lines after a collapsible section are kept** as empty paragraphs, as after any
   other block.
 
@@ -311,14 +315,13 @@ save of such a text, once edited, writes the whole document in the editor's spel
 | `lone-carriage-return` | has a `\r` that isn't part of `\r\n` (`marked` reads it as a line end)                                |
 | `nested-definition`    | defines a label inside a quote, a list item, a callout or a collapsible section                       |
 | `unread-text`          | has something between two tokens that isn't a definition or a blank line                              |
-| `unread-token`         | has a block that reads as nothing (a fenced code block indented one to three spaces, which is lost)   |
+| `unread-token`         | has a block that reads as nothing: a token no rule makes a node of                                    |
 | `invalid-node`         | reads as a node the schema can't make                                                                 |
 | `no-blocks`            | reads as no blocks: empty, or only definitions (loaded as one paragraph, a line of the text per line) |
 | `unreadable`           | could not be read at all: reading it threw ("When reading or writing fails")                          |
 
-Of the 1,673 markdown files under `docs/` and `node_modules`, 1,663 have a map; seven mix line
-ends, one defines its labels inside a collapsible section, one has an indented fence and one is
-only definitions.
+Of the 1,673 markdown files under `docs/` and `node_modules`, 1,664 have a map; seven mix line
+ends, one defines its labels inside a collapsible section and one is only definitions.
 
 ## The note format
 
@@ -540,12 +543,12 @@ Three checks stand beside the cases in the tests:
   would write it is opened, left, and edited in one paragraph, and is read back from disk each
   time.
 
-On `docs/` and `node_modules` (1,673 files, 31,347 saves): no text lost or changed, 98.9% of the
+On `docs/` and `node_modules` (1,673 files, 31,371 saves): no text lost or changed, 98.9% of the
 saves kept the text outside their block, and 1.1% wrote the whole document (317 of the 331 a
 removal that brings its two neighbours together: two lists, which the kept text would join, so
 the document is written whole with a different marker on the second). Every file is written the
 same the second time the editor writes it whole (the run counts those that aren't as "unstable
-spelling"; there were 27 before milestone 5). 204 of the saves gave a document the editor's own
+spelling"; there were 27 before milestone 5). 205 of the saves gave a document the editor's own
 spelling doesn't read back either, and are not counted as a fault: most are the run's own edit
 (text added inside a bare address, which stops being bare) or an underlined heading of several
 lines, which is written on one.

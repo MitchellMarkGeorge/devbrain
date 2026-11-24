@@ -22,11 +22,27 @@ function headingMarkup(raw: string): string | null {
   return /^ {0,3}#{1,6}[ \t]/.test(text) ? (/[ \t](#+)$/.exec(text)?.[1] ?? null) : null;
 }
 
+// a code fence's first characters, after its indentation (up to three spaces)
+const FENCE_START = /^( {0,3})(`{3,}|~{3,})/;
+
 // a code block's fence when it isn't three backticks (indented code has no marker: rewritten, it
 // is fenced)
 function codeBlockMarkup(token: { raw: string }): string | null {
-  const fence = /^(`{3,}|~{3,})/.exec(token.raw)?.[1];
+  const fence = FENCE_START.exec(token.raw)?.[2];
   return fence && fence !== '```' ? fence : null;
+}
+
+// The code of a fenced block without its fence's indentation: each line loses as many spaces as
+// the fence has before it, as GitHub reads it. `marked` does this for a backtick fence and not
+// for a `~~~` one.
+function fencedCode(raw: string, text: string): string {
+  const [, indent, fence] = FENCE_START.exec(raw) ?? [];
+  if (!indent || !fence?.startsWith('~')) return text;
+  const indented = new RegExp(`^ {1,${indent.length}}`);
+  return text
+    .split('\n')
+    .map((line) => line.replace(indented, ''))
+    .join('\n');
 }
 
 // whether a line of `code` would close a block fenced with `fence`
@@ -167,18 +183,14 @@ export const blockRules: Record<string, MarkdownRule> = {
     name: 'codeBlock',
     token: 'code',
     parse: (token, helpers) => {
-      // fenced, or indented four spaces
-      if (
-        token.raw?.startsWith('```') === false &&
-        token.raw?.startsWith('~~~') === false &&
-        token.codeBlockStyle !== 'indented'
-      ) {
-        return [];
-      }
+      // fenced (the fence itself may be indented up to three spaces: past its list item's text,
+      // say), or indented four spaces
+      if (!FENCE_START.test(token.raw || '') && token.codeBlockStyle !== 'indented') return [];
+      const text = fencedCode(token.raw || '', token.text || '');
       return helpers.createNode(
         'codeBlock',
         withMarkup({ language: token.lang || null }, codeBlockMarkup(token)),
-        token.text ? [helpers.createTextNode(token.text)] : [],
+        text ? [helpers.createTextNode(text)] : [],
       );
     },
     render: (node, h) => {

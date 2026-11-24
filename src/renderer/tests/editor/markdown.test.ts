@@ -404,6 +404,28 @@ describe('writing what reads back the same', () => {
     expectRoundTrip('x < y and 1 <2 are fine');
   });
 
+  it('reads a code block whose fence is indented', () => {
+    const code = (text: string) => nodesOfType(parseMarkdown(text), 'codeBlock');
+    // four spaces, or a tab, under a bullet: two past the item's text
+    for (const indent of ['    ', '\t']) {
+      const text = `- Install it:\n\n${indent}\`\`\`sh\n${indent}npm install\n${indent}\`\`\`\n\n- Then run it`;
+      expect(code(text)[0].content).toEqual([{ type: 'text', text: 'npm install' }]);
+      expect(normalizeMarkdown(text)).toBe(
+        '- Install it:\n  ```sh\n  npm install\n  ```\n- Then run it',
+      );
+    }
+    // under a number, and the code's own indentation stays
+    expect(
+      normalizeMarkdown('1. Install it:\n\n    ```sh\n    npm install\n      --save\n    ```'),
+    ).toBe('1. Install it:\n   ```sh\n   npm install\n     --save\n   ```');
+    // at the top level, with either fence, and the text has a source map
+    expect(normalizeMarkdown('Text\n\n  ```sh\n  a\n    b\n  ```')).toBe(
+      'Text\n\n```sh\na\n  b\n```',
+    );
+    expect(code('   ~~~\n   a\n     b\n   ~~~')[0].content?.[0].text).toBe('a\n  b');
+    expect(readMarkdown('Text\n\n  ```\n  a\n  ```\n').reason).toBeNull();
+  });
+
   it('keeps the blank lines after a collapsible section', () => {
     expectRoundTrip('<details>\n<summary>More</summary>\n\nx\n\n</details>\n\n\n\n## Next');
   });

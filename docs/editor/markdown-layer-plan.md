@@ -436,8 +436,8 @@ timings. This section keeps the steps and what turned out different.
    - **The image-only paragraph is a paragraph.** It was read as a bare `imageLink` among the
      document's blocks, an invalid document that `setContent` and the first content held
      differently. Keeping no longer has to treat the two alike.
-   - **The indented fence is left as it is,** as decided in milestone 1 (it reads as nothing;
-     `unread-token` when at the top level). The fix is in commit `9804a39`.
+   - **The indented fence was left as it was,** as decided in milestone 1 (it read as nothing;
+     `unread-token` when at the top level). Milestone 5 reads it.
    - A code block is fenced with one more backtick than the longest run a line of it starts
      with.
    - The audit of the ports, and the property tests, found more: see "What turned out
@@ -530,14 +530,19 @@ changed).
    - two line breaks in a row, or `<br>` on its own line, were written as a blank line;
    - two lists of a kind side by side were written as one;
    - `<0 a **b** >` lost its bold, as `marked` reads no emphasis between `<` and `>`;
-   - blank lines after a collapsible section were dropped.
+   - blank lines after a collapsible section were dropped;
+   - a code block whose fence is indented one to three spaces (at the top level, or four spaces
+     or a tab under a bullet) read as nothing and was lost when its block was rewritten. Left
+     alone in milestones 1 and 4; read now, because inside a list nothing flagged it (the list
+     has a source map entry) and such a list is common in notes written elsewhere. A numbered
+     item's blocks also lose the indentation they share, so the code keeps no stray space.
 3. **Left for later: finer grain.** Keeping unedited items of an edited list and unedited rows of
    an edited table (milestone 2 one level down). Not built: no one has asked, and the block
    level covers most edits.
 4. **Left for later: one reader for main.** `stripMarkdown` (main) is unchanged. Moving the
    tokenizers to `src/common` is worth doing only if previews disagree with the editor.
 
-**Numbers** (`npm run markdown:corpus -- docs node_modules`, 1,673 files, 31,347 saves): no text
+**Numbers** (`npm run markdown:corpus -- docs node_modules`, 1,673 files, 31,371 saves): no text
 lost or changed; files the editor writes differently the second time, 27 before, 0 now; 98.9% of
 saves keep text. Properties hold on 10,000 cases each with `<`, `>`, `@` and `|` in the
 generated text and lists side by side. Timings unchanged (a 3,010-line note reads in about
@@ -552,7 +557,7 @@ generated text and lists side by side. Timings unchanged (a 3,010-line note read
 - **The corpus test compared too little.** Its comparison of a save with the document did not
   set markers aside, so a whole-document write of a text with markers was counted as "the
   editor's own spelling doesn't read back either" (432) instead of being checked. It now compares
-  as the schema holds the nodes; the count is 204 and no save reads back as another document.
+  as the schema holds the nodes; the count is 205 and no save reads back as another document.
 - **Lists side by side.** Not in the plan: the property tests left them out as unwritable. They
   are written with alternating markers, which also makes the whole-document fallback after a
   removal between two lists correct. The save still falls back there (317 saves): keeping
@@ -560,15 +565,12 @@ generated text and lists side by side. Timings unchanged (a 3,010-line note read
 
 **Known and left**
 
-- A list item's fenced code indented by one to three spaces more than the item's text (an item
-  indented with tabs) is still not read, as at the top level (milestone 4); such a list loses the
-  code when it is edited. Example: `type-fest`'s readme.
 - A mark that ends inside a word next to another (`~~a*b*~~c`) does not read back; `marked` wants
   a word boundary. The save's check catches it and writes the document whole, which has the
   same text.
 - A `|` in a paragraph line above a line of `-`s and `|`s would read as a table; text is not
   escaped for it.
-- Of the 204 saves above, about 30 are not explained (spaces beside marks, bold around code
+- Of the 205 saves above, about 30 are not explained (spaces beside marks, bold around code
   after a removal).
 
 ## Testing strategy

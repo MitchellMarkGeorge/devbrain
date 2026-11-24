@@ -154,6 +154,18 @@ function splitItemContent(contentLines: string[]) {
   return { paragraphLines, blockLines };
 }
 
+// An item's blocks after its first paragraph, without the blank lines around them and the
+// indentation they all share (a fence one space past the item's text, and its code with it).
+function withoutSharedIndent(lines: string[]): string {
+  const indents = lines.filter((line) => line.trim()).map((line) => /^ */.exec(line)![0].length);
+  const shared = indents.length > 0 ? Math.min(...indents) : 0;
+  return lines
+    .map((line) => (line.trim() ? line.slice(shared) : ''))
+    .join('\n')
+    .replace(/^\n+/, '')
+    .trimEnd();
+}
+
 interface OrderedItem {
   indent: number;
   number: number;
@@ -272,7 +284,7 @@ function buildNestedStructure(
     if (mainText) {
       tokens.push({ type: 'paragraph', raw: mainText, tokens: lexer.inlineTokens(mainText) });
     }
-    const additional = blockLines.join('\n').trim();
+    const additional = withoutSharedIndent(blockLines);
     if (additional) tokens.push(...lexer.blockTokens(additional));
     let lookAhead = index + 1;
     const nested: OrderedItem[] = [];
