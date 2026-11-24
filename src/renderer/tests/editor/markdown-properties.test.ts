@@ -28,7 +28,7 @@ const word = fc
   .array(
     fc.constantFrom(
       ...'abcdefghijklmnopqrstuvwxyzABCXYZ0123456789',
-      ...'*_#[]()&~!+-=.:;,?/\'"$%^{}',
+      ...'*_#[]()&~!+-=.:;,?/\'"$%^{}<>@|',
       'é',
       '日',
       '🙂',
@@ -36,8 +36,8 @@ const word = fc
     { minLength: 1, maxLength: 8 },
   )
   .map((characters) => characters.join(''))
-  // a bare address reads as a link, by design (`www.example.com`, `https://…`)
-  .filter((text) => !/www\.|[a-z]:\/\//i.test(text));
+  // a bare address reads as a link, by design (`www.example.com`, `https://…`, `a@b.c`)
+  .filter((text) => !/www\.|[a-z]:\/\/|[a-z0-9]@|@[a-z0-9]/i.test(text));
 const words = fc.array(word, { minLength: 1, maxLength: 6 }).map((list) => list.join(' '));
 
 const mark = fc.constantFrom('bold', 'italic', 'strike', 'code');
@@ -143,10 +143,9 @@ const block = fc.oneof(
   table,
 );
 
-// Two lists of a kind side by side read as one list, and two quotes as one quote: no markdown
-// says otherwise in the editor's spelling, so a document never has them (the editor joins them
-// too when one is made beside the other).
-const JOINS = new Set(['bulletList', 'orderedList', 'taskList', 'blockquote']);
+// Two quotes side by side read as one quote: no markdown says otherwise, so a document never has
+// them. (Two lists of a kind side by side are written with different markers.)
+const JOINS = new Set(['blockquote']);
 const document = fc
   .array(block, { minLength: 1, maxLength: 8 })
   .map((blocks) =>

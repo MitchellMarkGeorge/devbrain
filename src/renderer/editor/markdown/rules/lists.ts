@@ -10,10 +10,9 @@ import type {
 } from '../types';
 
 /**
- * Bullet, numbered and to-do lists, read and written as TipTap's list extensions did: `marked`
- * reads bullet lists; numbered lists and to-do lists have tokenizers of their own, which nest
- * items by their indent. (TipTap's numbered list also read letters and roman numerals, `a.` and
- * `iv)`: DevBrain's reads numbers only, as GitHub does.)
+ * Bullet, numbered and to-do lists. `marked` reads bullet lists; numbered lists and to-do lists
+ * have tokenizers of their own, which nest items by their indent. A numbered list is numbers
+ * only, as GitHub's is (no `a.` or `iv)`).
  *
  * A list keeps the marker it was written with when it isn't the editor's, in its `markup`
  * attribute (markup.ts): `*` or `+` for a bullet or to-do list, `)` for a numbered one, and `X`
@@ -34,38 +33,60 @@ function columnWidth(text: string): number {
   return width;
 }
 
+const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
+const isList = (node?: JSONContent) => LIST_TYPES.has(node?.type ?? '');
+
+/**
+ * An item after its marker: its first block on the marker's line, each block after it on lines
+ * of its own, and every line but the first indented under the item's text so it stays the
+ * item's (by the marker's width in a numbered list, where `alignNestedToPrefix`).
+ */
 function renderNestedContent(
   node: JSONContent,
   h: RenderHelpers,
   prefix: string,
-  options: { alignNestedToPrefix?: boolean; indentMainContent?: boolean } = {},
+  options: {
+    alignNestedToPrefix?: boolean;
+    listOnMarkerLine?: boolean;
+    bareMarkerWhenEmpty?: boolean;
+  } = {},
 ): string {
   if (!node || !Array.isArray(node.content)) return '';
   const [content, ...children] = node.content;
-  const mainContent = h.renderChildren([content]);
-  let output = `${prefix}${
-    options.indentMainContent
-      ? mainContent
-          .split('\n')
-          .map((line, index) => (index === 0 ? line : h.indent(line)))
-          .join('\n')
-      : mainContent
-  }`;
+  const configured = h.indent('');
+  const indentation =
+    options.alignNestedToPrefix && columnWidth(configured) < columnWidth(prefix)
+      ? ' '.repeat(columnWidth(prefix))
+      : configured;
+  // (a blank line stays empty: it is the item's without indentation)
+  const indented = (text: string, firstLine = true) =>
+    text
+      .split('\n')
+      .map((line, index) =>
+        (index === 0 && !firstLine) || line === '' ? line : indentation + line,
+      )
+      .join('\n');
+
+  const first = indented(h.renderChildren([content]), false);
+  // (`- ` and a line end isn't an item's start: a marker with no text on its line has no space)
+  let output = first === '' && options.bareMarkerWhenEmpty ? prefix.trimEnd() : prefix + first;
   children.forEach((child, index) => {
     const childContent = h.renderChild(child, index + 1);
     if (childContent === undefined || childContent === null) return;
-    const indentLine = (line: string) => {
-      if (!options.alignNestedToPrefix) return h.indent(line);
-      const configured = h.indent('');
-      const prefixWidth = columnWidth(prefix);
-      return (columnWidth(configured) >= prefixWidth ? configured : ' '.repeat(prefixWidth)) + line;
-    };
-    // blank lines are indented too
-    const indented = childContent
-      .split('\n')
-      .map((line) => indentLine(line))
-      .join('\n');
-    output += child.type === 'paragraph' ? `\n\n${indented}` : `\n${indented}`;
+    const previous = node.content![index];
+    if (index === 0 && options.listOnMarkerLine && isList(child) && !previous.content?.length) {
+      // a list in an item with no text of its own starts on the marker's line (`- - item`):
+      // under a marker alone it would be read as a list after an empty one
+      output = prefix + indented(childContent, false);
+      return;
+    }
+    // A blank line before a paragraph, which would run on from the block above it, and around
+    // HTML, which goes on to the next blank line and doesn't always end a paragraph.
+    const apart =
+      child.type === 'paragraph' ||
+      child.type === 'rawHtmlBlock' ||
+      previous.type === 'rawHtmlBlock';
+    output += `${apart ? '\n\n' : '\n'}${indented(childContent)}`;
   });
   return output;
 }
@@ -154,6 +175,9 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
     if (!match) break;
     const [, indent, marker, delimiter, content] = match;
     const indentLevel = indent.length;
+    // another delimiter starts another list (`1.` then `1)`), as another bullet does
+    const first = items[0];
+    if (first && indentLevel <= first.indent && delimiter !== first.delimiter) break;
     const itemNumber = parseInt(marker, 10);
     const contentLines = [content];
     const itemLines = [line];
@@ -511,24 +535,28 @@ export const listRules: Record<string, MarkdownRule> = {
             ],
           };
         }
-        if (tokens.some((t) => t.type === 'paragraph')) {
-          content = helpers.parseBlockChildren(tokens);
-        } else if (first.type === 'text' && first.tokens && first.tokens.length > 0) {
-          content = [{ type: 'paragraph', content: helpers.parseInline(first.tokens) }];
-          if (tokens.length > 1) content.push(...helpers.parseBlockChildren(tokens.slice(1)));
-        } else {
-          content = helpers.parseBlockChildren(tokens);
-        }
+        // In an item with no blank line in it `marked` gives lines of text as `text` tokens:
+        // each is a paragraph, wherever in the item it is.
+        content = helpers.parseBlockChildren(
+          tokens.map((child) =>
+            child.type === 'text' && child.tokens ? { ...child, type: 'paragraph' } : child,
+          ),
+        );
       }
       if (content.length === 0) content = [{ type: 'paragraph', content: [] }];
       return { type: 'listItem', content: ensureLeadingParagraph(content) };
     },
     render: (node, h, context) => {
       const prefix = listItemPrefix(context);
+      // (a numbered item's first line is read as its text, so a list can't start on it)
+      const ordered = context.parentType === 'orderedList';
+      const listFirst = !ordered && hasEmptyLeadingParagraph(node) && isList(node.content?.[1]);
       const output = renderNestedContent(node, h, prefix, {
-        alignNestedToPrefix: context.parentType === 'orderedList',
+        alignNestedToPrefix: ordered,
+        listOnMarkerLine: listFirst,
+        bareMarkerWhenEmpty: !ordered,
       });
-      if (!hasEmptyLeadingParagraph(node) || (context.level ?? 1) <= 1) return output;
+      if (!hasEmptyLeadingParagraph(node) || listFirst || (context.level ?? 1) <= 1) return output;
       return `${prefix}${EMPTY_ITEM_TEXT}${output.slice(prefix.length)}`;
     },
   },
@@ -621,7 +649,7 @@ export const listRules: Record<string, MarkdownRule> = {
     render: (node, h, context) => {
       const checked = markupOf(node.attrs) === 'X' ? 'X' : 'x';
       const prefix = `${bulletOf(context)} [${node.attrs?.checked ? checked : ' '}] `;
-      return renderNestedContent(node, h, prefix, { indentMainContent: true });
+      return renderNestedContent(node, h, prefix);
     },
   },
 };

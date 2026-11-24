@@ -52,10 +52,6 @@ function withTextAdded(node: JSONContent): JSONContent | null {
   return null;
 }
 
-// two documents the same but for the markers they were written with and `undefined` keys
-const same = (a: unknown, b: unknown) =>
-  JSON.stringify(stripMarkup(a as JSONContent)) === JSON.stringify(stripMarkup(b as JSONContent));
-
 interface Report {
   files: number;
   // by `UnmappedReason`
@@ -114,6 +110,11 @@ describe.skipIf(TARGETS.length === 0 || !REPORT)('the markdown layer on real fil
     };
     let totalMs = 0;
     const pm = (content: JSONContent[]) => schema.nodeFromJSON({ type: 'doc', content });
+    // two documents' blocks the same but for the markers they were written with: as the schema
+    // holds them, so an attribute left out and one at its default are the same
+    const plain = (content: JSONContent[] | undefined) =>
+      JSON.stringify(pm((content ?? []).map((node) => stripMarkup(node))).toJSON());
+    const same = (a: JSONContent[] | undefined, b: JSONContent[]) => plain(a) === plain(b);
 
     for (const file of files) {
       const text = readFileSync(file, 'utf8');

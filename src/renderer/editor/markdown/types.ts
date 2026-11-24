@@ -120,4 +120,6 @@ export interface MarkdownRule {
   indentsContent?: boolean;
   // a mark reopened with HTML where marks overlap, so it can't be markdown
   htmlReopen?: { open: string; close: string };
+  // an inline node that keeps a link put around it (an image: `[![alt](src)](href)`)
+  linkable?: boolean;
 }

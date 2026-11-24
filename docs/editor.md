@@ -232,6 +232,34 @@ the layer no longer has:
 - **A heading is written on one line,** with `#`s that end its text escaped (`## C \#`); a line
   end in its text made the rest a paragraph, and the `#`s were read as its closing ones.
 - **A line break or spaces that end a paragraph are not written:** they read as nothing.
+- **A link around an image is kept** (`[![build](badge.svg)](https://ci…)`, a badge): the image's
+  node carries the link mark (`linkable` on its rule), is written inside the link, and a click
+  on it opens the link. The link was dropped the first time the block was rewritten.
+- **Marks close in the reverse of the order they opened in.** `<sub><sup>x</sup></sub>` was
+  written `<sub><sup>x</sub></sup>`, and a bold link `[**x**](url)` with its `**` outside the link.
+- **Every line of a paragraph is escaped where it would start a block,** not only the first:
+  a line that starts `- `, `1. `, `# ` or `>`, or is only `-`s or `=`s (which would make a
+  heading of the line above it).
+- **Every line of a list item is indented under its text.** The lines after the first of an
+  item's first paragraph were written at the list's own indent, where one starting with `#236` or
+  `<https://…>` ended the item. A blank line in an item is written empty, without indentation.
+- **Text after a block in an item is a paragraph.** In an item with no blank line in it, a line
+  of text after a code block or a table was read as bare text, its `code` and links as written.
+- **HTML in an item has a blank line before and after it:** it goes on to the next blank line,
+  and took the block after it.
+- **An item with no text is still an item.** A bullet item that holds only a list is written with
+  the list on its line (`- - item`), any other empty one as a bare `-`: `- ` and a line end reads
+  as a paragraph.
+- **A line break with nothing before it on its line is written `<br>`:** the second of two breaks,
+  or a paragraph's first. As two spaces it was a blank line and ended the paragraph. And a line
+  end before a `<br>` on a line of its own is no part of the text.
+- **A list after a list of its kind is written with another marker** (`-` then `*`, `1.` then
+  `1)`; `withListsApart`, markup.ts), as two lists with one marker are one list in markdown. A
+  numbered list ends where the delimiter changes, as a bullet list does where the bullet does.
+- **`<` stays `&lt;` where a `>` follows it in its block:** `marked` reads no emphasis between a
+  `<` with no space after it and the next `>`.
+- **The blank lines after a collapsible section are kept** as empty paragraphs, as after any
+  other block.
 
 ### The source map
 
@@ -353,7 +381,7 @@ it as an alert, other markdown apps as a quote. Kinds: `NOTE`, `TIP`, `IMPORTANT
 | Written as                                                             | Shown as                                                                 | Where                       |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------- |
 | `[Fix login](devbrain://task/tsk_…)` (also `project`, `note`, `event`) | An EntityPill with the entity's current title; the label is the fallback | `extensions/entity-link.ts` |
-| `![alt](url "title")`                                                  | A chip with the alt text; the image is never loaded                      | `extensions/image-link.ts`  |
+| `![alt](url "title")`                                                  | A chip with the alt text, never the image; in a link, it opens the link  | `extensions/image-link.ts`  |
 | Any other HTML (`<div>`, `<span>`, `<img>`, an unclosed `<kbd>`)       | Its source, as text; kept in the file as written                         | `extensions/raw-html.ts`    |
 | `[text](javascript:…)` and other refused targets                       | Plain text; the target stays in the file                                 | `extensions/safe-link.ts`   |
 
@@ -499,7 +527,8 @@ Three checks stand beside the cases in the tests:
   any order, with either line end) save unedited as they are, and any single block replaced,
   removed or added saves as the edited document with the rest of the text as it was. `npm test`
   runs 300 cases of each; `MARKDOWN_PROPERTY_RUNS=10000 npm test -- markdown-properties` runs the
-  10,000 they were built on. The generated text leaves out `<`, `>`, `@`, `|` and bare web addresses, which read as HTML, an email link, a table's cell and a link.
+  10,000 they were built on. The generated text leaves out bare web and email addresses
+  (`www.…`, `a@b.c`), which read as links by design, and a run of text has one mark at most.
 - **The corpus** (`npm run markdown:corpus -- <folders>`, not part of `npm test`): reads every
   `.md` file under the folders, and for each checks that the source map's pieces are the text,
   that it saves unedited as it is, and that an edit, a removal and an addition at eight of its
@@ -511,13 +540,15 @@ Three checks stand beside the cases in the tests:
   would write it is opened, left, and edited in one paragraph, and is read back from disk each
   time.
 
-On `docs/` and `node_modules` (1,673 files, 31,346 saves): no text lost or changed, 98.9% of the
+On `docs/` and `node_modules` (1,673 files, 31,347 saves): no text lost or changed, 98.9% of the
 saves kept the text outside their block, and 1.1% wrote the whole document (317 of the 331 a
-removal that brings its two neighbours together: two lists, which read as one). 27 of the files
-are written differently the second time the editor writes them whole: a table or raw HTML inside
-a list item, a paragraph straight above a list, marks that close in another order. Nothing is
-lost, but such a note changes once more on its second whole write; they are listed by the corpus
-run ("unstable spelling").
+removal that brings its two neighbours together: two lists, which the kept text would join, so
+the document is written whole with a different marker on the second). Every file is written the
+same the second time the editor writes it whole (the run counts those that aren't as "unstable
+spelling"; there were 27 before milestone 5). 204 of the saves gave a document the editor's own
+spelling doesn't read back either, and are not counted as a fault: most are the run's own edit
+(text added inside a bare address, which stops being bare) or an underlined heading of several
+lines, which is written on one.
 
 Timings and budgets: [performance.md](performance.md) ("The editor's markdown").
 

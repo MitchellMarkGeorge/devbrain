@@ -252,6 +252,18 @@ describe('RichTextEditor', () => {
     expect(container.querySelector('a')!.getAttribute('target')).toBeNull();
   });
 
+  it('opens the link an image is in, not the image', () => {
+    const onOpenUrl = vi.fn();
+    const badge = '[![build](https://example.com/b.svg)](https://example.com/ci)';
+    render({ initialValue: badge, editable: false, onOpenUrl });
+    // the image's chip is drawn inside the link
+    const chip = container.querySelector('a .node-imageLink')!;
+    act(() => {
+      chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(onOpenUrl).toHaveBeenCalledWith('https://example.com/ci');
+  });
+
   it('opens a link on ⌘/Ctrl-click while editing; a plain click only places the caret', () => {
     const onOpenUrl = vi.fn();
     render({ initialValue: '[docs](https://example.com/docs)', onOpenUrl });

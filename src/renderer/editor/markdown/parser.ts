@@ -17,7 +17,7 @@ import type {
  * Markdown to the editor's JSON: `marked` reads the text into tokens, and the rule for each token's
  * type (rules.ts) makes its nodes. A token no rule reads gives its children, or nothing.
  *
- * What it does besides, as TipTap's markdown package did, so notes read as they always have:
+ * What it does besides:
  *
  * - Blank lines beyond the one between two blocks read as empty paragraphs, at the top level of
  *   the document and in a quote, a callout or a collapsible section (`parseBlockChildren`), so the
@@ -363,13 +363,14 @@ export class MarkdownParser {
       if (token.type === 'text') {
         // A line of a paragraph starts at its first character that isn't a space: the
         // indentation of the lines after the first (a wrapped list item's) is no part of the text.
-        // Nor are the spaces before a line break.
+        // Nor are the spaces before a line break, or a line end before one (`<br>` on a line of
+        // its own).
         const afterBreak = tokens[index - 1]?.type === 'br';
         const beforeBreak = tokens[index + 1]?.type === 'br';
         let text = (token.text || '').replace(/\n[ \t]+/g, '\n');
         // (after `<br>` the line's own end is still in the text: it is the break's)
         if (afterBreak) text = text.replace(/^[ \t]*\n?[ \t]*/, '');
-        if (beforeBreak) text = text.replace(/[ \t]+$/, '');
+        if (beforeBreak) text = text.replace(/[ \t\n]+$/, '');
         if (text) result.push({ type: 'text', text: decodeEntities(text) });
       } else if (token.type === 'escape') {
         result.push({ type: 'text', text: token.text || '' });
@@ -416,7 +417,9 @@ export class MarkdownParser {
     attrs?: Record<string, unknown>,
   ): JSONContent[] {
     return content.map((node) => {
-      if (node.type === 'text') {
+      // text, and an image in a link
+      const linked = mark === 'link' && this.rules.rendererOf(node.type ?? '')?.linkable;
+      if (node.type === 'text' || linked) {
         const added = attrs ? { type: mark, attrs } : { type: mark };
         return { ...node, marks: [...(node.marks || []), added] };
       }

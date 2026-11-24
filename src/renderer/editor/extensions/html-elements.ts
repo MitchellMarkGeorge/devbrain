@@ -251,6 +251,14 @@ function findDetailsEnd(src: string): { bodyEnd: number; end: number } | null {
 
 export const DocumentDetails = Details.configure({ persist: true });
 
+// where the line ends and blank lines that start at `from` end
+function endOfBlankLines(src: string, from: number): number {
+  const blank = /(?:[^\S\n]*\n)*/y;
+  blank.lastIndex = from;
+  blank.exec(src);
+  return Math.max(from, blank.lastIndex);
+}
+
 export const detailsMarkdown: MarkdownRule = {
   name: 'details',
 
@@ -268,7 +276,8 @@ export const detailsMarkdown: MarkdownRule = {
       if (summary) body = body.slice(summary[0].length);
       return {
         type: 'details',
-        raw: src.slice(0, bounds.end),
+        // with its line's end and the blank lines after it, as `marked`'s own blocks have them
+        raw: src.slice(0, endOfBlankLines(src, bounds.end)),
         open: Boolean(open[1]),
         summary: summary ? decodeSummary(summary[1].trim()) : '',
         tokens: lexer.blockTokens(body.trim()),

@@ -6,10 +6,11 @@ markdown layer (`src/renderer/editor/markdown/`) from its first step, parity wit
 `@tiptap/markdown`, to a first-class layer that keeps each file's own text, and through what it
 needs to be production ready.
 
-> **Status:** milestones 0 to 4 are built: parity (PR #256), the source map (#257), saving what
-> was read (#259), markers in edited blocks (#260) and production hardening. A save rewrites only
-> the blocks that changed, those keep their markers, and the layer is checked on generated cases,
-> on a corpus of real files and end to end. Milestone 5 (finishing and follow-ups) is to do. The
+> **Status:** milestones 0 to 5 are built: parity (PR #256), the source map (#257), saving what
+> was read (#259), markers in edited blocks (#260), production hardening (#261) and finishing.
+> A save rewrites only the blocks that changed, those keep their markers, the editor's own
+> spelling reads back as what it wrote, and the layer is checked on generated cases, on a corpus
+> of real files and end to end. What is left is optional (milestone 5, "Left for later"). The
 > reference for the layer as built is `docs/editor.md` ("The markdown layer", "The source map",
 > "What a save changes", "When reading or writing fails", "Checking it on real files"); this
 > plan is kept for the reasoning and the steps.
@@ -506,29 +507,69 @@ saves, none lost or changed text, 31,015 kept the text outside their block, 331 
 document (317 a removal that brought its neighbours together, 10 a note whose only block
 changed).
 
-### Milestone 5: finishing and follow-ups
+### Milestone 5: finishing and follow-ups (built)
 
-1. **User-facing docs.** `website/src/content/docs/docs/notes.mdx`: "Opening a note never
-   changes its file. When you edit one, DevBrain rewrites only the blocks you edited, and keeps
-   their markers" (CLAUDE.md: a change users can see lands with its website change, in the same
-   PR as milestone 2 and milestone 3 respectively). No screenshots change.
-2. **Tidy the ports.** Rename what still says TipTap's way of doing things, and remove quirks the
-   tests show nothing depends on (each removal is a listed parity change).
-   Known from milestone 4's corpus run: 27 files the editor writes differently the second time
-   it writes them whole (`npm run markdown:corpus` lists them as "unstable spelling"): a table
-   or raw HTML inside a list item, a paragraph straight above a list, a bare address on its own
-   line, marks that close in another order (`<sub><sup>…</sup></sub>`), `**` moved out of a
-   link. And what the property tests leave out of their generated text because it reads
-   otherwise by design or by a fault not yet looked at: `<`, `>` (a `>` after a space in a nested
-   item is escaped on the second writing), `@`, `|` and bare web addresses (`www.…`).
-3. **Optional: finer grain.** Keep unedited items of an edited list, and unedited rows of an
-   edited table, by applying milestone 2 one level down (list items, table rows). Only if users
-   ask: the block level covers most edits.
-4. **Optional: one reader for main.** `stripMarkdown` (main, regex-based) gives note previews and
-   search text. If previews disagree with what the editor shows, move the parser's schema-free
-   parts (`lexer.ts`, rules' tokenizers) to `src/common` and build previews from tokens. Needs
-   `src/common` to stay free of TipTap (CLAUDE.md), so the rules would split into tokenizers
-   (common) and parse/render (renderer).
+1. **User-facing docs.** `website/src/content/docs/docs/notes.mdx` has said since milestones 2
+   and 3 that only edited blocks are rewritten and keep the way they were written. This
+   milestone adds one line: an image inside a link opens the link.
+2. **The ports, tidied.** The comments no longer describe the code by the package it was ported
+   from, and the faults the corpus run and the property tests had turned up are fixed, each
+   listed in `docs/editor.md` ("The markdown layer", the differences from `@tiptap/markdown`)
+   and covered in `markdown.test.ts` ("writing what reads back the same"):
+   - a link around an image was dropped when its block was rewritten;
+   - marks closed in the order a node lists them, not the reverse of the order they opened in
+     (`<sub><sup>…</sub></sup>`, `**` outside its link);
+   - only a paragraph's first line was escaped where it would start a block;
+   - an item's wrapped lines were written at the list's indent, so one starting `#236` or
+     `<https://…>` ended the item, and a table under wrapped lines left it;
+   - text after a code block or a table in an item with no blank line was read as bare text
+     (an invalid node), not a paragraph;
+   - HTML in an item took the block written straight after it;
+   - an empty item that holds a list (`- - item`) or a code block, and an empty item alone,
+     were written `- ` and a line end, which reads as a paragraph;
+   - two line breaks in a row, or `<br>` on its own line, were written as a blank line;
+   - two lists of a kind side by side were written as one;
+   - `<0 a **b** >` lost its bold, as `marked` reads no emphasis between `<` and `>`;
+   - blank lines after a collapsible section were dropped.
+3. **Left for later: finer grain.** Keeping unedited items of an edited list and unedited rows of
+   an edited table (milestone 2 one level down). Not built: no one has asked, and the block
+   level covers most edits.
+4. **Left for later: one reader for main.** `stripMarkdown` (main) is unchanged. Moving the
+   tokenizers to `src/common` is worth doing only if previews disagree with the editor.
+
+**Numbers** (`npm run markdown:corpus -- docs node_modules`, 1,673 files, 31,347 saves): no text
+lost or changed; files the editor writes differently the second time, 27 before, 0 now; 98.9% of
+saves keep text. Properties hold on 10,000 cases each with `<`, `>`, `@` and `|` in the
+generated text and lists side by side. Timings unchanged (a 3,010-line note reads in about
+30 ms and saves an edit in about 3 ms).
+
+**What turned out different**
+
+- **The "unstable spelling" files were faults, not spellings.** The plan expected quirks to
+  remove; most were the writer producing text that reads as another document, and three were
+  the reader (text after a block in an item, a line end before `<br>`, blank lines after
+  `</details>`).
+- **The corpus test compared too little.** Its comparison of a save with the document did not
+  set markers aside, so a whole-document write of a text with markers was counted as "the
+  editor's own spelling doesn't read back either" (432) instead of being checked. It now compares
+  as the schema holds the nodes; the count is 204 and no save reads back as another document.
+- **Lists side by side.** Not in the plan: the property tests left them out as unwritable. They
+  are written with alternating markers, which also makes the whole-document fallback after a
+  removal between two lists correct. The save still falls back there (317 saves): keeping
+  writes the two lists' own text, which joins them.
+
+**Known and left**
+
+- A list item's fenced code indented by one to three spaces more than the item's text (an item
+  indented with tabs) is still not read, as at the top level (milestone 4); such a list loses the
+  code when it is edited. Example: `type-fest`'s readme.
+- A mark that ends inside a word next to another (`~~a*b*~~c`) does not read back; `marked` wants
+  a word boundary. The save's check catches it and writes the document whole, which has the
+  same text.
+- A `|` in a paragraph line above a line of `-`s and `|`s would read as a table; text is not
+  escaped for it.
+- Of the 204 saves above, about 30 are not explained (spaces beside marks, bold around code
+  after a removal).
 
 ## Testing strategy
 

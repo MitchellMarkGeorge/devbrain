@@ -58,6 +58,13 @@ export const blockRules: Record<string, MarkdownRule> = {
     parse: (token, helpers) => {
       const tokens = token.tokens || [];
       const content = helpers.parseInline(tokens);
+      // a line end the paragraph ends with is no part of it (a link closed on the next line)
+      const last = content.at(-1);
+      if (last?.type === 'text' && /\n[ \t\n]*$/.test(last.text ?? '')) {
+        const text = (last.text ?? '').replace(/[ \t]*\n[ \t\n]*$/, '');
+        if (text) content[content.length - 1] = { ...last, text };
+        else content.pop();
+      }
       const only = tokens.length === 1 ? tokens[0] : null;
       if (
         only?.type === 'text' &&
@@ -81,8 +88,8 @@ export const blockRules: Record<string, MarkdownRule> = {
       // with: neither is written
       return h
         .renderChildren(content)
-        .replace(/(?: {2}|\\)\n$/, '')
-        .replace(/[ \t]+$/, '');
+        .replace(/(?: {2}|\\|<br\s*\/?>)\n$/i, '')
+        .replace(/[ \t\n]+$/, '');
     },
   },
 
@@ -197,10 +204,15 @@ export const blockRules: Record<string, MarkdownRule> = {
       const markup = token.raw.startsWith('\\') ? '\\' : /^<br/i.test(token.raw) ? token.raw : null;
       return markup ? { type: 'hardBreak', attrs: { markup } } : { type: 'hardBreak' };
     },
-    render: (node) => {
+    render: (node, _h, context) => {
       const markup = markupOf(node.attrs);
+      const tag = markup && /^<br\s*\/?>$/i.test(markup) ? markup : null;
+      // a break with nothing on its line before it (the paragraph's first, or one straight after
+      // another) is a tag: spaces or a backslash alone on a line would end the paragraph
+      const previous = context.previousNode;
+      if (!previous || previous.type === 'hardBreak') return `${tag ?? '<br>'}\n`;
       if (markup === '\\') return '\\\n';
-      return markup && /^<br\s*\/?>$/i.test(markup) ? markup : '  \n';
+      return tag ?? '  \n';
     },
   },
 };

@@ -288,6 +288,127 @@ describe('markdown round trip', () => {
 
 // An edited block keeps the spelling it was read with (docs/editor.md, "What a save changes"):
 // each marker is in the `markup` attribute of its node or mark (markup.ts).
+describe('writing what reads back the same', () => {
+  // each of these was written differently the second time, or read back as something else
+  const types = (node: JSONContent | undefined) => (node?.content ?? []).map((child) => child.type);
+  const firstItem = (text: string) => parseMarkdown(text).content?.[0]?.content?.[0];
+
+  it('keeps the link around an image', () => {
+    const badge = '[![build](https://example.com/b.svg)](https://example.com/ci)';
+    expectRoundTrip(badge);
+    const [image] = nodesOfType(parseMarkdown(badge), 'imageLink');
+    expect(image.marks).toEqual([expect.objectContaining({ type: 'link' })]);
+    expectRoundTrip(`See ${badge} and ![plain](https://example.com/p.png).`);
+    // a link closed on the next line is the same link
+    expect(
+      normalizeMarkdown(badge.replace('](https://example.com/ci)', '\n](https://example.com/ci)')),
+    ).toBe(badge);
+  });
+
+  it('closes marks in the order it opened them', () => {
+    expectRoundTrip('<sub><sup>`*` as a string</sup></sub>');
+    expectRoundTrip('See the [***spec* repository**](https://example.com).');
+  });
+
+  it('escapes every line of a paragraph that would start a block', () => {
+    // (a list indented with a tab under a paragraph is lines of that paragraph)
+    expect(normalizeMarkdown('Either:\n\t- one\n\t- two')).toBe('Either:\n\\- one\n\\- two');
+    expectRoundTrip('a\n\\- b\n\\--\n\\=\n1\\. x\n\\> q\n\\# h');
+    expect(types(parseMarkdown('a\n\\--'))).toEqual(['paragraph']);
+  });
+
+  it('indents every line of an item under its text', () => {
+    expectRoundTrip('- See issue\n  #236 for the discussion\n- two');
+    expectRoundTrip('- The docs are at\n  <https://example.com/>.\n- two');
+    expectRoundTrip('1. First line\n   second line\n2. two');
+    expect(normalizeMarkdown('- First line\nsecond line')).toBe('- First line\n  second line');
+    expectRoundTrip('- [ ] First line\n  second line');
+    // a blank line in an item has no indentation
+    expectRoundTrip('- a\n\n  b\n  - c\n\n    d');
+  });
+
+  it('reads text after a block in an item as a paragraph', () => {
+    const text = '- Options:\n  ```js\n  x\n  ```\n  By default `undefined`.';
+    const item = firstItem(text);
+    expect(types(item)).toEqual(['paragraph', 'codeBlock', 'paragraph']);
+    expect(JSON.stringify(item)).toContain('"marks":[{"type":"code"}]');
+    expect(normalizeMarkdown(text)).toBe(
+      '- Options:\n  ```js\n  x\n  ```\n\n  By default `undefined`.',
+    );
+    expectRoundTrip(
+      '- text\n  | a   | b   |\n  | --- | --- |\n  | c   | d   |\n\n  After `code` text',
+    );
+  });
+
+  it('sets HTML in an item apart with blank lines', () => {
+    const text = '- a\n\n  <div>\n  x\n  </div>\n\n  ```\n  code\n  ```';
+    expect(types(firstItem(text))).toEqual(['paragraph', 'rawHtmlBlock', 'codeBlock']);
+    expectRoundTrip(text);
+  });
+
+  it('writes an item with no text of its own so it is still an item', () => {
+    expectRoundTrip('- - Added\n- chore');
+    expectRoundTrip('-\n  ```\n  x\n  ```\n- b');
+    expectRoundTrip('1. \n   - x\n2. b');
+    const empty: JSONContent = {
+      type: 'doc',
+      content: [
+        { type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }] },
+      ],
+    };
+    expect(serializeMarkdown(empty)).toBe('-');
+    expect(types(parseMarkdown('-'))).toEqual(['bulletList']);
+  });
+
+  it('writes a line break with nothing before it on its line as a tag', () => {
+    // `<br>` on a line of its own is one break, and the line end before it no part of the text
+    expect(normalizeMarkdown('a\n<br>\nb')).toBe('a  \nb');
+    expectRoundTrip('a  \n<br>\nb');
+    expect(types(parseMarkdown('a  \n<br>\nb'))).toEqual(['paragraph']);
+  });
+
+  it('gives a list after a list of its kind another marker', () => {
+    for (const text of [
+      '- a\n\n* b\n\n- c',
+      '1. a\n\n1) b',
+      '- [ ] a\n\n* [ ] b',
+      '- x\n  - a\n  * b',
+    ]) {
+      expectRoundTrip(text);
+    }
+    expect(types(parseMarkdown('1. a\n2. b\n1) c'))).toEqual(['orderedList', 'orderedList']);
+    // with the markers they were read with, but for a list that had its neighbour's
+    const read = parseMarkdown('+ a\n\ntext\n\n+ b\n\n* c');
+    const doc = { ...read, content: read.content?.filter((node) => node.type !== 'paragraph') };
+    const codec = new MarkdownCodec(getSchema(createDocumentExtensions()));
+    expect(codec.serializeWithMarkup(doc)).toBe('+ a\n\n- b\n\n* c');
+  });
+
+  it('keeps `<` an entity where a `>` after it would make a tag of the text between', () => {
+    const doc: JSONContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: '<0 a ' },
+            { type: 'text', text: 'b', marks: [{ type: 'bold' }] },
+            { type: 'text', text: ' >c' },
+          ],
+        },
+      ],
+    };
+    const written = serializeMarkdown(doc);
+    expect(written).toBe('&lt;0 a **b** >c');
+    expect(JSON.stringify(parseMarkdown(written))).toContain('"type":"bold"');
+    expectRoundTrip('x < y and 1 <2 are fine');
+  });
+
+  it('keeps the blank lines after a collapsible section', () => {
+    expectRoundTrip('<details>\n<summary>More</summary>\n\nx\n\n</details>\n\n\n\n## Next');
+  });
+});
+
 describe('keeping markers in an edited block', () => {
   // the source as read, with `zq` added to the last text of the top-level block `index`
   function typed(text: string, index: number): JSONContent {
@@ -959,7 +1080,7 @@ describe('saving what was read', () => {
     expect(blockTypes(saved)).toEqual(['bulletList', 'codeBlock']);
   });
 
-  it('keeps two lists that differ only in their bullet apart, which its own spelling can’t', () => {
+  it('keeps two lists that differ only in their bullet apart', () => {
     const text = '* Star\n+ Plus\n\nPara';
     const doc = edit(text, 2, paragraph('Edited'));
     expect(doc.content?.map((node) => node.type)).toEqual([
@@ -967,9 +1088,10 @@ describe('saving what was read', () => {
       'bulletList',
       'paragraph',
     ]);
-    // the editor writes both with "-": read back, they are one list
-    expect(blockTypes(serializeMarkdown(doc))).toEqual(['bulletList', 'paragraph']);
     expect(serializeKeepingSource(text, doc)).toBe('* Star\n+ Plus\n\nEdited');
+    // written whole, the second list takes another bullet than the first: with the same one they
+    // would read back as one list
+    expect(serializeMarkdown(doc)).toBe('- Star\n\n* Plus\n\nEdited');
   });
 
   it('writes a block changed in place with the text around it there', () => {
@@ -1150,13 +1272,12 @@ describe('saving what was read', () => {
     expect(serializeKeepingSource(text, doc)).toBe(serializeMarkdown(doc));
   });
 
-  it('keeps an unchanged block that the editor would write differently each time', () => {
-    // the editor moves the `**` out of the link, and then writes the link differently again
-    const text = 'Edited\n\nSee the [***spec* repository**](https://example.com).';
-    const once = normalizeMarkdown(text);
-    expect(normalizeMarkdown(once)).not.toBe(once);
-    const doc = edit(once, 0, paragraph('Edited again'));
-    expect(serializeKeepingSource(once, doc)).toBe(once.replace('Edited', 'Edited again'));
+  it('keeps an unchanged block that the editor would write differently', () => {
+    // the editor writes the image's link on one line
+    const text = 'Edited\n\n[![build](https://example.com/b.svg)\n](https://example.com)';
+    expect(normalizeMarkdown(text)).not.toBe(text);
+    const doc = edit(text, 0, paragraph('Edited again'));
+    expect(serializeKeepingSource(text, doc)).toBe(text.replace('Edited', 'Edited again'));
   });
 });
 

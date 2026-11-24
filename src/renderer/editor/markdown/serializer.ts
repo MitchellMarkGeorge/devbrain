@@ -1,17 +1,18 @@
 import type { JSONContent } from '@tiptap/core';
 import type { Schema } from '@tiptap/pm/model';
 import { encodeEntities } from './entities';
-import { stripMarkup } from './markup';
+import { stripMarkup, withListsApart } from './markup';
 import type { RuleTable } from './rules';
 import type { RenderContext, RenderHelpers } from './types';
 
 /**
  * The editor's JSON to markdown: each node is written by its rule (rules.ts), and the serializer
  * writes the marks on a run of text nodes itself, opening and closing each where its span starts
- * and ends, as TipTap's markdown package did:
+ * and ends:
  *
  * - Marks nest by their rank in the schema: the higher priority mark outside (a link around its
- *   bold text), and a mark that ends sooner inside one that goes on.
+ *   bold text), and a mark that ends sooner inside one that goes on. They close in the reverse
+ *   of the order they opened in.
  * - Spaces at a mark's edges are moved outside it (`** bold**` isn't bold in markdown).
  * - Where two marks overlap without nesting, the mark that has to reopen does so as HTML when its
  *   rule has a tag for it (`<strong>`), as markdown can't cross them.
@@ -50,34 +51,56 @@ function wrapInBlock(prefix: string, content: string): string {
 /**
  * Text is written with every `&`, `<` and `>` as an HTML entity, so "A & B" would be saved as
  * "A &amp; B". This keeps an entity only where the character could be read back as markup:
- * `&` before something that looks like an entity, `<` before a tag-like character, and `>` at the
- * start of a text (where it could start a quote, written `\>`).
+ * `&` before something that looks like an entity, `<` before a tag-like character or where a `>`
+ * after it would make the text between them read as a tag's (`marked` reads no `**` in
+ * `<0 a **b** >`; `closedLater` says a `>` follows this text in its block), and `>` at the start
+ * of a line (where it could start a quote, written `\>`).
  */
-export function relaxEntities(text: string): string {
+export function relaxEntities(text: string, closedLater = false): string {
   return text
     .replace(/&amp;(?![A-Za-z][A-Za-z0-9]*;|#[0-9]+;|#[xX][0-9A-Fa-f]+;)/g, '&')
-    .replace(/&lt;(?![A-Za-z/!?])/g, '<')
-    .replace(/^&gt;/, '\\>')
+    .replace(/&lt;(?![A-Za-z/!?])/g, (entity, offset: number, whole: string) => {
+      const rest = whole.slice(offset + entity.length);
+      if (/^\s/.test(rest)) return '<';
+      return rest.includes('&gt;') || closedLater ? entity : '<';
+    })
+    .replace(/(^|\n)&gt;/g, '$1\\>')
     .replace(/&gt;/g, '>');
 }
 
 /**
- * A paragraph's text that starts a line with what markdown reads as a block, escaped so it stays
- * text: "## Not a heading", "- not a list", "1. not a list" are written `\## Not a heading`,
- * `\- not a list`, `1\. not a list`. (`>` is escaped by relaxEntities, `*` and `_` always.)
+ * A line of a paragraph's text that starts with what markdown reads as a block, escaped so it
+ * stays text: "## Not a heading", "- not a list", "1. not a list" are written
+ * `\## Not a heading`, `\- not a list`, `1\. not a list`, and a line of only `-` or `=`, which
+ * would be a rule or make a heading of the line above it, `\---`. (`>` is escaped by
+ * relaxEntities, `*` and `_` always.)
  */
-export function escapeLineStart(text: string): string {
-  return text
+export function escapeLineStart(line: string): string {
+  return line
     .replace(/^(#{1,6})(?=[ \t]|$)/, '\\$1')
     .replace(/^([-+])(?=[ \t]|$)/, '\\$1')
+    .replace(/^(-{2,}|=+)(?=[ \t]*$)/, '\\$1')
     .replace(/^(\d{1,9})([.)])(?=[ \t]|$)/, '$1\\$2');
 }
 
-// whether this text starts a line of its paragraph: its first child, or the one after a line break
-function startsParagraphLine(node: JSONContent, parentNode?: JSONContent): boolean {
-  if (parentNode?.type !== 'paragraph' || !parentNode.content) return false;
-  const index = parentNode.content.indexOf(node);
-  return index === 0 || parentNode.content[index - 1]?.type === 'hardBreak';
+// `text` with each of its lines that starts a line of the paragraph escaped: all but the first,
+// and the first too when `atLineStart`
+function escapeLineStarts(text: string, atLineStart: boolean): string {
+  return text
+    .split('\n')
+    .map((line, index) => (index > 0 || atLineStart ? escapeLineStart(line) : line))
+    .join('\n');
+}
+
+// whether this text starts a line of its paragraph: its first child, or the one after a line
+// break or after text that ends a line
+function startsParagraphLine(node: JSONContent, parentNode: JSONContent): boolean {
+  const index = (parentNode.content ?? []).indexOf(node);
+  if (index <= 0) return index === 0;
+  const previous = parentNode.content![index - 1];
+  return (
+    previous.type === 'hardBreak' || (previous.type === 'text' && /\n$/.test(previous.text ?? ''))
+  );
 }
 
 // for each text node, the whole text of each mark's run through it
@@ -152,7 +175,8 @@ export class MarkdownSerializer {
     { withMarkup = false }: { withMarkup?: boolean } = {},
   ): string {
     if (!doc) return '';
-    const written = withMarkup ? doc : Array.isArray(doc) ? doc.map(stripMarkup) : stripMarkup(doc);
+    const spelled = withMarkup ? doc : Array.isArray(doc) ? doc.map(stripMarkup) : stripMarkup(doc);
+    const written = Array.isArray(spelled) ? withListsApart(spelled) : withListsApart([spelled])[0];
     const result = this.renderNodes(written, Array.isArray(written) ? undefined : written);
     return this.isEmptyOutput(result) ? '' : result;
   }
@@ -181,8 +205,13 @@ export class MarkdownSerializer {
       return text;
     }
     const escaped = encodeEntities(text).replace(/([\\`*_[\]~])/g, '\\$1');
-    const relaxed = relaxEntities(escaped);
-    return startsParagraphLine(node, parentNode) ? escapeLineStart(relaxed) : relaxed;
+    const later = parentNode?.content?.slice(parentNode.content.indexOf(node) + 1) ?? [];
+    const closedLater = later.some(
+      (sibling) => sibling.type === 'text' && sibling.text?.includes('>'),
+    );
+    const relaxed = relaxEntities(escaped, closedLater);
+    if (parentNode?.type !== 'paragraph') return relaxed;
+    return escapeLineStarts(relaxed, startsParagraphLine(node, parentNode));
   }
 
   private renderNode(
@@ -273,7 +302,13 @@ export class MarkdownSerializer {
         });
         active.clear();
         openingModes.clear();
-        const content = this.renderNode(node, parentNode, i, level);
+        let content = this.renderNode(node, parentNode, i, level);
+        // a link around an image is written around it: `[![alt](src)](href)`
+        const link = (node.marks || []).find((mark) => mark.type === 'link');
+        if (link && this.rules.rendererOf(node.type)?.linkable) {
+          content = this.markOpening('link', link) + content + this.markClosing('link', link);
+          reopen.delete('link');
+        }
         let after = '';
         if (node.type !== 'hardBreak') {
           reopen.forEach((mark, type) => {
@@ -316,11 +351,11 @@ export class MarkdownSerializer {
       }
 
       if (!crossesBoundary) {
-        closing
-          .slice()
+        // the mark opened last is closed first, whatever order the node lists its marks in
+        [...active.keys()]
           .reverse()
+          .filter((type) => closing.includes(type))
           .forEach((type) => {
-            if (!active.has(type)) return;
             const close = this.markClosing(
               type,
               current.get(type)!,

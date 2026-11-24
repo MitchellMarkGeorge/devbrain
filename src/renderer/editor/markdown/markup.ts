@@ -89,3 +89,42 @@ export function hasMarkup(node: JSONContent): boolean {
     (node.content ?? []).some(hasMarkup)
   );
 }
+
+// the marker a list is written with: its own, or the editor's
+function listMarker(node: JSONContent): string | null {
+  const markup = markupOf(node.attrs);
+  if (node.type === 'orderedList') return markup === ')' ? ')' : '.';
+  if (node.type === 'bulletList' || node.type === 'taskList') {
+    return markup === '*' || markup === '+' ? markup : '-';
+  }
+  return null;
+}
+
+/**
+ * `nodes` with each list that follows a list of its kind given another marker than that one's:
+ * two lists one after the other with the same marker are one list in markdown, and `- a` then
+ * `* b` (`1. a` then `1) b`) are two. The first list of a run keeps its marker.
+ */
+export function withListsApart(nodes: JSONContent[]): JSONContent[] {
+  let previousMarker: string | null = null;
+  let changed = false;
+  const result = nodes.map((node, index) => {
+    let written = node;
+    const marker = listMarker(node);
+    if (marker !== null && nodes[index - 1]?.type === node.type && marker === previousMarker) {
+      const other =
+        node.type === 'orderedList' ? (marker === '.' ? ')' : '.') : marker === '-' ? '*' : '-';
+      written = { ...node, attrs: { ...node.attrs, markup: other } };
+      previousMarker = other;
+    } else {
+      previousMarker = marker;
+    }
+    if (written.content) {
+      const content = withListsApart(written.content);
+      if (content !== written.content) written = { ...written, content };
+    }
+    if (written !== node) changed = true;
+    return written;
+  });
+  return changed ? result : nodes;
+}
