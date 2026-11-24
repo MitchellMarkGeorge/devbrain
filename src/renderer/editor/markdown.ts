@@ -183,6 +183,9 @@ interface Piece {
   // the source's text it writes besides its slice: the text before it there, and after it when
   // it ends the text as it did
   copied?: [number, number][];
+  // written anew with the text's own text before the first block, or after the last (`edge`): read
+  // back with it
+  edge?: 'start' | 'end';
 }
 
 // how marked reads the text into top-level tokens, as TipTap's manager does in parse()
@@ -480,10 +483,16 @@ class DocumentMarkdownManager extends MarkdownManager {
     const used = blocks.map(() => false);
     // the block of the source a child is: looked for from the one after the last found, then
     // among the earlier ones not used yet (a block moved up)
-    const findBlock = (from: number, index: number) => {
-      // an empty paragraph could match any of them: it is only taken where it is expected
+    // (`ahead`: the children written anew since the last found, which may stand in for blocks)
+    const findBlock = (from: number, index: number, ahead: number) => {
+      // an empty paragraph could match any of them: it is only taken where it is expected, after
+      // the last block found, or after as many more as were written anew since (`[](#top)`, a
+      // link with no text, reads as one)
       if (isEmptyParagraph(children[index])) {
-        return from < blocks.length && !used[from] && matchesAt(from, index) ? from : -1;
+        for (const block of new Set([from, from + ahead])) {
+          if (block < blocks.length && !used[block] && matchesAt(block, index)) return block;
+        }
+        return -1;
       }
       for (let block = from; block < blocks.length; block++) {
         if (!used[block] && matchesAt(block, index)) return block;
@@ -496,15 +505,17 @@ class DocumentMarkdownManager extends MarkdownManager {
 
     // which block each child starting one is, or -1 for one written anew
     const assigned: number[] = [];
-    for (let index = 0, next = 0; index < children.length; ) {
-      const block = findBlock(next, index);
+    for (let index = 0, next = 0, ahead = 0; index < children.length; ) {
+      const block = findBlock(next, index, ahead);
       assigned[index] = block;
       if (block === -1) {
         index += 1;
+        ahead += 1;
         continue;
       }
       used[block] = true;
       next = block + 1;
+      ahead = 0;
       index += blocks[block].nodes.length;
     }
     // the text between a block of the source and the next, when that is a block (not an extra
@@ -539,7 +550,10 @@ class DocumentMarkdownManager extends MarkdownManager {
         // after a kept block, in the place of the block that followed it, with the text between
         // (an empty paragraph is a blank line, with no text around it of its own)
         const empty = isEmptyParagraph(children[index]);
-        const gap = last && emptySince === 0 && !empty ? gapAfter(last.block, index + 1) : null;
+        let gap = last && emptySince === 0 && !empty ? gapAfter(last.block, index + 1) : null;
+        // or first, in the place of the text's first block, after the text before that
+        const first = inPlace && !empty && index === 0 && blocks[0]?.slice && !used[0];
+        if (first) gap = [0, blocks[0].slice![0]];
         for (let k = index - emptySince; k < index; k++) pushEmpty(k);
         last = null;
         emptySince = 0;
@@ -551,6 +565,7 @@ class DocumentMarkdownManager extends MarkdownManager {
           nodesFrom: index,
           to: index + 1,
           copied: gap ? [gap] : [],
+          edge: first ? 'start' : undefined,
         });
         index += 1;
         continue;
@@ -632,6 +647,22 @@ class DocumentMarkdownManager extends MarkdownManager {
       last.piece.to = children.length;
     } else {
       for (let k = children.length - emptySince; k < children.length; k++) pushEmpty(k);
+      // the last block written anew in the place of the text's last: the text after that
+      const final = pieces[pieces.length - 1];
+      const replaced = blocks[lastBlock];
+      if (
+        inPlace &&
+        final &&
+        !final.slice &&
+        final.text !== '' &&
+        final.to === children.length &&
+        replaced?.slice &&
+        !used[lastBlock]
+      ) {
+        final.text += text.slice(replaced.slice[1]);
+        final.copied = [...(final.copied ?? []), [replaced.slice[1], text.length]];
+        final.edge = final.edge === 'start' ? 'start' : 'end';
+      }
     }
     return pieces;
   }
@@ -659,6 +690,11 @@ class DocumentMarkdownManager extends MarkdownManager {
       }
     };
     const textOf = (list: Piece[]) => list.map((piece) => piece.before + piece.text).join('');
+    for (const piece of pieces) {
+      // (the text before one at the end is read at its seam)
+      const written = piece.edge === 'start' ? piece.before + piece.text : piece.text;
+      if (piece.edge && !readsAs(written, piece.nodesFrom, piece.to)) return false;
+    }
     const solid = pieces.flatMap((piece, index) => (piece.text === '' ? [] : [index]));
     for (let k = 0; k + 1 < solid.length; k++) {
       const left = pieces[solid[k]];

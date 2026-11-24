@@ -204,6 +204,11 @@ describe('saving what was read', () => {
     type: 'paragraph',
     content: [{ type: 'text', text }],
   });
+  const heading = (text: string): JSONContent => ({
+    type: 'heading',
+    attrs: { level: 1 },
+    content: [{ type: 'text', text }],
+  });
   const blockTypes = (text: string) => (parseMarkdown(text).content ?? []).map((node) => node.type);
 
   it('gives back the text exactly when nothing changed', () => {
@@ -325,6 +330,24 @@ describe('saving what was read', () => {
     const text = '__Kept__\n\nLast\n';
     expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
       '__Kept__\n\nChanged\n',
+    );
+  });
+
+  it('keeps the text before the first block and after the last when they change', () => {
+    const text = '\n# Title\n\nBody\n\n[docs]: https://example.com\n';
+    expect(serializeKeepingSource(text, edit(text, 0, heading('Changed')))).toBe(
+      '\n# Changed\n\nBody\n\n[docs]: https://example.com\n',
+    );
+    expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
+      '\n# Title\n\nChanged\n\n[docs]: https://example.com\n',
+    );
+  });
+
+  it('keeps a block that reads as an empty paragraph after one that changed', () => {
+    // a link with no text reads as nothing but an empty paragraph
+    const text = 'Shim:\n\n[](#top)\n```js\ncode\n```';
+    expect(serializeKeepingSource(text, edit(text, 0, paragraph('Changed:')))).toBe(
+      'Changed:\n\n[](#top)\n```js\ncode\n```',
     );
   });
 
