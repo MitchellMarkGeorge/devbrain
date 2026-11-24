@@ -214,11 +214,12 @@ different from the plan.
   label, target, title and whether it is the label's first, which is everything `links` holds
   once every label is known to be defined at the top level.
 - **Three more reasons for no map** than planned: `unread-token`, a block that gives no node
-  (its text must not become "between" text, which a save would drop without noticing; the one
-  case found on the corpus, a fenced code block indented one to three spaces, read as nothing
-  and was lost on save, and is fixed: it reads as a code block); `invalid-node`, a node
-  `nodeFromJSON` refuses; and `no-blocks`, the text `parseDocument` shows as a paragraph of its
-  lines (an empty text included).
+  (found on the corpus: a fenced code block indented one to three spaces reads as nothing and is
+  lost on save, inherited from TipTap's code block rule and left as it is for now, see
+  milestone 4; its text must not become "between" text, which a save would drop without
+  noticing); `invalid-node`, a node `nodeFromJSON` refuses;
+  and `no-blocks`, the text `parseDocument` shows as a paragraph of its lines (an empty text
+  included).
 - **No block read differently alone.** Every block of the fixtures and of the corpus (32,931)
   reads as the same node when sliced out, given the first definitions appended for its reference
   links. Known cases that do read differently, none of them in the corpus: a fence never closed
@@ -226,8 +227,7 @@ different from the plan.
   depends on its neighbour (indented code after a paragraph, a lazy line).
 - **Parity was checked against the layer before this change,** not `@tiptap/markdown`, which is
   no longer installed: `parse()` gives byte-identical JSON on every corpus file, with `\n` and
-  with `\r\n`, but for the nine with an indented fence (one at the top level, the rest inside list
-  items), which now read it.
+  with `\r\n`.
 
 Tests (`markdown.test.ts`, `describe('reading the source')`): the slices and the text between
 them concatenate to the text, for every fixture with both line ends and for a label defined
@@ -236,9 +236,9 @@ the map's blocks (`Node.eq`); blank lines, an image-only paragraph, a split list
 after blank lines map as above; no map for mixed line ends, a lone `\r`, a nested definition and
 a text of no blocks.
 
-Corpus (`docs/` and the `README.md` files under `node_modules`, 1,067 files): 1,061 have a map
-whose pieces concatenate to the text (three of them with a label defined twice); 6 have none:
-5 mix line ends, 1 defines its labels inside a collapsible section.
+Corpus (`docs/` and the `README.md` files under `node_modules`, 1,067 files): 1,060 have a map
+whose pieces concatenate to the text (three of them with a label defined twice); 7 have none:
+5 mix line ends, 1 defines its labels inside a collapsible section, 1 has an indented fence.
 
 ### Milestone 2: saving what was read
 
@@ -373,10 +373,16 @@ each block, and `docs/editor.md` lists the markers.
      blocks, which the schema doesn't allow (the editor holds it all the same). Reading it as a
      paragraph holding the image writes the same markdown and gives a valid document; it changes
      the JSON for that input, so list it, and check the caret and deletion around it either way.
-   - Done with milestone 1: a fenced code block indented one to three spaces read as nothing
-     (`codeBlock`'s `parse` took only a `raw` that started with the fence) and was gone on the
-     next save. It now reads as a code block, a listed difference from `@tiptap/markdown`
-     (`docs/editor.md`).
+   - Decide the indented fence: a fenced code block whose fence is indented one to three spaces
+     (at the top level, or past the text of the list item it is in, as with four-space
+     indentation under a bullet) reads as nothing and is gone on the next save. `codeBlock`'s
+     `parse` takes only a `raw` that starts with the fence, as TipTap's rule does, and Notion
+     drops such a block too, so it is left as it is for now. It only arrives from outside
+     (imports, synced descriptions, paste): 9 of the 1,067 corpus files have one. Such a text
+     has no map when the fence is at the top level (`unread-token`). A fix was written and
+     taken out again (commit `9804a39`, reverted on `claude/markdown-source-map`): it reads the
+     block as a code block and takes a `~~~` fence's indentation off its lines, which `marked`
+     does only for a ``` fence. It changes parity for that input: list it if it goes in.
    - Audit the ports for other inherited edge cases (`taskItem` builds a text node with
      `createNode('text', { text })`, which makes an attribute, not text; unreachable today).
 2. **Properties, not just cases.** Add property tests (add `fast-check` as a dev dependency):

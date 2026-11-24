@@ -6,21 +6,6 @@ import type { MarkdownRule } from '../types';
 const EMPTY_PARAGRAPH = '&nbsp;';
 const NBSP = '\u00A0';
 
-// a code fence's first characters, after its indentation
-const FENCE_START = /^( {0,3})(```|~~~)/;
-
-// The code of a fenced block, without its fence's indentation: each line loses as many spaces as
-// the fence has, as GitHub reads it. `marked` does this for a ``` fence and not for a ~~~ one.
-function fencedCode(raw: string, text: string): string {
-  const [, indent, fence] = raw.match(FENCE_START) ?? [];
-  if (!indent || fence !== '~~~') return text;
-  const indented = new RegExp(`^ {1,${indent.length}}`);
-  return text
-    .split('\n')
-    .map((line) => line.replace(indented, ''))
-    .join('\n');
-}
-
 export const blockRules: Record<string, MarkdownRule> = {
   doc: {
     name: 'doc',
@@ -109,13 +94,18 @@ export const blockRules: Record<string, MarkdownRule> = {
     name: 'codeBlock',
     token: 'code',
     parse: (token, helpers) => {
-      // fenced (the fence itself may be indented up to three spaces), or indented four spaces
-      if (!FENCE_START.test(token.raw || '') && token.codeBlockStyle !== 'indented') return [];
-      const text = fencedCode(token.raw || '', token.text || '');
+      // fenced, or indented four spaces
+      if (
+        token.raw?.startsWith('```') === false &&
+        token.raw?.startsWith('~~~') === false &&
+        token.codeBlockStyle !== 'indented'
+      ) {
+        return [];
+      }
       return helpers.createNode(
         'codeBlock',
         { language: token.lang || null },
-        text ? [helpers.createTextNode(text)] : [],
+        token.text ? [helpers.createTextNode(token.text)] : [],
       );
     },
     render: (node, h) => {

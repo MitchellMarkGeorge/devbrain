@@ -184,15 +184,12 @@ written with it yet, so a save writes what it did.
   written as its HTML tag (`<strong>`). Text is escaped as "What a save changes" says
   (`relaxEntities`, `escapeLineStart`).
 
-Where it differs from `@tiptap/markdown`: first, HTML that `marked` reads as inline HTML but no tokenizer
+Where it differs from `@tiptap/markdown`: HTML that `marked` reads as inline HTML but no tokenizer
 takes (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as
 raw HTML, as written; TipTap parsed it through the DOM and dropped it, losing it on the next save.
-Second, a note that reads as no blocks at all (only link definitions, `[docs]: https://…`) shows its
+And a note that reads as no blocks at all (only link definitions, `[docs]: https://…`) shows its
 text, a line each, however it is loaded; TipTap showed it on the first load only (read as HTML,
 which lost an address in angle brackets) and loaded it empty through `setContent`.
-Last, a fenced code block whose fence is indented one to three spaces (at the top level, or past
-the text of the list item it is in) is a code block, its lines without the fence's indentation, as
-GitHub reads it; TipTap's rule read it as nothing, and the next save lost it.
 
 ### The source map
 
@@ -244,12 +241,12 @@ save of such a text will write the whole document, as every save does today:
 | `lone-carriage-return` | has a `\r` that isn't part of `\r\n` (`marked` reads it as a line end)                                |
 | `nested-definition`    | defines a label inside a quote, a list item, a callout or a collapsible section                       |
 | `unread-text`          | has something between two tokens that isn't a definition or a blank line                              |
-| `unread-token`         | has a block that reads as nothing (none known; its text must not pass for text between blocks)        |
+| `unread-token`         | has a block that reads as nothing (a fenced code block indented one to three spaces, which is lost)   |
 | `invalid-node`         | reads as a node the schema can't make                                                                 |
 | `no-blocks`            | reads as no blocks: empty, or only definitions (loaded as one paragraph, a line of the text per line) |
 
-On `docs/` and the READMEs in `node_modules` (1,067 files), 1,061 have a map; five mix line
-ends and one defines its labels inside a collapsible section.
+On `docs/` and the READMEs in `node_modules` (1,067 files), 1,060 have a map; five mix line
+ends, one defines its labels inside a collapsible section and one has an indented fence.
 
 ## The note format
 
