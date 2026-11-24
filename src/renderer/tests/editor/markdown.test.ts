@@ -1303,6 +1303,52 @@ describe('saving what was read', () => {
   });
 });
 
+describe('typing a code fence', () => {
+  // text typed at the caret, a character at a time, as the editor's input rules see it
+  function type(editor: Editor, text: string) {
+    for (const character of text) {
+      const { view } = editor;
+      const { from, to } = view.state.selection;
+      const insert = () => view.state.tr.insertText(character, from, to);
+      const handled = view.someProp('handleTextInput', (handle) =>
+        handle(view, from, to, character, insert),
+      );
+      if (!handled) view.dispatch(insert());
+    }
+  }
+  const editorWith = (content: string) => {
+    const editor = new Editor({
+      extensions: createDocumentExtensions(),
+      content,
+      contentType: 'markdown',
+    });
+    editor.commands.focus('end');
+    return editor;
+  };
+  const blocks = (editor: Editor) => editor.getJSON().content?.map((node) => node.type);
+
+  it('opens a code block on the third backtick or tilde, without waiting for a space', () => {
+    for (const fence of ['```', '~~~']) {
+      const editor = editorWith('Text\n\n&nbsp;');
+      type(editor, fence.slice(0, 2));
+      expect(blocks(editor)).toEqual(['paragraph', 'paragraph']);
+      type(editor, fence[2]);
+      expect(blocks(editor)).toEqual(['paragraph', 'codeBlock']);
+      // what is typed next is the code
+      type(editor, 'npm ci');
+      expect(editor.getMarkdown()).toBe('Text\n\n```\nnpm ci\n```');
+      editor.destroy();
+    }
+  });
+
+  it('leaves backticks typed after text as they are', () => {
+    const editor = editorWith('Text');
+    type(editor, ' ```');
+    expect(blocks(editor)).toEqual(['paragraph']);
+    editor.destroy();
+  });
+});
+
 describe('entity links', () => {
   const markdown =
     'Blocked on [Fix \\[login\\]](devbrain://task/tsk_0192) and [Q4](devbrain://project/prj_7).';

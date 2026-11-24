@@ -327,7 +327,9 @@ Notes, and every description, are **GitHub-flavoured markdown**, with a short li
 what GFM has no syntax for, and DevBrain's entity links. Users write it through the editor, never
 as HTML: the menus and shortcuts produce it, typing markdown syntax (`## `, `- [ ] `, `**bold**`)
 turns into formatting as you type, and pasted rich text is converted into it. A file in this
-format reads the same on GitHub.
+format reads the same on GitHub. (A code block opens on the third backtick or tilde of a fence
+typed at the start of a line, `DocumentCodeBlock`'s input rule: TipTap's own waits for a
+language and a space, and the language is picked from the block's label here.)
 
 **Markdown (GFM):** headings, paragraphs, bold, italic, strikethrough, inline code, bulleted,
 numbered and to-do lists (nested), quotes, code blocks, rules, tables, links and autolinks, images,
