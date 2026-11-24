@@ -51,32 +51,60 @@ describe('markdown round trip', () => {
     expect(serializeMarkdown(code('a ``` b'))).toBe('```md\na ``` b\n```');
   });
 
-  it('reads a sentence that starts with a short word as a paragraph, not a numbered item', () => {
-    // only a number, a roman numeral or a letter or two of one case numbers an item
-    for (const text of ['No. I think so', 'Hi. there', 'Ok. Let’s go']) {
+  it('numbers a list with digits only, as typing `1. ` does: a word or a letter starts a sentence', () => {
+    // TipTap read letters and roman numerals as numbers, and with them any short word
+    for (const text of [
+      'No. I think so',
+      'Hi. there',
+      'ok. so',
+      'a) first point\nb) second point',
+      'I. Introduction',
+      'iv. fourth',
+    ]) {
       expect(parseMarkdown(text).content?.map((node) => node.type)).toEqual(['paragraph']);
       expectRoundTrip(text);
     }
-    expect(parseMarkdown('a) first\nb) second').content?.[0]).toMatchObject({
+    // digits, with `.` or `)`
+    expect(parseMarkdown('3. three\n4. four').content?.[0]).toMatchObject({
       type: 'orderedList',
-      attrs: { type: 'a', markup: ')' },
+      attrs: { start: 3 },
     });
-    // and a paragraph the editor holds that starts like an item is written so it stays one
+    expect(parseMarkdown('1) one').content?.[0]).toMatchObject({
+      type: 'orderedList',
+      attrs: { markup: ')' },
+    });
+    // a paragraph the editor holds that starts like an item is written so it stays one
     const paragraph = (text: string): JSONContent => ({
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
     });
     for (const [text, written] of [
-      ['a) first point', 'a\\) first point'],
-      ['I. Introduction', 'I\\. Introduction'],
-      ['ok. so', 'ok\\. so'],
+      ['1. not a list', '1\\. not a list'],
+      ['2) nor this', '2\\) nor this'],
       ['+', '\\+'],
+      ['a) first point', 'a) first point'],
       ['No. I think so', 'No. I think so'],
-      ['e.g. this', 'e.g. this'],
     ]) {
       expect(serializeMarkdown(paragraph(text))).toBe(written);
       expect(parseMarkdown(written)).toEqual(paragraph(text));
     }
+    // a lettered list from pasted HTML is written with numbers: markdown has no letters
+    const lettered: JSONContent = {
+      type: 'doc',
+      content: [
+        {
+          type: 'orderedList',
+          attrs: { start: 2, type: 'a' },
+          content: [
+            {
+              type: 'listItem',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'b' }] }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(serializeMarkdown(lettered)).toBe('2. b');
   });
 
   it('reads the lines of a wrapped paragraph without their indentation', () => {

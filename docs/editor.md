@@ -213,10 +213,12 @@ the layer no longer has:
 - **A note that reads as no blocks** (only link definitions, `[docs]: https://…`) shows its text, a
   line each, however it is loaded; TipTap showed it on the first load only and loaded it empty
   through `setContent`.
-- **A sentence is not a numbered item.** Only a number, a roman numeral or a letter or two of one
-  case numbers an item (`1.`, `iv.`, `b)`). "No. I think so" was read as an item numbered "No",
-  and saved as `1. I think so`. A paragraph the editor holds that starts like an item is written
-  escaped (`a\) first point`), and so is one that is `-` or `+` alone.
+- **A list is numbered with digits only** (`1.`, `2)`), as on GitHub and as typing `1. ` in the
+  editor makes one. TipTap also read letters and roman numerals (`a.`, `iv)`), and with them any
+  word of one or two letters before a full stop: "No. I think so" was read as an item numbered
+  "No", and saved as `1. I think so`. Such lines are paragraphs now, a lettered list included,
+  and a lettered list that arrives as HTML (`<ol type="a">`, pasted) is written with numbers. A
+  paragraph that is `-` or `+` alone is written escaped.
 - **A paragraph that holds only an image is a paragraph.** It was read as a bare image among the
   document's blocks, which the schema doesn't allow.
 - **A numbered item with no text** (`1.` alone) has an empty paragraph; it had none, and could not
@@ -497,8 +499,7 @@ Three checks stand beside the cases in the tests:
   any order, with either line end) save unedited as they are, and any single block replaced,
   removed or added saves as the edited document with the rest of the text as it was. `npm test`
   runs 300 cases of each; `MARKDOWN_PROPERTY_RUNS=10000 npm test -- markdown-properties` runs the
-  10,000 they were built on. The generated text leaves out `<`, `>`, `@` and `|`, which read as
-  HTML, an email link and a table's cell.
+  10,000 they were built on. The generated text leaves out `<`, `>`, `@`, `|` and bare web addresses, which read as HTML, an email link, a table's cell and a link.
 - **The corpus** (`npm run markdown:corpus -- <folders>`, not part of `npm test`): reads every
   `.md` file under the folders, and for each checks that the source map's pieces are the text,
   that it saves unedited as it is, and that an edit, a removal and an addition at eight of its

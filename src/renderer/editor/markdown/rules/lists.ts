@@ -11,8 +11,9 @@ import type {
 
 /**
  * Bullet, numbered and to-do lists, read and written as TipTap's list extensions did: `marked`
- * reads bullet lists; numbered lists and to-do lists have tokenizers of their own, which read
- * `a.`, `i.` and `A)` numbering and nest items by their indent.
+ * reads bullet lists; numbered lists and to-do lists have tokenizers of their own, which nest
+ * items by their indent. (TipTap's numbered list also read letters and roman numerals, `a.` and
+ * `iv)`: DevBrain's reads numbers only, as GitHub does.)
  *
  * A list keeps the marker it was written with when it isn't the editor's, in its `markup`
  * attribute (markup.ts): `*` or `+` for a bullet or to-do list, `)` for a numbered one, and `X`
@@ -69,134 +70,19 @@ function renderNestedContent(
   return output;
 }
 
-// ---- numbering: 1., a., A., i., I.
-
-const ROMAN_NUMERALS: [number, string][] = [
-  [1000, 'm'],
-  [900, 'cm'],
-  [500, 'd'],
-  [400, 'cd'],
-  [100, 'c'],
-  [90, 'xc'],
-  [50, 'l'],
-  [40, 'xl'],
-  [10, 'x'],
-  [9, 'ix'],
-  [5, 'v'],
-  [4, 'iv'],
-  [1, 'i'],
-];
-const ALPHA_NUMERALS = 'abcdefghijklmnopqrstuvwxyz';
-
-// a numbered item's marker: digits, a roman numeral, or one or two letters
-const ORDERED_LIST_MARKER_PATTERN = String.raw`\d+|[ivxlcdmIVXLCDM]+|[a-zA-Z]{1,2}`;
-
-function toRoman(num: number): string {
-  let remaining = num;
-  let result = '';
-  for (const [value, numeral] of ROMAN_NUMERALS) {
-    while (remaining >= value) {
-      result += numeral;
-      remaining -= value;
-    }
-  }
-  return result;
-}
-
-function fromRoman(roman: string): number {
-  const lower = roman.toLowerCase();
-  let index = 0;
-  let result = 0;
-  while (index < lower.length) {
-    const found = ROMAN_NUMERALS.find(([, numeral]) => lower.startsWith(numeral, index));
-    if (!found) return 0;
-    result += found[0];
-    index += found[1].length;
-  }
-  return result;
-}
-
-function isValidRoman(marker: string): boolean {
-  if (!/^[ivxlcdmIVXLCDM]+$/.test(marker)) return false;
-  const value = fromRoman(marker);
-  if (value <= 0) return false;
-  return (
-    (marker === marker.toLowerCase() ? toRoman(value) : toRoman(value).toUpperCase()) === marker
-  );
-}
-
-function fromAlpha(marker: string): number {
-  const lower = marker.toLowerCase();
-  if (lower.length === 1) return lower.charCodeAt(0) - 97 + 1;
-  if (lower.length === 2) {
-    return (lower.charCodeAt(0) - 97 + 1) * 26 + (lower.charCodeAt(1) - 97) + 1;
-  }
-  return 0;
-}
-
-function toAlpha(num: number): string {
-  if (num <= 26) return ALPHA_NUMERALS[num - 1];
-  const first = Math.floor((num - 1) / 26) - 1;
-  const second = (num - 1) % 26;
-  if (first < 0) return ALPHA_NUMERALS[second];
-  return ALPHA_NUMERALS[first] + ALPHA_NUMERALS[second];
-}
-
-// the list's `type` attribute for a marker: undefined for digits
-function detectMarkerType(marker: string): string | undefined {
-  if (!marker || /^\d+$/.test(marker)) return undefined;
-  if (isValidRoman(marker)) return marker === marker.toLowerCase() ? 'i' : 'I';
-  if (/^[a-z]{1,2}$/.test(marker)) return 'a';
-  if (/^[A-Z]{1,2}$/.test(marker)) return 'A';
-  return undefined;
-}
-
-function markerToStart(marker: string): number {
-  if (/^\d+$/.test(marker)) return parseInt(marker, 10);
-  const type = detectMarkerType(marker);
-  if (type === 'i' || type === 'I') return fromRoman(marker);
-  if (type === 'a' || type === 'A') {
-    const start = fromAlpha(marker);
-    return start > 0 ? start : 1;
-  }
-  const parsed = parseInt(marker, 10);
-  return Number.isNaN(parsed) ? 1 : parsed;
-}
-
-function listMarker(type: unknown, index: number, separator = '. '): string {
-  const position = index + 1;
-  switch (type) {
-    case 'a':
-      return `${toAlpha(position)}${separator}`;
-    case 'A':
-      return `${toAlpha(position).toUpperCase()}${separator}`;
-    case 'i':
-      return `${toRoman(position)}${separator}`;
-    case 'I':
-      return `${toRoman(position).toUpperCase()}${separator}`;
-    default:
-      return `${position}${separator}`;
-  }
-}
-
 // ---- reading numbered lists
 
-// a numbered item's line: (1) indent, (2) marker, (3) `.` or `)`, (4) its text
-const ORDERED_LIST_ITEM = new RegExp(`^(\\s*)(${ORDERED_LIST_MARKER_PATTERN})([.)])\\s+(.*)$`);
-
 /**
- * Whether `marker` numbers a list item: digits, a roman numeral, or one or two letters of one
- * case. Anything else before a `.` is a word that ends a sentence: "No. I think so" is a
- * paragraph, not an item numbered "No".
+ * A numbered item's line: (1) indent, (2) number, (3) `.` or `)`, (4) its text. The number is
+ * digits only, as in GitHub's markdown and as typing `1. ` in the editor makes a list: a letter
+ * or a word before a full stop is the start of a sentence ("No. I think so", "a. m."), never an
+ * item.
  */
-export function isListNumber(marker: string): boolean {
-  return /^\d+$/.test(marker) || detectMarkerType(marker) !== undefined;
-}
+const ORDERED_LIST_ITEM = /^(\s*)(\d{1,9})([.)])\s+(.*)$/;
 
 // a line as a numbered item: its indent, number, delimiter and text; null when it isn't one
 function orderedItemOf(line: string): RegExpMatchArray | null {
-  const match = line.match(ORDERED_LIST_ITEM);
-  return match && isListNumber(match[2]) ? match : null;
+  return line.match(ORDERED_LIST_ITEM);
 }
 const INDENTED_LINE = /^\s/;
 
@@ -250,7 +136,6 @@ function splitItemContent(contentLines: string[]) {
 interface OrderedItem {
   indent: number;
   number: number;
-  type: string | undefined;
   content: string;
   contentLines: string[];
   raw: string;
@@ -269,9 +154,7 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
     if (!match) break;
     const [, indent, marker, delimiter, content] = match;
     const indentLevel = indent.length;
-    const number = parseInt(marker, 10);
-    const markerType = Number.isNaN(number) ? detectMarkerType(marker) : undefined;
-    const itemNumber = Number.isNaN(number) ? markerToStart(marker) : number;
+    const itemNumber = parseInt(marker, 10);
     const contentLines = [content];
     const itemLines = [line];
     let next = index + 1;
@@ -301,7 +184,6 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
     items.push({
       indent: indentLevel,
       number: itemNumber,
-      type: markerType,
       content: contentLines.join('\n').trim(),
       contentLines,
       raw: itemLines.join('\n'),
@@ -379,7 +261,6 @@ function buildNestedStructure(
         type: 'list',
         ordered: true,
         start: nested[0].number,
-        typeMarker: nested[0].type,
         delimiter: nested[0].delimiter,
         items: buildNestedStructure(nested, Math.min(...nested.map((n) => n.indent)), lexer),
         raw: nested.map((n) => n.raw).join('\n'),
@@ -567,7 +448,8 @@ function listItemPrefix(context: RenderContext): string {
   if (context.parentType === 'orderedList') {
     const start = (context.meta.parentAttrs?.start as number) || 1;
     const delimiter = markupOf(context.meta.parentAttrs) === ')' ? ') ' : '. ';
-    return listMarker(context.meta.parentAttrs?.type, start - 1 + (context.index || 0), delimiter);
+    // always a number: letters and roman numerals (`<ol type="a">`, pasted) are no markdown
+    return `${start + (context.index || 0)}${delimiter}`;
   }
   return `${bulletOf(context)} `;
 }
@@ -660,7 +542,6 @@ export const listRules: Record<string, MarkdownRule> = {
       const content = token.items ? parseOrderedListItems(token.items, helpers) : [];
       const attrs: Record<string, unknown> = {};
       if (start !== 1) attrs.start = start;
-      if (token.typeMarker) attrs.type = token.typeMarker;
       // `1)`: read by the tokenizer here, or from the first item where `marked` read the list
       const delimiter = token.delimiter ?? /^\s*\w+([.)])/.exec(token.raw || '')?.[1];
       if (delimiter === ')') attrs.markup = ')';
@@ -683,7 +564,6 @@ export const listRules: Record<string, MarkdownRule> = {
           type: 'list',
           ordered: true,
           start: items[0]?.number || 1,
-          typeMarker: items[0]?.type,
           delimiter: items[0]?.delimiter,
           items: listItems,
           raw: lines.slice(0, consumed).join('\n'),

@@ -76,27 +76,27 @@ keeps its spelling (milestone 3).
 
 ### Blocks
 
-| Syntax                                       | Node                     | Read (today) | Kept (M1–2) | Markers (M3)                                               |
-| -------------------------------------------- | ------------------------ | ------------ | ----------- | ---------------------------------------------------------- |
-| Paragraph, lazy continuation lines           | `paragraph`              | yes          | yes         | –                                                          |
-| ATX heading `#`–`######`, closing `#`s       | `heading`                | yes          | yes         | closing `#`s kept                                          |
-| Setext heading (`===`, `---` underline)      | `heading`                | yes          | yes         | `setext` and the underline as written                      |
-| Thematic break `---`, `***`, `___`, spaced   | `horizontalRule`         | yes          | yes         | the line as written                                        |
-| Fenced code ` ``` `, `~~~`, longer fences    | `codeBlock`              | yes          | yes         | fence character and length; info string after the language |
-| Indented code (4 spaces)                     | `codeBlock`              | yes          | yes         | – (fenced once edited; see milestone 3)                    |
-| Blockquote, nested                           | `blockquote`             | yes          | yes         | –                                                          |
-| GitHub alert `> [!NOTE]` …                   | `callout`                | yes          | yes         | –                                                          |
-| Bullet list `-`, `*`, `+`, tight and loose   | `bulletList`/`listItem`  | yes          | yes         | bullet character; new items take the list's                |
-| Numbered list `1.`, `1)`, `a.`, `i.`, start  | `orderedList`/`listItem` | yes          | yes         | `)` delimiter                                              |
-| To-do list `- [ ]`, `- [x]`, `* [ ]`         | `taskList`/`taskItem`    | yes          | yes         | bullet character; `X` vs `x`                               |
-| Mixed to-do and bullet list                  | split into lists         | yes          | yes         | each part keeps its bullet                                 |
-| GFM table, alignment, `\|` in code           | `table`…                 | yes          | yes         | – (an edited table is padded)                              |
-| `<details>`/`<summary>`, `open`, nested      | `details`                | yes          | yes         | –                                                          |
-| Other block HTML, comments                   | `rawHtmlBlock`           | yes          | yes         | – (atomic; never edited in place)                          |
-| Link reference definitions `[x]: url "t"`    | none                     | yes (links)  | yes         | –                                                          |
-| Blank lines beyond one                       | empty `paragraph`s       | yes          | yes         | –                                                          |
-| Text before the first block / after the last | none or empty paragraphs | yes          | yes         | –                                                          |
-| Final newline, or none                       | none                     | –            | yes         | –                                                          |
+| Syntax                                        | Node                     | Read (today) | Kept (M1–2) | Markers (M3)                                               |
+| --------------------------------------------- | ------------------------ | ------------ | ----------- | ---------------------------------------------------------- |
+| Paragraph, lazy continuation lines            | `paragraph`              | yes          | yes         | –                                                          |
+| ATX heading `#`–`######`, closing `#`s        | `heading`                | yes          | yes         | closing `#`s kept                                          |
+| Setext heading (`===`, `---` underline)       | `heading`                | yes          | yes         | `setext` and the underline as written                      |
+| Thematic break `---`, `***`, `___`, spaced    | `horizontalRule`         | yes          | yes         | the line as written                                        |
+| Fenced code ` ``` `, `~~~`, longer fences     | `codeBlock`              | yes          | yes         | fence character and length; info string after the language |
+| Indented code (4 spaces)                      | `codeBlock`              | yes          | yes         | – (fenced once edited; see milestone 3)                    |
+| Blockquote, nested                            | `blockquote`             | yes          | yes         | –                                                          |
+| GitHub alert `> [!NOTE]` …                    | `callout`                | yes          | yes         | –                                                          |
+| Bullet list `-`, `*`, `+`, tight and loose    | `bulletList`/`listItem`  | yes          | yes         | bullet character; new items take the list's                |
+| Numbered list `1.`, `1)`, start (digits only) | `orderedList`/`listItem` | yes          | yes         | `)` delimiter                                              |
+| To-do list `- [ ]`, `- [x]`, `* [ ]`          | `taskList`/`taskItem`    | yes          | yes         | bullet character; `X` vs `x`                               |
+| Mixed to-do and bullet list                   | split into lists         | yes          | yes         | each part keeps its bullet                                 |
+| GFM table, alignment, `\|` in code            | `table`…                 | yes          | yes         | – (an edited table is padded)                              |
+| `<details>`/`<summary>`, `open`, nested       | `details`                | yes          | yes         | –                                                          |
+| Other block HTML, comments                    | `rawHtmlBlock`           | yes          | yes         | – (atomic; never edited in place)                          |
+| Link reference definitions `[x]: url "t"`     | none                     | yes (links)  | yes         | –                                                          |
+| Blank lines beyond one                        | empty `paragraph`s       | yes          | yes         | –                                                          |
+| Text before the first block / after the last  | none or empty paragraphs | yes          | yes         | –                                                          |
+| Final newline, or none                        | none                     | –            | yes         | –                                                          |
 
 ### Inline
 
@@ -478,9 +478,14 @@ timings. This section keeps the steps and what turned out different.
   ports, all fixed (each a deliberate change from `@tiptap/markdown`, listed in
   `docs/editor.md`):
   - a paragraph that starts with a short word and a full stop ("No. I think so", "Hi. there")
-    was read as a numbered item, and saved as `1. I think so`: the word was lost;
-  - a paragraph the editor holds that starts like an item (`a) first`, `I. Intro`, `+` alone)
-    was written so that it read back as a list;
+    was read as a numbered item, and saved as `1. I think so`: the word was lost. TipTap's
+    numbered list read letters and roman numerals as numbers (`a.`, `iv)`), and any one or two
+    letters with them. The list now reads digits only, with `.` or `)`: what GitHub reads, and
+    what typing `1. ` in the editor makes. `a.` and `iv.` lists are paragraphs, and a lettered
+    list from pasted HTML is written with numbers. (The first fix kept letters and roman
+    numerals and refused only invalid ones, with paragraphs like `a) first` escaped on writing;
+    reading what typing makes is simpler, and matches the note format being GFM.)
+  - a paragraph that is `+` or `-` alone was written so that it read back as an empty list;
   - a heading whose text ends with `#` lost it, and one with a line end in its text was written
     as a heading and a paragraph.
 - **The corpus run found that the editor's spelling was not stable** for 170 of 1,671 files
@@ -515,7 +520,7 @@ changed).
    line, marks that close in another order (`<sub><sup>…</sup></sub>`), `**` moved out of a
    link. And what the property tests leave out of their generated text because it reads
    otherwise by design or by a fault not yet looked at: `<`, `>` (a `>` after a space in a nested
-   item is escaped on the second writing), `@` and `|`.
+   item is escaped on the second writing), `@`, `|` and bare web addresses (`www.…`).
 3. **Optional: finer grain.** Keep unedited items of an edited list, and unedited rows of an
    edited table, by applying milestone 2 one level down (list items, table rows). Only if users
    ask: the block level covers most edits.

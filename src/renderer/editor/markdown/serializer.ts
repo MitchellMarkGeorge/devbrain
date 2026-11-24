@@ -2,7 +2,6 @@ import type { JSONContent } from '@tiptap/core';
 import type { Schema } from '@tiptap/pm/model';
 import { encodeEntities } from './entities';
 import { stripMarkup } from './markup';
-import { isListNumber } from './rules/lists';
 import type { RuleTable } from './rules';
 import type { RenderContext, RenderHelpers } from './types';
 
@@ -68,16 +67,10 @@ export function relaxEntities(text: string): string {
  * `\- not a list`, `1\. not a list`. (`>` is escaped by relaxEntities, `*` and `_` always.)
  */
 export function escapeLineStart(text: string): string {
-  return (
-    text
-      .replace(/^(#{1,6})(?=[ \t]|$)/, '\\$1')
-      .replace(/^([-+])(?=[ \t]|$)/, '\\$1')
-      .replace(/^(\d{1,9})([.)])(?=[ \t]|$)/, '$1\\$2')
-      // `a.`, `iv)`, `B.`: the letters and roman numerals the numbered list reads too
-      .replace(/^([a-zA-Z]+)([.)])(?=[ \t])/, (start, marker: string, delimiter: string) =>
-        isListNumber(marker) ? `${marker}\\${delimiter}` : start,
-      )
-  );
+  return text
+    .replace(/^(#{1,6})(?=[ \t]|$)/, '\\$1')
+    .replace(/^([-+])(?=[ \t]|$)/, '\\$1')
+    .replace(/^(\d{1,9})([.)])(?=[ \t]|$)/, '$1\\$2');
 }
 
 // whether this text starts a line of its paragraph: its first child, or the one after a line break
