@@ -194,14 +194,12 @@ A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left
 Add the schema node to `createDocumentExtensions` and its view in `RichTextEditor`, and a round
 trip case to the tests.
 
-A tokenizer runs often, so it must cost what it reads, not the length of the note. Marked tries
-every block tokenizer at each block of the note, with the rest of the note as `src`: a `tokenize`
-should give up on the first line it can't start with (an anchored regex), not split or scan all of
-`src` first (`extensions/task-list.ts` adds that check to TipTap's task list). A block `start` is
-only handed the source up to the next blank line, since that is as far as it could cut a
-paragraph. Each editor, and `parseMarkdown`, has a marked instance of its own (`ownMarked`), so
-its tokenizers go when it does; never register one on marked's global instance.
-`tests/editor/markdown-lexing.test.ts` checks both. Menus that open on a character use `createSuggestionMenu`
+Each editor, and `parseMarkdown`, has a marked instance of its own (`ownMarked` in `markdown.ts`)
+and registers each tokenizer on it once, so its tokenizers go when it does. Never register one on
+marked's global instance: nothing removes them, so they would pile up with every editor made and
+slow every parse (`tests/editor/markdown-manager.test.ts`).
+
+Menus that open on a character use `createSuggestionMenu`
 (`suggestion/suggestion.tsx`), which positions a design-system menu under the caret and passes it
 the keys: `slash-menu.tsx` and `entity-menu.tsx` are the two in use. While a new query's items
 load, it keeps the last items on screen (`items`, found for `itemsQuery`), so the menu never
