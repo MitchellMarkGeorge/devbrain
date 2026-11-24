@@ -307,15 +307,93 @@ describe('saving what was read', () => {
     expect(serializeKeepingSource(text, doc)).toBe('* Star\n+ Plus\n\nEdited');
   });
 
+  it('writes a block changed in place with the text around it there', () => {
+    const text = '### Discussion\n* a\n* b\n\n### Next\n* c\n';
+    const doc = edit(text, 1, ...(parseMarkdown('- a\n- changed').content ?? []));
+    expect(serializeKeepingSource(text, doc)).toBe(
+      '### Discussion\n- a\n- changed\n\n### Next\n* c\n',
+    );
+    // unless that text would join it to its neighbour: a list can follow a paragraph straight
+    // on, another paragraph can't
+    const list = 'First\n* a\n\nLast';
+    expect(serializeKeepingSource(list, edit(list, 1, paragraph('Second')))).toBe(
+      'First\n\nSecond\n\nLast',
+    );
+  });
+
+  it('keeps the file’s final newline when its last block changes', () => {
+    const text = '__Kept__\n\nLast\n';
+    expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
+      '__Kept__\n\nChanged\n',
+    );
+  });
+
+  it('keeps the blank line a text ends with when the block before it goes', () => {
+    // the blank line reads as an empty paragraph, which must stay
+    const text = 'a\n\n---\n_Generated_\n\n';
+    const removed = edit(text, 2);
+    const saved = serializeKeepingSource(text, removed);
+    expect(saved).toBe('a\n\n---\n\n');
+    expect(parseMarkdown(saved)).toEqual(removed);
+  });
+
+  it('puts a new block between two kept ones with the text that was between them', () => {
+    const text = 'Body\n\n[//]: # (start)\n\n* Item';
+    expect(serializeKeepingSource(text, edit(text, 0, paragraph('Body'), paragraph('New')))).toBe(
+      'Body\n\n[//]: # (start)\n\nNew\n\n* Item',
+    );
+  });
+
+  it('keeps a paragraph that holds only an image', () => {
+    // read as a bare image, which the editor puts in a paragraph
+    const text = '![diagram](diagram.png)\n\n* a';
+    expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
+      '![diagram](diagram.png)\n\nChanged',
+    );
+  });
+
+  it('keeps link reference definitions, so the kept links still read', () => {
+    const text = '* A [link][docs]\n\n[docs]: https://example.com\n\nEnd';
+    expect(serializeKeepingSource(text, parseMarkdown(text))).toBe(text);
+    // with the text around the block that changed
+    expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
+      '* A [link][docs]\n\n[docs]: https://example.com\n\nChanged',
+    );
+    // and at the end when the text around it is gone
+    const gone = 'Use [it][docs] here.\n\n[docs]: https://example.com\n\nGone\n\n* Last\n';
+    const removed = edit(gone, 1);
+    const saved = serializeKeepingSource(gone, removed);
+    expect(saved).toBe('Use [it][docs] here.\n\n* Last\n\n[docs]: https://example.com\n');
+    expect(parseMarkdown(saved)).toEqual(removed);
+    // a label defined again, as GitHub's comments do (`[//]: # (start)`), which marked ignores
+    const comments = 'Body\n\n[//]: # (start)\n[//]: # (end)\n\n* Item';
+    expect(serializeKeepingSource(comments, parseMarkdown(comments))).toBe(comments);
+    expect(serializeKeepingSource(comments, edit(comments, 0, paragraph('Changed')))).toBe(
+      'Changed\n\n[//]: # (start)\n[//]: # (end)\n\n* Item',
+    );
+  });
+
+  it('keeps Windows line ends', () => {
+    const text = '* One\r\n\r\n__Two__\r\n';
+    expect(serializeKeepingSource(text, parseMarkdown(text))).toBe(text);
+    expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
+      '* One\r\n\r\nChanged\r\n',
+    );
+  });
+
   it('writes the whole document in its own spelling when it can’t line the text up with it', () => {
-    // a link reference definition reads as no block of its own
-    const references = '* A [link][docs]\n\n[docs]: https://example.com\n\nEnd';
-    const doc = edit(references, 1, paragraph('Changed'));
-    expect(serializeKeepingSource(references, doc)).toBe(serializeMarkdown(doc));
-    // Windows line ends: marked reads them as \n, so its slices would be off
-    const windows = '* One\r\n\r\n__Two__\r\n';
-    expect(serializeKeepingSource(windows, parseMarkdown(windows))).toBe(
-      serializeMarkdown(parseMarkdown(windows)),
+    // a definition inside a quote would go with the quote when it is rewritten
+    const quoted = '> [docs]: https://example.com\n\n* A [link][docs]\n\nEnd';
+    const doc = edit(quoted, 2, paragraph('Changed'));
+    expect(serializeKeepingSource(quoted, doc)).toBe(serializeMarkdown(doc));
+    // a label defined twice, differently, and used
+    const twice = '[a][x]\n\n[x]: https://one.example\n[x]: https://two.example\n\nEnd';
+    const changed = edit(twice, 1, paragraph('Changed'));
+    expect(serializeKeepingSource(twice, changed)).toBe(serializeMarkdown(changed));
+    // line ends that mix \r\n and \n
+    const mixed = '* One\r\n\n__Two__\n';
+    expect(serializeKeepingSource(mixed, parseMarkdown(mixed))).toBe(
+      serializeMarkdown(parseMarkdown(mixed)),
     );
   });
 

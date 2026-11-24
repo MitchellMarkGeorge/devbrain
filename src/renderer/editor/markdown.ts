@@ -131,11 +131,40 @@ function startsParagraphLine(node: JSONContent, parentNode?: JSONContent): boole
  * edited (docs/editor.md, "What a save changes").
  */
 export interface MarkdownSource {
+  // the text as read, with \n line ends: `crlf` when it was written with \r\n
   text: string;
+  crlf: boolean;
   // in order: a block's nodes (a token can read as more than one: a list mixing to-dos and
   // bullets), and its slice of `text` without the blank lines around it; an empty paragraph, which
   // stands for an extra blank line, has none
   blocks: { nodes: ProseMirrorNode[]; slice: [number, number] | null }[];
+  // its link reference definitions (`[docs]: https://…`), which read as no block: each is kept
+  // with the text between two kept blocks around it, and written at the end of the text when a
+  // save leaves that text out, so the kept links that use it still read as links
+  definitions: Definition[];
+}
+
+// a link reference definition: its slice of the text, its label as marked keys it, what it
+// defines, and whether it is the label's first (marked ignores the ones after it)
+interface Definition {
+  range: [number, number];
+  label: string;
+  href: string;
+  title: string | null;
+  first: boolean;
+}
+
+// whether a link could use `label`: written in brackets outside the definitions (a rough test,
+// which may see a use where there is none, never the other way round)
+function labelUsed(text: string, label: string, definitions: Definition[]): boolean {
+  let rest = '';
+  let at = 0;
+  for (const { range } of definitions) {
+    rest += text.slice(at, range[0]);
+    at = range[1];
+  }
+  rest += text.slice(at);
+  return rest.toLowerCase().replace(/\s+/g, ' ').includes(`[${label}]`);
 }
 
 // one block as a save writes it: its text and the text before it (the source's own between two
@@ -151,6 +180,9 @@ interface Piece {
   slice?: [number, number];
   // `before` is the source's text between it and the block before it there, which it follows
   joined?: boolean;
+  // the source's text it writes besides its slice: the text before it there, and after it when
+  // it ends the text as it did
+  copied?: [number, number][];
 }
 
 // how marked reads the text into top-level tokens, as TipTap's manager does in parse()
@@ -160,6 +192,31 @@ interface MarkdownLexer {
 
 function isEmptyParagraph(node: ProseMirrorNode): boolean {
   return node.type.name === 'paragraph' && node.childCount === 0;
+}
+
+/**
+ * The top-level nodes TipTap's parser gave, as the editor holds them. The parser gives inline
+ * nodes on their own where a paragraph holds nothing else (`![diagram](diagram.png)` is a bare
+ * image), and loading them into the editor wraps each run of them in a paragraph; this does the
+ * same, so what is read compares equal to the editor's document.
+ */
+function blocksFromJSON(schema: Schema, content: JSONContent[]): ProseMirrorNode[] {
+  const blocks: ProseMirrorNode[] = [];
+  let inline: ProseMirrorNode[] = [];
+  const flush = () => {
+    if (inline.length > 0) blocks.push(schema.nodes.paragraph.create(null, inline));
+    inline = [];
+  };
+  for (const json of content) {
+    const node = schema.nodeFromJSON(json);
+    if (node.isInline) inline.push(node);
+    else {
+      flush();
+      blocks.push(node);
+    }
+  }
+  flush();
+  return blocks;
 }
 
 function childrenOf(doc: ProseMirrorNode): ProseMirrorNode[] {
@@ -173,6 +230,14 @@ function sliceOf(raw: string, from: number): [number, number] {
   const start = from + (raw.length - raw.replace(/^\n+/, '').length);
   const end = from + raw.replace(/\n+$/, '').length;
   return [start, Math.max(start, end)];
+}
+
+// `markdown` ending with a newline when `text` did, unless the document ends with an empty
+// paragraph (which stands for a blank line) or nothing is written
+function withFinalNewline(markdown: string, text: string, children: ProseMirrorNode[]): string {
+  const last = children[children.length - 1];
+  if (!text.endsWith('\n') || markdown === '' || markdown.endsWith('\n')) return markdown;
+  return last && !isEmptyParagraph(last) ? markdown + '\n' : markdown;
 }
 
 class DocumentMarkdownManager extends MarkdownManager {
@@ -196,7 +261,12 @@ class DocumentMarkdownManager extends MarkdownManager {
    * that reads as nothing of its own (a link reference definition, which the links using it
    * depend on) or one whose nodes aren't the document's next ones.
    */
-  readSource(text: string, doc: ProseMirrorNode): MarkdownSource | null {
+  readSource(stored: string, doc: ProseMirrorNode): MarkdownSource | null {
+    // marked reads \r\n as \n, so a text written with \r\n throughout is mapped as \n and
+    // written back with \r\n; one that mixes them is not mapped
+    const crlf = stored.includes('\r\n');
+    const text = crlf ? stored.replace(/\r\n/g, '\n') : stored;
+    if (text.includes('\r') || (crlf && /(^|[^\r])\n/.test(stored))) return null;
     // TipTap's own parse() reads through a lexer of its making, kept for nested tokens; both are
     // private in its types
     const self = this as unknown as {
@@ -210,16 +280,34 @@ class DocumentMarkdownManager extends MarkdownManager {
     try {
       const children = childrenOf(doc);
       const blocks: MarkdownSource['blocks'] = [];
+      const definitions: Definition[] = [];
+      const tokens = lexer.lex(text);
       let at = 0;
       let offset = 0;
-      for (const token of lexer.lex(text)) {
+      for (const token of tokens) {
+        // marked drops a definition of a label already defined, raw text and all
+        if (!text.startsWith(token.raw, offset)) {
+          const skipped = this.droppedDefinitions(text, offset, token.raw);
+          if (!skipped) return null;
+          definitions.push(...skipped);
+          offset = text.indexOf(token.raw, offset);
+        }
         const from = offset;
         offset += token.raw.length;
-        if (text.slice(from, offset) !== token.raw) return null;
         if (token.type === 'space') continue;
-        const nodes = self
-          .parseTokens([token], false)
-          .map((json) => doc.type.schema.nodeFromJSON(json));
+        if (token.type === 'def') {
+          // read as no block: kept in the text between the blocks around it (MarkdownSource)
+          const def = token as unknown as { tag: string; href: string; title?: string | null };
+          definitions.push({
+            range: sliceOf(token.raw, from),
+            label: def.tag,
+            href: def.href,
+            title: def.title ?? null,
+            first: true,
+          });
+          continue;
+        }
+        const nodes = blocksFromJSON(doc.type.schema, self.parseTokens([token], false));
         if (nodes.length === 0) return null;
         const matchesAt = (index: number) =>
           nodes.every((node, k) => children[index + k]?.eq(node) ?? false);
@@ -237,14 +325,56 @@ class DocumentMarkdownManager extends MarkdownManager {
       while (at < children.length && isEmptyParagraph(children[at])) {
         blocks.push({ nodes: [children[at++]], slice: null });
       }
-      // marked reads a text with \r\n line ends as \n: its slices would then be off
-      if (offset !== text.length) return null;
-      return at === children.length ? { text, blocks } : null;
+      if (offset !== text.length || at !== children.length) return null;
+      // every label is defined at the top level (one in a quote or a list item would go with it
+      // when that block is rewritten), and its later definitions, which marked ignores, either
+      // agree with the first or are never used
+      const links = (tokens as { links?: Record<string, unknown> }).links ?? {};
+      const labels = new Set(definitions.filter((d) => d.first).map((d) => d.label));
+      if (Object.keys(links).some((label) => !labels.has(label))) return null;
+      for (const later of definitions.filter((d) => !d.first)) {
+        const first = definitions.find((d) => d.first && d.label === later.label);
+        const agrees = first && first.href === later.href && first.title === later.title;
+        if (!agrees && labelUsed(text, later.label, definitions)) return null;
+      }
+      return { text, crlf, blocks, definitions };
     } catch {
       return null;
     } finally {
       self.activeParseLexer = previous;
     }
+  }
+
+  // The definitions marked dropped between `offset` and the next token, `raw`, each repeating a
+  // label defined before it; null when that text is anything else.
+  private droppedDefinitions(text: string, offset: number, raw: string): Definition[] | null {
+    const next = text.indexOf(raw, offset);
+    if (next === -1) return null;
+    const found: Definition[] = [];
+    let at = offset;
+    // read on its own, the text gives each label's first definition again, and drops its repeats
+    // in turn: read again from where it dropped one
+    while (at < next) {
+      const lexer = (this as unknown as { createLexer(): MarkdownLexer }).createLexer();
+      const start = at;
+      for (const token of lexer.lex(text.slice(at, next))) {
+        if (!text.startsWith(token.raw, at)) break;
+        if (token.type === 'def') {
+          const def = token as unknown as { tag: string; href: string; title?: string | null };
+          const range = sliceOf(token.raw, at);
+          found.push({
+            range,
+            label: def.tag,
+            href: def.href,
+            title: def.title ?? null,
+            first: false,
+          });
+        } else if (token.type !== 'space') return null;
+        at += token.raw.length;
+      }
+      if (at === start) return null;
+    }
+    return found.length > 0 ? found : null;
   }
 
   /**
@@ -256,18 +386,93 @@ class DocumentMarkdownManager extends MarkdownManager {
    * document is written as `serialize` writes it instead.
    */
   serializeKeeping(doc: ProseMirrorNode, source: MarkdownSource | null): string {
-    const written = () => this.serialize(doc.toJSON());
-    if (!source) return written();
+    if (!source) return this.serialize(doc.toJSON());
     const children = childrenOf(doc);
-    const pieces = this.piecesOf(children, source);
-    if (!this.seamsReadBack(doc, children, pieces)) return written();
-    const markdown = pieces.map((piece) => piece.before + piece.text).join('');
+    const lineEnds = (markdown: string) =>
+      source.crlf ? markdown.replace(/\n/g, '\r\n') : markdown;
+    // the text's final newline, which `serialize` never writes, is kept when the document no
+    // longer ends with the block it followed (a newline after the last block reads as nothing);
+    // `serialize` writes every link in full, so it needs none of the definitions
+    const written = () =>
+      lineEnds(withFinalNewline(this.serialize(doc.toJSON()), source.text, children));
+    // the text around a block rewritten in place first, then a blank line
+    const markdown =
+      this.keeping(doc, children, source, true) ?? this.keeping(doc, children, source, false);
+    return markdown === null ? written() : lineEnds(markdown);
+  }
+
+  // `doc` written keeping what it can of `source` (serializeKeeping), or null when the blocks
+  // would not read back as they are
+  private keeping(
+    doc: ProseMirrorNode,
+    children: ProseMirrorNode[],
+    source: MarkdownSource,
+    inPlace: boolean,
+  ): string | null {
+    const pieces = this.piecesOf(children, source, inPlace);
+    const { text, definitions } = source;
+    const definitionText = (list: Definition[]) =>
+      list.map((d) => text.slice(...d.range)).join('\n');
+    // The kept blocks' links read through the text's definitions, wherever they are written: a
+    // seam is read with those of the labels it doesn't define itself after it (a label defined
+    // again is ignored, and the blank line before it then reads as an empty paragraph).
+    // (only those it could use: its labels in brackets)
+    const definitionsFor = (markdown: string) => {
+      if (definitions.length === 0) return '';
+      const words = markdown.toLowerCase().replace(/\s+/g, ' ');
+      return definitionText(
+        definitions.filter(
+          (d) =>
+            d.first &&
+            words.includes(`[${d.label}]`) &&
+            !definitions.some(
+              (o) => o.label === d.label && markdown.includes(text.slice(...o.range)),
+            ),
+        ),
+      );
+    };
+    if (!this.seamsReadBack(doc, children, pieces, definitionsFor)) return null;
+    let markdown = pieces.map((piece) => piece.before + piece.text).join('');
     // a document of nothing but empty paragraphs is written as nothing, as `serialize` does
-    return markdown.trim() === '' && markdown !== source.text ? written() : markdown;
+    if (markdown.trim() === '') return markdown === source.text ? markdown : null;
+    // the definitions in text the save left out, at the end, where they still read as definitions
+    const copied = pieces.flatMap((piece) => piece.copied ?? []);
+    const written = (d: Definition) =>
+      copied.some(([from, to]) => from <= d.range[0] && d.range[1] <= to);
+    const missing = definitions.filter(
+      (d) => d.first && !definitions.some((o) => o.label === d.label && written(o)),
+    );
+    if (missing.length > 0) {
+      const appended = definitionText(missing);
+      const separator = markdown.endsWith('\n\n') ? '' : markdown.endsWith('\n') ? '\n' : '\n\n';
+      // the blocks they follow must still read as they are
+      let last = pieces.length - 1;
+      while (last > 0 && pieces[last].text === '') last -= 1;
+      const tail = pieces
+        .slice(last)
+        .map((piece, k) => (k === 0 ? '' : piece.before) + piece.text)
+        .join('');
+      const expected = doc.type.schema.topNodeType.create(
+        null,
+        children.slice(pieces[last].nodesFrom),
+      );
+      const reread = this.parseDocument(doc.type.schema, tail + separator + appended);
+      if (!reread.eq(expected)) return null;
+      markdown += separator + appended;
+    }
+    return withFinalNewline(markdown, source.text, children);
+  }
+
+  /** `text` read as the editor would hold it. */
+  parseDocument(schema: Schema, text: string): ProseMirrorNode {
+    return schema.topNodeType.create(null, blocksFromJSON(schema, this.parse(text).content ?? []));
   }
 
   // The document as it is written: a piece per block, in order, with the text before it.
-  private piecesOf(children: ProseMirrorNode[], source: MarkdownSource): Piece[] {
+  // With `inPlace`, a block written anew where the text had another, between two kept blocks or
+  // beside one, is written with the text's own text around it there (`# Title` straight above a
+  // list stays so when the list changes); without it, a blank line.
+  private piecesOf(children: ProseMirrorNode[], source: MarkdownSource, inPlace: boolean): Piece[] {
     const { text, blocks } = source;
     const matchesAt = (block: number, index: number) =>
       blocks[block].nodes.every((node, k) => children[index + k]?.eq(node) ?? false);
@@ -289,6 +494,34 @@ class DocumentMarkdownManager extends MarkdownManager {
       return -1;
     };
 
+    // which block each child starting one is, or -1 for one written anew
+    const assigned: number[] = [];
+    for (let index = 0, next = 0; index < children.length; ) {
+      const block = findBlock(next, index);
+      assigned[index] = block;
+      if (block === -1) {
+        index += 1;
+        continue;
+      }
+      used[block] = true;
+      next = block + 1;
+      index += blocks[block].nodes.length;
+    }
+    // the text between a block of the source and the next, when that is a block (not an extra
+    // blank line) not kept
+    // (or, for a block put in between two kept, the text between those, `index` the next child)
+    const gapAfter = (block: number, index: number): [number, number] | null => {
+      const following = blocks[block + 1];
+      const between = assigned[index] === block + 1;
+      if (!inPlace || !following?.slice || (used[block + 1] && !between)) return null;
+      return [blocks[block].slice![1], following.slice[0]];
+    };
+    const gapBefore = (block: number): [number, number] | null => {
+      const preceding = blocks[block - 1];
+      if (!inPlace || !preceding?.slice || used[block - 1]) return null;
+      return [preceding.slice[1], blocks[block].slice![0]];
+    };
+
     const pieces: Piece[] = [];
     // the last kept block with a slice, while the blocks after it are kept in the source's order:
     // the text between it and the next one is the source's own
@@ -299,27 +532,29 @@ class DocumentMarkdownManager extends MarkdownManager {
     const pushEmpty = (index: number) => {
       pieces.push({ before: separator(), text: '', from: index, nodesFrom: index, to: index + 1 });
     };
-    let next = 0;
     for (let index = 0; index < children.length; ) {
-      const block = findBlock(next, index);
+      const block = assigned[index];
       if (block === -1) {
-        // written anew, after the empty paragraphs held back since the last kept block
+        // written anew, after the empty paragraphs held back since the last kept block: straight
+        // after a kept block, in the place of the block that followed it, with the text between
+        // (an empty paragraph is a blank line, with no text around it of its own)
+        const empty = isEmptyParagraph(children[index]);
+        const gap = last && emptySince === 0 && !empty ? gapAfter(last.block, index + 1) : null;
         for (let k = index - emptySince; k < index; k++) pushEmpty(k);
         last = null;
         emptySince = 0;
         const markdown = this.serialize({ type: 'doc', content: [children[index].toJSON()] });
         pieces.push({
-          before: separator(),
+          before: gap ? text.slice(...gap) : separator(),
           text: markdown,
           from: index,
           nodesFrom: index,
           to: index + 1,
+          copied: gap ? [gap] : [],
         });
         index += 1;
         continue;
       }
-      used[block] = true;
-      next = block + 1;
       const end = index + blocks[block].nodes.length;
       const slice = blocks[block].slice;
       const consecutive = last !== null && block === last.block + 1 + emptySince;
@@ -338,17 +573,24 @@ class DocumentMarkdownManager extends MarkdownManager {
       }
       let before: string;
       let from = index;
+      let copied: [number, number] | null = null;
       if (consecutive && last) {
-        before = text.slice(last.piece.slice![1], slice[0]);
+        copied = [last.piece.slice![1], slice[0]];
+        before = text.slice(...copied);
         from = last.piece.to;
       } else if (opening) {
         // the document's first block, after the blank lines it opened with
-        before = text.slice(0, slice[0]);
+        copied = [0, slice[0]];
+        before = text.slice(...copied);
         from = 0;
       } else {
         // the empty paragraphs held back belonged to no run: written as `serialize` does
         for (let k = index - emptySince; k < index; k++) pushEmpty(k);
-        before = separator();
+        // straight after a block written anew in the place of the one before it in the text
+        const previous = pieces[pieces.length - 1];
+        const gap = emptySince === 0 && previous && !previous.slice && previous.text !== '';
+        copied = gap ? gapBefore(block) : null;
+        before = copied ? text.slice(...copied) : separator();
       }
       const piece: Piece = {
         joined: consecutive,
@@ -358,6 +600,7 @@ class DocumentMarkdownManager extends MarkdownManager {
         nodesFrom: index,
         to: end,
         slice,
+        copied: copied ? [copied] : [],
       };
       pieces.push(piece);
       last = { block, piece };
@@ -366,7 +609,16 @@ class DocumentMarkdownManager extends MarkdownManager {
     }
     // a text of nothing but blank lines, unchanged
     if (pieces.length === 0 && emptySince === children.length && emptySince === blocks.length) {
-      return [{ before: '', text, from: 0, nodesFrom: 0, to: children.length }];
+      return [
+        {
+          before: '',
+          text,
+          from: 0,
+          nodesFrom: 0,
+          to: children.length,
+          copied: [[0, text.length]],
+        },
+      ];
     }
     // the blank lines and newline the text ended with, when its last blocks end the document too
     const lastBlock = blocks.length - 1;
@@ -376,6 +628,7 @@ class DocumentMarkdownManager extends MarkdownManager {
       last.piece.to + emptySince === children.length
     ) {
       last.piece.text += text.slice(last.piece.slice![1]);
+      last.piece.copied!.push([last.piece.slice![1], text.length]);
       last.piece.to = children.length;
     } else {
       for (let k = children.length - emptySince; k < children.length; k++) pushEmpty(k);
@@ -392,7 +645,20 @@ class DocumentMarkdownManager extends MarkdownManager {
     doc: ProseMirrorNode,
     children: ProseMirrorNode[],
     pieces: Piece[],
+    definitionsFor: (markdown: string) => string,
   ): boolean {
+    // whether `written` reads as the children from `from` to `to`
+    const readsAs = (written: string, from: number, to: number) => {
+      const expected = doc.type.schema.topNodeType.create(null, children.slice(from, to));
+      try {
+        const definitions = definitionsFor(written);
+        const read = definitions ? written + '\n\n' + definitions : written;
+        return this.parseDocument(doc.type.schema, read).eq(expected);
+      } catch {
+        return false;
+      }
+    };
+    const textOf = (list: Piece[]) => list.map((piece) => piece.before + piece.text).join('');
     const solid = pieces.flatMap((piece, index) => (piece.text === '' ? [] : [index]));
     for (let k = 0; k + 1 < solid.length; k++) {
       const left = pieces[solid[k]];
@@ -400,22 +666,20 @@ class DocumentMarkdownManager extends MarkdownManager {
       // written anew on both sides, as `serialize` writes them; or kept side by side, as written
       if (!left.slice && !right.slice) continue;
       if (right.joined) continue;
-      const between = pieces
-        .slice(solid[k] + 1, solid[k + 1] + 1)
-        .map((piece) => piece.before + piece.text)
-        .join('');
-      const expected = doc.type.schema.topNodeType.create(
-        null,
-        children.slice(left.nodesFrom, right.to),
-      );
-      try {
-        const reread = doc.type.schema.nodeFromJSON(this.parse(left.text + between));
-        if (!reread.eq(expected)) return false;
-      } catch {
-        return false;
-      }
+      const between = textOf(pieces.slice(solid[k] + 1, solid[k + 1] + 1));
+      if (!readsAs(left.text + between, left.nodesFrom, right.to)) return false;
     }
-    return true;
+    if (solid.length === 0) return true;
+    // the empty paragraphs the document opens or ends with, written as blank lines
+    const first = pieces[solid[0]];
+    const last = pieces[solid[solid.length - 1]];
+    if (solid[0] > 0 && !readsAs(textOf(pieces.slice(0, solid[0] + 1)), 0, first.to)) {
+      return false;
+    }
+    const after = pieces.slice(solid[solid.length - 1] + 1);
+    return (
+      after.length === 0 || readsAs(last.text + textOf(after), last.nodesFrom, children.length)
+    );
   }
 }
 
@@ -472,8 +736,9 @@ function documentSchema(): Schema {
   return schema!;
 }
 
+// markdown read as the editor holds it
 export function parseMarkdown(markdown: string): JSONContent {
-  return documentManager().parse(markdown);
+  return documentManager().parseDocument(documentSchema(), markdown).toJSON();
 }
 
 export function serializeMarkdown(doc: JSONContent): string {
@@ -490,10 +755,24 @@ export function normalizeMarkdown(markdown: string): string {
  * were in `text`, the rest in the editor's spelling (MarkdownSource).
  */
 export function serializeKeepingSource(text: string, doc: JSONContent): string {
-  const read = documentSchema().nodeFromJSON(parseMarkdown(text));
-  const current = documentSchema().nodeFromJSON(doc);
   const manager = documentManager();
+  const read = manager.parseDocument(documentSchema(), text);
+  const current = documentSchema().nodeFromJSON(doc);
   return manager.serializeKeeping(current, manager.readSource(text, read));
+}
+
+/**
+ * Each top-level node `text` reads as, with its slice of the text (with \n line ends); null for
+ * an empty paragraph, or for all of them when the text has no map (MarkdownSource).
+ */
+export function markdownBlocks(text: string): ([number, number] | null)[] | null {
+  const manager = documentManager();
+  const source = manager.readSource(text, manager.parseDocument(documentSchema(), text));
+  return source
+    ? source.blocks.flatMap((block) =>
+        block.nodes.map(() => (block.nodes.length === 1 ? block.slice : null)),
+      )
+    : null;
 }
 
 // the editor's own manager, which every editor made from createDocumentExtensions has

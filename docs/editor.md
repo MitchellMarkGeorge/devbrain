@@ -212,16 +212,25 @@ the file, with the blank lines around it:
   lexer TipTap parses it with. Extra blank lines read as empty paragraphs, which have no slice.
 - When it writes markdown (`serializeKeeping`), each top-level block still equal to one it loaded
   is written as that slice, and the text between two such blocks that were neighbours in the file
-  is the file's own. Everything else (a block you edited, added or moved) is written in the
-  editor's spelling, with a blank line between blocks, as a plain serialization would be. Nothing
-  edited gives the file back byte for byte.
+  is the file's own. A block you edited is written in the editor's spelling in its place, with the
+  file's text around it there (`### Notes` straight above a list stays so when the list changes);
+  one you added, or moved, gets a blank line either side, as a plain serialization would. Nothing
+  edited gives the file back byte for byte, and the file's final newline stays.
 - Where a kept block meets one written anew (or one moved from elsewhere in the file), the two are
-  read back together; if they would read as anything else (an indented code block kept after a
-  new list would continue the list's item), the whole document is written in the editor's
-  spelling instead. Blocks kept side by side read as they did in the file.
+  read back together, as are the empty paragraphs the document opens or ends with. If the file's
+  own text around an edited block makes them read as anything else (`First\n* a` with the list
+  turned into a paragraph would join the two paragraphs), they get a blank line instead; if they
+  still read differently (an indented code block kept after a new list would continue the list's
+  item), the whole document is written in the editor's spelling. Blocks kept side by side read as
+  they did in the file.
+- Link reference definitions (`[docs]: https://…`) read as no block. They are kept with the text
+  around them, and a save that leaves that text out writes them at the end of the file, so the kept
+  links that use them still read as links. A label defined twice is fine, as in GitHub's comments
+  (`[//]: # (start)`), unless the two differ and a link could use it.
+- A file written with `\r\n` line ends is read as `\n` and written back with `\r\n`.
 - There is no map, and the whole document is written in the editor's spelling, when the text
-  can't be lined up with the document: a link reference definition (`[docs]: https://…`, which
-  reads as no block of its own), or Windows line ends (marked reads them as `\n`).
+  can't be lined up with the document: a definition inside a quote or a list item (it would go
+  with that block), or line ends that mix `\r\n` and `\n`.
 
 The editor's own spelling, used for every block it writes anew:
 
@@ -239,7 +248,9 @@ line between, they read back as one.
 
 `src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged,
 and what a save keeps when one block changed; add a case there when a new kind of content must
-survive.
+survive. `markdown-keeping.test.ts` edits, removes and adds every block in turn of markdown written
+elsewhere (`fixtures/real-world`: a README, Obsidian notes, a GitHub pull request, a Linear issue,
+the seed and showcase notes), with `\n` and `\r\n` line ends; add a file there for a new source.
 
 ## Extending it
 
