@@ -2,9 +2,10 @@ import { getSchema, mergeAttributes, type AnyExtension, type JSONContent } from 
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { highlighter } from './code-languages';
 import StarterKit from '@tiptap/starter-kit';
-import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { TaskItem } from '@tiptap/extension-list';
 import { Table, TableKit } from '@tiptap/extension-table';
-import { Markdown, MarkdownManager } from '@tiptap/markdown';
+import { Markdown, MarkdownManager, assumeContentType } from '@tiptap/markdown';
+import { Marked, type marked } from 'marked';
 import { Callout } from './extensions/callout';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
@@ -20,6 +21,7 @@ import {
 } from './extensions/html-elements';
 import { RawHtmlBlock, RawHtmlInline } from './extensions/raw-html';
 import { SafeLink } from './extensions/safe-link';
+import { DocumentTaskList } from './extensions/task-list';
 
 /**
  * The editor's document model: which markdown it reads and how it writes it back. Every editor in
@@ -53,7 +55,7 @@ export function createDocumentExtensions(
     }),
     options.codeBlock ?? DocumentCodeBlock,
     SafeLink,
-    TaskList,
+    DocumentTaskList,
     options.taskItem ?? TaskItem.configure({ nested: true }),
     TableKit.configure({ table: false }),
     DocumentTable.configure({ resizable: false }),
@@ -117,9 +119,28 @@ function startsParagraphLine(node: JSONContent, parentNode?: JSONContent): boole
   return index === 0 || parentNode.content[index - 1]?.type === 'hardBreak';
 }
 
+// the end of a paragraph: an empty line, or one of only spaces (marked's paragraph rule)
+const BLANK_LINE = /\n *(?:\n|$)/;
+
+// the source up to the first blank line, as far as the paragraph that starts it can reach
+function toBlankLine(src: string): string {
+  const blank = BLANK_LINE.exec(src);
+  return blank ? src.slice(0, blank.index + blank[0].length) : src;
+}
+
 class DocumentMarkdownManager extends MarkdownManager {
   constructor(options: ConstructorParameters<typeof MarkdownManager>[0]) {
     super(options);
+    // Before each paragraph marked calls every block extension's `start` on the rest of the note,
+    // to cut the paragraph where a block could begin. One that finds nothing searches to the end,
+    // so a note took time quadratic in its length. A paragraph ends at a blank line, so a block
+    // starting after one can't cut it: each search stops there.
+    const starts = this.instance.defaults.extensions?.startBlock;
+    starts?.forEach((start, index) => {
+      starts[index] = function (src) {
+        return start.call(this, toBlankLine(src));
+      };
+    });
     // encodeTextForMarkdown is private in TipTap's types; wrapping it is the one change made
     const self = this as unknown as { encodeTextForMarkdown: TextEncoder };
     const encode = self.encodeTextForMarkdown.bind(this);
@@ -133,18 +154,67 @@ class DocumentMarkdownManager extends MarkdownManager {
   }
 }
 
-// Markdown with DocumentMarkdownManager in place of TipTap's own manager
+/**
+ * A marked instance of its own for a manager. TipTap types its `marked` option as the global
+ * `marked` (a function with the instance's methods on it), but only uses what an instance has.
+ */
+export function ownMarked(): typeof marked {
+  return new Marked() as unknown as typeof marked;
+}
+
+/**
+ * Markdown with DocumentMarkdownManager in place of TipTap's own manager, over a marked instance of
+ * its own.
+ *
+ * A MarkdownManager registers every extension's tokenizer on its marked instance with
+ * `marked.use()`, and nothing ever removes them. TipTap's manager defaults to marked's shared
+ * global instance, so each editor made in the window would add another full set to it and lexing
+ * would slow with every editor ever made. Here each editor's manager gets an instance of its own
+ * (ownMarked), which goes away with the editor, and only one manager is built per editor:
+ * `onBeforeCreate` replaces TipTap's rather than calling it (which would build its stock manager
+ * and register them all too).
+ */
 const DocumentMarkdown = Markdown.extend({
-  onBeforeCreate(event) {
-    this.parent?.(event);
+  // TipTap's storage holds a manager with no extensions until the editor is made; this one is over
+  // its own instance, so even its `setOptions` leaves the global one alone
+  addStorage() {
+    return {
+      manager: new MarkdownManager({
+        indentation: this.options.indentation,
+        marked: ownMarked(),
+        markedOptions: this.options.markedOptions,
+        extensions: [],
+      }),
+    };
+  },
+  // mirrors @tiptap/markdown's Markdown.onBeforeCreate (3.x): set `editor.markdown` and
+  // `editor.getMarkdown`, and when `contentType` is markdown parse a string `content` into JSON
+  onBeforeCreate() {
+    if (this.editor.markdown) {
+      console.error(
+        '[tiptap][markdown]: There is already a `markdown` property on the editor instance. This might lead to unexpected behavior.',
+      );
+      return;
+    }
     const manager = new DocumentMarkdownManager({
       indentation: this.options.indentation,
-      marked: this.options.marked,
+      marked: this.options.marked ?? ownMarked(),
       markedOptions: this.options.markedOptions,
       extensions: this.editor.extensionManager.baseExtensions,
     });
     this.storage.manager = manager;
     this.editor.markdown = manager;
+    this.editor.getMarkdown = () => manager.serialize(this.editor.getJSON());
+
+    const { content, contentType } = this.editor.options;
+    if (!contentType || assumeContentType(content, contentType) !== 'markdown') return;
+    if (typeof content !== 'string') {
+      throw new Error(
+        '[tiptap][markdown]: The `contentType` option is set to "markdown", but the initial content is not a string. Please provide the initial content as a markdown string.',
+      );
+    }
+    const json = manager.parse(content);
+    if (json.content?.length) this.editor.options.content = json;
   },
 });
 
@@ -175,7 +245,12 @@ function documentManager(): MarkdownManager {
     const extensions = createDocumentExtensions();
     // the schema binds the extensions, which the manager needs to render and parse
     getSchema(extensions);
-    manager = new DocumentMarkdownManager({ extensions, markedOptions: { gfm: true } });
+    // its own marked instance, like an editor's (DocumentMarkdown), not marked's global one
+    manager = new DocumentMarkdownManager({
+      extensions,
+      marked: ownMarked(),
+      markedOptions: { gfm: true },
+    });
   }
   return manager;
 }
