@@ -150,7 +150,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       ref,
       () => ({
         load(text) {
-          editor.commands.setContent(text, { contentType: 'markdown', emitUpdate: false });
+          editor.commands.setContent(editor.storage.documentMarkdown.codec.parseDocument(text), {
+            emitUpdate: false,
+          });
           editor.view.dispatch(closeHistory(editor.state.tr));
           baseline.current = { value: text, markdown: editor.getMarkdown() };
         },

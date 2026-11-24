@@ -2,7 +2,8 @@
 
 `RichTextEditor` (`src/renderer/editor`) is the one editor for note bodies, task, project and event
 descriptions, and read-only synced descriptions. It is built on [TipTap](https://tiptap.dev) v3
-(ProseMirror) with TipTap's own markdown package, `@tiptap/markdown`: markdown in, markdown out.
+(ProseMirror), with a markdown layer of DevBrain's own (`editor/markdown/`, below): markdown in,
+markdown out.
 
 ```tsx
 // in a page: the editor acting in the open workspace (shared/components/WorkspaceRichTextEditor.tsx),
@@ -130,6 +131,55 @@ typed: loading it would put older text back.
   occurrences; it is followed like any other change once saved.
 - A note file edited on disk by another app is not followed: nothing watches the files.
 
+## The markdown layer
+
+TipTap is the editor and holds the schema; reading markdown into the editor's JSON and writing it
+back is DevBrain's own, in `src/renderer/editor/markdown/`. It replaced `@tiptap/markdown`, and
+reads and writes every note exactly as that package did (checked against it on the
+`fixtures/real-world` notes, `docs/` and the READMEs in `node_modules`), except where noted below.
+
+**The rule: no private or undocumented TipTap API.** The layer uses TipTap's public editor,
+extension and command APIs (`getSchema`, `setContent`, an extension's storage and commands) and
+`marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
+
+- `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `parseMarkdown`,
+  `serializeMarkdown` and `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s
+  schema, with no editor.
+- `extension.ts`: `DocumentMarkdown`, the last of `createDocumentExtensions()`, plugs a codec into
+  each editor: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec` (the clipboard reads
+  and writes with it), and `contentType: 'markdown'`, which reads a string as markdown for the
+  editor's first `content` and for `setContent`. `RichTextEditorHandle.load` sets the codec's JSON
+  itself (`codec.parseDocument`: a text with no blocks loads as one empty paragraph).
+- `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
+  global one, so nothing else that uses `marked` changes how notes read, and an editor adds
+  nothing to it: the tokenizers are fixed, added once. Each token keeps its `raw` source text.
+- `rules/index.ts`: the rule table, `DOCUMENT_RULES`, one `MarkdownRule` per node or mark
+  (`types.ts`): the token type it reads (`token`), `parse` (a token to nodes, or a mark on its
+  children's text), `render` (a node to markdown; a mark around a placeholder for its text) and, for
+  syntax `marked` doesn't read, a `tokenizer`. The rules for TipTap's nodes and marks are in
+  `rules/` (`blocks.ts`, `lists.ts`, `marks.ts`, `tables.ts`), ported from TipTap's extensions;
+  DevBrain's own are exported beside the node they belong to (`calloutMarkdown` in
+  `extensions/callout.ts`, and so on), so a node's schema and its markdown are read together, and
+  the UI's versions of a node (`CalloutView`, `EntityLinkView`) share its rule by name. The table's
+  order matters: a token type several rules read (`list`) goes to the first that makes something
+  of it, and where two tokenizers match at one place the later one wins (`marked` runs the last
+  added first).
+- `parser.ts`: tokens to JSON. Besides each token's rule it reads blank lines beyond the one
+  between two blocks as empty paragraphs (at the top level, and in a quote, callout or collapsible
+  section), splits a list that mixes to-dos and bullets into separate lists at each change, and
+  puts each mark on the text it spans.
+- `serializer.ts`: JSON to markdown. It writes a run of text's marks itself, opening and closing
+  each where its span starts and ends: the higher priority mark outside (a link around its bold
+  text), spaces moved out of a mark's edges, and a mark that has to reopen where two overlap
+  written as its HTML tag (`<strong>`). Text is escaped as "What a save changes" says
+  (`relaxEntities`, `escapeLineStart`).
+
+Where it differs from `@tiptap/markdown`: HTML that `marked` reads as inline HTML but no tokenizer
+takes (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as
+raw HTML, as written; TipTap parsed it through the DOM and dropped it, losing it on the next save.
+And a note that reads as no blocks at all (only link definitions) opens empty, as it did when
+loaded through `setContent`; TipTap's first load took it for HTML and showed its text.
+
 ## The note format
 
 Notes, and every description, are **GitHub-flavoured markdown**, with a short list of HTML tags for
@@ -220,22 +270,23 @@ add a case there when a new kind of content must survive.
 
 ## Extending it
 
-The document model is `createDocumentExtensions()` (`markdown.ts`); `parseMarkdown`,
-`serializeMarkdown` and `normalizeMarkdown` use the same extensions without an editor. A new kind
-of element is a TipTap node with:
+The document model is `createDocumentExtensions()` (`markdown/index.ts`); `parseMarkdown`,
+`serializeMarkdown` and `normalizeMarkdown` use the same schema and rules without an editor. A new
+kind of element is a TipTap node (or mark) with:
+
+1. a `MarkdownRule` exported beside it: a `tokenizer` for its syntax (inline or block) if `marked`
+   doesn't read it, `parse` to make the node from the token, and `render` to write it back exactly.
+   List it in `DOCUMENT_RULES` (`markdown/rules/index.ts`), minding the order there;
+2. `parseHTML`/`renderHTML` for copy and paste;
+3. for a React view, `addNodeView()` with `ReactNodeViewRenderer`, as `EntityPillView.tsx` does.
 
 A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left alone by
 `raw-html.ts`); check first that GitHub renders it, so the format stays readable there.
 
-1. `markdownTokenizer` for its syntax (inline or block), `parseMarkdown` to make the node from the
-   token, and `renderMarkdown` to write it back exactly;
-2. `parseHTML`/`renderHTML` for copy and paste;
-3. for a React view, `addNodeView()` with `ReactNodeViewRenderer`, as `EntityPillView.tsx` does.
-
 Add the schema node to `createDocumentExtensions` and its view in `RichTextEditor`, and a round
-trip case to the tests. Menus that open on a character use `createSuggestionMenu`
-(`suggestion/suggestion.tsx`), which positions a design-system menu under the caret and passes it
-the keys: `slash-menu.tsx` and `entity-menu.tsx` are the two in use. While a new query's items
-load, it keeps the last items on screen (`items`, found for `itemsQuery`), so the menu never
-flashes empty between keystrokes; filter by the live `query` only when the menu does it itself,
-as the slash menu does.
+trip case to `src/renderer/tests/editor/markdown.test.ts`. Menus that open on a character use
+`createSuggestionMenu` (`suggestion/suggestion.tsx`), which positions a design-system menu under the
+caret and passes it the keys: `slash-menu.tsx` and `entity-menu.tsx` are the two in use. While a new
+query's items load, it keeps the last items on screen (`items`, found for `itemsQuery`), so the menu
+never flashes empty between keystrokes; filter by the live `query` only when the menu does it
+itself, as the slash menu does.

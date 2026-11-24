@@ -1,4 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core';
+import type { MarkdownRule } from '../markdown/types';
 
 /**
  * A markdown image, `![alt](url "title")`, drawn as a link chip with its alt text (or URL). The
@@ -46,21 +47,25 @@ export const ImageLink = Node.create({
   renderText({ node }) {
     return node.attrs.alt || node.attrs.src;
   },
+});
 
-  markdownTokenName: 'image',
+// read from marked's image token, and written back as one (markdown/rules.ts)
+export const imageLinkMarkdown: MarkdownRule = {
+  name: 'imageLink',
+  token: 'image',
 
-  parseMarkdown(token) {
+  parse(token) {
     return {
       type: 'imageLink',
       attrs: { src: token.href ?? '', alt: token.text ?? '', title: token.title || null },
     };
   },
 
-  renderMarkdown(node) {
+  render(node) {
     const { src = '', alt = '', title } = node.attrs ?? {};
     const escapedAlt = String(alt).replace(/[\\[\]]/g, (char) => `\\${char}`);
     return title
       ? `![${escapedAlt}](${src} "${String(title).replace(/"/g, '\\"')}")`
       : `![${escapedAlt}](${src})`;
   },
-});
+};

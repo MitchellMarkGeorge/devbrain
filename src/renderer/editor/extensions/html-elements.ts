@@ -1,18 +1,10 @@
-import {
-  Extension,
-  Mark,
-  markInputRule,
-  type JSONContent,
-  type MarkdownParseHelpers,
-  type MarkdownRendererHelpers,
-  type MarkdownToken,
-  type MarkdownTokenizer,
-} from '@tiptap/core';
+import { Mark, markInputRule, type JSONContent } from '@tiptap/core';
 import { Details, DetailsSummary } from '@tiptap/extension-details';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Underline from '@tiptap/extension-underline';
 import { kbdVariants } from '@renderer/components/ui/Kbd';
+import type { MarkdownRule, MarkdownToken, MarkdownTokenizer } from '../markdown/types';
 
 /**
  * The HTML tags DevBrain notes support, for what GitHub-flavoured markdown has no syntax for. Each
@@ -84,18 +76,57 @@ export function findClosingTag(
   return null;
 }
 
-function tagMarkdown(name: string, tag: InlineTag) {
+// `<tag>…</tag>` as a mark; the tokenizer is the one given, or inlineTagTokenizer's
+function tagMarkdown(name: string, tag: InlineTag, tokenizer?: MarkdownTokenizer): MarkdownRule {
   return {
-    markdownTokenName: name,
-    markdownTokenizer: inlineTagTokenizer(name, tag),
-    parseMarkdown: (token: MarkdownToken, helpers: MarkdownParseHelpers) =>
+    name,
+    tokenizer: tokenizer ?? inlineTagTokenizer(name, tag),
+    parse: (token: MarkdownToken, helpers) =>
       helpers.applyMark(name, helpers.parseInline(token.tokens ?? [])),
-    renderMarkdown: (node: JSONContent, helpers: MarkdownRendererHelpers) =>
-      `<${tag}>${helpers.renderChildren(node)}</${tag}>`,
+    render: (node: JSONContent, helpers) => `<${tag}>${helpers.renderChildren(node)}</${tag}>`,
     // when marks overlap, the serializer reopens this one with its tag
-    markdownOptions: { htmlReopen: { open: `<${tag}>`, close: `</${tag}>` } },
+    htmlReopen: { open: `<${tag}>`, close: `</${tag}>` },
   };
 }
+
+/**
+ * `<u>`'s tokenizer, the one TipTap's Underline has, kept so notes read as they did: it would read
+ * a `</u>` on a later line, unlike the other tags', but raw-html.ts takes a `<u>` that isn't closed
+ * on its own line first, so in practice it reads the same lines.
+ */
+const underlineTokenizer: MarkdownTokenizer = {
+  name: 'underline',
+  level: 'inline',
+  start: (src) => src.toLowerCase().indexOf('<u>'),
+  tokenize(src, _tokens, lexer) {
+    if (!/^<u>/i.test(src)) return undefined;
+    const delimiters = /\\[\s\S]|`+|<\/u>/gi;
+    delimiters.lastIndex = 3;
+    let match = delimiters.exec(src);
+    while (match) {
+      if (match[0].startsWith('`')) {
+        const codeSpan = /^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/.exec(src.slice(match.index));
+        if (codeSpan) delimiters.lastIndex = match.index + codeSpan[0].length;
+      } else if (!match[0].startsWith('\\')) {
+        const text = src.slice(3, match.index);
+        if (!text) return undefined;
+        return {
+          type: 'underline',
+          raw: src.slice(0, delimiters.lastIndex),
+          text,
+          tokens: lexer.inlineTokens(text),
+        };
+      }
+      match = delimiters.exec(src);
+    }
+    return undefined;
+  },
+};
+
+export const underlineMarkdown = tagMarkdown('underline', 'u', underlineTokenizer);
+export const kbdMarkdown = tagMarkdown('kbd', 'kbd');
+export const subscriptMarkdown = tagMarkdown('subscript', 'sub');
+export const superscriptMarkdown = tagMarkdown('superscript', 'sup');
 
 // typing `<tag>text</tag>` after a space or at the start of a line applies the mark
 function tagInputRule(tag: InlineTag) {
@@ -123,8 +154,6 @@ export const Kbd = Mark.create({
     return ['kbd', { class: kbdVariants() }, 0];
   },
 
-  ...tagMarkdown('kbd', 'kbd'),
-
   addInputRules() {
     return [markInputRule({ find: tagInputRule('kbd'), type: this.type })];
   },
@@ -135,14 +164,12 @@ export const Kbd = Mark.create({
 });
 
 export const DocumentSubscript = Subscript.extend({
-  ...tagMarkdown('subscript', 'sub'),
   addInputRules() {
     return [markInputRule({ find: tagInputRule('sub'), type: this.type })];
   },
 });
 
 export const DocumentSuperscript = Superscript.extend({
-  ...tagMarkdown('superscript', 'sup'),
   addInputRules() {
     return [markInputRule({ find: tagInputRule('sup'), type: this.type })];
   },
@@ -150,9 +177,9 @@ export const DocumentSuperscript = Superscript.extend({
 
 // `<br>` and `<br/>` read as a hard break; a hard break is written `<br>` only in a table cell,
 // where a cell must stay on one line, and as GFM's two trailing spaces elsewhere
-export const HtmlBreak = Extension.create({
+export const htmlBreakMarkdown: MarkdownRule = {
   name: 'htmlBreak',
-  markdownTokenizer: {
+  tokenizer: {
     name: 'htmlBreak',
     level: 'inline',
     start: (src) => src.search(/<br\s*\/?>/i),
@@ -161,7 +188,7 @@ export const HtmlBreak = Extension.create({
       return match ? { type: 'br', raw: match[0] } : undefined;
     },
   },
-});
+};
 
 /**
  * A collapsible section, written as GitHub reads it:
@@ -222,10 +249,12 @@ function findDetailsEnd(src: string): { bodyEnd: number; end: number } | null {
   return null;
 }
 
-export const DocumentDetails = Details.extend({
-  markdownTokenName: 'details',
+export const DocumentDetails = Details.configure({ persist: true });
 
-  markdownTokenizer: {
+export const detailsMarkdown: MarkdownRule = {
+  name: 'details',
+
+  tokenizer: {
     name: 'details',
     level: 'block',
     start: (src) => src.search(/<details[\s>]/i),
@@ -247,7 +276,7 @@ export const DocumentDetails = Details.extend({
     },
   },
 
-  parseMarkdown(token, helpers) {
+  parse(token, helpers) {
     const summary = token.summary ? [{ type: 'text', text: token.summary }] : [];
     const body = helpers.parseChildren(token.tokens ?? []);
     return {
@@ -260,7 +289,7 @@ export const DocumentDetails = Details.extend({
     };
   },
 
-  renderMarkdown(node, helpers) {
+  render(node, helpers) {
     const [summary, content] = node.content ?? [];
     const title = encodeSummary(
       (summary?.content ?? []).map((child: JSONContent) => child.text ?? '').join(''),
@@ -275,4 +304,4 @@ export const DocumentDetails = Details.extend({
       '</details>',
     ].join('\n');
   },
-}).configure({ persist: true });
+};

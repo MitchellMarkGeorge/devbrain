@@ -1,13 +1,13 @@
 import { getSchema, mergeAttributes, type AnyExtension, type JSONContent } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
-import { highlighter } from './code-languages';
+import { highlighter } from '@renderer/editor/code-languages';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableKit } from '@tiptap/extension-table';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
-import { Callout } from './extensions/callout';
-import { EntityLink } from './extensions/entity-link';
-import { ImageLink } from './extensions/image-link';
+import { Callout } from './callout';
+import { EntityLink } from './entity-link';
+import { ImageLink } from './image-link';
 import { DetailsContent } from '@tiptap/extension-details';
 import {
   DocumentDetails,
@@ -17,9 +17,9 @@ import {
   DocumentUnderline,
   HtmlBreak,
   Kbd,
-} from './extensions/html-elements';
-import { RawHtmlBlock, RawHtmlInline } from './extensions/raw-html';
-import { SafeLink } from './extensions/safe-link';
+} from './html-elements';
+import { RawHtmlBlock, RawHtmlInline } from './raw-html';
+import { SafeLink } from './safe-link';
 
 /**
  * The editor's document model: which markdown it reads and how it writes it back. Every editor in

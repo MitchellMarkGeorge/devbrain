@@ -1,16 +1,18 @@
 import { Node } from '@tiptap/core';
+import type { MarkdownRule } from '../markdown/types';
 import { findClosingTag, INLINE_TAGS } from './html-elements';
 
 /**
  * HTML written in a note's markdown (`<details>`, `<kbd>`, a `<span>`), kept exactly as written and
  * shown as its source text, never rendered (docs/security/untrusted-content.md: "Not render raw
- * HTML"). Without these nodes TipTap would turn the HTML it recognises into formatting and drop the
- * rest, rewriting the note the first time it is saved.
+ * HTML"). Without these nodes the HTML would be turned into formatting where it is recognised and
+ * dropped where it isn't, rewriting the note the first time it is saved.
  *
- * Block HTML arrives as marked's `html` token. TipTap parses inline HTML itself, without asking the
- * extensions, so the inline node has its own tokenizer, which runs before marked's: each tag (or
- * comment) is one node, and the text between tags stays editable text. The tags DevBrain supports
- * (html-elements.ts) are left to their own elements: `<br>` always, the others when closed.
+ * Block HTML arrives as marked's `html` token. Inline HTML has a tokenizer of its own, which runs
+ * before marked's: each tag (or comment) is one node, and the text between tags stays editable
+ * text. The tags DevBrain supports (html-elements.ts) are left to their own elements: `<br>`
+ * always, the others when closed. What else marked reads as inline HTML (`<?php … ?>`, a
+ * declaration, an empty `<kbd></kbd>`) is kept the same way, tag by tag (markdown/parser.ts).
  */
 
 const ATTRIBUTE = `\\s+[A-Za-z_:][\\w.:-]*(?:\\s*=\\s*(?:[^\\s"'=<>\`]+|'[^']*'|"[^"]*"))?`;
@@ -51,19 +53,6 @@ export const RawHtmlBlock = Node.create({
   renderHTML({ node }) {
     return ['pre', { 'data-raw-html': '' }, node.attrs.html];
   },
-
-  markdownTokenName: 'html',
-
-  parseMarkdown(token) {
-    if (!token.block) return [];
-    // marked includes the blank lines after the block in raw; the serializer adds its own
-    const html = rawHtml(token).replace(/\n+$/, '');
-    return html ? { type: 'rawHtmlBlock', attrs: { html } } : [];
-  },
-
-  renderMarkdown(node) {
-    return node.attrs?.html ?? '';
-  },
 });
 
 export const RawHtmlInline = Node.create({
@@ -87,10 +76,29 @@ export const RawHtmlInline = Node.create({
   renderText({ node }) {
     return node.attrs.html;
   },
+});
 
-  markdownTokenName: 'rawHtmlInline',
+// read from marked's block `html` token (markdown/rules.ts)
+export const rawHtmlBlockMarkdown: MarkdownRule = {
+  name: 'rawHtmlBlock',
+  token: 'html',
 
-  markdownTokenizer: {
+  parse(token) {
+    if (!token.block) return [];
+    // marked includes the blank lines after the block in raw; the serializer adds its own
+    const html = rawHtml(token).replace(/\n+$/, '');
+    return html ? { type: 'rawHtmlBlock', attrs: { html } } : [];
+  },
+
+  render(node) {
+    return node.attrs?.html ?? '';
+  },
+};
+
+export const rawHtmlInlineMarkdown: MarkdownRule = {
+  name: 'rawHtmlInline',
+
+  tokenizer: {
     name: 'rawHtmlInline',
     level: 'inline',
     start: (src) => src.search(/<[A-Za-z/!]/),
@@ -101,12 +109,12 @@ export const RawHtmlInline = Node.create({
     },
   },
 
-  parseMarkdown(token) {
+  parse(token) {
     const html = rawHtml(token);
     return html ? { type: 'rawHtmlInline', attrs: { html } } : [];
   },
 
-  renderMarkdown(node) {
+  render(node) {
     return node.attrs?.html ?? '';
   },
-});
+};

@@ -1,5 +1,6 @@
 import Link from '@tiptap/extension-link';
 import { safeExternalUrl } from '@common/safe-url';
+import type { MarkdownRule } from '../markdown/types';
 
 /**
  * TipTap's Link with DevBrain's rules (docs/security/untrusted-content.md):
@@ -45,8 +46,13 @@ export const SafeLink = Link.extend({
     const safe = safeExternalUrl(href);
     return safe ? ['a', { ...rest, href: safe }, 0] : ['span', { 'data-unsafe-link': '' }, 0];
   },
+});
 
-  parseMarkdown(token, helpers) {
+// read from marked's link token, and written in the form it was read in (markdown/rules.ts)
+export const safeLinkMarkdown: MarkdownRule = {
+  name: 'link',
+
+  parse(token, helpers) {
     return helpers.applyMark('link', helpers.parseInline(token.tokens || []), {
       href: token.href,
       title: token.title || null,
@@ -54,13 +60,13 @@ export const SafeLink = Link.extend({
     });
   },
 
-  renderMarkdown(node, helpers, ctx) {
+  render(node, helpers, ctx) {
     const href: string = node.attrs?.href ?? '';
     const title: string = node.attrs?.title ?? '';
     const form: LinkForm = node.attrs?.form ?? 'inline';
     // a mark renders around a placeholder for its text; the text itself is in meta.markText
     const text = helpers.renderChildren(node);
-    const markText: string | undefined = ctx?.meta?.markText;
+    const markText: string | undefined = ctx.meta.markText;
     // only while the text is still the URL and has nothing the serializer would escape; an edited
     // text needs the [text](url) form
     const plain = markText !== undefined && !/[\\`*_[\]~&<>]/.test(markText);
@@ -75,4 +81,4 @@ export const SafeLink = Link.extend({
     }
     return title ? `[${text}](${href} "${title}")` : `[${text}](${href})`;
   },
-});
+};
