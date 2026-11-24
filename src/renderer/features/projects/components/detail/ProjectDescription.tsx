@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import type { Project } from '@common/types';
-import { ipc } from '@renderer/ipc';
+import { ipc, trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
-import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
+import { holdSavedText, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
@@ -17,13 +18,20 @@ export function ProjectDescription({ project }: { project: Project }) {
   const showError = useMutationErrorToast();
   const createTask = useCreateTask();
   const synced = isSynced(project);
+  const queryClient = useQueryClient();
   const { initialValue, editor, onChange } = useEditorAutosave(
     project.description ?? '',
-    (markdown) =>
+    (markdown) => {
+      // a blank description is stored as none
+      const description = markdown.trim() === '' ? null : markdown;
+      holdSavedText(queryClient, trpc.projects.get.queryKey({ id: project.id }), (cached) => ({
+        ...cached,
+        description,
+      }));
       ipc.projects.update
-        .mutate({ id: project.id, description: storedDescription(markdown) || null })
-        .catch((error: unknown) => showError(error, 'Couldn’t save the description')),
-    { stored: storedDescription },
+        .mutate({ id: project.id, description })
+        .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
+    },
   );
   if (synced && !project.description) return null;
   return (
@@ -39,9 +47,4 @@ export function ProjectDescription({ project }: { project: Project }) {
       openNewTaskDialog={createTask}
     />
   );
-}
-
-// a blank description is stored as none, and comes back as ''
-function storedDescription(markdown: string): string {
-  return markdown.trim() === '' ? '' : markdown;
 }

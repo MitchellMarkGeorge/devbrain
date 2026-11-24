@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
+import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
 import { EventResponse, LinkState, Provider } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
@@ -149,6 +150,73 @@ describe('the calendar page', () => {
     await eventually(() =>
       expect(search(app).get('open')).toBe(`evt_standup_${at(2, 9).getTime()}`),
     );
+  });
+
+  const descriptionOf = () =>
+    sheet()?.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+  // a copy of the event each time, as IPC sends one: never the stored row
+  function copyingReads(main: FakeMain, calendar: FakeCalendar) {
+    main.routes.set('events.get', (args) => [structuredClone(calendar.find(args.id)), []]);
+  }
+
+  it('saves a one-off event’s description as it is typed, and leaves the editor alone', async () => {
+    const calendar = store();
+    const main = mainWith(calendar);
+    copyingReads(main, calendar);
+    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review` });
+    await eventually(() => expect(descriptionOf()).toBeTruthy());
+    const editor = (descriptionOf() as unknown as { editor: Editor }).editor;
+
+    const reads = main.callsTo('events.get').length;
+    editor.chain().focus('end').insertContent('Bring the mocks').run();
+    const document = editor.state.doc;
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('events.update')).toHaveLength(1));
+    expect(main.callsTo('events.update')[0].input).toEqual({
+      id: 'evt_review',
+      description: 'Bring the mocks',
+    });
+    await eventually(() => expect(main.callsTo('events.get').length).toBeGreaterThan(reads));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.state.doc).toBe(document);
+
+    // a change from outside is shown
+    calendar.update('evt_review', { description: 'Rewritten elsewhere' });
+    main.push('db.changes', { entities: ['event'] });
+    await eventually(() => expect(editor.getMarkdown()).toBe('Rewritten elsewhere'));
+  });
+
+  it('saves a series’ description on leaving the editor, through the question of which events', async () => {
+    const calendar = store();
+    const main = mainWith(calendar);
+    copyingReads(main, calendar);
+    startApp(main, {
+      url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_standup&occurrence=${at(2, 9).toISOString()}`,
+    });
+    await eventually(() => expect(descriptionOf()).toBeTruthy());
+    const element = descriptionOf()!;
+    const editor = (element as unknown as { editor: Editor }).editor;
+
+    editor.chain().focus('end').insertContent('What changed since yesterday').run();
+    // not as it is typed: a pause and the window losing focus save nothing
+    window.dispatchEvent(new Event('blur'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(main.callsTo('events.update')).toHaveLength(0);
+    expect(document.querySelector('[data-testid="scope-dialog"]')).toBeNull();
+
+    element.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    const dialog = () => document.querySelector<HTMLElement>('[data-testid="scope-dialog"]');
+    await eventually(() => expect(dialog()?.textContent).toContain('Change a recurring event'));
+    click(byText(dialog()!, '[role="radio"], label, button', 'All events'));
+    click(byText(dialog()!, 'button', 'Save'));
+    await eventually(() =>
+      expect(calendar.find('evt_standup')?.description).toBe('What changed since yesterday'),
+    );
+    const saved = editor.state.doc;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // saved, it comes back as the text the editor holds: nothing is loaded
+    expect(editor.state.doc).toBe(saved);
+    expect(editor.getMarkdown()).toBe('What changed since yesterday');
   });
 
   it('deletes a one-off event after confirming, closing the sheet', async () => {

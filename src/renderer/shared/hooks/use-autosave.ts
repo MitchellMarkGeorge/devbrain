@@ -1,3 +1,4 @@
+import type { DataTag, QueryClient, QueryKey } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { RichTextEditorHandle } from '@renderer/editor/RichTextEditor';
 import { useSwitchingWorkspace } from '@renderer/app/hooks/use-switching-workspace';
@@ -57,27 +58,24 @@ export function useAutosave<T>(save: (value: T) => void, delay = 500) {
 /**
  * An editor's text saved as it is typed. The editor is uncontrolled: it starts from
  * `initialValue` and holds its text from then on. `remote` is the text as the cache holds it (a
- * task's `description`, a note's markdown); when it changes from outside the editor (a sync, a
- * reattach), the hook loads it into the editor through its handle (`editor`, its `ref`).
+ * task's `description`, a note's markdown). When it changes to a text the editor would not save
+ * itself (`markdown()`), the change came from outside (a sync, a reattach) and the hook loads it
+ * through the editor's handle (`editor`, its `ref`), unless a change is waiting for its save: that
+ * save is written over it.
  *
- * The cache also changes for the editor's own saves: a save makes core report its entity changed,
- * and the query is refetched (a note's markdown is the exception: its editor writes its saves
- * into the cache, and nothing refetches it). So the hook follows `remote` only while no save is
- * waiting or on its way, and looks once more when the last one lands. A save settles only once
- * the refetches it caused have landed (the IPC link waits for them), so by then the cache holds
- * the latest save, or a change made from outside since: a refetch of an older save arrives
- * while a newer one is still on its way, and is never taken. It follows a text that differs from
- * its latest save (`stored`, the text as `save` stores it: a blank description as `''`), and
- * loads it unless the editor already shows it.
+ * `save` must put the text in the cache `remote` is read from, as it will be stored, before it
+ * sends it, and cancel a read of it on its way (`holdSavedText`). The editor's own save then
+ * reaches `remote` as the text the editor holds, and every read that lands was sent after the
+ * latest save, so none answers with a text older than it (docs/editor.md). A save whose text is
+ * what the cache already holds is skipped.
  *
- * `save` returns the promise of the save, if it saves: until it settles, `remote` is not followed.
  * Pass `initialValue`, `onChange`, and `editor` as its `ref`, to the editor, destructuring what the
  * hook returns: React's lint takes an object one of whose values is passed as a `ref` for a ref.
  */
 export function useEditorAutosave(
   remote: string,
-  save: (text: string) => Promise<unknown> | void,
-  options: { delay?: number; stored?: (text: string) => string } = {},
+  save: (text: string) => void,
+  delay?: number,
 ): {
   initialValue: string;
   editor: RefObject<RichTextEditorHandle>;
@@ -86,50 +84,39 @@ export function useEditorAutosave(
 } {
   const [initialValue] = useState(remote);
   const editor = useRef<RichTextEditorHandle>(null);
-  // the latest text saved, as stored, or the last one followed from outside
-  const held = useRef(remote);
-  // `remote` as of the last render, for the look once a save lands
-  const latest = useRef(remote);
-  const saving = useRef(0);
-  const stored = useRef(options.stored);
-  useEffect(() => {
-    stored.current = options.stored;
-  });
-
-  // whether a change is waiting for its save: the timer's, once useAutosave below has made it
-  const isPending = useRef<() => boolean>(() => false);
-
-  // follows the cache's text, while nothing of the editor's own is waiting or on its way
-  const follow = useCallback(() => {
-    const text = latest.current;
-    if (saving.current > 0 || isPending.current() || text === held.current) return;
-    held.current = text;
-    if (editor.current && editor.current.markdown() !== text) editor.current.load(text);
-  }, []);
-
-  const autosave = useAutosave((text: string) => {
-    held.current = stored.current ? stored.current(text) : text;
-    const saved = save(text);
-    if (!saved) return;
-    saving.current += 1;
-    // looked at once the editor has been drawn with what the cache now holds: React Query tells
-    // the components of a change on a zero-delay timer (its notifyManager), so a save that
-    // settles first would be compared with the text from before it
-    const settled = () => {
-      saving.current -= 1;
-      setTimeout(follow, 0);
-    };
-    saved.then(settled, settled);
-  }, options.delay);
-  useEffect(() => {
-    isPending.current = autosave.isPending;
-  });
+  const { schedule, flush, isPending } = useAutosave((text: string) => {
+    if (!sameText(text, remote)) save(text);
+  }, delay);
 
   // React sets the editor's handle before it runs effects, so it is there for every change
   useEffect(() => {
-    latest.current = remote;
-    follow();
-  });
+    if (isPending()) return;
+    const handle = editor.current;
+    if (handle && !sameText(handle.markdown(), remote)) handle.load(remote);
+  }, [remote, isPending]);
 
-  return { initialValue, editor, onChange: autosave.schedule, flush: autosave.flush };
+  return { initialValue, editor, onChange: schedule, flush };
+}
+
+// a blank text is stored as none (a description) or as it is (a note): the same text either way
+function sameText(a: string, b: string): boolean {
+  return a === b || (a.trim() === '' && b.trim() === '');
+}
+
+/**
+ * Puts what an editor is about to save in the cache its text is read from (`update` gives the
+ * cached entity with the text as it will be stored), and cancels a read of it on its way, whose
+ * answer would be older than the save. Does nothing while the cache has no entity to write to.
+ */
+export function holdSavedText<TData>(
+  queryClient: QueryClient,
+  queryKey: DataTag<QueryKey, TData, unknown>,
+  update: (cached: NoInfer<TData>) => NoInfer<TData>,
+): void {
+  if (queryClient.getQueryData<TData>(queryKey) === undefined) return;
+  queryClient.setQueryData<TData>(queryKey, (cached) =>
+    cached === undefined ? undefined : update(cached),
+  );
+  // cancelled, the query keeps the state of its last write, this one
+  void queryClient.cancelQueries({ queryKey, exact: true });
 }
