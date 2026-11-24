@@ -151,9 +151,9 @@ needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-la
 - `extension.ts`: `DocumentMarkdown`, the last of `createDocumentExtensions()`, plugs a codec into
   each editor: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec` (the clipboard reads
   and writes with it), and `contentType: 'markdown'`, which reads a string as markdown for the
-  editor's first `content` and for `setContent`. `RichTextEditorHandle.load` sets the codec's JSON
-  itself (`codec.parseDocument`: a text with no blocks, only link definitions, loads as a paragraph
-  showing its lines).
+  editor's first `content` and for `setContent`. Either way the text is read with
+  `codec.parseDocument` and loaded as JSON (a text with no blocks, only link definitions, loads
+  as a paragraph showing its lines).
 - `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
   global one, so nothing else that uses `marked` changes how notes read, and an editor adds
   nothing to it: the tokenizers are fixed, added once. Each token keeps its `raw` source text.
