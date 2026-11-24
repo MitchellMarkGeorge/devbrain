@@ -161,8 +161,9 @@ How a plan change mid-cycle is charged…
 
 The note's project, links and favourite are kept in the workspace's database, not in the file.
 
-- Opening a note never changes its file. The first time you edit one, DevBrain writes it in its own
-  consistent Markdown style: `-` for bullets, `**` for bold, tables lined up in columns.
+- Opening a note never changes its file. When you edit one, DevBrain writes the blocks you
+  changed (a paragraph, a list, a table) in its own consistent Markdown style: `-` for bullets, `**`
+  for bold, tables lined up in columns. Every other block stays exactly as it was in the file.
 - Saves are written to a new file and then moved into place, so a crash never leaves half a note.
 - **Show in Finder** (Explorer, File Manager) in a note's **…** menu shows its file in your file manager.
 

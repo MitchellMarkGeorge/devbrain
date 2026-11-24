@@ -5,6 +5,7 @@ import {
   normalizeMarkdown,
   parseMarkdown,
   relaxEntities,
+  serializeKeepingSource,
   serializeMarkdown,
 } from '@renderer/editor/markdown';
 import { highlightToText } from '@renderer/editor/highlight';
@@ -158,6 +159,188 @@ describe('markdown round trip', () => {
       ].join('\n'),
     );
     expect(normalizeMarkdown(first)).toBe(first);
+  });
+});
+
+describe('saving what was read', () => {
+  // written the way people and other apps write markdown, not the way the editor does
+  const OTHERS = [
+    '* Star bullet',
+    '+ Plus bullet',
+    '',
+    '',
+    '',
+    '__Bold__ and _italic_ with <br> a break',
+    '',
+    'Setext title',
+    '============',
+    '',
+    '|a|b|',
+    '|-|-|',
+    '|1|2|',
+    '',
+    '- [ ] A to-do',
+    '- A bullet in the same list',
+    '',
+    '<div>Kept as written</div>',
+    '',
+    '> [!NOTE]',
+    '> A callout',
+    '',
+    '~~~',
+    'fenced with tildes',
+    '~~~',
+    '',
+  ].join('\n');
+
+  // the source as read, with one top-level block replaced (or removed, or more put in its place)
+  function edit(text: string, index: number, ...blocks: JSONContent[]): JSONContent {
+    const doc = parseMarkdown(text);
+    const content = [...(doc.content ?? [])];
+    content.splice(index, 1, ...blocks);
+    return { ...doc, content };
+  }
+  const paragraph = (text: string): JSONContent => ({
+    type: 'paragraph',
+    content: [{ type: 'text', text }],
+  });
+  const blockTypes = (text: string) => (parseMarkdown(text).content ?? []).map((node) => node.type);
+
+  it('gives back the text exactly when nothing changed', () => {
+    for (const text of [
+      OTHERS,
+      '\n\nLeading blank lines and a trailing newline\n',
+      '\n\n\n\n\n\nMore blank lines first\n\n\n\n\n\nand between\n\n\n\n',
+      '\n\n\n\n\n\n',
+      'Only text',
+      '',
+    ]) {
+      expect(serializeKeepingSource(text, parseMarkdown(text))).toBe(text);
+    }
+  });
+
+  it('keeps the blank lines a text opens and ends with when its first and last blocks are kept', () => {
+    const text = '\n\n\n\n\n\n__First__\n\nMiddle\n\n__Last__\n\n\n\n';
+    const middle = (parseMarkdown(text).content ?? []).findIndex(
+      (node) => node.content?.[0]?.text === 'Middle',
+    );
+    const saved = serializeKeepingSource(text, edit(text, middle, paragraph('Changed')));
+    expect(saved).toBe(text.replace('Middle', 'Changed'));
+  });
+
+  it('rewrites only the block that was edited, keeping the rest and the blank lines between', () => {
+    // the editor reads "Setext title" as a heading: change its text
+    const index = blockTypes(OTHERS).indexOf('heading');
+    const heading = {
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: 'New title' }],
+    };
+    const saved = serializeKeepingSource(OTHERS, edit(OTHERS, index, heading));
+    expect(saved).toBe(OTHERS.replace('Setext title\n============', '# New title'));
+  });
+
+  it('writes a new block in the editor’s spelling, a blank line either side', () => {
+    const index = blockTypes(OTHERS).indexOf('heading');
+    const doc = parseMarkdown(OTHERS);
+    const content = [...(doc.content ?? [])];
+    content.splice(index, 0, paragraph('Inserted'));
+    const saved = serializeKeepingSource(OTHERS, { ...doc, content });
+    expect(saved).toBe(OTHERS.replace('\n\nSetext title', '\n\nInserted\n\nSetext title'));
+  });
+
+  it('closes the gap a removed block leaves with one blank line', () => {
+    const index = blockTypes(OTHERS).indexOf('heading');
+    const saved = serializeKeepingSource(OTHERS, edit(OTHERS, index));
+    expect(saved).toBe(OTHERS.replace('Setext title\n============\n\n', ''));
+    // and reads back as the document it was saved from
+    expect(parseMarkdown(saved)).toEqual(edit(OTHERS, index));
+  });
+
+  it('keeps blocks moved past each other as written, with a blank line between', () => {
+    const text = '* One\n\n\n__Two__';
+    const [one, two] = parseMarkdown(text).content ?? [];
+    expect(serializeKeepingSource(text, { type: 'doc', content: [two, one] })).toBe(
+      '__Two__\n\n* One',
+    );
+  });
+
+  it('reads back as what the editor holds, whichever block was edited', () => {
+    const types = blockTypes(OTHERS);
+    for (let index = 0; index < types.length; index++) {
+      const doc = edit(OTHERS, index, paragraph(`Edited ${index}`));
+      const saved = serializeKeepingSource(OTHERS, doc);
+      expect(parseMarkdown(saved)).toEqual(doc);
+      // the edited block alone is rewritten (an empty paragraph, an extra blank line, is no text)
+      if (types[index] === 'paragraph' && !parseMarkdown(OTHERS).content?.[index].content) continue;
+      expect(saved).toContain(`Edited ${index}`);
+      // the two lists it opens with, kept as written when the edit is elsewhere
+      if (index > 1) expect(saved).toContain('* Star bullet\n+ Plus bullet');
+    }
+  });
+
+  it('writes the document in its own spelling where a kept block would read differently', () => {
+    // an indented code block, kept as written after a list put in the paragraph's place, would
+    // continue the list's item
+    const text = 'Para\n\n    indented code';
+    const list = {
+      type: 'bulletList',
+      content: [{ type: 'listItem', content: [paragraph('Item')] }],
+    };
+    const doc = edit(text, 0, list);
+    expect(blockTypes(`- Item\n\n    indented code`)).toEqual(['bulletList']);
+    const saved = serializeKeepingSource(text, doc);
+    expect(saved).toBe(serializeMarkdown(doc));
+    expect(parseMarkdown(saved)).toEqual(doc);
+  });
+
+  it('keeps two lists that differ only in their bullet apart, which its own spelling can’t', () => {
+    const text = '* Star\n+ Plus\n\nPara';
+    const doc = edit(text, 2, paragraph('Edited'));
+    expect(doc.content?.map((node) => node.type)).toEqual([
+      'bulletList',
+      'bulletList',
+      'paragraph',
+    ]);
+    // the editor writes both with "-": read back, they are one list
+    expect(blockTypes(serializeMarkdown(doc))).toEqual(['bulletList', 'paragraph']);
+    expect(serializeKeepingSource(text, doc)).toBe('* Star\n+ Plus\n\nEdited');
+  });
+
+  it('writes the whole document in its own spelling when it can’t line the text up with it', () => {
+    // a link reference definition reads as no block of its own
+    const references = '* A [link][docs]\n\n[docs]: https://example.com\n\nEnd';
+    const doc = edit(references, 1, paragraph('Changed'));
+    expect(serializeKeepingSource(references, doc)).toBe(serializeMarkdown(doc));
+    // Windows line ends: marked reads them as \n, so its slices would be off
+    const windows = '* One\r\n\r\n__Two__\r\n';
+    expect(serializeKeepingSource(windows, parseMarkdown(windows))).toBe(
+      serializeMarkdown(parseMarkdown(windows)),
+    );
+  });
+
+  it('changes nothing else in a text written in the editor’s spelling', () => {
+    // as the editor writes it: the same markdown the second time round
+    const text = [
+      '- Star bullet',
+      '',
+      '**Bold** and *italic*',
+      '',
+      '| a   | b   |',
+      '| --- | --- |',
+      '| 1   | 2   |',
+    ].join('\n');
+    const doc = edit(text, 0, paragraph('First'));
+    expect(serializeKeepingSource(text, doc)).toBe(serializeMarkdown(doc));
+  });
+
+  it('keeps an unchanged block that the editor would write differently each time', () => {
+    // the editor writes "<br> a" as a line break and a space, and that again with one more space
+    const text = 'Edited\n\nA line <br> a break';
+    const once = normalizeMarkdown(text);
+    expect(normalizeMarkdown(once)).not.toBe(once);
+    const doc = edit(once, 0, paragraph('Edited again'));
+    expect(serializeKeepingSource(once, doc)).toBe(once.replace('Edited', 'Edited again'));
   });
 });
 

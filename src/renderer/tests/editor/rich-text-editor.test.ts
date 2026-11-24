@@ -55,14 +55,15 @@ describe('RichTextEditor', () => {
     expect(container.querySelector('[role="textbox"]')?.getAttribute('aria-label')).toBe('Note');
   });
 
-  it('reports the markdown after an edit, and the stored text again once undone', () => {
+  it('reports the markdown after an edit, rewriting only the edited block, and the stored text again once undone', () => {
     const onChange = vi.fn();
     render({ onChange });
 
     act(() => {
       editor.chain().focus('end').insertContent('!').run();
     });
-    expect(onChange).toHaveBeenLastCalledWith('- one\n- two\n\n**bold** & <b>raw</b>!');
+    // only the edited paragraph is written in the editor's spelling: the list is kept as written
+    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n\n**bold** & <b>raw</b>!');
 
     act(() => {
       editor.commands.undo();

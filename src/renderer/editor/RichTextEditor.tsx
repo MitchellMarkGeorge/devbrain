@@ -10,7 +10,12 @@ import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillVi
 import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
-import { createDocumentExtensions } from './markdown';
+import {
+  createDocumentExtensions,
+  editorMarkdown,
+  readEditorSource,
+  type MarkdownSource,
+} from './markdown';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
 import type { EditorHost, EntityLinkPill } from './types';
@@ -23,8 +28,9 @@ import styles from './RichTextEditor.module.css';
  * - `initialValue` is the markdown as stored, read once, when the editor is made: the editor holds
  *   its text from then on, and a later `initialValue` changes nothing. `onChange` hears the
  *   markdown after each edit, and never on load: opening a note and closing it again leaves its
- *   file alone. Undoing back to the start gives back `initialValue` exactly, not the editor's own
- *   spelling of it.
+ *   file alone. The markdown it sends keeps each block unchanged since it was loaded as it was
+ *   written there, and writes only the edited blocks in the editor's own spelling: undoing back to
+ *   the start gives back `initialValue` exactly.
  * - A text from outside (a sync, a reattach) is loaded through the editor's handle, its `ref`
  *   (`RichTextEditorHandle.load`), which `onChange` doesn't hear either. In the app
  *   `useEditorAutosave` does it, for a change its content query reports (docs/editor.md).
@@ -56,27 +62,15 @@ export interface RichTextEditorHandle {
   /**
    * Replaces the content with `markdown`, a text from outside the editor (a sync, a reattach),
    * without counting as an edit: `onChange` doesn't hear it. The next edit starts an undo step of
-   * its own, and undoing back to `markdown` sends it exactly.
+   * its own, and the blocks unchanged since are sent as `markdown` has them.
    */
   load(markdown: string): void;
   /**
-   * The markdown the content stands for: the text last loaded, exactly as given, while the content
-   * is still what it loaded (opened, or undone back to it); the editor's own markdown once edited.
-   * It is what `onChange` sends.
+   * The markdown the content stands for, as `onChange` sends it: each block unchanged since the
+   * text last loaded as it was written there, the edited ones in the editor's spelling; the text
+   * itself, exactly, while nothing changed (opened, or undone back to it).
    */
   markdown(): string;
-}
-
-// the text last loaded, as stored, and the editor's own markdown for it (see `baseline` below)
-interface Baseline {
-  value: string;
-  markdown: string;
-}
-
-// the markdown the content stands for: the stored text while it is still what was loaded
-function markdownOf(editor: Editor, baseline: Baseline | null): string {
-  const markdown = editor.getMarkdown();
-  return markdown === baseline?.markdown ? baseline.value : markdown;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
@@ -134,16 +128,15 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       setEditorHost(editor, host);
     });
 
-    // The text last loaded, as stored, and the editor's own markdown for it. Markdown has several
-    // spellings for one thing (`* one` and `- one`), and the editor writes back only its own, so
-    // while the content is still what it loaded (opened, or undone back to it) it stands for the
-    // stored text: a note only opened, or edited and undone, is saved as it was (docs/editor.md,
-    // "What a save changes"). Read in effects and the handle, never while rendering.
-    const baseline = useRef<Baseline | null>(null);
-    // the first text, as loaded, before any edit can be sent; set once, so a later `initialValue`
-    // changes nothing
+    // The text last loaded, block by block. Markdown has several spellings for one thing (`* one`
+    // and `- one`) and the editor writes only its own, so a save writes the blocks unchanged since
+    // as they were in that text, and only the edited ones in the editor's spelling: a note only
+    // opened, or edited and undone, is saved as it was (docs/editor.md, "What a save changes").
+    // Undefined until the first text is read; null when it couldn't be lined up with the document.
+    // Read in effects and the handle, never while rendering.
+    const source = useRef<MarkdownSource | null | undefined>(undefined);
     useEffect(() => {
-      baseline.current ??= { value: initialValue, markdown: editor.getMarkdown() };
+      if (source.current === undefined) source.current = readEditorSource(editor, initialValue);
     }, [editor, initialValue]);
 
     useImperativeHandle(
@@ -152,16 +145,15 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         load(text) {
           editor.commands.setContent(text, { contentType: 'markdown', emitUpdate: false });
           editor.view.dispatch(closeHistory(editor.state.tr));
-          baseline.current = { value: text, markdown: editor.getMarkdown() };
+          source.current = readEditorSource(editor, text);
         },
-        markdown: () => markdownOf(editor, baseline.current),
+        markdown: () => editorMarkdown(editor, source.current ?? null),
       }),
       [editor],
     );
 
     useEffect(() => {
-      // back to how it was loaded, it sends the stored text, unchanged
-      const send = () => onChange?.(markdownOf(editor, baseline.current));
+      const send = () => onChange?.(editorMarkdown(editor, source.current ?? null));
       editor.on('update', send);
       return () => {
         editor.off('update', send);

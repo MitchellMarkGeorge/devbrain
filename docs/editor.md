@@ -44,11 +44,9 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   takes an object one of whose values is passed as a `ref` for a ref, and refuses to read it
   while rendering.
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
-  file alone, and undoing back to the text last loaded sends it exactly as it was stored, not in
-  the editor's own spelling: markdown has several spellings for one thing (`* one` and `- one`)
-  and the editor writes only its own, so it remembers the text it loaded and its own markdown for
-  it (its baseline), and sends the stored text while the content is still that (see "What a save
-  changes"). `RichTextEditorHandle.markdown()` gives the same text.
+  file alone. What it sends keeps every block unchanged since the text was loaded as it was
+  written there, and writes only the edited blocks in the editor's own spelling, so undoing back to
+  the start sends the text exactly ("What a save changes", below).
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through
@@ -204,8 +202,28 @@ remote images are loaded, links open only through `safeExternalUrl` and `Workspa
 
 ### What a save changes
 
-Loading a note and saving it gives the file back, except for these spellings, which the editor
-writes its own way (after the first save the file stays as it is):
+Markdown has several spellings for one thing (`* one` and `- one`, `__bold__` and `**bold**`), and
+the editor reads them all into the same document, so it can only write back one. A save therefore
+rewrites **only the blocks you edited**; every other block is written back exactly as it was in
+the file, with the blank lines around it:
+
+- When a text is loaded, the editor maps each of its top-level blocks to the slice of the text it
+  was read from (`MarkdownSource`, `readSource` in `markdown.ts`), reading the text with the same
+  lexer TipTap parses it with. Extra blank lines read as empty paragraphs, which have no slice.
+- When it writes markdown (`serializeKeeping`), each top-level block still equal to one it loaded
+  is written as that slice, and the text between two such blocks that were neighbours in the file
+  is the file's own. Everything else (a block you edited, added or moved) is written in the
+  editor's spelling, with a blank line between blocks, as a plain serialization would be. Nothing
+  edited gives the file back byte for byte.
+- Where a kept block meets one written anew (or one moved from elsewhere in the file), the two are
+  read back together; if they would read as anything else (an indented code block kept after a
+  new list would continue the list's item), the whole document is written in the editor's
+  spelling instead. Blocks kept side by side read as they did in the file.
+- There is no map, and the whole document is written in the editor's spelling, when the text
+  can't be lined up with the document: a link reference definition (`[docs]: https://…`, which
+  reads as no block of its own), or Windows line ends (marked reads them as `\n`).
+
+The editor's own spelling, used for every block it writes anew:
 
 - one blank line between blocks (a heading straight above its paragraph gets one), and inside a
   collapsible section around its body;
@@ -215,8 +233,13 @@ writes its own way (after the first save the file stays as it is):
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
   and `x < y` stay as written.
 
-`src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged;
-add a case there when a new kind of content must survive.
+Keeping a block also keeps meaning the editor's spelling would lose: two lists side by side that
+differ only in their bullet (`*` then `+`) are two lists, but written both with `-` and a blank
+line between, they read back as one.
+
+`src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged,
+and what a save keeps when one block changed; add a case there when a new kind of content must
+survive.
 
 ## Extending it
 
