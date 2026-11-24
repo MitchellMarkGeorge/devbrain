@@ -4,7 +4,7 @@ import { highlighter } from './code-languages';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableKit } from '@tiptap/extension-table';
-import { Markdown, MarkdownManager, assumeContentType } from '@tiptap/markdown';
+import { Markdown, MarkdownManager } from '@tiptap/markdown';
 import { Marked, type marked } from 'marked';
 import { Callout } from './extensions/callout';
 import { EntityLink } from './extensions/entity-link';
@@ -186,13 +186,9 @@ const DocumentMarkdown = Markdown.extend({
     this.editor.markdown = manager;
     this.editor.getMarkdown = () => manager.serialize(this.editor.getJSON());
 
+    // content given as markdown (JSON content is left as it is)
     const { content, contentType } = this.editor.options;
-    if (!contentType || assumeContentType(content, contentType) !== 'markdown') return;
-    if (typeof content !== 'string') {
-      throw new Error(
-        '[tiptap][markdown]: The `contentType` option is set to "markdown", but the initial content is not a string. Please provide the initial content as a markdown string.',
-      );
-    }
+    if (contentType !== 'markdown' || typeof content !== 'string') return;
     const json = manager.parse(content);
     if (json.content?.length) this.editor.options.content = json;
   },
