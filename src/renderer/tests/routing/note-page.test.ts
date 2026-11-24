@@ -3,7 +3,7 @@ import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
 import { TaskStatus, type NoteListItem } from '@common/types';
 import { queryClient } from '@renderer/ipc';
-import { noteContentQuery } from '@renderer/shared/api/content';
+import { noteContentQuery } from '@renderer/features/notes/api/queries';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
@@ -136,7 +136,8 @@ describe('the note page', () => {
     editor.chain().focus('end').insertContent(' two').run();
     window.dispatchEvent(new Event('blur'));
     await eventually(() => expect(savedTexts(main)).toEqual(['Draft one', 'Draft one two']));
-    // each save reports the note, which refetches the note's rows, never its markdown
+    // each save reports the note, which refetches the note's rows, never its markdown: the save
+    // wrote it to the cache
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(main.callsTo('notes.readContent')).toHaveLength(reads);
     expect(editor.getMarkdown()).toBe('Draft one two');
@@ -144,13 +145,13 @@ describe('the note page', () => {
     expect(queryClient.getQueryData(noteContentQuery(NOTE).queryKey)).toBe('Draft one two');
   });
 
-  it('keeps what was typed when a read for a change from elsewhere answers after a save', async () => {
+  it('keeps what was typed when a read of the file answers after a save', async () => {
     const { main, app, store } = notePage('Draft');
     await eventually(() => expect(app.text()).toContain('Draft'));
     const editor = editorOf(app.container);
     const reads = main.callsTo('notes.readContent').length;
 
-    // a sync reports content: the markdown is read now, and the answer held back
+    // the markdown is read (nothing in the app reads it again today), and the answer held back
     let answer!: () => void;
     const answered = new Promise<void>((resolve) => (answer = resolve));
     main.routes.set('notes.readContent', async () => {
@@ -158,13 +159,13 @@ describe('the note page', () => {
       await answered;
       return [read, []];
     });
-    main.push('db.changes', { entities: ['content'] });
+    void queryClient.invalidateQueries();
     await eventually(() => expect(main.callsTo('notes.readContent')).toHaveLength(reads + 1));
 
     editor.chain().focus('end').insertContent(' one').run();
     window.dispatchEvent(new Event('blur'));
     await eventually(() => expect(savedTexts(main)).toEqual(['Draft one']));
-    // the read answers "Draft", older than the save: it was cancelled by it
+    // the read answers "Draft", older than the save: the save cancelled it
     answer();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(editor.getMarkdown()).toBe('Draft one');
@@ -213,10 +214,10 @@ describe('the note page', () => {
     await eventually(() => expect(savedTexts(main)).toEqual(['Draft one', 'Draft one two']));
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // rewritten from outside the editor (core reports content) to the text of its first save: a
-    // change from elsewhere, though the editor saved that very text before
+    // the file reverted on disk to the first save: a change from elsewhere, though the editor
+    // saved that very text before
     store.contents.set(NOTE, 'Draft one');
-    main.push('db.changes', { entities: ['content'] });
+    await queryClient.invalidateQueries();
     await eventually(() => expect(editor.getMarkdown()).toBe('Draft one'));
   });
 

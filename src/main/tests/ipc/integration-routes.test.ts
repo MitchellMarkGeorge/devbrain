@@ -253,11 +253,8 @@ describe('integrations', () => {
     await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
     expect(sent('sync.progress')).toEqual([{ sourceId, phase: 'initial', itemsApplied: 1 }]);
     // batched to the end of the turn
-    // and as content: a sync may rewrite a description an editor shows
     await vi.waitFor(() =>
-      expect(sent('db.changes').flatMap(({ entities }) => entities)).toEqual(
-        expect.arrayContaining(['task', 'content']),
-      ),
+      expect(sent('db.changes').flatMap(({ entities }) => entities)).toContain('task'),
     );
     expect(data(await call('integrations.list'))).toEqual([
       expect.objectContaining({ id: integration.id }),
@@ -428,12 +425,9 @@ describe('integrations, kept copies', () => {
     const result = await call('integrations.reattachKept', { id }, 'mutation');
 
     expect(data(result)).toEqual({ reattached: 2, failed: [] });
-    // the reattach wrote Linear's descriptions over the copies' own
-    expect(result.changed).toEqual(expect.arrayContaining(['task', 'content']));
+    expect(result.changed).toContain('task');
     // the other windows refetch too
-    expect(sent('db.changes')).toContainEqual({
-      entities: expect.arrayContaining(['task', 'content']),
-    });
+    expect(sent('db.changes')).toContainEqual({ entities: expect.arrayContaining(['task']) });
     expect(data(await call('integrations.keptCopies', { id }))).toEqual({ tasks: 0 });
   });
 

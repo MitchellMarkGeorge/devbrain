@@ -12,6 +12,15 @@ export function noteListQuery(input: NoteListInput) {
   });
 }
 
+/**
+ * A note's markdown (`notes.readContent`): never stale. No change refetches it, and the note's
+ * editor writes each save into it (docs/editor.md), so a page opened again reads its latest save
+ * from the cache.
+ */
+export function noteContentQuery(id: NoteId) {
+  return trpc.notes.readContent.queryOptions({ id }, { staleTime: Infinity });
+}
+
 /** The tasks made from a note (`linkedNoteId`): its Tasks section and its "3 tasks" pill. */
 export function noteTasksQuery(id: NoteId) {
   return trpc.tasks.list.infiniteQueryOptions(

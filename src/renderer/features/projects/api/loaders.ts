@@ -3,7 +3,6 @@ import { notFound } from '@tanstack/react-router';
 import type { ProjectId } from '@common/ids';
 import { isId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
-import { primeContent, projectContentQuery } from '@renderer/shared/api/content';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { loadTasks } from '@renderer/features/tasks/api/loaders';
 import {
@@ -47,27 +46,18 @@ export function projectLoaderDeps({ search }: { search: ProjectSearch }): Projec
 }
 
 /**
- * The project page: the project (a missing one is the route's not-found), its description's
- * content query, primed from it, and its stats, then the tab's first data: the Overview's open and recently
- * completed tasks and its latest notes, the Tasks tab's view (as the tasks page loads it), or the
- * notes.
+ * The project page: the project (a missing one is the route's not-found) and its stats, then the
+ * tab's first data: the Overview's open and recently completed tasks and its latest notes, the Tasks tab's view (as the tasks page loads it), or
+ * the notes.
  */
 export async function loadProject(context: RouterContext, id: ProjectId, search: ProjectSearch) {
   const { queryClient, trpc } = context;
-  const projectOptions = trpc.projects.get.queryOptions({ id });
-  let project;
   try {
-    project = await queryClient.query({ ...projectOptions, staleTime: 'static' });
+    await queryClient.query({ ...trpc.projects.get.queryOptions({ id }), staleTime: 'static' });
   } catch (error) {
     if (ipcErrorCode(error) === 'not_found') throw notFound();
     throw error;
   }
-  await primeContent(
-    queryClient,
-    projectContentQuery(id),
-    projectOptions.queryKey,
-    project.description,
-  );
   queryClient
     .query({ ...trpc.projects.stats.queryOptions({ id }), staleTime: 'static' })
     .catch(noop);

@@ -171,13 +171,10 @@ export class NoteService {
     return this.noteFilePath(id);
   }
 
-  // The markdown of a note, read from its file, without the file's front matter, once the content
-  // saves already queued for it have run: a read never returns the text a save is replacing. A
-  // note in the trash is read with `includeArchived` (Trash opens it read-only). Throws
-  // NotFoundError for an unknown note, or an archived one without the option,
-  // MalformedNoteFileError for a damaged file.
+  // The markdown of a note, read from its file, without the file's front matter. A note in the trash
+  // is read with `includeArchived` (Trash opens it read-only). Throws NotFoundError for an unknown
+  // note, or an archived one without the option, MalformedNoteFileError for a damaged file.
   async readContent(id: NoteId, options: { includeArchived?: boolean } = {}): Promise<string> {
-    await this.contentSaves.get(id)?.catch(() => undefined);
     this.findNote(id, options);
     const { content } = await readNoteFile(this.noteFilePath(id));
     return content;

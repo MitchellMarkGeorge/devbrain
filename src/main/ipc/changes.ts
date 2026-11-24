@@ -1,11 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ChangedEntity } from '@common/changes';
-import { SyncEntityType } from '@common/types';
 import type { WorkspaceId } from '@common/ids';
 import type { AppEventName, AppEvents } from '@common/events';
 import type { DevBrain, Workspace } from '@main/core';
 import type { ArchiveChange } from '@main/core/archive/service';
-import type { EventChange } from '@main/core/events/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
@@ -172,7 +170,7 @@ export class ChangeTracker {
         this.recordChange(...entitiesOfProjectChange(change)),
       ),
       workspace.notes.onChange((change) => this.recordChange(...entitiesOfNoteChange(change))),
-      workspace.events.onChange((change) => this.recordChange(...entitiesOfEventChange(change))),
+      workspace.events.onChange(() => this.recordChange('event')),
       workspace.calendars.onChange(() => this.recordChange('calendar')),
       workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
       workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
@@ -184,7 +182,7 @@ export class ChangeTracker {
       }),
       // each committed page, with what it wrote
       sync.onProgress((progress) => {
-        this.recordChange(...entitiesOfSyncProgress(progress));
+        this.recordChange(...progress.summary.changed);
         this.sendToWindows('sync.progress', syncProgressEvent(progress));
       }),
       // how a source's run ended: its last sync, error and retry time
@@ -215,24 +213,6 @@ export function syncProgressEvent({
   itemsApplied,
 }: SyncProgress): AppEvents['sync.progress'] {
   return { sourceId, phase, itemsApplied };
-}
-
-// Content (`content`) is reported only for a change that rewrites the text of rows that already
-// existed, from outside the editor showing it: a sync page, a calendar history fetch, a reattach.
-// An edit through a service's own update (an editor's save) reports its entity alone, so the
-// editor's content query is not refetched for its own save (docs/editor.md). A path that rewrites
-// existing content must say so here.
-
-// a sync page that wrote tasks, projects or events may have rewritten their descriptions
-export function entitiesOfSyncProgress({ summary }: SyncProgress): ChangedEntity[] {
-  const rewrote = summary.changed.some((type) => type !== SyncEntityType.CALENDAR);
-  return rewrote ? [...summary.changed, 'content'] : [...summary.changed];
-}
-
-// a fetch of a synced calendar's history writes events through sync's writer, which may rewrite
-// the description of one already stored
-export function entitiesOfEventChange(change: EventChange): ChangedEntity[] {
-  return change.type === 'events_fetched' ? ['event', 'content'] : ['event'];
 }
 
 // A delete also changes the rows that pointed at what it removed: a deleted task's notes lose their
@@ -289,10 +269,7 @@ export function entityOfFavoriteChange(change: FavoriteChange): ChangedEntity {
 export function entitiesOfTaskLinkChange(change: TaskLinkChange): ChangedEntity[] {
   // only the offer to reattach them changed, which reads the tasks' links
   if (change.type === 'kept_local') return ['task'];
-  // a detach leaves the rows as they are; a reattach writes the provider's fields over them,
-  // the description too
-  if (change.type === 'detached') return ['task', ...change.changed];
-  return ['task', ...change.changed, 'content'];
+  return ['task', ...change.changed];
 }
 
 export function entitiesOfIntegrationChange(change: IntegrationChange): ChangedEntity[] {

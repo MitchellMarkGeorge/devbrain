@@ -2,10 +2,9 @@ import { noop } from '@tanstack/react-query';
 import { notFound } from '@tanstack/react-router';
 import { isId, type NoteId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
-import { noteContentQuery } from '@renderer/shared/api/content';
 import { primeLinks } from '@renderer/shared/api/loaders';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import { noteListQuery, noteTasksQuery } from './queries';
+import { noteContentQuery, noteListQuery, noteTasksQuery } from './queries';
 import { noteListInput, resolveNotesSearch, type NotesSearch } from './search';
 
 // What the notes routes load before their first frame (routes/app/$workspaceId/notes/): they only
@@ -29,11 +28,10 @@ export const parseNoteParams = {
 };
 
 /**
- * The note page, whole on its first frame: the note and its markdown's content query (a missing
- * note is the route's not-found), the task or event it links to, and the tasks made from it (the
- * pill under the title, and the Tasks section). The tasks are read alongside the note, as they
- * don't depend on it; a failed read of them or of the link doesn't fail the page, which then loads
- * them itself.
+ * The note page, whole on its first frame: the note and its markdown (a missing note is the
+ * route's not-found), the task or event it links to, and the tasks made from it (the pill under
+ * the title, and the Tasks section). The tasks are read alongside the note, as they don't depend
+ * on it; a failed read of them or of the link doesn't fail the page, which then loads them itself.
  */
 export async function loadNote(context: RouterContext, id: NoteId) {
   const { queryClient, trpc } = context;

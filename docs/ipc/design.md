@@ -253,39 +253,16 @@ The rules that shape it:
 | Core change                                 | `ChangedEntity[]`                                                                                                                                    |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TaskChange`, `NoteChange`, `ProjectChange` | `task`, `note`, `project`; a `deleted` one also names the kinds that lost a link to it (a task's notes, a project's tasks and notes, a note's tasks) |
-| `EventChange`, `CalendarChange`             | `event`, `calendar`; `events_fetched` (a synced calendar's history, written for a read) also `content`                                               |
+| `EventChange`, `CalendarChange`             | `event`, `calendar`                                                                                                                                  |
 | `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty; for `emptied`, also those of the rows that lost a link                                 |
 | `FavoriteChange`                            | the favorited entity's type                                                                                                                          |
 | `RecentChange` (a view recorded)            | `recent`                                                                                                                                             |
-| `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; a reattach also `content`                                                                                                 |
+| `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`                                                                                                                            |
 | `IntegrationChange`                         | `integration`, `externalSource`, plus `changed` on `disconnected`                                                                                    |
-| `SyncProgress` (a committed page)           | its `summary.changed`, and `content` when that names tasks, projects or events                                                                       |
+| `SyncProgress` (a committed page)           | its `summary.changed`                                                                                                                                |
 | `SyncStatusChange` (a run recorded its end) | `externalSource`                                                                                                                                     |
 | `WorkspaceChange`                           | `workspace`                                                                                                                                          |
 | `SettingsChange`                            | `settings`                                                                                                                                           |
-
-### Content
-
-`content` is the text an editor shows: a note's markdown, a task's, project's or event's
-description. Only the editors' content queries read it (`notes.readContent`, and the renderer's
-own `content` queries, [editor.md](../editor.md#content-queries-and-what-a-save-refetches)), and
-they read nothing else. An editor's save goes through its entity's update route and reports the
-entity alone (`note`, `task`, `project`, `event`), so the lists refetch and the editor's text
-does not: the editor writes its save into the cache itself. Main reports `content` only where core
-rewrites text that already existed from outside the editor. There is one window, so these are the
-only other writers:
-
-| Path                                                                       | Core change                              | Writes                                            |
-| -------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
-| A sync run's page, Linear or Google Calendar (`SyncEngine` → `SyncWriter`) | `SyncProgress` naming task/project/event | Descriptions of synced tasks, projects and events |
-| A reconcile pass (`TaskReconciler`, through `SyncWriter`)                  | `SyncProgress` (phase `reconcile`)       | Descriptions of synced tasks and projects         |
-| A synced calendar's history, fetched for a read (`EventFetcher`)           | `EventChange` `events_fetched`           | Descriptions of synced events                     |
-| Reattach of one task, or of an account's kept copies (`DetachService`)     | `TaskLinkChange` `reattached`            | The provider's description over the copy's        |
-
-Nothing else rewrites existing content: a detach and a disconnect leave the rows as they are,
-imports, duplicates and a conversion make new rows, a rename rewrites only a note file's front
-matter, and nothing watches note files for edits from other apps. A new path that rewrites
-existing content must map to `content` too, or the editor showing it keeps the old text.
 
 ### Push events
 
@@ -350,10 +327,14 @@ and answers `null` when building the context throws.
 Main says which entities changed, but React Query caches by route, and many views read entities
 other than their own. [`ENTITIES_READ_BY_ROUTE`](../../src/renderer/ipc/query-invalidator.ts)
 maps one to the other: the entities each router's queries read, keyed by router, or by full path
-to override its router (`integrations.previewDisconnect`, which counts synced rows of every kind;
-`notes.readContent`, which reads only `content`). Its keys are typed by `RoutePath`, every path in
-`AppRouter`, so a key naming no route fails to compile; the one other key is `content`, the
-renderer's own content queries (keyed `[['content', 'task'], { id }]`). Read the file for the current table.
+to override its router (`integrations.previewDisconnect`, which counts synced rows of every kind).
+Its keys are typed by `RoutePath`, every path in `AppRouter`, so a key naming no route fails to
+compile. Read the file for the current table.
+
+One route reads nothing: `notes.readContent`, a note's markdown. Its editor is the only thing that
+rewrites an existing note's markdown, and writes each save into the cache itself, so a save never
+reads the file back ([editor.md](../editor.md#saves-and-changes-from-outside)). A core path that
+comes to rewrite a note's markdown from outside its editor must change that line.
 
 `onChanged(entities)` makes one `invalidateQueries` call whose predicate matches every cached
 query whose route reads one of the entities. React Query refetches the mounted ones and marks the
@@ -421,9 +402,9 @@ The renderer starts a switch by navigating to a page of the other workspace; its
    already hold none). A new type a route returns goes in `src/common/types`, not in core.
 3. **If the service emits nothing for the write,** add an `onChange` to the service, following
    `CLAUDE.md`'s "Change events", not to the route. A new change type also needs its mapping in
-   the `ChangeTracker`, and a new kind of row a new `ChangedEntity`. A core path that rewrites
-   existing content (a note's markdown, a description) from outside its editor must map to
-   `content` as well (see [Content](#content)); an editor's own save must not.
+   the `ChangeTracker`, and a new kind of row a new `ChangedEntity`. A write that rewrites an
+   existing note's markdown must also make `notes.readContent` read its entity, which it doesn't
+   today (see [Invalidation in the renderer](#invalidation-in-the-renderer)).
 4. **Add the router to `ENTITIES_READ_BY_ROUTE`** with the entities its queries read, including
    other entities they show (a project's stats count tasks). A full path overrides its router for
    one query that reads more.

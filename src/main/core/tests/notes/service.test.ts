@@ -606,14 +606,6 @@ describe('NoteService — updateNoteContent', () => {
       expect(await fs.readdir(path.join(workspacePath, 'notes'))).toEqual([`${note.id}.md`]);
     });
 
-    it('are read back only once the ones queued before the read have run', async () => {
-      const note = await notesService.createNote({ title: 'Note' });
-      const saves = contents.map((c) => notesService.updateNoteContent(note.id, c));
-      // read while every save is still queued: it never sees a text a later save replaces
-      expect(await notesService.readContent(note.id)).toBe(contents[N - 1]);
-      await Promise.all(saves);
-    });
-
     it('keep going after one of them fails', async () => {
       const note = await notesService.createNote({ title: 'Note' });
       // the first save's check before its write fails

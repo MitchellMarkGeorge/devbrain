@@ -10,11 +10,9 @@ import {
   ChangeTracker,
   entityOfFavoriteChange,
   entitiesOfArchiveChange,
-  entitiesOfEventChange,
   entitiesOfIntegrationChange,
   entitiesOfNoteChange,
   entitiesOfProjectChange,
-  entitiesOfSyncProgress,
   entitiesOfTaskChange,
   entitiesOfTaskLinkChange,
 } from '@main/ipc/changes';
@@ -119,24 +117,6 @@ describe('a mutation', () => {
     expect([...result.changed].sort()).toEqual(['note', 'task']);
     // the other windows learn of it as an event; the caller already has it
     expect(sentChanges()).toEqual([{ entities: result.changed, skipWindow: 'window-a' }]);
-  });
-
-  it("reports an editor's save as its entity alone, never as content, so the editor's text isn't refetched", async () => {
-    const ws = workspace();
-    const note = await ws.notes.createNote({ title: 'Note' });
-    const task = ws.tasks.createTask({ title: 'Task', dueDate: DUE });
-    const project = ws.projects.createProject({ title: 'Project' });
-    const event = ws.events.createEvent({ title: 'Standup', startAt: DUE, endAt: DUE });
-
-    const saves: [unknown, (ws: Workspace) => unknown][] = [
-      ['note', (ws) => ws.notes.updateNoteContent(note.id, '# Notes')],
-      ['task', (ws) => ws.tasks.updateTask(task.id, { description: 'Steps' })],
-      ['project', (ws) => ws.projects.updateProject(project.id, { description: 'Goal' })],
-      ['event', (ws) => ws.events.updateEvent(event.id, { description: 'Agenda' })],
-    ];
-    for (const [entity, save] of saves) {
-      expect(await act(save)).toMatchObject({ ok: true, changed: [entity] });
-    }
   });
 
   it('returns what it changed after an await, as note content saves do', async () => {
@@ -424,7 +404,6 @@ describe('the entities of each change', () => {
     expect(
       entityOfFavoriteChange({ type: 'unfavorited', entityType: 'events', id: 'evt_1' as never }),
     ).toBe('event');
-    // a reattach writes the provider's fields over the tasks, their descriptions too
     expect(
       entitiesOfTaskLinkChange({
         type: 'reattached',
@@ -432,16 +411,7 @@ describe('the entities of each change', () => {
         taskIds: [],
         changed: ['task', 'project'],
       } as never),
-    ).toEqual(['task', 'task', 'project', 'content']);
-    // a detach leaves the rows as they were
-    expect(
-      entitiesOfTaskLinkChange({
-        type: 'detached',
-        taskId: 'tsk_1' as never,
-        taskIds: [],
-        changed: ['task'],
-      } as never),
-    ).toEqual(['task', 'task']);
+    ).toEqual(['task', 'task', 'project']);
     expect(
       entitiesOfTaskLinkChange({
         type: 'kept_local',
@@ -458,28 +428,5 @@ describe('the entities of each change', () => {
       'integration',
       'externalSource',
     ]);
-  });
-
-  it('names content only where something other than an editor rewrote it', () => {
-    const page = (changed: string[]) => ({ summary: { changed } }) as never;
-    // a sync page that wrote tasks, projects or events may have rewritten their descriptions
-    expect(entitiesOfSyncProgress(page(['task', 'project']))).toEqual([
-      'task',
-      'project',
-      'content',
-    ]);
-    expect(entitiesOfSyncProgress(page(['event']))).toEqual(['event', 'content']);
-    // calendars have no text an editor shows
-    expect(entitiesOfSyncProgress(page(['calendar']))).toEqual(['calendar']);
-    expect(entitiesOfSyncProgress(page([]))).toEqual([]);
-    // a synced calendar's history, fetched for a read, is written as a sync page is
-    expect(entitiesOfEventChange({ type: 'events_fetched', calendarIds: [] })).toEqual([
-      'event',
-      'content',
-    ]);
-    // the event sheet's own edits
-    expect(entitiesOfEventChange({ type: 'updated' } as never)).toEqual(['event']);
-    expect(entitiesOfEventChange({ type: 'created' } as never)).toEqual(['event']);
-    expect(entitiesOfEventChange({ type: 'deleted', eventIds: [] })).toEqual(['event']);
   });
 });

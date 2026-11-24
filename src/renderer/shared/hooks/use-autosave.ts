@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import type { RichTextEditorHandle } from '@renderer/editor/RichTextEditor';
-import { storeContent } from '@renderer/shared/api/content';
 import { useSwitchingWorkspace } from '@renderer/app/hooks/use-switching-workspace';
 
 // Saving what is typed in an editor (a note's body, a task's description) as it is typed: one save
@@ -50,56 +48,88 @@ export function useAutosave<T>(save: (value: T) => void, delay = 500) {
     if (switching) flush();
   }, [switching, flush]);
 
-  return { schedule, flush };
+  // whether a change is waiting for its save
+  const isPending = useCallback(() => pending.current !== null, []);
+
+  return { schedule, flush, isPending };
 }
 
 /**
- * An editor's text saved as it is typed. `queryKey` is the editor's content query
- * (`shared/api/content.ts`) and `remote` the text it holds, which changes in only two ways:
+ * An editor's text saved as it is typed. The editor is uncontrolled: it starts from
+ * `initialValue` and holds its text from then on. `remote` is the text as the cache holds it (a
+ * task's `description`, a note's markdown); when it changes from outside the editor (a sync, a
+ * reattach), the hook loads it into the editor through its handle (`editor`, its `ref`).
  *
- * - a save of this editor: `save` stores the text and returns it as stored, if that differs (a
- *   blank description as `''`), and the hook writes that into the content query itself
- *   (`storeContent`). Core reports the save's entity (`task`, `note`), never `content`, so the
- *   query is not refetched: nothing of the editor's own comes back to it later.
- * - a change from outside the editor (a sync, a reattach), which core reports as `content`, and
- *   the query refetches.
+ * The cache also changes for the editor's own saves: a save makes core report its entity changed,
+ * and the query is refetched (a note's markdown is the exception: its editor writes its saves
+ * into the cache, and nothing refetches it). So the hook follows `remote` only while no save is
+ * waiting or on its way, and looks once more when the last one lands. A save settles only once
+ * the refetches it caused have landed (the IPC link waits for them), so by then the cache holds
+ * the latest save, or a change made from outside since: a refetch of an older save arrives
+ * while a newer one is still on its way, and is never taken. It follows a text that differs from
+ * its latest save (`stored`, the text as `save` stores it: a blank description as `''`), and
+ * loads it unless the editor already shows it.
  *
- * The editor is uncontrolled: it starts from `initialValue` and holds its text from then on. The
- * hook keeps one text, its latest save or the last text from outside, and when `remote` differs
- * from it, loads `remote` into the editor through its handle (`load`), unless the editor already
- * shows it. Pass `initialValue`, `onChange`, and `editor` as its `ref`, to the editor.
+ * `save` returns the promise of the save, if it saves: until it settles, `remote` is not followed.
+ * Pass `initialValue`, `onChange`, and `editor` as its `ref`, to the editor, destructuring what the
+ * hook returns: React's lint takes an object one of whose values is passed as a `ref` for a ref.
  */
 export function useEditorAutosave(
-  queryKey: QueryKey,
   remote: string,
-  save: (text: string) => string | void,
-  delay?: number,
+  save: (text: string) => Promise<unknown> | void,
+  options: { delay?: number; stored?: (text: string) => string } = {},
 ): {
   initialValue: string;
   editor: RefObject<RichTextEditorHandle>;
   onChange: (text: string) => void;
   flush: () => void;
 } {
-  const queryClient = useQueryClient();
   const [initialValue] = useState(remote);
   const editor = useRef<RichTextEditorHandle>(null);
-  // the latest text saved, or the last one from outside
+  // the latest text saved, as stored, or the last one followed from outside
   const held = useRef(remote);
-
-  // React sets the editor's handle before it runs effects: also for one made in this very commit
-  // (a synced description, left out while empty, that a sync has just filled). One left out since
-  // (emptied) has none.
+  // `remote` as of the last render, for the look once a save lands
+  const latest = useRef(remote);
+  const saving = useRef(0);
+  const stored = useRef(options.stored);
   useEffect(() => {
-    if (remote === held.current) return;
-    held.current = remote;
-    if (editor.current && editor.current.markdown() !== remote) editor.current.load(remote);
-  }, [remote]);
+    stored.current = options.stored;
+  });
 
-  const { schedule, flush } = useAutosave((text: string) => {
-    const stored = save(text) ?? text;
-    // before the cache, so the render that reads the save there finds it held
-    held.current = stored;
-    storeContent(queryClient, queryKey, stored);
-  }, delay);
-  return { initialValue, editor, onChange: schedule, flush };
+  // whether a change is waiting for its save: the timer's, once useAutosave below has made it
+  const isPending = useRef<() => boolean>(() => false);
+
+  // follows the cache's text, while nothing of the editor's own is waiting or on its way
+  const follow = useCallback(() => {
+    const text = latest.current;
+    if (saving.current > 0 || isPending.current() || text === held.current) return;
+    held.current = text;
+    if (editor.current && editor.current.markdown() !== text) editor.current.load(text);
+  }, []);
+
+  const autosave = useAutosave((text: string) => {
+    held.current = stored.current ? stored.current(text) : text;
+    const saved = save(text);
+    if (!saved) return;
+    saving.current += 1;
+    // looked at once the editor has been drawn with what the cache now holds: React Query tells
+    // the components of a change on a zero-delay timer (its notifyManager), so a save that
+    // settles first would be compared with the text from before it
+    const settled = () => {
+      saving.current -= 1;
+      setTimeout(follow, 0);
+    };
+    saved.then(settled, settled);
+  }, options.delay);
+  useEffect(() => {
+    isPending.current = autosave.isPending;
+  });
+
+  // React sets the editor's handle before it runs effects, so it is there for every change
+  useEffect(() => {
+    latest.current = remote;
+    follow();
+  });
+
+  return { initialValue, editor, onChange: autosave.schedule, flush: autosave.flush };
 }

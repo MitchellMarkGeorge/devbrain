@@ -67,25 +67,6 @@ function data(path: string) {
 }
 
 describe('onChanged', () => {
-  it("refetches an editor's content only for content, never for its entity, which its saves report", async () => {
-    // the content queries: a note's markdown, and a task's description by its own key
-    await Promise.all(
-      ['tasks.get', 'notes.get', 'notes.readContent', 'content.task'].map((path) => query(path)),
-    );
-
-    await queryInvalidator.onChanged(['task', 'note']);
-    expect(count('tasks.get')).toBe(2);
-    expect(count('notes.get')).toBe(2);
-    expect(count('notes.readContent')).toBe(1);
-    expect(count('content.task')).toBe(1);
-
-    // a sync or a reattach rewrote the text
-    await queryInvalidator.onChanged(['content']);
-    expect(count('notes.readContent')).toBe(2);
-    expect(count('content.task')).toBe(2);
-    expect(count('tasks.get')).toBe(2);
-  });
-
   it('refetches the active queries reading what changed, and only those', async () => {
     await Promise.all(
       ['tasks.list', 'favorites.list', 'events.listForCalendar', 'app.version'].map((path) =>
@@ -174,10 +155,8 @@ describe('the reads table', () => {
       'event',
       'calendar',
     ]);
-    // a note's content reads only content (a rewrite from outside its editor), though the rest of
-    // its router reads more; so do the descriptions' content queries, by their own key
-    expect(entitiesReadBy(['notes', 'readContent'])).toEqual(['content']);
-    expect(entitiesReadBy(['content', 'task'])).toEqual(['content']);
+    // a note's markdown reads nothing: only its editor rewrites it, writing the cache itself
+    expect(entitiesReadBy(['notes', 'readContent'])).toEqual([]);
     expect(entitiesReadBy(['unknown', 'list'])).toBe('everything');
     expect(entitiesReadBy(['app', 'version'])).toEqual([]);
   });
