@@ -6,12 +6,13 @@ markdown layer (`src/renderer/editor/markdown/`) from its first step, parity wit
 `@tiptap/markdown`, to a first-class layer that keeps each file's own text, and through what it
 needs to be production ready.
 
-> **Status:** milestone 0 (parity) is done (PR #256), and milestone 1 (the source map) is built on
-> it: reading a text gives its map, and nothing is written with it yet. Milestones 2–5 are to do.
-> The reference for the layer as built is `docs/editor.md` ("The markdown layer", "The source
-> map"); this plan is kept for the reasoning and the steps. The prototype on
-> `claude/markdown-block-preservation` is the behavioural reference for milestones 2–3: its tests
-> and its "What a save changes" notes carry over, its TipTap-specific plumbing does not.
+> **Status:** milestone 0 (parity) is done (PR #256). Milestone 1 (the source map, PR #257) and
+> milestone 2 (saving what was read) are built on it: a save rewrites only the blocks that
+> changed. Milestones 3–5 are to do. The reference for the layer as built is `docs/editor.md`
+> ("The markdown layer", "The source map", "What a save changes"); this plan is kept for the
+> reasoning and the steps. The prototype on `claude/markdown-block-preservation` is the
+> behavioural reference for milestone 3: its tests carry over, its TipTap-specific plumbing does
+> not.
 
 ## Goals
 
@@ -61,8 +62,8 @@ editor.getJSON() ──serializer.ts + rules──► markdown
 - `codec.ts`: `MarkdownCodec` (parser + serializer for one schema), `parseDocument`.
 - `extension.ts`: `DocumentMarkdown`: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec`,
   `contentType: 'markdown'` for the first content and `setContent`.
-- `RichTextEditor.tsx`: the baseline (`{ value, markdown }`) that sends the stored text while the
-  content still serialises to what it loaded.
+- `RichTextEditor.tsx`: at milestone 0, a baseline (`{ value, markdown }`) that sent the stored
+  text while the content still serialised to what it loaded (replaced in milestone 2).
 
 Parity was checked against `@tiptap/markdown` on the real-world fixtures, `docs/` and 852 READMEs
 (commit `accded7` holds the test). Two deliberate differences are documented in `docs/editor.md`.
@@ -240,69 +241,94 @@ Corpus (`docs/` and the `README.md` files under `node_modules`, 1,067 files): 1,
 whose pieces concatenate to the text (three of them with a label defined twice); 7 have none:
 5 mix line ends, 1 defines its labels inside a collapsible section, 1 has an indented fence.
 
-### Milestone 2: saving what was read
+### Milestone 2: saving what was read (built)
 
-Write a document keeping every unchanged block's slice.
+Write a document keeping every unchanged block's slice. `docs/editor.md` ("What a save changes")
+describes it as built; this section keeps the steps and what turned out different.
 
-1. **Matching.** `serializeKeeping(doc, source)` (`keeping.ts`): match the document's top-level
-   children against `source.blocks` in order (a block with several nodes, a split list, is kept
-   only when all of them match, in a row; compare with nodes of the editor's own codec, since
-   nodes of two schemas are never equal): take the common prefix and suffix first (an edit
-   usually leaves all but one block), then a longest common subsequence on `Node.eq` over what is
-   left, so a long note costs a comparison per block, not per pair. Empty paragraphs match
-   blank-line runs. A matched block is **kept**; an unmatched one is **new** (edited, added or moved).
+1. **Matching.** `writeKeeping(codec, doc, source)` (`keeping.ts`; `codec.writeKeeping` and
+   `codec.serializeKeeping`) matches the document's top-level children against the source's
+   blocks in order: the common prefix and suffix first (an edit usually leaves all but one
+   block), then a longest common subsequence on `Node.eq` over what is left (skipped above
+   250,000 pairs, where the stretch is written anew). Empty paragraphs match blank-line runs. A
+   block with several nodes (a split list) is kept only when all of them match, in a row. A
+   matched block is **kept**; an unmatched one is **new** (edited, added or moved).
 2. **Writing.** Walk the document:
-   - two kept blocks that were neighbours in the file: the file's `between` text, then the slice;
-   - a kept block after a new one, or a new block after anything: the new block's markdown from
-     the serializer, with `\n\n` either side (the file's `between` text is used instead where the
-     new block replaced exactly one old block in place, so `### Notes` straight above a list
-     stays so when the list changes);
-   - the text before the first block and after the last, when those blocks are kept;
-   - the file's final newline (it is in the last `between`); its line ends: slices and `between`
-     text already hold the file's own, so only markdown written anew is converted (`\n` →
-     `\r\n` when `lineEnd` is `\r\n`).
-3. **Seams.** Where a kept block meets a new one, or a block moved from elsewhere, read the two
-   back together (the slice, the text between, the new markdown): if they don't read as the two
-   nodes (`First\n* a` turned paragraph joins the paragraphs; an indented code block after a new
-   list continues its item), use `\n\n` instead of the file's text; if they still don't, give up
-   on keeping and write the whole document. Blocks kept side by side read as they did in the file
-   and need no check.
-4. **Whole-output check.** Read the final text back (`codec.read`) and compare with `doc`
-   (`Node.eq` on the whole document). A mismatch writes the whole document in the editor's
-   spelling. This is the safety net for everything above; keep it even once the seam checks look
-   complete, and measure it (milestone 4 budgets it).
-5. **Definitions.** A definition is kept with the `between` text that held it (a block read
-   back alone, for a seam check, needs the first definitions appended to read its reference
-   links). When a save drops
-   that text (its neighbouring blocks were removed) and a kept link still uses the label, write
-   the definition at the end of the file. A label defined twice is fine (GitHub's `[//]: #`
-   comments) unless the two differ and a link uses it: then no map.
-6. **The editor.** `RichTextEditor` holds a `MarkdownSource` instead of `Baseline`:
-   - first content: `contentType: 'markdown'` makes the source in `DocumentMarkdown`'s
-     `onBeforeCreate` (`codec.read`), kept in the extension's storage;
-   - `load(text)`: `codec.read(text)`, `setContent(doc)`, store the source;
-   - `markdown()` and `onChange`: `codec.serializeKeeping(editor.state.doc, source)`.
-     Undo back to the load gives the text exactly because every block is kept, so delete
-     `Baseline` and `markdownOf`. `editor.getMarkdown()` stays the editor's own spelling (tests use
-     it), and gains a sibling, `editor.storage.documentMarkdown.save()`, if a caller needs keeping
-     outside `RichTextEditor`.
-7. **`useEditorAutosave`** needs no change: it compares `remote` with `editor.markdown()`, which
-   still gives the stored text for unedited content.
+   - two kept blocks that were neighbours in the source, with nothing between them in the
+     document but the empty paragraphs read from the blank lines between them: the source's
+     `between` text, then the slice;
+   - a new block where the source had another: the source's text on each side of it (so
+     `### Notes` straight above a list stays so when the list changes);
+   - a new block between two neighbours: a blank line each side (the definitions between the
+     two, if any, stay before it);
+   - kept blocks brought together by a removal: a blank line, or the definitions that stood
+     next to one of them;
+   - the text before the first block and after the last, when those blocks are kept or
+     rewritten in place; the file's final newline; its line ends (slices and `between` text hold
+     the file's own, and markdown written anew is converted).
+3. **The check.** What was written is read back whole and compared with the document, block for
+   block. A mismatch writes it again with a blank line around every new block, and a second
+   mismatch writes the whole document in the editor's spelling.
+4. **Definitions.** A definition is kept with the `between` text that held it. A first
+   definition whose text was not written, and whose label no written definition defines, is
+   written at the end of the text.
+5. **The editor.** `DocumentMarkdown` keeps `loaded` in its storage (the text, its source map,
+   the document it loaded as), set for the first content and by `setContent` with
+   `contentType: 'markdown'`. `editor.storage.documentMarkdown.save()` gives the loaded text
+   while the document is the one loaded, and `codec.serializeKeeping` otherwise.
+   `RichTextEditor`'s `markdown()` and `onChange` use it; `Baseline` and `markdownOf` are gone.
+   `editor.getMarkdown()` stays the editor's own spelling.
+6. **`useEditorAutosave`** needed no change.
 
-Tests:
+**What turned out different from the plan:**
 
-- port the prototype's `describe('saving what was read')` cases (unchanged text, blank lines at
-  the ends, one block edited, a new block, a removed block, moved blocks, seams that misread,
-  final newline, text before and after, an image-only paragraph, definitions, Windows line ends,
-  the whole-document fallback, a text already in the editor's spelling, a block the editor writes
-  differently each time);
-- port `markdown-keeping.test.ts`: every block of every fixture edited, removed and followed by a
-  new one in turn, with `\n` and `\r\n`, checking the save reads back as the document and keeps
-  the text outside the block;
-- `rich-text-editor.test.ts`: an edit rewrites only its block; undo gives the stored text back.
+- **A new block is checked against how it reads alone, not against the editor's node.** The
+  editor holds blocks that don't read back as they are, all the time: a paragraph being typed
+  ends with a space, a heading has no text yet, two lists side by side read as one. Comparing
+  the output with the document itself would fail on each of them and write the whole document,
+  mid-typing. So the check expects a kept block to read as itself, and a run of new blocks to
+  read as the editor's spelling of that run reads on its own: keeping never changes how new
+  blocks read, whether or not they round-trip.
+- **No separate seam checks.** The whole-output check covers the seams, and falls back in two
+  steps (blank lines around new blocks, then the whole document). A check of only the edited
+  region is milestone 4's performance work.
+- **The loaded document is kept beside the map.** `save()` returns the loaded text when the
+  document equals the one loaded. Every block kept gives the same text for a text with a map,
+  but a text without one (mixed line ends, only definitions) must also come back exactly when it
+  is opened or undone to, as `Baseline` ensured.
+- **`setContent` and the first content hold an image-only paragraph differently:** the first
+  content holds the bare `imageLink` the parser gives, `setContent` wraps it in a paragraph.
+  Keeping compares both as the paragraph, and `loaded.doc` is the transaction's document.
+- **A label defined twice, differently, is not refused up front.** The definitions stay where
+  they are while their text is kept; if the first one's text goes and a link would read with the
+  second, the check fails and the document is written whole.
+- **Definitions beside a removed block stay in place** where the text holding them stood next
+  to a kept block, rather than all moving to the end.
+- **Moved blocks are new,** as planned (matching is in order); the prototype kept them.
+- **`rich-text-editor.test.ts` changed one expectation:** after an edit `onChange` hears
+  `* one\n* two\n\n**bold** & <b>raw</b>!`, the list as stored, where it heard the whole
+  document in the editor's spelling.
 
-Done when: those pass, the parity of `parse` still holds, and "What a save changes" in
-`docs/editor.md` describes keeping (use the prototype's text as the base).
+Tests: `describe('saving what was read')` in `markdown.test.ts` (the prototype's cases, with
+blocks typed in, a block the editor writes as nothing, and the reasons for a whole write);
+`markdown-keeping.test.ts` (every block of every fixture edited, removed and followed by a new
+one, with `\n` and `\r\n`); `rich-text-editor.test.ts` (an edit rewrites only its block, through
+a new paragraph and Windows line ends; undo gives the stored text; a text loaded through the
+handle; a text with no map).
+
+Corpus (`docs/` and the `README.md` files under `node_modules`; in each of the 1,060 files with
+a map, up to eight blocks edited, removed and followed by a new one): 19,588 saves, 19,530 kept
+text and 58 wrote the whole document (5 where the only block changed, 53 where the check failed:
+42 a removal that brought two lists together, the rest two code blocks or two paragraphs brought
+together). None read back as anything but the document, where the editor's own spelling of it
+does. Unedited, every file is written as its text. A save took 2.3 ms on average and 178 ms at
+most (the longest README), unoptimised: milestone 4's budget applies.
+
+What milestone 3 should know: a new block's markdown comes from `codec.serialize` of its run
+(`Keeping.write`), which is where a block's markers would be written; `readAlone` is where "does
+it read the same with its markers" belongs. Inherited, and now confined to the edited block: a
+linked image (`[![badge][img]][url]`) reads as the image alone, so editing its paragraph drops
+the link.
 
 ### Milestone 3: markers in edited blocks
 

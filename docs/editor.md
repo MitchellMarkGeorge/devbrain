@@ -45,11 +45,11 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   takes an object one of whose values is passed as a `ref` for a ref, and refuses to read it
   while rendering.
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
-  file alone, and undoing back to the text last loaded sends it exactly as it was stored, not in
-  the editor's own spelling: markdown has several spellings for one thing (`* one` and `- one`)
-  and the editor writes only its own, so it remembers the text it loaded and its own markdown for
-  it (its baseline), and sends the stored text while the content is still that (see "What a save
-  changes"). `RichTextEditorHandle.markdown()` gives the same text.
+  file alone, and undoing back to the text last loaded sends it exactly as it was stored. After
+  an edit it sends the stored text with only the blocks that changed written anew: markdown has
+  several spellings for one thing (`* one` and `- one`) and the editor writes only its own, so
+  it remembers the text it loaded and where each block of it was read from, and keeps the rest
+  as written (see "What a save changes"). `RichTextEditorHandle.markdown()` gives the same text.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through
@@ -142,10 +142,10 @@ reads and writes every note exactly as that package did (checked against it on t
 extension and command APIs (`getSchema`, `setContent`, an extension's storage and commands) and
 `marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
 
-What is left to build on it (keeping unedited blocks and their markers on save) and what it
-needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its
-first step is built: reading a text gives its source map ("The source map", below). Nothing is
-written with it yet, so a save writes what it did.
+What is left to build on it (keeping an edited block's markers) and what it needs to be
+production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its first two
+steps are built: reading a text gives its source map ("The source map", below), and a save
+writes the document keeping the text of every block that didn't change ("What a save changes").
 
 - `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `read(markdown)` gives
   the document an editor loads and the text's source map; `parseDocument` is that document alone,
@@ -153,11 +153,15 @@ written with it yet, so a save writes what it did.
   `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s schema, with no
   editor.
 - `extension.ts`: `DocumentMarkdown`, the last of `createDocumentExtensions()`, plugs a codec into
-  each editor: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec` (the clipboard reads
-  and writes with it), and `contentType: 'markdown'`, which reads a string as markdown for the
-  editor's first `content` and for `setContent`. Either way the text is read with
-  `codec.parseDocument` and loaded as JSON (a text with no blocks, only link definitions, loads
-  as a paragraph showing its lines).
+  each editor: `editor.getMarkdown()` (the whole document in the editor's spelling),
+  `editor.storage.documentMarkdown.codec` (the clipboard reads and writes with it), and
+  `contentType: 'markdown'`, which reads a string as markdown for the editor's first `content` and
+  for `setContent`. Either way the text is read with `codec.read` and loaded as JSON (a text with
+  no blocks, only link definitions, loads as a paragraph showing its lines), and the text, its
+  source map and the document it loaded as are kept in the extension's storage (`loaded`).
+  `editor.storage.documentMarkdown.save()` is the markdown to store: the loaded text itself
+  while the document is still the one loaded, and `codec.serializeKeeping` once it is edited.
+  `RichTextEditor` sends that. A `setContent` of anything but markdown forgets the loaded text.
 - `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
   global one, so nothing else that uses `marked` changes how notes read, and an editor adds
   nothing to it: the tokenizers are fixed, added once. Each token keeps its `raw` source text.
@@ -178,6 +182,8 @@ written with it yet, so a save writes what it did.
   puts each mark on the text it spans. `read` gives, with the document, each top-level token's
   place in the text and the nodes it gave.
 - `source.ts`: `MarkdownSource`, the source map, made from what `read` gives.
+- `keeping.ts`: `writeKeeping`, a document written keeping the text of its source
+  (`codec.writeKeeping`, `codec.serializeKeeping`).
 - `serializer.ts`: JSON to markdown. It writes a run of text's marks itself, opening and closing
   each where its span starts and ends: the higher priority mark outside (a link around its bold
   text), spaces moved out of a mark's edges, and a mark that has to reopen where two overlap
@@ -194,8 +200,8 @@ which lost an address in angle brackets) and loaded it empty through `setContent
 ### The source map
 
 `codec.read(markdown)` returns `{ doc, source, reason }`. `source` is a `MarkdownSource`: which
-slice of the text each top-level block of `doc` was read from. It is what a save will use to write
-an unedited block back as it was written; today nothing reads it but the tests.
+slice of the text each top-level block of `doc` was read from. A save uses it to write an
+unedited block back as it was written (`keeping.ts`).
 
 ```ts
 interface MarkdownSource {
@@ -233,7 +239,7 @@ interface MarkdownSource {
   are moved to where they are in the text as loaded, so a slice of such a text holds `\r\n`.
 
 `source` is `null`, and `reason` says why, when the text and what was read can't be lined up. A
-save of such a text will write the whole document, as every save does today:
+save of such a text, once edited, writes the whole document in the editor's spelling:
 
 | `reason`               | The text                                                                                              |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -322,8 +328,53 @@ remote images are loaded, links open only through `safeExternalUrl` and `Workspa
 
 ### What a save changes
 
-Loading a note and saving it gives the file back, except for these spellings, which the editor
-writes its own way (after the first save the file stays as it is):
+**Opening a note never changes it, and a save rewrites only the blocks that changed.** The editor
+keeps the text it loaded and its source map. While the document is the one it loaded (just
+opened, or undone back to it), what it saves is that text, exactly. Once edited, each top-level
+block that is still as it was read is written back as its slice of the text, byte for byte, with
+the text that stood around it; only the other blocks are written anew, in the editor's spelling
+(`keeping.ts`, `codec.writeKeeping`).
+
+```markdown
+# Title # Title
+
+- one \* one
+- two → \* two
+
+**bold** text **bold** text!
+```
+
+Here `!` was typed after "text": the paragraph is written anew (`**bold**`), and the heading, the
+`*` list and the single line end between them stay as they were.
+
+- **What is kept.** The document's top-level blocks are matched with the source's in the order
+  they were read (`Node.eq`, a longest common subsequence). A block that matches is kept; one
+  that was edited, added or moved is new. Kept blocks that are still neighbours keep the exact
+  text between them: blank lines, definitions, a single line end. The text before the first block
+  and after the last (the final newline) is kept with them, and so are the file's line ends
+  (`\r\n`): new markdown is written with the file's own.
+- **Around a new block.** One written where the source had another gets the source's text on
+  each side (`### Notes` straight above a list stays so when the list is edited). One added
+  between two neighbours gets a blank line on each side. Where a block is removed, its
+  neighbours are joined by one blank line.
+- **Definitions** (`[docs]: https://…`) stay where they are while a block next to them is kept
+  or rewritten in place. One whose surroundings are all gone is written at the end of the text,
+  so the kept links that use it still read as links.
+- **Empty paragraphs** are blank lines: one the source read from blank lines is kept with the text
+  between its neighbours, a new one is a blank line more.
+- **The check.** What keeping wrote is read back and compared with the document, block for
+  block: a kept block must read as itself, a new one as the editor's spelling of it reads on its
+  own. If it doesn't (indented code kept after a new list would continue the list's item), it is
+  written again with a blank line around each new block, and if that still reads differently the
+  whole document is written in the editor's spelling. Kept text never changes what a note means.
+
+The whole document is written in the editor's spelling (`KeptWriting.whole` says why) when the
+text has no source map (`no-source`; "The source map" lists the reasons), when no block is as it
+was read (`nothing-kept`), and when the check fails (`readback-mismatch`). On `docs/` and the
+READMEs in `node_modules`, editing, removing and adding a block throughout (19,588 saves) kept
+the text in 99.7%; the rest, nearly all a removal that brings two lists together (which the editor's spelling reads as one list), were written whole.
+
+A block written anew, and a document written whole, use the editor's spelling:
 
 - one blank line between blocks (a heading straight above its paragraph gets one), and inside a
   collapsible section around its body;
@@ -331,10 +382,17 @@ writes its own way (after the first save the file stays as it is):
 - `-` bullets (`*` and `+` become `-`), `**bold**` and `*italic*` (not `__` and `_`);
 - tables padded into columns;
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
-  and `x < y` stay as written.
+  and `x < y` stay as written;
+- links written in full: a reference link (`[text][label]`) in an edited block becomes
+  `[text](url)`, and its definition stays in the file.
 
-`src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged;
-add a case there when a new kind of content must survive.
+Blocks are matched in order, so of two blocks that swap places one is kept and the other written
+anew. A list is one block: editing one item rewrites the list.
+
+`src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged
+("markdown round trip") and what a save keeps ("saving what was read");
+`markdown-keeping.test.ts` edits, removes and adds a block at every place in each real-world
+fixture, with both line ends. Add a case when a new kind of content must survive.
 
 ## Extending it
 

@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
-import type { Schema } from '@tiptap/pm/model';
+import type { Node as ProseMirrorNode, Schema } from '@tiptap/pm/model';
 import type { Marked } from 'marked';
+import { writeKeeping, type KeptWriting } from './keeping';
 import { createMarked } from './lexer';
 import { MarkdownParser } from './parser';
 import { DOCUMENT_RULES, RuleTable } from './rules';
@@ -67,5 +68,21 @@ export class MarkdownCodec {
 
   serialize(doc: JSONContent): string {
     return this.serializer.serialize(doc);
+  }
+
+  /**
+   * `doc` as markdown, keeping the text it was read from (`source`, from `read`): each top-level
+   * block still as it was read is written as its slice of that text, with the text around it, and
+   * the rest in the editor's spelling (keeping.ts). The whole document is written in the editor's
+   * spelling, as `serialize` does, when there is no source or the kept text would read
+   * differently; `whole` then says why.
+   */
+  writeKeeping(doc: ProseMirrorNode, source: MarkdownSource | null): KeptWriting {
+    return writeKeeping(this, doc, source);
+  }
+
+  /** The markdown `writeKeeping` gives, alone. */
+  serializeKeeping(doc: ProseMirrorNode, source: MarkdownSource | null): string {
+    return this.writeKeeping(doc, source).markdown;
   }
 }

@@ -62,12 +62,74 @@ describe('RichTextEditor', () => {
     act(() => {
       editor.chain().focus('end').insertContent('!').run();
     });
-    expect(onChange).toHaveBeenLastCalledWith('- one\n- two\n\n**bold** & <b>raw</b>!');
+    // only the paragraph that changed is written anew: the list keeps its `*` bullets
+    expect(onChange).toHaveBeenLastCalledWith('* one\n* two\n\n**bold** & <b>raw</b>!');
+    // the editor's own spelling of the whole document is still there to ask for
+    expect(editor.getMarkdown()).toBe('- one\n- two\n\n**bold** & <b>raw</b>!');
 
     act(() => {
       editor.commands.undo();
     });
     expect(onChange).toHaveBeenLastCalledWith(STORED);
+  });
+
+  it('rewrites only the blocks an edit changed, through new blocks, removals and line ends', () => {
+    const stored = '# Title\r\n* one\r\n* two\r\n\r\n\r\n__bold__\r\n\r\nLast\r\n';
+    const onChange = vi.fn();
+    render({ onChange, initialValue: stored });
+    expect(handle.current!.markdown()).toBe(stored);
+
+    // a new paragraph at the end, still empty, then typed in
+    act(() => {
+      editor.chain().focus('end').splitBlock().run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(stored + '\r\n');
+    act(() => {
+      editor.commands.insertContent('More ');
+    });
+    expect(onChange).toHaveBeenLastCalledWith(stored + '\r\nMore \r\n');
+
+    // the heading, changed where it stands straight above the list
+    act(() => {
+      editor.chain().setTextSelection(6).insertContent('!').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      (stored + '\r\nMore \r\n').replace('# Title', '# Title!'),
+    );
+
+    // undone step by step, back to the stored text
+    act(() => {
+      while (editor.can().undo()) editor.commands.undo();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(stored);
+  });
+
+  it('keeps the text of a note loaded through the handle, an image alone on its line too', () => {
+    const onChange = vi.fn();
+    render({ onChange, initialValue: '' });
+    const text = '![diagram](diagram.png)\n\n* a\n* b\n\nEnd';
+    act(() => handle.current!.load(text));
+    expect(handle.current!.markdown()).toBe(text);
+    act(() => {
+      editor.chain().focus('end').insertContent('!').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(text + '!');
+  });
+
+  it('writes the whole document, as the editor spells it, once a text with no map is edited', () => {
+    // line ends of both kinds can't be lined up with the blocks
+    const mixed = '* one\r\n* two\n\n__bold__\n';
+    const onChange = vi.fn();
+    render({ onChange, initialValue: mixed });
+    expect(handle.current!.markdown()).toBe(mixed);
+    act(() => {
+      editor.chain().focus('end').insertContent('!').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith('- one\n- two\n\n**bold!**');
+    act(() => {
+      editor.commands.undo();
+    });
+    expect(onChange).toHaveBeenLastCalledWith(mixed);
   });
 
   it('takes its first text only: the text it holds is its own from then on', () => {
