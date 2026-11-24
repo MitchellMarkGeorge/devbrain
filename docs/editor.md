@@ -142,6 +142,9 @@ reads and writes every note exactly as that package did (checked against it on t
 extension and command APIs (`getSchema`, `setContent`, an extension's storage and commands) and
 `marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
 
+What is left to build on it (keeping unedited blocks and their markers on save) and what it
+needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md).
+
 - `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `parseMarkdown`,
   `serializeMarkdown` and `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s
   schema, with no editor.
