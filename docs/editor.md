@@ -152,7 +152,8 @@ needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-la
   each editor: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec` (the clipboard reads
   and writes with it), and `contentType: 'markdown'`, which reads a string as markdown for the
   editor's first `content` and for `setContent`. `RichTextEditorHandle.load` sets the codec's JSON
-  itself (`codec.parseDocument`: a text with no blocks loads as one empty paragraph).
+  itself (`codec.parseDocument`: a text with no blocks, only link definitions, loads as a paragraph
+  showing its lines).
 - `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
   global one, so nothing else that uses `marked` changes how notes read, and an editor adds
   nothing to it: the tokenizers are fixed, added once. Each token keeps its `raw` source text.
@@ -180,8 +181,9 @@ needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-la
 Where it differs from `@tiptap/markdown`: HTML that `marked` reads as inline HTML but no tokenizer
 takes (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as
 raw HTML, as written; TipTap parsed it through the DOM and dropped it, losing it on the next save.
-And a note that reads as no blocks at all (only link definitions) opens empty, as it did when
-loaded through `setContent`; TipTap's first load took it for HTML and showed its text.
+And a note that reads as no blocks at all (only link definitions, `[docs]: https://…`) shows its
+text, a line each, however it is loaded; TipTap showed it on the first load only (read as HTML,
+which lost an address in angle brackets) and loaded it empty through `setContent`.
 
 ## The note format
 

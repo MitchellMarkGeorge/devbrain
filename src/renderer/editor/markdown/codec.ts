@@ -32,10 +32,20 @@ export class MarkdownCodec {
     return this.parser.parse(markdown);
   }
 
-  /** The JSON as a document an editor can load: a text with no blocks is one empty paragraph. */
+  /**
+   * The JSON as a document an editor can load. A text that reads as no blocks (only link
+   * definitions, `[docs]: https://…`) is shown as it is written, a line of the paragraph each, so
+   * a note never looks empty when its file isn't; a blank text is one empty paragraph.
+   */
   parseDocument(markdown: string): JSONContent {
     const doc = this.parse(markdown);
-    return doc.content?.length ? doc : { type: 'doc', content: [{ type: 'paragraph' }] };
+    if (doc.content?.length) return doc;
+    const lines = markdown.split(/\r\n|\r|\n/).filter((line) => line.trim());
+    const content = lines.flatMap((line, index): JSONContent[] => [
+      ...(index > 0 ? [{ type: 'hardBreak' }] : []),
+      { type: 'text', text: line },
+    ]);
+    return { type: 'doc', content: [{ type: 'paragraph', content }] };
   }
 
   serialize(doc: JSONContent): string {

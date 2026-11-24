@@ -105,6 +105,19 @@ describe('RichTextEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith(STORED);
   });
 
+  it('shows a text that reads as no blocks, opened or loaded, and leaves it as stored', () => {
+    const definitions = '[docs]: <https://example.com/docs>\n[api]: https://example.com/api\n';
+    const onChange = vi.fn();
+    render({ initialValue: definitions, onChange });
+    const shown = '[docs]: <https://example.com/docs>\n[api]: https://example.com/api';
+    expect(editor.getText()).toBe(shown);
+    expect(handle.current!.markdown()).toBe(definitions);
+    act(() => handle.current!.load('[later]: https://example.com'));
+    expect(editor.getText()).toBe('[later]: https://example.com');
+    expect(handle.current!.markdown()).toBe('[later]: https://example.com');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('shows an entity link with its current title, and opens it on click', async () => {
     const onOpenEntity = vi.fn();
     render({
