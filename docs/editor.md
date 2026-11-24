@@ -396,17 +396,18 @@ has), set by the rule that reads it and written back by the same rule:
 | `heading`                  | `##` (closing `#`s)               | `## Title ##`                           |
 | `horizontalRule`           | the line (`***`, `___`, `* * *`)  | that line                               |
 | `codeBlock`                | the fence (`~~~`, ` ```` `)       | that fence                              |
-| `codeBlock`                | `indented`                        | each line indented four spaces          |
 | `bold`, `italic`, `strike` | `__`, `_`, `~`                    | `__bold__`, `_italic_`, `~struck~`      |
 | `hardBreak`                | `\`, or the tag (`<br>`, `<br/>`) | `\` at the line's end, or the tag       |
 
 - The attribute is never drawn, read from HTML or copied: the clipboard, `editor.getMarkdown()`,
   `serializeMarkdown`, `normalizeMarkdown` and a document written whole for want of a map or
-  after a failed check use the editor's spelling, and pasted markdown is read without its markers (it isn't the note's text).
+  after a failed check use the editor's spelling, and pasted markdown is read without its
+  markers (it isn't the note's text).
 - A marker is written only where it can stand: an underline under one line of text of its own
-  level (a title made a section takes `#`s), a fence no line of the code would close, indented
-  code with no language and outside a list item, a `<br>` outside a table cell (in a cell a line
-  break is always `<br>`, and has no marker).
+  level (a title made a section takes `#`s), a fence no line of the code would close, a `<br>`
+  outside a table cell (in a cell a line break is always `<br>`, and has no marker).
+- Indented code (four spaces, no fence) has no marker: it stays as written while its block is
+  kept, and is fenced once edited.
 - **A marker never changes what a block reads as.** A block with markers is written with them,
   read back, and compared with the block: `_it_s` is no emphasis where `*it*s` is, so that
   paragraph is written in the editor's spelling. So is every new block of a save whose markers
@@ -417,7 +418,7 @@ editor's spelling:
 
 - one blank line between the blocks inside it, and around a collapsible section's body;
 - `-` bullets, `1.` numbers, `**bold**`, `*italic*`, `~~struck~~`, `#` headings, `---`, three
-  backticks, two trailing spaces for a line break: what a marker above would have kept;
+  backticks (indented code too), two trailing spaces for a line break;
 - tables padded into columns;
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
   and `x < y` stay as written;

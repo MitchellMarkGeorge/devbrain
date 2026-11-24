@@ -11,7 +11,6 @@ const NBSP = '\u00A0';
 
 // a heading written as a line of text over an underline: `setext:` and the underline
 const SETEXT = 'setext:';
-const INDENTED = 'indented';
 const FENCE = /^(?:`{3,}|~{3,})$/;
 const RULE_LINE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
@@ -23,11 +22,11 @@ function headingMarkup(raw: string): string | null {
   return /^ {0,3}#{1,6}[ \t]/.test(text) ? (/[ \t](#+)$/.exec(text)?.[1] ?? null) : null;
 }
 
-// a code block's fence when it isn't three backticks, or that it was indented
-function codeBlockMarkup(token: { raw: string; codeBlockStyle?: string }): string | null {
+// a code block's fence when it isn't three backticks (indented code has no marker: rewritten, it
+// is fenced)
+function codeBlockMarkup(token: { raw: string }): string | null {
   const fence = /^(`{3,}|~{3,})/.exec(token.raw)?.[1];
-  if (fence) return fence === '```' ? null : fence;
-  return token.codeBlockStyle === 'indented' ? INDENTED : null;
+  return fence && fence !== '```' ? fence : null;
 }
 
 // whether a line of `code` would close a block fenced with `fence`
@@ -161,21 +160,11 @@ export const blockRules: Record<string, MarkdownRule> = {
         token.text ? [helpers.createTextNode(token.text)] : [],
       );
     },
-    render: (node, h, context) => {
+    render: (node, h) => {
       const language = node.attrs?.language || '';
-      // in a list item code follows the item's text on the next line, where indented code
-      // would read as more of that text: there it is always fenced
-      const inItem = context.parentType === 'listItem' || context.parentType === 'taskItem';
-      const markup = inItem && markupOf(node.attrs) === INDENTED ? null : markupOf(node.attrs);
+      const markup = markupOf(node.attrs);
       if (!node.content) return `\`\`\`${language}\n\n\`\`\``;
       const code = h.renderChildren(node.content);
-      // indented, as it was: only code with no language, which starts and ends with a line of text
-      if (markup === INDENTED && !language && /^\S[^]*\S$|^\S$/.test(code.replace(/^ +/, ''))) {
-        return code
-          .split('\n')
-          .map((line) => (line.trim() === '' ? '' : `    ${line}`))
-          .join('\n');
-      }
       // its own fence (`~~~`, or a longer one), unless a line of the code would close it
       const fence =
         markup && FENCE.test(markup) && !closesFence(code, markup) && fenceFits(markup, language)

@@ -75,27 +75,27 @@ keeps its spelling (milestone 3).
 
 ### Blocks
 
-| Syntax                                       | Node                     | Read (today) | Kept (M1–2) | Markers (M3)                                                   |
-| -------------------------------------------- | ------------------------ | ------------ | ----------- | -------------------------------------------------------------- |
-| Paragraph, lazy continuation lines           | `paragraph`              | yes          | yes         | –                                                              |
-| ATX heading `#`–`######`, closing `#`s       | `heading`                | yes          | yes         | closing `#`s kept                                              |
-| Setext heading (`===`, `---` underline)      | `heading`                | yes          | yes         | `setext` and the underline as written                          |
-| Thematic break `---`, `***`, `___`, spaced   | `horizontalRule`         | yes          | yes         | the line as written                                            |
-| Fenced code ` ``` `, `~~~`, longer fences    | `codeBlock`              | yes          | yes         | fence character and length; info string after the language     |
-| Indented code (4 spaces)                     | `codeBlock`              | yes          | yes         | `indented` (only while it still reads as code where it stands) |
-| Blockquote, nested                           | `blockquote`             | yes          | yes         | –                                                              |
-| GitHub alert `> [!NOTE]` …                   | `callout`                | yes          | yes         | –                                                              |
-| Bullet list `-`, `*`, `+`, tight and loose   | `bulletList`/`listItem`  | yes          | yes         | bullet character; new items take the list's                    |
-| Numbered list `1.`, `1)`, `a.`, `i.`, start  | `orderedList`/`listItem` | yes          | yes         | `)` delimiter                                                  |
-| To-do list `- [ ]`, `- [x]`, `* [ ]`         | `taskList`/`taskItem`    | yes          | yes         | bullet character; `X` vs `x`                                   |
-| Mixed to-do and bullet list                  | split into lists         | yes          | yes         | each part keeps its bullet                                     |
-| GFM table, alignment, `\|` in code           | `table`…                 | yes          | yes         | – (an edited table is padded)                                  |
-| `<details>`/`<summary>`, `open`, nested      | `details`                | yes          | yes         | –                                                              |
-| Other block HTML, comments                   | `rawHtmlBlock`           | yes          | yes         | – (atomic; never edited in place)                              |
-| Link reference definitions `[x]: url "t"`    | none                     | yes (links)  | yes         | –                                                              |
-| Blank lines beyond one                       | empty `paragraph`s       | yes          | yes         | –                                                              |
-| Text before the first block / after the last | none or empty paragraphs | yes          | yes         | –                                                              |
-| Final newline, or none                       | none                     | –            | yes         | –                                                              |
+| Syntax                                       | Node                     | Read (today) | Kept (M1–2) | Markers (M3)                                               |
+| -------------------------------------------- | ------------------------ | ------------ | ----------- | ---------------------------------------------------------- |
+| Paragraph, lazy continuation lines           | `paragraph`              | yes          | yes         | –                                                          |
+| ATX heading `#`–`######`, closing `#`s       | `heading`                | yes          | yes         | closing `#`s kept                                          |
+| Setext heading (`===`, `---` underline)      | `heading`                | yes          | yes         | `setext` and the underline as written                      |
+| Thematic break `---`, `***`, `___`, spaced   | `horizontalRule`         | yes          | yes         | the line as written                                        |
+| Fenced code ` ``` `, `~~~`, longer fences    | `codeBlock`              | yes          | yes         | fence character and length; info string after the language |
+| Indented code (4 spaces)                     | `codeBlock`              | yes          | yes         | – (fenced once edited; see milestone 3)                    |
+| Blockquote, nested                           | `blockquote`             | yes          | yes         | –                                                          |
+| GitHub alert `> [!NOTE]` …                   | `callout`                | yes          | yes         | –                                                          |
+| Bullet list `-`, `*`, `+`, tight and loose   | `bulletList`/`listItem`  | yes          | yes         | bullet character; new items take the list's                |
+| Numbered list `1.`, `1)`, `a.`, `i.`, start  | `orderedList`/`listItem` | yes          | yes         | `)` delimiter                                              |
+| To-do list `- [ ]`, `- [x]`, `* [ ]`         | `taskList`/`taskItem`    | yes          | yes         | bullet character; `X` vs `x`                               |
+| Mixed to-do and bullet list                  | split into lists         | yes          | yes         | each part keeps its bullet                                 |
+| GFM table, alignment, `\|` in code           | `table`…                 | yes          | yes         | – (an edited table is padded)                              |
+| `<details>`/`<summary>`, `open`, nested      | `details`                | yes          | yes         | –                                                          |
+| Other block HTML, comments                   | `rawHtmlBlock`           | yes          | yes         | – (atomic; never edited in place)                          |
+| Link reference definitions `[x]: url "t"`    | none                     | yes (links)  | yes         | –                                                          |
+| Blank lines beyond one                       | empty `paragraph`s       | yes          | yes         | –                                                          |
+| Text before the first block / after the last | none or empty paragraphs | yes          | yes         | –                                                          |
+| Final newline, or none                       | none                     | –            | yes         | –                                                          |
 
 ### Inline
 
@@ -347,18 +347,18 @@ lists the markers as built; this section keeps the steps and what turned out dif
    list's tokenizer puts `delimiter` on the list's. A list's marker is on the list, and an item
    is written with its list's, so an item added with Enter takes it.
 
-   | Node / mark      | `markup`                                  | Read from                  |
-   | ---------------- | ----------------------------------------- | -------------------------- |
-   | `bulletList`     | `*` or `+`                                | the first item's raw       |
-   | `taskList`       | `*` or `+`                                | the first item's token     |
-   | `orderedList`    | `)`                                       | the tokenizer's token      |
-   | `taskItem`       | `X` (checked written in capitals)         | the item's token           |
-   | `heading`        | `setext:<underline>` or its closing `#`s  | the heading's raw          |
-   | `horizontalRule` | the line                                  | the token's raw            |
-   | `codeBlock`      | the fence (`~~~`, ` ```` `) or `indented` | the token's raw, its style |
-   | `bold`, `italic` | `__`, `_`                                 | the token's raw            |
-   | `strike`         | `~`                                       | the token's raw            |
-   | `hardBreak`      | `\` or the tag (`<br>`, `<br/>`)          | the token's raw            |
+   | Node / mark      | `markup`                                 | Read from              |
+   | ---------------- | ---------------------------------------- | ---------------------- |
+   | `bulletList`     | `*` or `+`                               | the first item's raw   |
+   | `taskList`       | `*` or `+`                               | the first item's token |
+   | `orderedList`    | `)`                                      | the tokenizer's token  |
+   | `taskItem`       | `X` (checked written in capitals)        | the item's token       |
+   | `heading`        | `setext:<underline>` or its closing `#`s | the heading's raw      |
+   | `horizontalRule` | the line                                 | the token's raw        |
+   | `codeBlock`      | the fence (`~~~`, ` ```` `)              | the token's raw        |
+   | `bold`, `italic` | `__`, `_`                                | the token's raw        |
+   | `strike`         | `~`                                      | the token's raw        |
+   | `hardBreak`      | `\` or the tag (`<br>`, `<br/>`)         | the token's raw        |
 
 3. **Checked on write.** `Keeping.withSafeMarkup` (`keeping.ts`): a new block that holds any
    `markup` is written with it and read back alone; if that reads as neither the block nor the
@@ -378,11 +378,11 @@ lists the markers as built; this section keeps the steps and what turned out dif
 - **A marker is safe when the block reads as itself with it, or as the editor's spelling
   reads.** The plan compared with the block alone, which a block being typed fails whatever its
   markers (`word ` loses its space), and comparing with the editor's spelling alone refuses a
-  marker that is more right than it: a ``fence around code that holds a` line, which
-  three backticks would close early (an inherited fault of the editor's spelling, see below).
+  marker that is more right than it: a fence of four backticks around code that holds a line
+  of three, which a fence of three would close early (an inherited fault of the editor's
+  spelling, see below).
 - **Each rule also checks its marker can stand** (an underline only under one line of text of
-  its level, indented code only with no language and outside a list item, a fence no line of the
-  code closes), so most cases never reach the read-back.
+  its level, a fence no line of the code closes), so most cases never reach the read-back.
 - **A note whose every block changed keeps its markers.** Milestone 2 wrote it whole in the
   editor's spelling (`nothing-kept`); a note of one `*` list would have lost its bullets on the
   first edit. It is now written anew with its blocks' markers, the file's line ends and its
@@ -390,8 +390,14 @@ lists the markers as built; this section keeps the steps and what turned out dif
   editor's spelling.
 - **Pasted markdown takes no markers** (the open question): it isn't the note's text.
 - **A line break in a table cell has no marker:** it is always `<br>` there.
-- **Indented code in a list item is fenced** when its list is rewritten: the editor writes an
-  item's code on the line after its text, where four more spaces would read as that text.
+- **Indented code has no marker.** It was built (`indented` on `codeBlock`, written back as
+  four spaces a line) and taken out again: `@tiptap/markdown` never wrote indented code either,
+  the editor never makes any, and it only matters when such a block from outside is itself
+  edited. An indented block is kept as written while it is unchanged (milestone 2) and fenced
+  once edited. To bring the marker back: read `codeBlockStyle === 'indented'` in `codeBlock`'s
+  `parse`, and in `render` indent each line four spaces only when the block has no language,
+  its code starts and ends with a line of text, and it is not in a list item (there the editor
+  writes code on the line after the item's text, where four more spaces read as that text).
 - **Two expectations changed,** both to the stored spelling: `rich-text-editor.test.ts`'s edit
   now sends `__bold__ & <b>raw</b>!`, and a block moved past another is written `__Two__`.
 

@@ -257,10 +257,16 @@ describe('keeping markers in an edited block', () => {
     },
   );
 
-  it('keeps indented code indented, and a nested list its own bullet', () => {
+  it('fences indented code once it is edited, and leaves it indented until then', () => {
+    // indented code has no marker: the editor writes code fenced
     const code = 'Code:\n\n    const a = 1;\n    a += 1;\n\nEnd';
-    expect(markupsOf(code)).toEqual(['codeBlock:indented']);
-    expect(kept(code, 1).markdown).toBe('Code:\n\n    const a = 1;\n    a += 1;zq\n\nEnd');
+    expect(markupsOf(code)).toEqual([]);
+    expect(kept(code, 1).markdown).toBe('Code:\n\n```\nconst a = 1;\na += 1;zq\n```\n\nEnd');
+    // an edit elsewhere keeps its text, as any block's
+    expect(kept(code, 0).markdown).toBe('Code:zq\n\n    const a = 1;\n    a += 1;\n\nEnd');
+  });
+
+  it('keeps a nested list its own bullet', () => {
     expect(kept('* one\n  + nested\n\nEnd', 0).markdown).toBe('* one\n  + nestedzq\n\nEnd');
     expect(kept('1) one\n   - [X] nested\n\nEnd', 0).markdown).toBe(
       '1) one\n   - [X] nestedzq\n\nEnd',
@@ -355,13 +361,6 @@ describe('keeping markers in an edited block', () => {
     const closing = { ...block, content: [{ type: 'text', text: 'code\n~~~\nmore' }] };
     const written = serializeKeepingSource(fenced, { type: 'doc', content: [closing, last] });
     expect(written).toBe('```\ncode\n~~~\nmore\n```\n\nEnd');
-    // indented code given a language is fenced
-    const indented = 'Code:\n\n    a = 1\n\nEnd';
-    const [intro, code] = parseMarkdown(indented).content ?? [];
-    const inPython = { ...code, attrs: { ...code.attrs, language: 'py' } };
-    expect(
-      serializeKeepingSource(indented, { type: 'doc', content: [intro, inPython, last] }),
-    ).toBe('Code:\n\n```py\na = 1\n```\n\nEnd');
   });
 
   it('keeps two lists that differ in their bullet apart when one is edited', () => {
@@ -378,10 +377,7 @@ describe('keeping markers in an edited block', () => {
         eager: true,
       }),
     )[0];
-    // (indented code in a list item is fenced when its list is rewritten: it would read as text)
-    const kept = (markdown: string) =>
-      markupsOf(markdown).filter((markup) => markup !== 'codeBlock:indented');
-    const markups = kept(text);
+    const markups = markupsOf(text);
     expect(markups).not.toEqual([]);
     const blocks = parseMarkdown(text).content ?? [];
     let edited = 0;
@@ -391,7 +387,7 @@ describe('keeping markers in an edited block', () => {
         return;
       const saved = writeKeepingSource(text, doc);
       expect(saved.whole).toBeNull();
-      expect(kept(saved.markdown), `block ${index}: ${saved.markdown}`).toEqual(markups);
+      expect(markupsOf(saved.markdown), `block ${index}: ${saved.markdown}`).toEqual(markups);
       edited += 1;
     });
     expect(edited).toBeGreaterThan(5);

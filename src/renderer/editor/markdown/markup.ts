@@ -4,7 +4,7 @@ import { Extension, type JSONContent } from '@tiptap/core';
  * The markers a block or a mark was written with, where markdown has more than one spelling and
  * the text used another than the editor's: `*` and `+` bullets, `1)` numbers, `[X]`, `__bold__`,
  * `_italic_`, `~strike~`, an underlined heading or one with closing `#`s, `***` and `___` rules,
- * `~~~` and longer fences, indented code, a `\` or `<br>` line break.
+ * `~~~` and longer fences, a `\` or `<br>` line break.
  *
  * Each is kept in a `markup` attribute of its node or mark: null for the editor's own spelling,
  * which everything made in the editor has. The rule that reads the node sets it (`parse`) and
