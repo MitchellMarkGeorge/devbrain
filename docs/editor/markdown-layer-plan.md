@@ -274,7 +274,7 @@ describes it as built; this section keeps the steps and what turned out differen
    written at the end of the text.
 5. **The editor.** `DocumentMarkdown` keeps `loaded` in its storage (the text, its source map,
    the document it loaded as), set for the first content and by `setContent` with
-   `contentType: 'markdown'`. `editor.storage.documentMarkdown.save()` gives the loaded text
+   `contentType: 'markdown'`. `editor.saveMarkdown()` gives the loaded text
    while the document is the one loaded, and `codec.serializeKeeping` otherwise.
    `RichTextEditor`'s `markdown()` and `onChange` use it; `Baseline` and `markdownOf` are gone.
    `editor.getMarkdown()` stays the editor's own spelling.
@@ -292,7 +292,7 @@ describes it as built; this section keeps the steps and what turned out differen
 - **No separate seam checks.** The whole-output check covers the seams, and falls back in two
   steps (blank lines around new blocks, then the whole document). A check of only the edited
   region is milestone 4's performance work.
-- **The loaded document is kept beside the map.** `save()` returns the loaded text when the
+- **The loaded document is kept beside the map.** `saveMarkdown()` returns the loaded text when the
   document equals the one loaded. Every block kept gives the same text for a text with a map,
   but a text without one (mixed line ends, only definitions) must also come back exactly when it
   is opened or undone to, as `Baseline` ensured.
@@ -304,6 +304,9 @@ describes it as built; this section keeps the steps and what turned out differen
   second, the check fails and the document is written whole.
 - **Definitions beside a removed block stay in place** where the text holding them stood next
   to a kept block, rather than all moving to the end.
+- **The markdown to store is `editor.saveMarkdown()`,** a method on the editor beside
+  `getMarkdown()`, where the plan had it in the extension's storage: a caller need not know
+  which extension holds it.
 - **Moved blocks are new,** as planned (matching is in order); the prototype kept them.
 - **`rich-text-editor.test.ts` changed one expectation:** after an edit `onChange` hears
   `* one\n* two\n\n**bold** & <b>raw</b>!`, the list as stored, where it heard the whole

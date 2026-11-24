@@ -133,14 +133,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           editor.commands.setContent(text, { contentType: 'markdown', emitUpdate: false });
           editor.view.dispatch(closeHistory(editor.state.tr));
         },
-        markdown: () => editor.storage.documentMarkdown.save(),
+        markdown: () => editor.saveMarkdown(),
       }),
       [editor],
     );
 
     useEffect(() => {
       // back to how it was loaded, it sends the stored text, unchanged
-      const send = () => onChange?.(editor.storage.documentMarkdown.save());
+      const send = () => onChange?.(editor.saveMarkdown());
       editor.on('update', send);
       return () => {
         editor.off('update', send);

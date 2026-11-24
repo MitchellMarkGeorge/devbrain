@@ -5,8 +5,14 @@ import type { MarkdownSource } from './source';
 
 declare module '@tiptap/core' {
   interface Editor {
-    /** The document as markdown (DocumentMarkdown). */
+    /** The whole document as markdown, in the editor's own spelling (DocumentMarkdown). */
     getMarkdown: () => string;
+    /**
+     * The markdown to store for the document (DocumentMarkdown): the text it was loaded from
+     * exactly while it is still what was loaded, and otherwise that text with only the blocks
+     * that changed written anew (`codec.writeKeeping`).
+     */
+    saveMarkdown: () => string;
   }
   interface EditorOptions {
     /** `markdown` reads a string `content` as markdown (DocumentMarkdown). */
@@ -26,12 +32,6 @@ export interface DocumentMarkdownStorage {
   codec: MarkdownCodec;
   // the text the content was last read from, when it was loaded as markdown
   loaded: LoadedMarkdown | null;
-  /**
-   * The content as markdown to save: the text it was loaded from exactly while it is still what
-   * was loaded, and otherwise that text with only the blocks that changed written anew
-   * (`codec.writeKeeping`). `editor.getMarkdown()` is the editor's own spelling of all of it.
-   */
-  save: () => string;
 }
 
 interface LoadedMarkdown {
@@ -48,7 +48,7 @@ interface LoadedMarkdown {
  * (the clipboard), and `contentType: 'markdown'`, which reads a string as markdown: the editor's
  * first `content`, and `setContent`'s. Either way the document is loaded as the codec's JSON, through
  * TipTap's own `setContent`, and the text is remembered with its source map, for
- * `editor.storage.documentMarkdown.save()` to write the content keeping it.
+ * `editor.saveMarkdown()` to write the content keeping it.
  */
 export const DocumentMarkdown = Extension.create<Record<string, never>, DocumentMarkdownStorage>({
   name: 'documentMarkdown',
@@ -57,7 +57,6 @@ export const DocumentMarkdown = Extension.create<Record<string, never>, Document
     return {
       codec: null as unknown as MarkdownCodec,
       loaded: null,
-      save: () => '',
     };
   },
 
@@ -87,7 +86,7 @@ export const DocumentMarkdown = Extension.create<Record<string, never>, Document
     const codec = new MarkdownCodec(editor.schema);
     storage.codec = codec;
     editor.getMarkdown = () => codec.serialize(editor.getJSON());
-    storage.save = () => {
+    editor.saveMarkdown = () => {
       const { loaded } = storage;
       if (!loaded) return editor.getMarkdown();
       // as loaded (opened, or undone back to it): the text itself, whether or not it has a map

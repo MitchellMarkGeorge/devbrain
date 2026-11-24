@@ -159,7 +159,7 @@ writes the document keeping the text of every block that didn't change ("What a 
   for `setContent`. Either way the text is read with `codec.read` and loaded as JSON (a text with
   no blocks, only link definitions, loads as a paragraph showing its lines), and the text, its
   source map and the document it loaded as are kept in the extension's storage (`loaded`).
-  `editor.storage.documentMarkdown.save()` is the markdown to store: the loaded text itself
+  `editor.saveMarkdown()` is the markdown to store: the loaded text itself
   while the document is still the one loaded, and `codec.serializeKeeping` once it is edited.
   `RichTextEditor` sends that. A `setContent` of anything but markdown forgets the loaded text.
 - `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
