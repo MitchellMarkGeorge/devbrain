@@ -239,6 +239,34 @@ one query per type, the pills' fetches gathered into one call per turn. Worth it
   300 ms.
 - **P2** (project health) is a feature, not a cost; nothing here calls for it.
 
+## The editor's markdown
+
+The markdown layer (`src/renderer/editor/markdown`, [editor.md](editor.md)) reads a note when it
+opens and writes it on every save, in the renderer. `npm run markdown:perf` times it on notes of
+150, 750 and 3,000 lines made of the real-world fixtures one after another (Electron's Node,
+jsdom; the median of 9 to 25 runs):
+
+| Note                             | Read (open) | Save, a paragraph edited | Save, a block added | Whole document written |
+| -------------------------------- | ----------- | ------------------------ | ------------------- | ---------------------- |
+| 150 lines, 51 blocks, 2 KB       | 4 ms        | 0.4 ms                   | 0.3 ms              | 2 ms                   |
+| 760 lines, 268 blocks, 13 KB     | 9 ms        | 0.7 ms                   | 0.4 ms              | 3 ms                   |
+| 3,010 lines, 1,061 blocks, 52 KB | 29 ms       | 4 ms                     | 4 ms                | 13 ms                  |
+
+Before the work that brought it here, the 3,010-line note read in 132 ms and saved in 105 ms.
+
+- **Reading** was quadratic: the to-do list's tokenizer split the whole rest of the text into
+  lines at every block, and the table's did at every paragraph, though `marked` alone read the
+  note in 17 ms. Each now looks at the lines it needs.
+- **Saving** read the whole text back on every save, to check what it kept. It now reads back
+  only around the blocks it wrote anew ([editor.md](editor.md), "What a save changes"), and tells
+  an unchanged block by identity: the first save lines the document up with the source, comparing
+  every block once, and from then on a block an edit didn't touch is the very node the source
+  holds.
+
+What is left grows with the note: finding the changed blocks (a pass over the top-level blocks)
+and putting the text together. A save that falls back to the whole document costs a read and a
+whole write.
+
 ## Budgets
 
 For the large seed, measured as above (Linux, xvfb). A change that breaks one should say why in its
@@ -258,5 +286,6 @@ explains it.
 | A single-task write                                                      | 5 ms                     | about 5 ms (2)               |
 | A bulk write of 200 tasks                                                | 100 ms                   | **Over:** 881 ms (2)         |
 | What a change or a sync page refetches                                   | 15 calls, 100 ms in main | ≤ 14 calls, 67 ms            |
+| The markdown layer on a 3,000-line note: read / save an edit             | 100 / 20 ms              | 29 / 4 ms (`markdown:perf`)  |
 | The 200 KB note: open                                                    | 2.5 s                    | **Over:** 4.1 s (3)          |
 | The 200 KB note: typing, per key p50 / p95                               | 30 / 60 ms               | **Over:** 33 / 63 ms (3)     |

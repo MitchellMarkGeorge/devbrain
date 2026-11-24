@@ -204,12 +204,32 @@ written with ("What a save changes").
   written as its HTML tag (`<strong>`). Text is escaped as "What a save changes" says
   (`relaxEntities`, `escapeLineStart`).
 
-Where it differs from `@tiptap/markdown`: HTML that `marked` reads as inline HTML but no tokenizer
-takes (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as
-raw HTML, as written; TipTap parsed it through the DOM and dropped it, losing it on the next save.
-And a note that reads as no blocks at all (only link definitions, `[docs]: https://…`) shows its
-text, a line each, however it is loaded; TipTap showed it on the first load only (read as HTML,
-which lost an address in angle brackets) and loaded it empty through `setContent`.
+Where it reads or writes otherwise than `@tiptap/markdown` did, each a fault of that package's
+the layer no longer has:
+
+- **HTML it dropped is kept.** HTML that `marked` reads as inline HTML but no tokenizer takes
+  (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as raw
+  HTML, as written; TipTap parsed it through the DOM and lost it on the next save.
+- **A note that reads as no blocks** (only link definitions, `[docs]: https://…`) shows its text, a
+  line each, however it is loaded; TipTap showed it on the first load only and loaded it empty
+  through `setContent`.
+- **A sentence is not a numbered item.** Only a number, a roman numeral or a letter or two of one
+  case numbers an item (`1.`, `iv.`, `b)`). "No. I think so" was read as an item numbered "No",
+  and saved as `1. I think so`. A paragraph the editor holds that starts like an item is written
+  escaped (`a\) first point`), and so is one that is `-` or `+` alone.
+- **A paragraph that holds only an image is a paragraph.** It was read as a bare image among the
+  document's blocks, which the schema doesn't allow.
+- **A numbered item with no text** (`1.` alone) has an empty paragraph; it had none, and could not
+  be written back.
+- **A wrapped line has no indentation in the text.** The lines after the first of a list item, and
+  the line after a line break, start at their first character that isn't a space, and the spaces
+  before a line break are no text either. `<br>` at a line's end is one line break; it was a break
+  and a new paragraph once saved.
+- **Code is fenced with enough backticks.** A code block that holds a line of three backticks is
+  fenced with four; three closed it early.
+- **A heading is written on one line,** with `#`s that end its text escaped (`## C \#`); a line
+  end in its text made the rest a paragraph, and the `#`s were read as its closing ones.
+- **A line break or spaces that end a paragraph are not written:** they read as nothing.
 
 ### The source map
 
@@ -232,7 +252,7 @@ interface MarkdownSource {
   any blank lines around it are not part of it.
 - **`blocks` follows the document's top-level nodes in order.** A slice gives one node, or
   several: a list that mixes to-dos and bullets is one slice and the lists it is split into. A
-  paragraph that holds only an image reads as a bare `imageLink` and keeps its slice. `null`
+  paragraph that holds only an image is a paragraph like any other. `null`
   stands for one empty paragraph read from blank lines: it has no slice, and its blank lines are
   in the text between the blocks around it.
 - **`between`** is the text outside the slices: `between[i]` comes before the i-th slice (counting
@@ -264,9 +284,11 @@ save of such a text, once edited, writes the whole document in the editor's spel
 | `unread-token`         | has a block that reads as nothing (a fenced code block indented one to three spaces, which is lost)   |
 | `invalid-node`         | reads as a node the schema can't make                                                                 |
 | `no-blocks`            | reads as no blocks: empty, or only definitions (loaded as one paragraph, a line of the text per line) |
+| `unreadable`           | could not be read at all: reading it threw ("When reading or writing fails")                          |
 
-On `docs/` and the READMEs in `node_modules` (1,067 files), 1,060 have a map; five mix line
-ends, one defines its labels inside a collapsible section and one has an indented fence.
+Of the 1,673 markdown files under `docs/` and `node_modules`, 1,663 have a map; seven mix line
+ends, one defines its labels inside a collapsible section, one has an indented fence and one is
+only definitions.
 
 ## The note format
 
@@ -383,13 +405,21 @@ Here `!` was typed after "text": the paragraph is written anew (`**bold**`), and
   whole document is written in the editor's spelling. Kept text never changes what a note means.
 
 None of the text is kept, and the whole document is written anew (`KeptWriting.whole` says
-why), in three cases. In the editor's spelling: when the text has no source map (`no-source`;
-"The source map" lists the reasons), and when the check fails (`readback-mismatch`). With the
-markers its blocks were read with (below), the file's line ends and its final newline: when no
-block is as it was read (`nothing-kept`, a note of one paragraph being edited). On `docs/` and the
-READMEs in `node_modules`, editing, removing and adding a block throughout (19,585 saves) kept
-the text in 99.7%; the rest, nearly all a removal that brings two lists together (which the
-editor's spelling reads as one list), were written whole.
+why), in four cases. In the editor's spelling: when the text has no source map (`no-source`;
+"The source map" lists the reasons), when the check fails (`readback-mismatch`), and when keeping
+throws (`error`). With the markers its blocks were read with (below), the file's line ends and
+its final newline: when no block is as it was read (`nothing-kept`, a note of one paragraph being
+edited). The editor counts the first three by reason (`editor.storage.documentMarkdown.wholeWrites`)
+and logs each reason once in development, never with the text.
+
+**The check reads back only what the save wrote.** Reading the whole text back on every save
+would cost a parse of the note per keystroke's save. Instead each stretch of new blocks is read
+with the kept block on either side of it (and the text's definitions, for its reference links),
+and must read as those blocks, the kept ones each from its own slice. A kept block that reads as
+part of its new neighbour (a to-do list after a new bullet list is one list with it) is read by
+what follows it too, so then, and whenever a stretch doesn't read as expected or a definition
+moved, the whole text is read (`keeping.ts`, `Keeping.regionsOf`; `check: 'whole'` and `'both'`
+ask for the whole text every time).
 
 **A block written anew keeps the markers it was read with.** Where markdown has more than one
 spelling and the text used another than the editor's, the node or mark keeps it in a `markup`
@@ -427,6 +457,8 @@ Besides its markers, a block written anew, and all of a document written whole, 
 editor's spelling:
 
 - one blank line between the blocks inside it, and around a collapsible section's body;
+- nothing where it reads as nothing: the spaces or line break a paragraph ends with, the
+  indentation of a wrapped line;
 - `-` bullets, `1.` numbers, `**bold**`, `*italic*`, `~~struck~~`, `#` headings, `---`, three
   backticks (indented code too), two trailing spaces for a line break;
 - tables padded into columns;
@@ -439,11 +471,60 @@ Blocks are matched in order, so of two blocks that swap places one is kept and t
 anew (with its markers). A list is one block: editing one item rewrites the list, with its
 bullets.
 
+### When reading or writing fails
+
+The layer must never lose a note, whatever it is given:
+
+- **Reading throws** (`codec.read` catches it): the text is shown as it is written, a line of a
+  paragraph each, with no source map (`unreadable`). `RichTextEditor` keeps that editor
+  read-only and says so in a toast; `saveMarkdown()` gives the text as loaded, so its file is
+  untouched.
+- **Keeping throws** (`codec.writeKeeping` catches it): the whole document is written in the
+  editor's spelling (`whole: 'error'`).
+- **Writing throws altogether** (`editor.saveMarkdown` catches it): it gives what it gave last, so
+  nothing new is stored over the last good text, and a toast says the change wasn't saved. The
+  next save that works clears it.
+
+`editor.storage.documentMarkdown.problem` is `unreadable`, `unsaveable` or null, and `onProblem`
+hears it change.
+
+### Checking it on real files
+
+Three checks stand beside the cases in the tests:
+
+- **Properties** (`markdown-properties.test.ts`, with `fast-check`): generated documents read back
+  as written and are written the same twice; generated texts (the real-world fixtures' blocks in
+  any order, with either line end) save unedited as they are, and any single block replaced,
+  removed or added saves as the edited document with the rest of the text as it was. `npm test`
+  runs 300 cases of each; `MARKDOWN_PROPERTY_RUNS=10000 npm test -- markdown-properties` runs the
+  10,000 they were built on. The generated text leaves out `<`, `>`, `@` and `|`, which read as
+  HTML, an email link and a table's cell.
+- **The corpus** (`npm run markdown:corpus -- <folders>`, not part of `npm test`): reads every
+  `.md` file under the folders, and for each checks that the source map's pieces are the text,
+  that it saves unedited as it is, and that an edit, a removal and an addition at eight of its
+  blocks (`--all-blocks` for every one) each save as the edited document and leave the rest of the
+  text alone, reading the save back both ways. It prints what it found and exits with 1 when a
+  text could be lost. Run it on `docs node_modules`, and on real notes (an Obsidian vault, a
+  wiki's checkout) before a release.
+- **The file on disk** (`e2e/flows/note-file.spec.ts`): a note's file written as another app
+  would write it is opened, left, and edited in one paragraph, and is read back from disk each
+  time.
+
+On `docs/` and `node_modules` (1,673 files, 31,346 saves): no text lost or changed, 98.9% of the
+saves kept the text outside their block, and 1.1% wrote the whole document (317 of the 331 a
+removal that brings its two neighbours together: two lists, which read as one). 27 of the files
+are written differently the second time the editor writes them whole: a table or raw HTML inside
+a list item, a paragraph straight above a list, marks that close in another order. Nothing is
+lost, but such a note changes once more on its second whole write; they are listed by the corpus
+run ("unstable spelling").
+
+Timings and budgets: [performance.md](performance.md) ("The editor's markdown").
+
 `src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged
-("markdown round trip"), what a save keeps ("saving what was read") and each marker ("keeping
-markers in an edited block");
-`markdown-keeping.test.ts` edits, removes and adds a block at every place in each real-world
-fixture, with both line ends. Add a case when a new kind of content must survive.
+("markdown round trip"), what a save keeps ("saving what was read"), each marker ("keeping
+markers in an edited block") and what a save must never render ("untrusted content through a
+save"); `markdown-keeping.test.ts` edits, removes and adds a block at every place in each
+real-world fixture, with both line ends. Add a case when a new kind of content must survive.
 
 ## Extending it
 

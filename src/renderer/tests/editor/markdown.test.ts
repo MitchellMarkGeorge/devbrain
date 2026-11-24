@@ -33,6 +33,98 @@ function expectRoundTrip(markdown: string) {
 }
 
 describe('markdown round trip', () => {
+  it('fences code with more backticks than any line of it starts with', () => {
+    const code = (text: string): JSONContent => ({
+      type: 'doc',
+      content: [
+        { type: 'codeBlock', attrs: { language: 'md' }, content: [{ type: 'text', text }] },
+      ],
+    });
+    expect(serializeMarkdown(code('plain'))).toBe('```md\nplain\n```');
+    const fenced = serializeMarkdown(code('```\ninner\n```'));
+    expect(fenced).toBe('````md\n```\ninner\n```\n````');
+    expect(nodesOfType(parseMarkdown(fenced), 'codeBlock')[0].content).toEqual([
+      { type: 'text', text: '```\ninner\n```' },
+    ]);
+    expect(serializeMarkdown(code('a\n`````\nb'))).toBe('``````md\na\n`````\nb\n``````');
+    // backticks inside a line close nothing
+    expect(serializeMarkdown(code('a ``` b'))).toBe('```md\na ``` b\n```');
+  });
+
+  it('reads a sentence that starts with a short word as a paragraph, not a numbered item', () => {
+    // only a number, a roman numeral or a letter or two of one case numbers an item
+    for (const text of ['No. I think so', 'Hi. there', 'Ok. Let’s go']) {
+      expect(parseMarkdown(text).content?.map((node) => node.type)).toEqual(['paragraph']);
+      expectRoundTrip(text);
+    }
+    expect(parseMarkdown('a) first\nb) second').content?.[0]).toMatchObject({
+      type: 'orderedList',
+      attrs: { type: 'a', markup: ')' },
+    });
+    // and a paragraph the editor holds that starts like an item is written so it stays one
+    const paragraph = (text: string): JSONContent => ({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+    });
+    for (const [text, written] of [
+      ['a) first point', 'a\\) first point'],
+      ['I. Introduction', 'I\\. Introduction'],
+      ['ok. so', 'ok\\. so'],
+      ['+', '\\+'],
+      ['No. I think so', 'No. I think so'],
+      ['e.g. this', 'e.g. this'],
+    ]) {
+      expect(serializeMarkdown(paragraph(text))).toBe(written);
+      expect(parseMarkdown(written)).toEqual(paragraph(text));
+    }
+  });
+
+  it('reads the lines of a wrapped paragraph without their indentation', () => {
+    // the lines after the first of a list item, and what follows a line break
+    const doc = parseMarkdown('1. first line\n   second line\n- bullet\n      wrapped far');
+    expect(nodesOfType(doc, 'text').map((node) => node.text)).toEqual([
+      'first line\nsecond line',
+      'bullet\nwrapped far',
+    ]);
+    expect(
+      nodesOfType(parseMarkdown('one  \n   two<br>\nthree'), 'text').map((n) => n.text),
+    ).toEqual(['one', 'two', 'three']);
+    // written once, they stay as they are
+    for (const text of ['1. first line\n   second line', 'one<br>\ntwo', 'one   \ntwo']) {
+      const once = normalizeMarkdown(text);
+      expect(normalizeMarkdown(once)).toBe(once);
+    }
+    expect(normalizeMarkdown('one<br>\ntwo')).toBe('one  \ntwo');
+  });
+
+  it('writes a heading on one line, and nothing that reads as nothing', () => {
+    const heading = (...content: JSONContent[]): JSONContent => ({
+      type: 'doc',
+      content: [{ type: 'heading', attrs: { level: 2 }, content }],
+    });
+    const text = (value: string): JSONContent => ({ type: 'text', text: value });
+    expect(serializeMarkdown(heading(text('one\ntwo')))).toBe('## one two');
+    // `#`s that end it would close it
+    expect(serializeMarkdown(heading(text('C #')))).toBe('## C \\#');
+    expect(parseMarkdown('## C \\#')).toEqual(heading(text('C #')));
+    // a line break, or spaces, that end a paragraph
+    const paragraph: JSONContent = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [text('end '), { type: 'hardBreak' }] }],
+    };
+    expect(serializeMarkdown(paragraph)).toBe('end');
+  });
+
+  it('reads a numbered item with no text as an empty item, and writes it back', () => {
+    const doc = parseMarkdown('1. \n2. two');
+    expect(nodesOfType(doc, 'listItem').map((item) => item.content?.[0])).toEqual([
+      { type: 'paragraph', content: [] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'two' }] },
+    ]);
+    expect(() => serializeMarkdown(doc)).not.toThrow();
+    expect(parseMarkdown(serializeMarkdown(doc))).toEqual(doc);
+  });
+
   it('keeps every GFM block as written', () => {
     expectRoundTrip(
       [
@@ -340,7 +432,7 @@ describe('keeping markers in an edited block', () => {
         .eq(documentSchema.nodeFromJSON(stripMarkup({ ...doc, content: [joined, end] }))),
     ).toBe(true);
 
-    // an underline under two lines of text would make both the heading
+    // an underlined heading can have two lines; a `#` heading can't, and takes them as one
     const title = 'Title\n=====\n\nEnd';
     const [heading, last] = parseMarkdown(title).content ?? [];
     const twoLines = {
@@ -348,8 +440,9 @@ describe('keeping markers in an edited block', () => {
       content: [...heading.content!, { type: 'hardBreak' }, { type: 'text', text: 'more' }],
     };
     expect(serializeKeepingSource(title, { type: 'doc', content: [twoLines, last] })).toBe(
-      '# Title  \nmore\n\nEnd',
+      'Title  \nmore\n=====\n\nEnd',
     );
+    expect(serializeMarkdown({ type: 'doc', content: [twoLines] })).toBe('# Title more');
     // an underline says its level: a title made a section takes `#`s
     const section = { ...heading, attrs: { ...heading.attrs, level: 3 } };
     expect(serializeKeepingSource(title, { type: 'doc', content: [section, last] })).toBe(
@@ -538,10 +631,13 @@ describe('reading the source', () => {
     expect(blank.between).toEqual(['\n\n\n']);
   });
 
-  it('keeps the slice of a paragraph that holds only an image, which reads as the image', () => {
+  it('reads a paragraph that holds only an image as a paragraph, with its slice', () => {
     const source = expectLinedUp('Before\n\n![diagram](a.png "A")\n\nAfter');
     const [, image] = slices(source);
-    expect(image.nodes.map((node) => node.type.name)).toEqual(['imageLink']);
+    expect(image.nodes.map((node) => node.type.name)).toEqual(['paragraph']);
+    expect(image.nodes[0].firstChild?.type.name).toBe('imageLink');
+    // a document the schema allows, which a bare image among its blocks was not
+    expect(() => documentSchema.nodeFromJSON(readMarkdown(source.text).doc).check()).not.toThrow();
     expect(sliceText(source, image)).toBe('![diagram](a.png "A")');
   });
 
@@ -904,7 +1000,6 @@ describe('saving what was read', () => {
   });
 
   it('keeps a paragraph that holds only an image', () => {
-    // read as a bare image, which the editor puts in a paragraph
     const text = '![diagram](diagram.png)\n\n* a';
     expect(serializeKeepingSource(text, edit(text, 1, paragraph('Changed')))).toBe(
       '![diagram](diagram.png)\n\nChanged',
@@ -962,7 +1057,7 @@ describe('saving what was read', () => {
     // a paragraph being typed ends with a space; a heading has no text yet. Neither makes the save give up the text of the blocks around it.
     const text = '* One\n\n__Two__\n\n+ Three\n';
     const typing = writeKeepingSource(text, edit(text, 1, paragraph('Typing ')));
-    expect(typing).toEqual({ markdown: '* One\n\nTyping \n\n+ Three\n', whole: null });
+    expect(typing).toEqual({ markdown: '* One\n\nTyping\n\n+ Three\n', whole: null });
     // (the editor writes a heading with no text as nothing, which reads as a blank line)
     const empty = { type: 'heading', attrs: { level: 2 } };
     expect(writeKeepingSource(text, edit(text, 1, empty))).toEqual({
@@ -1028,8 +1123,8 @@ describe('saving what was read', () => {
   });
 
   it('keeps an unchanged block that the editor would write differently each time', () => {
-    // the editor writes "<br> a" as a line break and a space, and that again with one more space
-    const text = 'Edited\n\nA line <br> a break';
+    // the editor moves the `**` out of the link, and then writes the link differently again
+    const text = 'Edited\n\nSee the [***spec* repository**](https://example.com).';
     const once = normalizeMarkdown(text);
     expect(normalizeMarkdown(once)).not.toBe(once);
     const doc = edit(once, 0, paragraph('Edited again'));
@@ -1233,13 +1328,95 @@ describe('untrusted content', () => {
       contentType: 'markdown',
     });
     const dom = editor.view.dom;
-    expect(dom.querySelector('img, div[align], span.x')).toBeNull();
+    // (ProseMirror puts an empty `img` of its own after an inline node that ends a paragraph)
+    expect(dom.querySelector('img:not(.ProseMirror-separator), div[align], span.x')).toBeNull();
+    expect(dom.querySelector('img[src]')).toBeNull();
     expect(dom.querySelector('pre[data-raw-html]')?.textContent).toContain('<div align="center">');
     expect(dom.querySelector('[data-image-src]')?.textContent).toBe('diagram');
     expect([...dom.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([]);
     expect(dom.querySelector('[data-unsafe-link]')?.textContent).toBe('run me');
     editor.destroy();
   });
+});
+
+// Keeping a note's text and its markers must render nothing the editor doesn't render anyway
+// (docs/security/untrusted-content.md): raw HTML stays its source, an image a chip, a refused
+// link plain text, whether its block is kept as written or written anew.
+describe('untrusted content through a save', () => {
+  const CONSTRUCTS: [string, string][] = [
+    ['a block of HTML', '<div onclick="alert(1)">\n<script>alert(1)</script>\n</div>'],
+    ['an iframe', '<iframe src="https://tracker.example/frame"></iframe>'],
+    [
+      'inline HTML',
+      'Text with <img src=x onerror=alert(1)> and <a href="javascript:alert(1)">a link</a>.',
+    ],
+    ['an image', '![pixel](https://tracker.example/pixel.png "Pixel")'],
+    [
+      'a link the editor refuses',
+      '__Run__ [this](javascript:alert(1)) and [that](data:text/html,x).',
+    ],
+    ['a comment and a doctype', '<!-- <script>alert(1)</script> -->\n<!DOCTYPE html>'],
+  ];
+
+  function domOf(markdown: string) {
+    const editor = new Editor({
+      extensions: createDocumentExtensions(),
+      content: markdown,
+      contentType: 'markdown',
+    });
+    return { editor, dom: editor.view.dom };
+  }
+
+  function expectNothingRendered(dom: HTMLElement) {
+    expect(
+      dom.querySelector('script, iframe, div[onclick], img[src], img[onerror], a[href], object'),
+    ).toBeNull();
+    for (const element of dom.querySelectorAll('*')) {
+      for (const attribute of element.getAttributeNames()) expect(attribute).not.toMatch(/^on/);
+    }
+  }
+
+  it.each(CONSTRUCTS)(
+    'keeps %s as written, and unrendered, when a block beside it is edited',
+    (_, construct) => {
+      const text = `* Before\n\n${construct}\n\n__After__ it\n`;
+      const { editor, dom } = domOf(text);
+      expectNothingRendered(dom);
+      editor.chain().focus('end').insertContent('!').run();
+      const saved = editor.saveMarkdown();
+      expect(saved).toBe(`* Before\n\n${construct}\n\n__After__ it!\n`);
+      editor.destroy();
+      const reopened = domOf(saved);
+      expectNothingRendered(reopened.dom);
+      reopened.editor.destroy();
+    },
+  );
+
+  it.each(CONSTRUCTS)(
+    'renders nothing of %s when its own block is written anew',
+    (_, construct) => {
+      const text = `${construct}\n\n* After\n`;
+      const { editor } = domOf(text);
+      // the block made new: typed in where it holds text, and moved below the list either way
+      const [first, list] = editor.state.doc.children;
+      editor.commands.setContent({ type: 'doc', content: [list.toJSON(), first.toJSON()] });
+      const moved = editor.getMarkdown();
+      editor.commands.setContent(text, { contentType: 'markdown' });
+      editor.chain().setTextSelection(1).insertContent('Typed ').run();
+      for (const saved of [moved, editor.saveMarkdown()]) {
+        const reopened = domOf(saved);
+        expectNothingRendered(reopened.dom);
+        // and nothing of it was lost: what it holds is still in the text
+        for (const part of construct.match(
+          /javascript:alert\(1\)|tracker\.example|<script>|DOCTYPE/g,
+        ) ?? []) {
+          expect(saved).toContain(part);
+        }
+        reopened.editor.destroy();
+      }
+      editor.destroy();
+    },
+  );
 });
 
 describe('highlightToText', () => {

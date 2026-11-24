@@ -58,7 +58,9 @@ export type UnmappedReason =
   // a definition inside a quote, a list item or another block, which would move with that block
   | 'nested-definition'
   // no blocks at all (an empty text, or only definitions), shown as a paragraph of its lines
-  | 'no-blocks';
+  | 'no-blocks'
+  // reading it threw (codec.ts): shown as a paragraph of its lines, and not to be edited
+  | 'unreadable';
 
 export type SourceReading =
   | { source: MarkdownSource; reason: null }

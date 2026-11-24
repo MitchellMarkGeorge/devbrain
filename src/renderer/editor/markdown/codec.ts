@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 import type { Node as ProseMirrorNode, Schema } from '@tiptap/pm/model';
 import type { Marked } from 'marked';
-import { writeKeeping, type KeptWriting } from './keeping';
+import { writeKeeping, type KeepingOptions, type KeptWriting } from './keeping';
 import { createMarked } from './lexer';
 import { MarkdownParser } from './parser';
 import { DOCUMENT_RULES, RuleTable } from './rules';
@@ -23,6 +23,16 @@ let marked: Marked | null = null;
 function documentMarked(): Marked {
   marked ??= createMarked(rules.tokenizers);
   return marked;
+}
+
+// a text shown as it is written: one paragraph, a line of the text each
+function plainDocument(markdown: string): JSONContent {
+  const lines = markdown.split(/\r\n|\r|\n/).filter((line) => line.trim());
+  const content = lines.flatMap((line, index): JSONContent[] => [
+    ...(index > 0 ? [{ type: 'hardBreak' }] : []),
+    { type: 'text', text: line },
+  ]);
+  return { type: 'doc', content: [{ type: 'paragraph', content }] };
 }
 
 /**
@@ -50,15 +60,17 @@ export class MarkdownCodec {
    * one empty paragraph. Neither has a map.
    */
   read(markdown: string): MarkdownReading {
-    const parsed = this.parser.read(markdown);
-    const { source, reason } = readSource(markdown, parsed, this.schema);
-    if (parsed.doc.content?.length) return { doc: parsed.doc, source, reason };
-    const lines = markdown.split(/\r\n|\r|\n/).filter((line) => line.trim());
-    const content = lines.flatMap((line, index): JSONContent[] => [
-      ...(index > 0 ? [{ type: 'hardBreak' }] : []),
-      { type: 'text', text: line },
-    ]);
-    return { doc: { type: 'doc', content: [{ type: 'paragraph', content }] }, source, reason };
+    try {
+      const parsed = this.parser.read(markdown);
+      const { source, reason } = readSource(markdown, parsed, this.schema);
+      if (parsed.doc.content?.length) return { doc: parsed.doc, source, reason };
+      return { doc: plainDocument(markdown), source, reason };
+    } catch {
+      // Reading must never lose a note: a text the parser fails on is shown as it is written,
+      // a line of a paragraph each, and has no map. The editor keeps it read-only
+      // (DocumentMarkdown), so its file stays as it is.
+      return { doc: plainDocument(markdown), source: null, reason: 'unreadable' };
+    }
   }
 
   /** The document `read` gives, alone. */
@@ -83,8 +95,18 @@ export class MarkdownCodec {
    * spelling, as `serialize` does, when there is no source or the kept text would read
    * differently; `whole` then says why.
    */
-  writeKeeping(doc: ProseMirrorNode, source: MarkdownSource | null): KeptWriting {
-    return writeKeeping(this, doc, source);
+  writeKeeping(
+    doc: ProseMirrorNode,
+    source: MarkdownSource | null,
+    options?: KeepingOptions,
+  ): KeptWriting {
+    try {
+      return writeKeeping(this, doc, source, options);
+    } catch {
+      // keeping must never lose a save: the document is written whole instead (if that throws
+      // too, the caller keeps what was saved last: `editor.saveMarkdown`)
+      return { markdown: this.serialize(doc.toJSON()), whole: 'error' };
+    }
   }
 
   /** The markdown `writeKeeping` gives, alone. */

@@ -359,9 +359,18 @@ export class MarkdownParser {
   /** Inline tokens as text and inline nodes, each mark put on the text it spans. */
   private parseInline(tokens: MarkdownToken[]): JSONContent[] {
     const result: JSONContent[] = [];
-    for (const token of tokens) {
+    tokens.forEach((token, index) => {
       if (token.type === 'text') {
-        result.push({ type: 'text', text: decodeEntities(token.text || '') });
+        // A line of a paragraph starts at its first character that isn't a space: the
+        // indentation of the lines after the first (a wrapped list item's) is no part of the text.
+        // Nor are the spaces before a line break.
+        const afterBreak = tokens[index - 1]?.type === 'br';
+        const beforeBreak = tokens[index + 1]?.type === 'br';
+        let text = (token.text || '').replace(/\n[ \t]+/g, '\n');
+        // (after `<br>` the line's own end is still in the text: it is the break's)
+        if (afterBreak) text = text.replace(/^[ \t]*\n?[ \t]*/, '');
+        if (beforeBreak) text = text.replace(/[ \t]+$/, '');
+        if (text) result.push({ type: 'text', text: decodeEntities(text) });
       } else if (token.type === 'escape') {
         result.push({ type: 'text', text: token.text || '' });
       } else if (token.type === 'html') {
@@ -383,7 +392,7 @@ export class MarkdownParser {
           result.push(...this.parseInline(token.tokens));
         }
       }
-    }
+    });
     // neighbouring text with the same marks is one text node
     for (let i = result.length - 1; i > 0; i -= 1) {
       const current = result[i];

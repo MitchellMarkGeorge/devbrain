@@ -22,12 +22,59 @@ export type WholeReason =
   // no block is still as it was read: each written with the markers it was read with
   | 'nothing-kept'
   // what keeping wrote read back as another document: in the editor's spelling
-  | 'readback-mismatch';
+  | 'readback-mismatch'
+  // keeping threw (codec.ts): in the editor's spelling
+  | 'error';
 
 export interface KeptWriting {
   markdown: string;
   // null when blocks were kept
   whole: WholeReason | null;
+  // with `check: 'both'`: reading only around the new blocks passed what reading the whole
+  // text back did not (the whole text's answer is the one followed)
+  disagreed?: boolean;
+}
+
+export interface KeepingOptions {
+  /**
+   * How what was written is read back before it is trusted:
+   * - `regions` (the default): only around what was written anew, each stretch of new blocks
+   *   with the kept block on either side of it, and the whole text only when a stretch does not
+   *   read as expected. A save then costs what its edit does, not what the note does.
+   * - `whole`: the whole text, every time.
+   * - `both`: both, to find where they differ (the corpus check).
+   */
+  check?: 'regions' | 'whole' | 'both';
+}
+
+// a piece of what `Keeping.write` wrote: where it is in the text and what it must read as
+interface Part {
+  from: number;
+  to: number;
+  expected: ProseMirrorNode[];
+  // a block kept with its slice (not a run written anew, nor an empty paragraph)
+  slice: boolean;
+  // it does not follow the part before it as it did in the source: what is between the two was
+  // written by this save, and has to be read back
+  seam: boolean;
+}
+
+interface Written {
+  markdown: string;
+  // what the text must read as, block for block
+  expected: ProseMirrorNode[];
+  // the stretches of it to read back, or null when only the whole text will do
+  regions: Region[] | null;
+}
+
+// a stretch of what was written, to read back on its own (`Keeping.regionsOf`)
+interface Region {
+  // the stretch, with the definitions it needs
+  markdown: string;
+  expected: ProseMirrorNode[];
+  // the kept blocks it starts and ends with: where each must be read from in `markdown`, as
+  // that many nodes of its own
+  kept: { from: number; to: number; count: number }[];
 }
 
 /** What keeping needs of the codec: the editor's spelling of a document, and how a text reads. */
@@ -36,6 +83,8 @@ export interface KeepingCodec {
   // with each node and mark written with the marker it was read with (markup.ts)
   serializeWithMarkup(doc: JSONContent): string;
   parse(markdown: string): JSONContent;
+  // a text's source map, or null (source.ts)
+  read(markdown: string): { source: MarkdownSource | null };
 }
 
 // the most pairs of blocks `diffBlocks` compares in a changed stretch; above it, the stretch is
@@ -58,15 +107,6 @@ function isEmptyParagraph(node: ProseMirrorNode): boolean {
 
 function isBlank(text: string): boolean {
   return text.trim() === '';
-}
-
-/**
- * A top-level node as the editor holds it once it is in a document of its own: an inline node at
- * the top level (a paragraph that holds only an image reads as the bare image) is wrapped in a
- * paragraph by `setContent`, and left bare as the editor's first content. Both compare equal here.
- */
-function asBlock(node: ProseMirrorNode): ProseMirrorNode {
-  return node.isInline ? node.type.schema.nodes.paragraph.create(null, node) : node;
 }
 
 /**
@@ -179,6 +219,7 @@ export function writeKeeping(
   codec: KeepingCodec,
   doc: ProseMirrorNode,
   source: MarkdownSource | null,
+  { check = 'regions' }: KeepingOptions = {},
 ): KeptWriting {
   const whole = (reason: WholeReason): KeptWriting => ({
     markdown: codec.serialize(doc.toJSON()),
@@ -199,15 +240,24 @@ export function writeKeeping(
     { inPlace: false, markers: false },
   ];
   const tried = new Set<string>();
+  let disagreed = false;
   for (const attempt of attempts) {
     const written = writing.write(attempt.inPlace, attempt.markers);
     if (tried.has(written.markdown)) continue;
     tried.add(written.markdown);
-    if (writing.readsAs(written.markdown, written.expected)) {
-      return { markdown: written.markdown, whole: null };
+    const regionsRead =
+      check !== 'whole' &&
+      written.regions !== null &&
+      written.regions.every((region) => writing.regionReads(region));
+    // around the new blocks it reads as expected: trusted, unless both are asked for
+    if (regionsRead && check === 'regions') return { markdown: written.markdown, whole: null };
+    const wholeRead = writing.readsAs(written.markdown, written.expected);
+    if (regionsRead && !wholeRead) disagreed = true;
+    if (wholeRead) {
+      return { markdown: written.markdown, whole: null, ...(disagreed && { disagreed }) };
     }
   }
-  return whole('readback-mismatch');
+  return { ...whole('readback-mismatch'), ...(disagreed && { disagreed }) };
 }
 
 class Keeping {
@@ -228,7 +278,7 @@ class Keeping {
     private readonly source: MarkdownSource,
   ) {
     this.schema = doc.type.schema;
-    this.children = doc.children.map(asBlock);
+    this.children = [...doc.children];
     this.slices = source.blocks.filter((block): block is SourceBlock => block !== null);
     this.items = this.match();
     const sliceItems = this.items.filter((item): item is SliceItem => item.kind === 'slice');
@@ -242,19 +292,20 @@ class Keeping {
     const absorbed = new Set<Item>();
     const absorb = (from: number, to: number) =>
       this.items.slice(from, to).forEach((item) => absorbed.add(item));
+    const positionOf = new Map(this.items.map((item, index) => [item, index]));
     sliceItems.forEach((item, index) => {
       const previous = sliceItems[index - 1];
       if (!previous || item.slice !== previous.slice + 1) return;
-      const from = this.items.indexOf(previous) + 1;
-      const to = this.items.indexOf(item);
+      const from = positionOf.get(previous)! + 1;
+      const to = positionOf.get(item)!;
       if (to - from !== item.block - previous.block - 1 || !blanksOnly(from, to)) return;
       this.linked.add(item);
       absorb(from, to);
     });
     const first = sliceItems[0];
     const last = sliceItems.at(-1);
-    const firstAt = first ? this.items.indexOf(first) : -1;
-    const lastAt = last ? this.items.indexOf(last) : -1;
+    const firstAt = first ? positionOf.get(first)! : -1;
+    const lastAt = last ? positionOf.get(last)! : -1;
     this.headKept = first?.slice === 0 && firstAt === first.block && blanksOnly(0, firstAt);
     this.tailKept =
       last?.slice === this.slices.length - 1 &&
@@ -289,7 +340,7 @@ class Keeping {
     // the source's blocks node by node
     const entries: { node: ProseMirrorNode; block: number }[] = [];
     blocks.forEach((block, index) => {
-      if (block) block.nodes.forEach((node) => entries.push({ node: asBlock(node), block: index }));
+      if (block) block.nodes.forEach((node) => entries.push({ node, block: index }));
       else entries.push({ node: empty, block: index });
     });
     // for each child, the index of the entry it still is, or -1
@@ -324,6 +375,10 @@ class Keeping {
           entry === firstEntry.get(block) &&
           read.nodes.every((_, k) => matched[child + k] === entry + k);
         if (whole) {
+          // The source takes the document's own nodes for the block from now on: an edit leaves
+          // the nodes of the blocks it doesn't touch as they are, so the next save finds this
+          // block equal by identity, without comparing what it holds.
+          for (let k = 0; k < count; k += 1) read.nodes[k] = this.children[child + k];
           items.push({ kind: 'slice', slice: sliceIndex.get(block)!, block, child, count });
           child += count;
         } else {
@@ -343,7 +398,7 @@ class Keeping {
    * markers it was read with (`*` bullets, `__bold__`), where they read as the editor's own
    * spelling of it does; without, it is written in the editor's spelling.
    */
-  write(inPlace: boolean, markers: boolean): { markdown: string; expected: ProseMirrorNode[] } {
+  write(inPlace: boolean, markers: boolean): Written {
     const { source, items, slices } = this;
     const { text, between, lineEnd } = source;
     const blankLine = '\n\n';
@@ -357,21 +412,31 @@ class Keeping {
       written.add(index);
       return between[index];
     };
-    // what the output must read as, block for block
-    const expected: ProseMirrorNode[] = [];
+    // the pieces written, in order, each with what it must read as
+    const parts: Part[] = [];
     let tailWritten = this.tailKept;
+    const firstSlice = items.find((item) => item.kind === 'slice');
 
     if (this.headKept) out += writeBetween(0);
     for (let at = 0; at < items.length; ) {
       const item = items[at];
       if (item.kind === 'blank') {
         // inside a kept stretch: its blank lines are in the text between the slices
-        expected.push(this.children[item.child]);
+        const here = out.length;
+        parts.push({
+          from: here,
+          to: here,
+          expected: [this.children[item.child]],
+          slice: false,
+          seam: false,
+        });
         at += 1;
         continue;
       }
       if (item.kind === 'slice') {
         const slice = slices[item.slice];
+        // as it stood in the source after the part before it (or at the text's start)
+        const asRead = this.linked.has(item) || (this.headKept && item === firstSlice);
         if (this.linked.has(item)) out += writeBetween(item.slice);
         else {
           // brought next to the kept block before it by what was removed between them, or
@@ -381,8 +446,15 @@ class Keeping {
           if (held !== null) out += writeBetween(held);
           else if (previous?.kind === 'slice') out += own(blankLine);
         }
+        const from = out.length;
         out += text.slice(slice.from, slice.to);
-        expected.push(...this.children.slice(item.child, item.child + item.count));
+        parts.push({
+          from,
+          to: out.length,
+          expected: this.children.slice(item.child, item.child + item.count),
+          slice: true,
+          seam: !asRead,
+        });
         at += 1;
         continue;
       }
@@ -395,12 +467,19 @@ class Keeping {
       const separators = this.separators(run, left, right, inPlace);
       if (separators.leftBetween !== null) out += writeBetween(separators.leftBetween);
       else if (left) out += own(blankLine);
+      const from = out.length;
       out += own(this.runMarkdown(run, markers));
+      parts.push({
+        from,
+        to: out.length,
+        expected: this.readAlone(run, markers),
+        slice: false,
+        seam: true,
+      });
       if (separators.rightBetween !== null) {
         out += writeBetween(separators.rightBetween);
         if (!right) tailWritten = true;
       } else if (right) out += own(blankLine);
-      expected.push(...this.readAlone(run, markers));
       at = end;
     }
     if (this.tailKept) out += writeBetween(slices.length);
@@ -416,8 +495,101 @@ class Keeping {
       /\n$/.test(text) && markdown !== '' && !markdown.endsWith('\n');
     if (!tailWritten && endsLine(out) && last && !isEmptyParagraph(last)) out += lineEnd;
     const withDefinitions = this.withDefinitions(out, written);
-    if (withDefinitions !== out) out = withDefinitions + (endsLine(withDefinitions) ? lineEnd : '');
-    return { markdown: out, expected };
+    const moved = withDefinitions !== out;
+    if (moved) out = withDefinitions + (endsLine(withDefinitions) ? lineEnd : '');
+    return {
+      markdown: out,
+      expected: parts.flatMap((part) => part.expected),
+      // a definition moved to the end, or left out for another of its label, changes how any
+      // link in the text may read
+      regions:
+        moved || !this.definitionsWritten(written)
+          ? null
+          : this.regionsOf(out, parts, !this.tailKept),
+    };
+  }
+
+  /**
+   * The stretches of `out` a save has to read back: each seam (a part that does not follow the
+   * one before it as it did in the source) with the kept block before it and the kept block
+   * after it, or the text's start or end where there is none. Blocks kept side by side read as
+   * they did in the source, so what lies between two such stretches is not read again.
+   *
+   * A stretch is read on its own, with the text's definitions beside it for its reference
+   * links, in the order they stand in the text, so each label reads as it does there (every
+   * definition is still where it was: `write` asks for the whole text otherwise, and what is
+   * written anew never holds one, its brackets being escaped). That is the same as reading the
+   * stretch in place as long as a kept block reads alone as it read in the source, which the
+   * stretch's own check shows (it starts and ends with one): where a stretch does not read as
+   * expected, the whole text is read instead (`writeKeeping`). Null when one stretch is the
+   * whole text.
+   */
+  private regionsOf(out: string, parts: Part[], endSeam: boolean): Region[] | null {
+    const { definitions, text, lineEnd } = this.source;
+    // [first part, last part] of each stretch; -1 and parts.length for the text's start and end
+    const spans: [number, number][] = [];
+    const add = (from: number, to: number) => {
+      const last = spans.at(-1);
+      if (last && from <= last[1]) last[1] = Math.max(last[1], to);
+      else spans.push([from, to]);
+    };
+    let keptBefore = -1;
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index];
+      if (part.seam) {
+        let keptAfter = index;
+        while (keptAfter < parts.length && !parts[keptAfter].slice) keptAfter += 1;
+        add(keptBefore, keptAfter);
+      }
+      if (part.slice) keptBefore = index;
+    }
+    if (endSeam) add(keptBefore, parts.length);
+    if (spans.some(([from, to]) => from === -1 && to === parts.length)) return null;
+
+    const defined = definitions.map(({ from, to }) => text.slice(from, to)).join(lineEnd);
+    return spans.map(([from, to]) => {
+      const start = from === -1 ? 0 : parts[from].from;
+      const end = to === parts.length ? out.length : parts[to].to;
+      const stretch = out.slice(start, end);
+      // The definitions go before the stretch, where the text's first definition of a label
+      // stays the first. A stretch that starts the text has them after it instead: its own are
+      // the text's first, and a line before it would change what its blank lines read as.
+      const beside = lineEnd.repeat(2);
+      const before = defined === '' || from === -1 ? '' : defined + beside;
+      const after = defined === '' || from !== -1 ? '' : beside + defined;
+      const ends = [parts[from], parts[to]].filter((part) => part?.slice);
+      return {
+        markdown: before + stretch + after,
+        expected: parts.slice(Math.max(from, 0), to + 1).flatMap((part) => part.expected),
+        kept: [...new Set(ends)].map((part) => ({
+          from: before.length + part.from - start,
+          to: before.length + part.to - start,
+          count: part.expected.length,
+        })),
+      };
+    });
+  }
+
+  /**
+   * Whether a stretch reads as expected on its own, and can be trusted to read so in place: its
+   * blocks are the expected ones, and each kept block it starts or ends with is read from its
+   * own slice, as a block of its own. A kept block that reads as part of its new neighbour (a
+   * to-do list after a new bullet list is one list with it) reads by what follows it in the
+   * text too, which the stretch doesn't hold: then it can't be trusted, and the whole text is
+   * read.
+   */
+  regionReads(region: Region): boolean {
+    const { source } = this.codec.read(region.markdown);
+    if (!source) return false;
+    const empty = this.schema.nodes.paragraph.create();
+    const read = source.blocks.flatMap((block) => (block ? block.nodes : [empty]));
+    if (read.length !== region.expected.length) return false;
+    if (!read.every((node, index) => node.eq(region.expected[index]))) return false;
+    return region.kept.every(({ from, to, count }) =>
+      source.blocks.some(
+        (block) => block?.from === from && block.to === to && block.nodes.length === count,
+      ),
+    );
   }
 
   /**
@@ -464,9 +636,7 @@ class Keeping {
       const plain = this.codec.serialize(doc);
       const readsAsItself = () => {
         const read = this.readPlain(marked);
-        return (
-          read?.length === 1 && read[0].eq(asBlock(this.schema.nodeFromJSON(stripMarkup(json))))
-        );
+        return read?.length === 1 && read[0].eq(this.schema.nodeFromJSON(stripMarkup(json)));
       };
       if (marked !== plain && !readsAsItself() && !this.readSame(marked, plain)) {
         safe = stripMarkup(json);
@@ -480,7 +650,7 @@ class Keeping {
   private readPlain(markdown: string): ProseMirrorNode[] | null {
     try {
       return (this.codec.parse(markdown).content ?? []).map((node) =>
-        asBlock(this.schema.nodeFromJSON(stripMarkup(node))),
+        this.schema.nodeFromJSON(stripMarkup(node)),
       );
     } catch {
       return null;
@@ -595,9 +765,7 @@ class Keeping {
   }
 
   private read(markdown: string): ProseMirrorNode[] {
-    return (this.codec.parse(markdown).content ?? []).map((node) =>
-      asBlock(this.schema.nodeFromJSON(node)),
-    );
+    return (this.codec.parse(markdown).content ?? []).map((node) => this.schema.nodeFromJSON(node));
   }
 
   /** Whether `markdown` reads as `expected`, block for block. */
@@ -610,14 +778,30 @@ class Keeping {
     }
   }
 
+  // the index of the `between` text that holds what stands at `offset` of the source
+  private betweenOf(offset: number): number {
+    let low = 0;
+    let high = this.slices.length;
+    // the number of slices that end at or before it
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (this.slices[middle].to <= offset) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+
+  // whether every definition of the source was written where it stood
+  private definitionsWritten(written: Set<number>): boolean {
+    return this.source.definitions.every(({ from }) => written.has(this.betweenOf(from)));
+  }
+
   // The definitions whose text was not written, at the end, so the kept links that use them
   // still read as links. One whose label another definition still written defines is left out.
   private withDefinitions(out: string, written: Set<number>): string {
     const { text, definitions, lineEnd } = this.source;
     if (definitions.length === 0) return out;
-    // the index of the `between` text a definition is in
-    const betweenOf = (from: number) => this.slices.filter((slice) => slice.to <= from).length;
-    const isWritten = (from: number) => written.has(betweenOf(from));
+    const isWritten = (from: number) => written.has(this.betweenOf(from));
     const missing = definitions.filter(
       (definition) =>
         definition.first &&

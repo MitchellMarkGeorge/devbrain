@@ -183,6 +183,21 @@ function listMarker(type: unknown, index: number, separator = '. '): string {
 
 // a numbered item's line: (1) indent, (2) marker, (3) `.` or `)`, (4) its text
 const ORDERED_LIST_ITEM = new RegExp(`^(\\s*)(${ORDERED_LIST_MARKER_PATTERN})([.)])\\s+(.*)$`);
+
+/**
+ * Whether `marker` numbers a list item: digits, a roman numeral, or one or two letters of one
+ * case. Anything else before a `.` is a word that ends a sentence: "No. I think so" is a
+ * paragraph, not an item numbered "No".
+ */
+export function isListNumber(marker: string): boolean {
+  return /^\d+$/.test(marker) || detectMarkerType(marker) !== undefined;
+}
+
+// a line as a numbered item: its indent, number, delimiter and text; null when it isn't one
+function orderedItemOf(line: string): RegExpMatchArray | null {
+  const match = line.match(ORDERED_LIST_ITEM);
+  return match && isListNumber(match[2]) ? match : null;
+}
 const INDENTED_LINE = /^\s/;
 
 // blocks that can interrupt a paragraph, so a line starting with one is never lazy continuation
@@ -198,7 +213,7 @@ function isBlockContentLine(line: string): boolean {
   const trimmed = line.trimStart();
   return (
     PARAGRAPH_INTERRUPTERS.bulletItem.test(trimmed) ||
-    ORDERED_LIST_ITEM.test(trimmed.trimStart()) ||
+    orderedItemOf(trimmed.trimStart()) !== null ||
     PARAGRAPH_INTERRUPTERS.heading.test(trimmed) ||
     (PARAGRAPH_INTERRUPTERS.thematicBreak.test(trimmed) && !trimmed.startsWith('-')) ||
     /^>\s?/.test(trimmed) ||
@@ -250,7 +265,7 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
   let consumed = 0;
   while (index < lines.length) {
     const line = lines[index];
-    const match = line.match(ORDERED_LIST_ITEM);
+    const match = orderedItemOf(line);
     if (!match) break;
     const [, indent, marker, delimiter, content] = match;
     const indentLevel = indent.length;
@@ -263,7 +278,7 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
     let sawBlankLine = false;
     while (next < lines.length) {
       const nextLine = lines[next];
-      if (nextLine.match(ORDERED_LIST_ITEM)) break;
+      if (orderedItemOf(nextLine)) break;
       if (nextLine.trim() === '') {
         itemLines.push(nextLine);
         contentLines.push('');
@@ -271,7 +286,8 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
         next += 1;
       } else if (nextLine.match(INDENTED_LINE)) {
         const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
-        const contentIndent = indentLevel + marker.length + 1;
+        // the column the item's text starts at, after its number, delimiter and spaces
+        const contentIndent = line.length - content.length;
         itemLines.push(nextLine);
         contentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
         next += 1;
@@ -318,7 +334,7 @@ function takeLines(source: string, max: number): string[] {
 function collectOrderedListItemsFromSource(source: string): [OrderedItem[], number, string[]] {
   const firstLineEnd = source.indexOf('\n');
   const firstLine = firstLineEnd === -1 ? source : source.slice(0, firstLineEnd);
-  if (!ORDERED_LIST_ITEM.test(firstLine)) return [[], 0, []];
+  if (!orderedItemOf(firstLine)) return [[], 0, []];
   let windowSize = ORDERED_LIST_SCAN_WINDOW;
   let lines = takeLines(source, windowSize);
   let collected = collectOrderedListItems(lines);
@@ -389,7 +405,9 @@ function parseOrderedListItems(items: MarkdownToken[], helpers: ParseHelpers): J
         if (parsed.length > 0) content.push(...parsed);
       }
     }
-    return { type: 'listItem', content };
+    // an item starts with a paragraph, an empty one when it has no text (`1.` alone)
+    if (content.length === 0) content.push({ type: 'paragraph', content: [] });
+    return { type: 'listItem', content: ensureLeadingParagraph(content) };
   });
 }
 
@@ -430,6 +448,9 @@ function parseTaskItems(
   src: string,
   lexer: TokenizerHelpers,
 ): { items: MarkdownToken[]; raw: string } | undefined {
+  // `marked` asks at every block of a text: unless the first line that isn't blank is a to-do
+  // item there is nothing to read, and the rest of the text is never looked at
+  if (!TASK_ITEM.test(/^(?:[^\S\n]*\n)*([^\n]*)/.exec(src)?.[1] ?? '')) return undefined;
   const lines = src.split('\n');
   const items: MarkdownToken[] = [];
   let totalRaw = '';
@@ -702,7 +723,7 @@ export const listRules: Record<string, MarkdownRule> = {
       if (token.tokens && token.tokens.length > 0) {
         content.push(h.createNode('paragraph', {}, h.parseInline(token.tokens)));
       } else if (token.text) {
-        content.push(h.createNode('paragraph', {}, [h.createNode('text', { text: token.text })]));
+        content.push(h.createNode('paragraph', {}, [h.createTextNode(token.text)]));
       } else {
         content.push(h.createNode('paragraph', {}, []));
       }

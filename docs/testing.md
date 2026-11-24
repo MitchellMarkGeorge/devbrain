@@ -48,6 +48,7 @@ macOS and on a Linux desktop the app's window opens on your screen while the tes
 | `first-run`   | Welcome → Create workspace → Home, on an empty folder                                                                                                                     |
 | `tasks`       | create a task with a due date and project, change its status from the list, open it, edit the description, add a subtask, trash, Undo, trash again and restore from Trash |
 | `notes`       | create a note, type in it, leave and come back (autosave kept it), link a task                                                                                            |
+| `note-file`   | a note's file written as another app would: opening it leaves the file as it is, and an edit rewrites only the block that changed                                         |
 | `workspaces`  | create a second workspace, switch, switch back: each keeps its own data and last page                                                                                     |
 | `persistence` | over a `seed:dev` folder: quit and relaunch reopens the last workspace on its last page, with every row                                                                   |
 | `search`      | ⌘K finds the task and the note, and opens one                                                                                                                             |

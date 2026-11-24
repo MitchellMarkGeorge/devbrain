@@ -9,6 +9,8 @@ import {
   type RichTextEditorProps,
 } from '@renderer/editor/RichTextEditor';
 import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
+import { MarkdownParser } from '@renderer/editor/markdown/parser';
+import { MarkdownSerializer } from '@renderer/editor/markdown/serializer';
 import { EditorEntityPill } from '@renderer/editor/EntityPillView';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -88,14 +90,14 @@ describe('RichTextEditor', () => {
     act(() => {
       editor.commands.insertContent('More ');
     });
-    expect(onChange).toHaveBeenLastCalledWith(stored + '\r\nMore \r\n');
+    expect(onChange).toHaveBeenLastCalledWith(stored + '\r\nMore\r\n');
 
     // the heading, changed where it stands straight above the list
     act(() => {
       editor.chain().setTextSelection(6).insertContent('!').run();
     });
     expect(onChange).toHaveBeenLastCalledWith(
-      (stored + '\r\nMore \r\n').replace('# Title', '# Title!'),
+      (stored + '\r\nMore\r\n').replace('# Title', '# Title!'),
     );
 
     // undone step by step, back to the stored text
@@ -333,8 +335,10 @@ describe('RichTextEditor', () => {
     await act(async () => {
       editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     });
-    // a space after the pill, to keep typing
-    expect(editor.getMarkdown()).toBe('[Login notes](devbrain://note/nte_1) ');
+    // a space after the pill, to keep typing (not written: a paragraph's last spaces read as
+    // nothing)
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size, '', '¤')).toBe('¤ ');
+    expect(editor.getMarkdown()).toBe('[Login notes](devbrain://note/nte_1)');
   });
 
   it('keeps the last results in the "@" menu while the next search runs', async () => {
@@ -442,6 +446,95 @@ describe('RichTextEditor', () => {
     });
     expect(editor.storage.editorHost.linkEditing).toBe(false);
     expect(document.querySelector('[aria-label="Link address"]')).toBeNull();
+  });
+});
+
+// The markdown layer must never lose a note (docs/editor.md, "When reading or writing fails").
+describe('RichTextEditor when the markdown layer fails', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('shows a text it cannot read as plain text, read-only, and leaves it as stored', () => {
+    const reading = vi.spyOn(MarkdownParser.prototype, 'read').mockImplementation(() => {
+      throw new Error('unreadable');
+    });
+    const onChange = vi.fn();
+    render({ onChange });
+    expect(editor.getText()).toBe('* one\n* two\n__bold__ & <b>raw</b>');
+    expect(editor.isEditable).toBe(false);
+    expect(editor.storage.documentMarkdown.problem).toBe('unreadable');
+    expect(handle.current!.markdown()).toBe(STORED);
+    expect(onChange).not.toHaveBeenCalled();
+
+    // a text it can read, loaded over it, is editable again
+    reading.mockRestore();
+    act(() => handle.current!.load('Readable'));
+    expect(editor.storage.documentMarkdown.problem).toBeNull();
+    expect(editor.isEditable).toBe(true);
+    // and one it can't, loaded through the handle, is read-only too
+    vi.spyOn(MarkdownParser.prototype, 'read').mockImplementation(() => {
+      throw new Error('unreadable');
+    });
+    act(() => handle.current!.load('# Broken'));
+    expect(editor.isEditable).toBe(false);
+    expect(handle.current!.markdown()).toBe('# Broken');
+  });
+
+  it('writes the whole document when keeping fails, and counts it by its reason', () => {
+    const onChange = vi.fn();
+    render({ onChange });
+    // reading the save back fails
+    vi.spyOn(MarkdownParser.prototype, 'read').mockImplementation(() => {
+      throw new Error('unreadable');
+    });
+    act(() => {
+      editor.chain().focus('end').insertContent('!').run();
+    });
+    expect(onChange).toHaveBeenLastCalledWith('- one\n- two\n\n**bold** & <b>raw</b>!');
+    expect(editor.storage.documentMarkdown.wholeWrites).toEqual({ error: 1 });
+    expect(editor.storage.documentMarkdown.problem).toBeNull();
+  });
+
+  it('keeps the last saved text when the document cannot be written at all', () => {
+    const onChange = vi.fn();
+    render({ onChange });
+    act(() => {
+      editor.chain().focus('end').insertContent('!').run();
+    });
+    const saved = '* one\n* two\n\n__bold__ & <b>raw</b>!';
+    expect(onChange).toHaveBeenLastCalledWith(saved);
+
+    const writing = vi.spyOn(MarkdownSerializer.prototype, 'serialize').mockImplementation(() => {
+      throw new Error('unwritable');
+    });
+    act(() => {
+      editor.commands.insertContent('?');
+    });
+    // nothing new is sent: what was saved last stays stored
+    expect(onChange).toHaveBeenLastCalledWith(saved);
+    expect(handle.current!.markdown()).toBe(saved);
+    expect(editor.storage.documentMarkdown.problem).toBe('unsaveable');
+
+    // the next save that works clears it
+    writing.mockRestore();
+    act(() => {
+      editor.commands.insertContent('.');
+    });
+    expect(onChange).toHaveBeenLastCalledWith(saved + '?.');
+    expect(editor.storage.documentMarkdown.problem).toBeNull();
+  });
+
+  it('counts a save of a text with no map by why it has none', () => {
+    const onChange = vi.fn();
+    render({ onChange, initialValue: '* one\r\n* two\n\n__bold__\n' });
+    act(() => {
+      editor.chain().focus('end').insertContent('!').run();
+    });
+    act(() => {
+      editor.commands.insertContent('!');
+    });
+    expect(editor.storage.documentMarkdown.wholeWrites).toEqual({
+      'no-source:mixed-line-ends': 2,
+    });
   });
 });
 

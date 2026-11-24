@@ -6,12 +6,13 @@ markdown layer (`src/renderer/editor/markdown/`) from its first step, parity wit
 `@tiptap/markdown`, to a first-class layer that keeps each file's own text, and through what it
 needs to be production ready.
 
-> **Status:** milestone 0 (parity) is done (PR #256). Milestones 1 (the source map, PR #257),
-> 2 (saving what was read, PR #259) and 3 (markers in edited blocks) are built on it: a save
-> rewrites only the blocks that changed, and those keep the markers they were written with.
-> Milestones 4–5 are to do. The reference for the layer as built is `docs/editor.md` ("The
-> markdown layer", "The source map", "What a save changes"); this plan is kept for the reasoning
-> and the steps.
+> **Status:** milestones 0 to 4 are built: parity (PR #256), the source map (#257), saving what
+> was read (#259), markers in edited blocks (#260) and production hardening. A save rewrites only
+> the blocks that changed, those keep their markers, and the layer is checked on generated cases,
+> on a corpus of real files and end to end. Milestone 5 (finishing and follow-ups) is to do. The
+> reference for the layer as built is `docs/editor.md` ("The markdown layer", "The source map",
+> "What a save changes", "When reading or writing fails", "Checking it on real files"); this
+> plan is kept for the reasoning and the steps.
 
 ## Goals
 
@@ -419,72 +420,86 @@ Found on the way, inherited and left for milestone 4: the editor's spelling fenc
 three backticks whatever the code holds, so a code block with a ``` line in it is written
 wrongly unless it was read with a longer fence (which it now keeps).
 
-### Milestone 4: production hardening
+### Milestone 4: production hardening (built)
+
+`docs/editor.md` describes each part as built ("When reading or writing fails", "Checking it on
+real files", and the list of differences from `@tiptap/markdown`); `docs/performance.md` has the
+timings. This section keeps the steps and what turned out different.
 
 1. **Never lose text.**
-   - A throw anywhere in `read` or `serializeKeeping` must not lose the note. `read` failing:
-     show the editor read-only with the text as a raw block and a toast; `serializeKeeping`
-     failing: write the whole document (`serialize`); `serialize` failing: don't save, keep the
-     last saved text, report.
-   - Fix the inherited crash: an empty numbered item (`1. \n2. x`) parses to a list item with no
-     paragraph, which `renderNestedContent` can't write. Make `parseOrderedListItems` give it an
-     empty paragraph, as the bullet item does (`ensureLeadingParagraph`). This changes parity for
-     that input: list it.
-   - Decide the image-only paragraph: it reads as a bare `imageLink` among the document's
-     blocks, which the schema doesn't allow (the editor holds it all the same). Reading it as a
-     paragraph holding the image writes the same markdown and gives a valid document; it changes
-     the JSON for that input, so list it, and check the caret and deletion around it either way.
-   - Decide the indented fence: a fenced code block whose fence is indented one to three spaces
-     (at the top level, or past the text of the list item it is in, as with four-space
-     indentation under a bullet) reads as nothing and is gone on the next save. `codeBlock`'s
-     `parse` takes only a `raw` that starts with the fence, as TipTap's rule does, and Notion
-     drops such a block too, so it is left as it is for now. It only arrives from outside
-     (imports, synced descriptions, paste): 9 of the 1,067 corpus files have one. Such a text
-     has no map when the fence is at the top level (`unread-token`). A fix was written and
-     taken out again (commit `9804a39`, reverted on `claude/markdown-source-map`): it reads the
-     block as a code block and takes a `~~~` fence's indentation off its lines, which `marked`
-     does only for a ``` fence. It changes parity for that input: list it if it goes in.
-   - Fence a code block with more backticks than any run its code starts a line with: three
-     are written whatever the code holds, so code with a ``` line reads back cut short (a block
-     read with a longer fence keeps it since milestone 3; one made in the editor doesn't have
-     one). A parity change: list it.
-   - Audit the ports for other inherited edge cases (`taskItem` builds a text node with
-     `createNode('text', { text })`, which makes an attribute, not text; unreachable today).
-2. **Properties, not just cases.** Add property tests (add `fast-check` as a dev dependency):
-   - `normalize(normalize(x)) === normalize(x)`;
-   - for documents the editor can make (generated from the schema), `read(serialize(doc)).doc`
-     equals `doc`;
-   - for any text and any single-block edit, `serializeKeeping` reads back as the edited
-     document and keeps the text outside the block.
+   - `codec.read` catches a throw and shows the text as plain lines (`unreadable`), which
+     `RichTextEditor` keeps read-only, with a toast. `codec.writeKeeping` catches one and writes
+     the whole document (`whole: 'error'`). `editor.saveMarkdown` catches one from that too and
+     gives what it gave last, with a toast, so nothing is stored over the last good text.
+   - An empty numbered item (`1.` alone) has its empty paragraph, and can be written back.
+   - **The image-only paragraph is a paragraph.** It was read as a bare `imageLink` among the
+     document's blocks, an invalid document that `setContent` and the first content held
+     differently. Keeping no longer has to treat the two alike.
+   - **The indented fence is left as it is,** as decided in milestone 1 (it reads as nothing;
+     `unread-token` when at the top level). The fix is in commit `9804a39`.
+   - A code block is fenced with one more backtick than the longest run a line of it starts
+     with.
+   - The audit of the ports, and the property tests, found more: see "What turned out
+     different".
+2. **Properties** (`markdown-properties.test.ts`, `fast-check` 4.10.2): a generated document
+   reads back as written, and is written the same twice; a generated text is written the same
+   from its second writing on, saves unedited as it is, and saves any single block replaced,
+   removed or added as the edited document with the rest of the text as it was. Each holds on
+   10,000 cases; `npm test` runs 300.
+3. **The corpus script:** `npm run markdown:corpus -- <folders>` (`scripts/markdown_corpus.mts`,
+   over `tests/editor/corpus/markdown-corpus.test.ts`, which `npm test` skips).
+4. **Performance:** on a 3,010-line note, read 29 ms (budget 100) and a save 4 ms (budget 20),
+   from 132 and 105. `npm run markdown:perf`; `docs/performance.md`, "The editor's markdown".
+   - Reading: the to-do list's and the table's tokenizers looked at the whole rest of the text
+     at every block; each now looks at the lines it needs.
+   - Saving: the source takes the document's own nodes for the blocks it keeps, so an unchanged
+     block is told by identity from the second save on; and only the stretches around new blocks
+     are read back (`Keeping.regionsOf`), each with the kept block on either side, the whole
+     text only when a stretch does not read as expected.
+5. **Logging:** `editor.storage.documentMarkdown.wholeWrites` counts the saves that wrote the
+   editor's spelling, by reason (`no-source:mixed-line-ends`, `readback-mismatch`, `error`), and
+   each reason is logged once an editor in development. Reasons only.
+6. **Security:** `describe('untrusted content through a save')`: each untrusted construct (raw
+   HTML, an iframe, inline HTML, an image, a refused link, a comment) is kept as written when a
+   block beside it is edited, and renders nothing when its own block is written anew.
+7. **End to end:** `e2e/flows/note-file.spec.ts`.
 
-   Seed the generators with the fixtures' blocks.
+**What turned out different from the plan:**
 
-3. **Corpus check as a script.** Keep a corpus run outside CI (`npm run markdown:corpus`): reads
-   every `.md` under a directory, checks the invariants above and the round trip, and reports
-   files that fall back to whole-document writes and why. Run it on `docs/`, the
-   `node_modules` READMEs and, before release, a set of real users' notes shapes (Obsidian
-   vaults, GitHub wikis) on a developer's machine. The fallback rate is the number to watch.
-4. **Performance budget.** On a 3,000-line note, a save (keeping write + read-back check) under
-   20 ms in the renderer, load under 100 ms (today: load 88 ms, plain serialize 10 ms). Measures:
-   - cache each top-level block's markdown by node identity (`WeakMap<Node, string>`): ProseMirror
-     nodes are immutable, so an edit re-serialises only the blocks it touched. The serializer
-     takes JSON, so a block is serialised from `node.toJSON()` on a miss. Leave empty paragraphs
-     out of the cache: what one writes depends on the block before it (`&nbsp;` after another
-     empty one);
-   - check only the edited region on read-back, falling back to the whole document only when a
-     seam is unsure (keep a full check behind a debug flag for the corpus script);
-   - add the 150/750/3,000-line timings to `docs/performance.md`, with how to reproduce them.
-5. **Logging.** Log a whole-document fallback with its reason (`mixed-line-ends`,
-   `seam-misread`, `readback-mismatch`, …), by reason only, never with the text (notes are
-   private, `CLAUDE.md`). Count them in development builds.
-6. **Security review.** Confirm keeping and markers render nothing new: raw HTML stays a raw
-   node, images stay chips, links still go through `safeExternalUrl`. Add a case per untrusted
-   construct to the keeping tests (kept unchanged, and edited next to).
-7. **End to end.** One Playwright flow (`e2e/flows`): open a note written with `*` bullets and
-   `__bold__`, edit one paragraph, check the file on disk changed only there.
+- **The block-markdown cache was not needed.** Kept blocks are never serialised (their slices
+  are copied), so there was nothing to cache; the cost was the read-back and comparing blocks.
+- **The region check needed a second condition.** Reading a stretch on its own passed a case the
+  whole text failed: a kept to-do list after a new bullet list is one list with it, and reads by
+  the blank lines that follow it, which the stretch doesn't hold. A stretch is now trusted only
+  when each kept block it starts or ends with is read from its own slice, as a block of its own.
+  The property test found it; with that, `check: 'both'` finds no difference in 31,346 corpus
+  saves and 10,000 generated ones.
+- **The properties found faults the corpus and the cases had not,** all inherited from the
+  ports, all fixed (each a deliberate change from `@tiptap/markdown`, listed in
+  `docs/editor.md`):
+  - a paragraph that starts with a short word and a full stop ("No. I think so", "Hi. there")
+    was read as a numbered item, and saved as `1. I think so`: the word was lost;
+  - a paragraph the editor holds that starts like an item (`a) first`, `I. Intro`, `+` alone)
+    was written so that it read back as a list;
+  - a heading whose text ends with `#` lost it, and one with a line end in its text was written
+    as a heading and a paragraph.
+- **The corpus run found that the editor's spelling was not stable** for 170 of 1,671 files
+  (written whole twice, the second differed). Four faults made 143 of them, all fixed: a
+  numbered item's wrapped lines kept one space of their indentation (the number's delimiter was
+  not counted), a bullet's kept theirs when indented further, `<br>` at a line's end became a
+  line break and a new paragraph, and spaces before a line break or at a paragraph's end came
+  and went. 27 remain (milestone 5).
+- **`fast-check` is pinned to 4.10.2,** the newest release over two weeks old
+  (`docs/security/dependencies.md`).
+- **Expectations that changed,** each for a fix above: an image-only paragraph's JSON and the
+  DOM test beside it (ProseMirror's own empty `img` after an inline node that ends a paragraph);
+  a mention's markdown no longer ends with the space typed after it; a paragraph being typed is
+  saved without its last space.
 
-Done when: the properties hold on 10,000 generated cases, the corpus run shows no data loss and
-a fallback rate you're willing to ship, the budget holds, and the e2e flow passes.
+Numbers (`npm run markdown:corpus -- docs node_modules`): 1,673 files, 1,663 with a map; 31,346
+saves, none lost or changed text, 31,015 kept the text outside their block, 331 wrote the whole
+document (317 a removal that brought its neighbours together, 10 a note whose only block
+changed).
 
 ### Milestone 5: finishing and follow-ups
 
@@ -494,6 +509,13 @@ a fallback rate you're willing to ship, the budget holds, and the e2e flow passe
    PR as milestone 2 and milestone 3 respectively). No screenshots change.
 2. **Tidy the ports.** Rename what still says TipTap's way of doing things, and remove quirks the
    tests show nothing depends on (each removal is a listed parity change).
+   Known from milestone 4's corpus run: 27 files the editor writes differently the second time
+   it writes them whole (`npm run markdown:corpus` lists them as "unstable spelling"): a table
+   or raw HTML inside a list item, a paragraph straight above a list, a bare address on its own
+   line, marks that close in another order (`<sub><sup>…</sup></sub>`), `**` moved out of a
+   link. And what the property tests leave out of their generated text because it reads
+   otherwise by design or by a fault not yet looked at: `<`, `>` (a `>` after a space in a nested
+   item is escaped on the second writing), `@` and `|`.
 3. **Optional: finer grain.** Keep unedited items of an edited list, and unedited rows of an
    edited table, by applying milestone 2 one level down (list items, table rows). Only if users
    ask: the block level covers most edits.
@@ -539,16 +561,21 @@ spelling, a marker case.
 
 ## Production readiness checklist
 
-- [ ] Opening any note, closing it, and undoing back to the start never change its file.
-- [ ] An edit rewrites only its top-level block (and the text at its seams), checked on every
-      fixture with both line ends.
-- [ ] Every save reads back as the editor's document; a failure falls back to a whole-document
-      write, logged by reason only.
-- [ ] Markers are kept in edited blocks, and dropped where they would misread.
-- [ ] No private or undocumented TipTap API (grep for `as unknown as` on TipTap objects and for
-      imports from TipTap's internals in `src/renderer/editor/markdown/`).
-- [ ] The performance budget holds at 3,000 lines; timings recorded in `docs/performance.md`.
-- [ ] Property tests and the e2e flow pass; the corpus run shows no data loss.
-- [ ] `docs/editor.md` ("The markdown layer", "What a save changes", "Extending it") and the
-      website's notes page describe what ships.
-- [ ] `npm test`, `npm run typecheck:node`, `npm run typecheck:web`, ESLint, Prettier pass.
+Checked at the end of milestone 4.
+
+- [x] Opening any note, closing it, and undoing back to the start never change its file
+      (`rich-text-editor.test.ts`, the e2e flow).
+- [x] An edit rewrites only its top-level block (and the text at its seams), checked on every
+      fixture with both line ends (`markdown-keeping.test.ts`).
+- [x] Every save reads back as the editor's document, where the editor's own spelling of it
+      does; a failure falls back to a whole-document write, counted by reason only.
+- [x] Markers are kept in edited blocks, and dropped where they would misread.
+- [x] No private or undocumented TipTap API: the layer imports TipTap's public packages only
+      (`@tiptap/core`, `@tiptap/pm/model` and the extensions the schema is made of), and its one
+      `as unknown as` is on its own codec's placeholder.
+- [x] The performance budget holds at 3,000 lines; timings recorded in `docs/performance.md`.
+- [x] Property tests and the e2e flow pass; the corpus run shows no data loss.
+- [x] `docs/editor.md` and the website's notes page describe what ships.
+- [x] `npm test`, `npm run typecheck:node`, `npm run typecheck:web`, ESLint, Prettier pass.
+- [ ] The corpus run on real users' notes shapes (an Obsidian vault, a GitHub wiki) on a
+      developer's machine, before a release: `npm run markdown:corpus -- <folder>`.

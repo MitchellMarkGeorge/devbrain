@@ -1,5 +1,5 @@
 import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@tiptap/react';
-import { EditorContent } from '@renderer/components';
+import { EditorContent, toast } from '@renderer/components';
 import { Placeholder } from '@tiptap/extensions';
 import { closeHistory } from '@tiptap/pm/history';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
@@ -11,6 +11,7 @@ import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
 import { createDocumentExtensions } from './markdown';
+import type { MarkdownProblem } from './markdown/extension';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
 import type { EditorHost, EntityLinkPill } from './types';
@@ -67,6 +68,18 @@ export interface RichTextEditorHandle {
    */
   markdown(): string;
 }
+
+// what the user is told when the markdown layer fails; the note's file is safe either way
+const PROBLEM_TOASTS: Record<MarkdownProblem, { title: string; description: string }> = {
+  unreadable: {
+    title: 'This text can’t be shown as rich text',
+    description: 'It’s shown as plain text and can’t be edited here. Nothing was changed.',
+  },
+  unsaveable: {
+    title: 'Your last change couldn’t be saved',
+    description: 'What was saved before is kept. Copy your changes before you leave.',
+  },
+};
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
   function RichTextEditor(
@@ -151,16 +164,31 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       onReady?.(editor);
     }, [editor, onReady]);
 
+    // A text the layer could not read is shown as plain text, read-only, and one it could not
+    // write keeps its last saved text (DocumentMarkdown): either way the user is told once.
+    const [problem, setProblem] = useState(() => editor.storage.documentMarkdown.problem);
     useEffect(() => {
-      editor.setEditable(editable, false);
-    }, [editor, editable]);
+      const storage = editor.storage.documentMarkdown;
+      storage.onProblem = setProblem;
+      return () => {
+        storage.onProblem = null;
+      };
+    }, [editor]);
+    useEffect(() => {
+      if (problem) toast({ tone: 'error', timeout: 0, ...PROBLEM_TOASTS[problem] });
+    }, [problem]);
+
+    const canEdit = editable && problem !== 'unreadable';
+    useEffect(() => {
+      editor.setEditable(canEdit, false);
+    }, [editor, canEdit]);
 
     return (
       <EditorHostContext.Provider value={host}>
-        <EditorContent className={className} data-readonly={editable ? undefined : ''}>
+        <EditorContent className={className} data-readonly={canEdit ? undefined : ''}>
           <TiptapEditorContent editor={editor} />
         </EditorContent>
-        {editable && (
+        {canEdit && (
           <FormatBubble
             editor={editor}
             onOpenUrl={host.onOpenUrl}

@@ -35,6 +35,13 @@ function closesFence(code: string, fence: string): boolean {
   return code.split('\n').some((line) => closing.test(line));
 }
 
+// three backticks, or more where a line of `code` starts with as many: it would close the block
+function backtickFence(code: string): string {
+  const runs = code.match(/^ {0,3}`{3,}/gm) ?? [];
+  const longest = Math.max(2, ...runs.map((run) => run.trimStart().length));
+  return '`'.repeat(longest + 1);
+}
+
 // a backtick fence can't have a backtick in its info string
 function fenceFits(fence: string, language: string): boolean {
   return fence[0] !== '`' || !language.includes('`');
@@ -50,10 +57,6 @@ export const blockRules: Record<string, MarkdownRule> = {
     name: 'paragraph',
     parse: (token, helpers) => {
       const tokens = token.tokens || [];
-      // a paragraph that is only an image reads as the image
-      if (tokens.length === 1 && tokens[0].type === 'image') {
-        return helpers.parseChildren([tokens[0]]);
-      }
       const content = helpers.parseInline(tokens);
       const only = tokens.length === 1 ? tokens[0] : null;
       if (
@@ -74,7 +77,12 @@ export const blockRules: Record<string, MarkdownRule> = {
         const previousEmpty = !Array.isArray(previous?.content) || previous.content.length === 0;
         return previous?.type === 'paragraph' && previousEmpty ? EMPTY_PARAGRAPH : '';
       }
-      return h.renderChildren(content);
+      // a line break that ends the paragraph reads as nothing, and so do the spaces it ends
+      // with: neither is written
+      return h
+        .renderChildren(content)
+        .replace(/(?: {2}|\\)\n$/, '')
+        .replace(/[ \t]+$/, '');
     },
   },
 
@@ -95,15 +103,21 @@ export const blockRules: Record<string, MarkdownRule> = {
     render: (node, h) => {
       const level = node.attrs?.level ? parseInt(node.attrs.level, 10) : 1;
       if (!node.content) return '';
-      const title = h.renderChildren(node.content);
       const markup = markupOf(node.attrs);
+      const lines = h.renderChildren(node.content);
+      // a `#` heading is one line: the line ends in its text (an underlined heading can have
+      // several lines) are the spaces they read as
+      const title = lines.replace(/[^\S\n]*\n[^\S\n]*/g, ' ');
       const underline = markup?.startsWith(SETEXT) ? markup.slice(SETEXT.length) : null;
-      // an underline says its level (`=` is 1, `-` is 2), and is under one line of text
-      if (underline && (underline[0] === '=' ? 1 : 2) === level && /^[^\n]*\S[^\n]*$/.test(title)) {
-        return `${title}\n${underline}`;
+      // an underline says its level (`=` is 1, `-` is 2), and is under lines of text, none blank
+      const underlined = /\S/.test(lines) && lines.split('\n').every((line) => line.trim() !== '');
+      if (underline && (underline[0] === '=' ? 1 : 2) === level && underlined) {
+        return `${lines}\n${underline}`;
       }
       const closing = markup && /^#+$/.test(markup) && title.trim() !== '' ? ` ${markup}` : '';
-      return `${'#'.repeat(level)} ${title}${closing}`;
+      // `#`s that end the title would read as the heading's closing ones
+      const text = title.replace(/(^|[ \t])(#+)$/, '$1\\$2');
+      return `${'#'.repeat(level)} ${text}${closing}`;
     },
   },
 
@@ -165,11 +179,12 @@ export const blockRules: Record<string, MarkdownRule> = {
       const markup = markupOf(node.attrs);
       if (!node.content) return `\`\`\`${language}\n\n\`\`\``;
       const code = h.renderChildren(node.content);
-      // its own fence (`~~~`, or a longer one), unless a line of the code would close it
+      // its own fence (`~~~`, or a longer one), unless a line of the code would close it; or
+      // backticks, one more than the longest run a line of the code starts with
       const fence =
         markup && FENCE.test(markup) && !closesFence(code, markup) && fenceFits(markup, language)
           ? markup
-          : '```';
+          : backtickFence(code);
       return [`${fence}${language}`, code, fence].join('\n');
     },
   },
