@@ -124,12 +124,18 @@ function diffBlocks(current: ProseMirrorNode[], loaded: ProseMirrorNode[]): numb
   // `longestFrom[currentAt][loadedAt]` is how many blocks the longest common subsequence has
   // when only the current blocks from `currentAt` on and the loaded blocks from `loadedAt` on are
   // looked at (both counted from the start of the stretch); the row and the column past the end
-  // stay 0. `areEqual[currentAt][loadedAt]` remembers whether those two blocks are equal, so
-  // each pair is compared once.
+  // stay 0.
   const longestFrom = Array.from(
     { length: currentCount + 1 },
     () => new Uint32Array(loadedCount + 1),
   );
+  // `areEqual[currentAt][loadedAt]` is 1 when those two blocks are equal, 0 when not: a cache
+  // of the comparisons. Each pair's answer is needed twice, to fill the table and to read the
+  // matches off it, and `Node.eq` compares two whole blocks (type, attributes, text, marks), so
+  // it is asked once and remembered. The table alone can't stand in for it when reading the
+  // matches: `longestFrom[c][l] === longestFrom[c + 1][l + 1] + 1` holds for every equal pair,
+  // but for some unequal ones too (X A against A Y, at X and A), which would then be matched.
+  // A row is a Uint8Array, a byte a pair and all 0 to begin with: at most `MATCH_LIMIT` bytes.
   const areEqual = Array.from({ length: currentCount }, () => new Uint8Array(loadedCount));
   for (let currentAt = currentCount - 1; currentAt >= 0; currentAt -= 1) {
     for (let loadedAt = loadedCount - 1; loadedAt >= 0; loadedAt -= 1) {
