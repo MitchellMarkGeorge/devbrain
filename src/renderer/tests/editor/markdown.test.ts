@@ -144,6 +144,26 @@ describe('markdown round trip', () => {
     }
   });
 
+  it('reads a fenced code block whose fence is indented, written without the indentation', () => {
+    const fenced = ['```js', 'const a = 1;', '  indented(a);', '```'].join('\n');
+    const indentedBy = (spaces: string) => fenced.replace(/^/gm, spaces);
+    for (const spaces of [' ', '  ', '   ']) {
+      const markdown = `Before\n\n${indentedBy(spaces)}\n\nAfter`;
+      expect(parseMarkdown(markdown)).toEqual(parseMarkdown(`Before\n\n${fenced}\n\nAfter`));
+      expect(normalizeMarkdown(markdown)).toBe(`Before\n\n${fenced}\n\nAfter`);
+      expect(readMarkdown(markdown).reason).toBeNull();
+    }
+    // marked leaves a ~~~ fence's indentation on the code; each line loses up to the fence's
+    expect(normalizeMarkdown('  ~~~\n  tilde\n    more\n less\n  ~~~')).toBe(
+      '```\ntilde\n  more\nless\n```',
+    );
+    expectRoundTrip(`Before\n\n${fenced}\n\nAfter`);
+    // four spaces is indented code, fence and all
+    expect(nodesOfType(parseMarkdown(indentedBy('    ')), 'codeBlock')[0].content).toEqual([
+      { type: 'text', text: fenced },
+    ]);
+  });
+
   it('writes the same markdown the second time round', () => {
     const first = normalizeMarkdown(
       ['* Star bullet', '', '__Bold__ and _italic_', '', '|a|b|', '|-|-|', '|1|2|'].join('\n'),
