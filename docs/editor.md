@@ -348,7 +348,7 @@ Here `!` was typed after "text": the paragraph is written anew (`**bold**`), and
 `*` list and the single line end between them stay as they were.
 
 - **What is kept.** The document's top-level blocks are matched with the source's in the order
-  they were read (`Node.eq`, a longest common subsequence). A block that matches is kept; one
+  they were read by a diff (`diffBlocks` in `keeping.ts`: a longest common subsequence on `Node.eq`, the algorithm behind `diff`). A block that matches is kept; one
   that was edited, added or moved is new. Kept blocks that are still neighbours keep the exact
   text between them: blank lines, definitions, a single line end. The text before the first block
   and after the last (the final newline) is kept with them, and so are the file's line ends

@@ -554,6 +554,17 @@ describe('saving what was read', () => {
     expect(parseMarkdown(saved)).toEqual(edit(OTHERS, index));
   });
 
+  it('keeps the blocks around an edit and a new block, each as written', () => {
+    // loaded as A B C D E, saved as A B X D N E: the diff keeps A, B, D and E
+    const text = '* A\n\n__B__\n\nC\n\n+ D\n\n_E_\n';
+    const [a, b, , d, e] = parseMarkdown(text).content ?? [];
+    const doc = { type: 'doc', content: [a, b, paragraph('X'), d, paragraph('N'), e] };
+    expect(writeKeepingSource(text, doc)).toEqual({
+      markdown: '* A\n\n__B__\n\nX\n\n+ D\n\nN\n\n_E_\n',
+      whole: null,
+    });
+  });
+
   it('writes a block moved past another anew, and keeps the other', () => {
     // blocks are matched in the order they were read: of two that swap places one is kept
     const text = '* One\n\n\n__Two__';

@@ -35,7 +35,8 @@ export interface KeepingCodec {
   parse(markdown: string): JSONContent;
 }
 
-// above this many pairs of blocks to compare, a changed stretch is written anew without matching
+// the most pairs of blocks `diffBlocks` compares in a changed stretch; above it, the stretch is
+// written anew without being compared (500 changed blocks against 500 loaded ones)
 const MATCH_LIMIT = 250_000;
 
 type Item =
@@ -65,47 +66,103 @@ function asBlock(node: ProseMirrorNode): ProseMirrorNode {
   return node.isInline ? node.type.schema.nodes.paragraph.create(null, node) : node;
 }
 
-// For each of `a`, the index in `b` of the node it is matched with, or -1: a longest common
-// subsequence, the common start and end taken first, since an edit leaves most blocks alone.
-function matchInOrder(a: ProseMirrorNode[], b: ProseMirrorNode[]): number[] {
-  const matched = a.map(() => -1);
-  let start = 0;
-  while (start < a.length && start < b.length && a[start].eq(b[start])) {
-    matched[start] = start;
-    start += 1;
+/**
+ * The diff between the blocks the editor holds now and the blocks that were loaded: which of the
+ * current blocks are still loaded ones.
+ *
+ * It is the longest common subsequence of the two lists, the algorithm behind `diff`: the most
+ * blocks that are equal (`Node.eq`) and stand in the same order in both. A current block in it is
+ * unchanged; one outside it was edited, added or moved. (Of two blocks that swap places only one
+ * can be in it, so the other counts as changed.)
+ *
+ * Returns, for each current block, the index of the loaded block it is, or -1 when it is none.
+ *
+ *     loaded:   A  B  C  D  E
+ *     current:  A  B  X  D  N  E
+ *     returns: [0, 1, -1, 3, -1, 4]
+ *
+ * An edit leaves most blocks alone, so the blocks the two lists start with in common and the
+ * ones they end with in common are matched first, each with one comparison. Only the stretch
+ * between them (`C D` against `X D N` above) goes through the full algorithm, which compares
+ * every pair in it. A stretch of more than `MATCH_LIMIT` pairs is not compared at all: its
+ * blocks all count as changed, which is always safe and only keeps less text.
+ */
+function diffBlocks(current: ProseMirrorNode[], loaded: ProseMirrorNode[]): number[] {
+  const loadedIndexOf = current.map(() => -1);
+
+  // the blocks both lists start with
+  let commonStart = 0;
+  while (
+    commonStart < current.length &&
+    commonStart < loaded.length &&
+    current[commonStart].eq(loaded[commonStart])
+  ) {
+    loadedIndexOf[commonStart] = commonStart;
+    commonStart += 1;
   }
-  let endA = a.length;
-  let endB = b.length;
-  while (endA > start && endB > start && a[endA - 1].eq(b[endB - 1])) {
-    endA -= 1;
-    endB -= 1;
-    matched[endA] = endB;
+
+  // the blocks both lists end with: what is left to compare ends before these indexes
+  let currentEnd = current.length;
+  let loadedEnd = loaded.length;
+  while (
+    currentEnd > commonStart &&
+    loadedEnd > commonStart &&
+    current[currentEnd - 1].eq(loaded[loadedEnd - 1])
+  ) {
+    currentEnd -= 1;
+    loadedEnd -= 1;
+    loadedIndexOf[currentEnd] = loadedEnd;
   }
-  const rows = endA - start;
-  const columns = endB - start;
-  if (rows === 0 || columns === 0 || rows * columns > MATCH_LIMIT) return matched;
-  // lengths[i][j]: the longest match of a[start + i…] with b[start + j…]
-  const lengths = Array.from({ length: rows + 1 }, () => new Uint32Array(columns + 1));
-  const equal = Array.from({ length: rows }, () => new Uint8Array(columns));
-  for (let i = rows - 1; i >= 0; i -= 1) {
-    for (let j = columns - 1; j >= 0; j -= 1) {
-      if (a[start + i].eq(b[start + j])) {
-        equal[i][j] = 1;
-        lengths[i][j] = lengths[i + 1][j + 1] + 1;
+
+  // the changed stretch in the middle of each list
+  const currentCount = currentEnd - commonStart;
+  const loadedCount = loadedEnd - commonStart;
+  if (currentCount === 0 || loadedCount === 0) return loadedIndexOf;
+  if (currentCount * loadedCount > MATCH_LIMIT) return loadedIndexOf;
+
+  // The table of the algorithm, filled from the end of the stretch backwards.
+  // `longestFrom[currentAt][loadedAt]` is how many blocks the longest common subsequence has
+  // when only the current blocks from `currentAt` on and the loaded blocks from `loadedAt` on are
+  // looked at (both counted from the start of the stretch); the row and the column past the end
+  // stay 0. `areEqual[currentAt][loadedAt]` remembers whether those two blocks are equal, so
+  // each pair is compared once.
+  const longestFrom = Array.from(
+    { length: currentCount + 1 },
+    () => new Uint32Array(loadedCount + 1),
+  );
+  const areEqual = Array.from({ length: currentCount }, () => new Uint8Array(loadedCount));
+  for (let currentAt = currentCount - 1; currentAt >= 0; currentAt -= 1) {
+    for (let loadedAt = loadedCount - 1; loadedAt >= 0; loadedAt -= 1) {
+      if (current[commonStart + currentAt].eq(loaded[commonStart + loadedAt])) {
+        // equal: they are matched, and the rest of both lists follows
+        areEqual[currentAt][loadedAt] = 1;
+        longestFrom[currentAt][loadedAt] = longestFrom[currentAt + 1][loadedAt + 1] + 1;
       } else {
-        lengths[i][j] = Math.max(lengths[i + 1][j], lengths[i][j + 1]);
+        // not equal: the better of leaving out this current block or this loaded one
+        longestFrom[currentAt][loadedAt] = Math.max(
+          longestFrom[currentAt + 1][loadedAt],
+          longestFrom[currentAt][loadedAt + 1],
+        );
       }
     }
   }
-  for (let i = 0, j = 0; i < rows && j < columns; ) {
-    if (equal[i][j] && lengths[i][j] === lengths[i + 1][j + 1] + 1) {
-      matched[start + i] = start + j;
-      i += 1;
-      j += 1;
-    } else if (lengths[i + 1][j] >= lengths[i][j + 1]) i += 1;
-    else j += 1;
+
+  // Read the matches off the table, from the start of the stretch: two equal blocks are
+  // matched; otherwise step past the block whose leaving out loses nothing.
+  let currentAt = 0;
+  let loadedAt = 0;
+  while (currentAt < currentCount && loadedAt < loadedCount) {
+    if (areEqual[currentAt][loadedAt]) {
+      loadedIndexOf[commonStart + currentAt] = commonStart + loadedAt;
+      currentAt += 1;
+      loadedAt += 1;
+    } else if (longestFrom[currentAt + 1][loadedAt] >= longestFrom[currentAt][loadedAt + 1]) {
+      currentAt += 1;
+    } else {
+      loadedAt += 1;
+    }
   }
-  return matched;
+  return loadedIndexOf;
 }
 
 /** `doc` as markdown, keeping what it can of the text it was read from. */
@@ -210,7 +267,8 @@ class Keeping {
       if (block) block.nodes.forEach((node) => entries.push({ node: asBlock(node), block: index }));
       else entries.push({ node: empty, block: index });
     });
-    const matched = matchInOrder(
+    // for each child, the index of the entry it still is, or -1
+    const matched = diffBlocks(
       this.children,
       entries.map((entry) => entry.node),
     );
