@@ -208,8 +208,10 @@ rewrites **only the blocks you edited**; every other block is written back exact
 the file, with the blank lines around it:
 
 - When a text is loaded, the editor maps each of its top-level blocks to the slice of the text it
-  was read from (`MarkdownSource`, `readSource` in `markdown.ts`), reading the text with the same
-  lexer TipTap parses it with. Extra blank lines read as empty paragraphs, which have no slice.
+  was read from (`MarkdownSource`, `readSource` in `markdown.ts`), from the top-level tokens
+  TipTap's parse read the text into as it loaded it, each with the nodes it gave (the manager keeps
+  them from its last `parse`), so the text is not read twice; a text it didn't just parse is read
+  again with the same lexer. Extra blank lines read as empty paragraphs, which have no slice.
 - When it writes markdown (`serializeKeeping`), each top-level block still equal to one it loaded
   is written as that slice, and the text between two such blocks that were neighbours in the file
   is the file's own. A block you edited is written in the editor's spelling in its place, with the

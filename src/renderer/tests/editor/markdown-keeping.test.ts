@@ -58,6 +58,8 @@ describe.each([
     expect(serializeKeepingSource(text, read)).toBe(text);
     const slices = markdownBlocks(text);
     expect(slices).not.toBeNull();
+    // made from the tokens the text was read into, as when the editor loads it, or read again
+    expect(markdownBlocks(text, true)).toEqual(slices);
     const children = read.content ?? [];
     expect(slices).toHaveLength(children.length);
     let checked = 0;

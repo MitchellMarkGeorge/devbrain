@@ -1,5 +1,6 @@
 import {
   getSchema,
+  type MarkdownToken,
   mergeAttributes,
   type AnyExtension,
   type Editor,
@@ -246,6 +247,14 @@ function withFinalNewline(markdown: string, text: string, children: ProseMirrorN
   return last && !isEmptyParagraph(last) ? markdown + '\n' : markdown;
 }
 
+// A text as parse() read it: its top-level tokens, each with the nodes it gave, and the link
+// definitions the lexer found
+interface Reading {
+  text: string;
+  tokens: { token: MarkdownToken; content: JSONContent[] }[];
+  links: Record<string, unknown> | null;
+}
+
 // the handlers already made to keep markers
 const wrapped = new WeakSet<object>();
 
@@ -262,6 +271,44 @@ class DocumentMarkdownManager extends MarkdownManager {
       const relaxed = relaxEntities(encoded);
       return startsParagraphLine(node, parentNode) ? escapeLineStart(relaxed) : relaxed;
     };
+    // parse() reads each top-level token through parseToken (private in TipTap's types too):
+    // what it gave is kept for readSource, which so needs no second reading of the same text
+    const reader = this as unknown as {
+      parseToken(token: MarkdownToken, implicit?: boolean): JSONContent | JSONContent[] | null;
+      activeParseLexer: { tokens?: { links?: Record<string, unknown> } } | null;
+    };
+    const parseToken = reader.parseToken.bind(this);
+    let depth = 0;
+    reader.parseToken = (token, implicit) => {
+      const reading = this.reading;
+      if (!reading || depth > 0) return parseToken(token, implicit);
+      depth += 1;
+      try {
+        const result = parseToken(token, implicit);
+        reading.links ??= reader.activeParseLexer?.tokens?.links ?? null;
+        reading.tokens.push({ token, content: result ? [result].flat() : [] });
+        return result;
+      } finally {
+        depth -= 1;
+      }
+    };
+  }
+
+  // the text parse() is reading, and the one it read last, until readSource takes it
+  private reading: Reading | null = null;
+  private lastRead: Reading | null = null;
+
+  override parse(markdown: string): JSONContent {
+    const outer = this.reading;
+    const reading: Reading = { text: markdown, tokens: [], links: null };
+    this.reading = reading;
+    try {
+      const json = super.parse(markdown);
+      this.lastRead = reading;
+      return json;
+    } finally {
+      this.reading = outer;
+    }
   }
 
   /**
@@ -283,6 +330,9 @@ class DocumentMarkdownManager extends MarkdownManager {
       activeParseLexer: MarkdownLexer | null;
       parseTokens(tokens: unknown[], parseImplicitEmptyParagraphs: boolean): JSONContent[];
     };
+    // the tokens parse() read the text into as the editor loaded it, when it did; or read anew
+    const read = this.lastRead?.text === stored ? this.lastRead : null;
+    this.lastRead = null;
     const lexer = self.createLexer();
     const previous = self.activeParseLexer;
     self.activeParseLexer = lexer;
@@ -290,10 +340,20 @@ class DocumentMarkdownManager extends MarkdownManager {
       const children = childrenOf(doc);
       const blocks: MarkdownSource['blocks'] = [];
       const definitions: Definition[] = [];
-      const tokens = lexer.lex(text);
+      const lexed = read ? null : lexer.lex(text);
+      const tokens: { token: MarkdownToken & { raw: string }; content?: JSONContent[] }[] = read
+        ? read.tokens.map(({ token, content }) => ({
+            token: { ...token, raw: token.raw ?? '' },
+            content,
+          }))
+        : lexed!.map((token) => ({ token: token as MarkdownToken & { raw: string } }));
       let at = 0;
       let offset = 0;
-      for (const token of tokens) {
+      for (const { token, content } of tokens) {
+        // parse() reads no blank lines between blocks through parseToken
+        while (read && !text.startsWith(token.raw, offset) && /^[ \t\n]/.test(text.slice(offset))) {
+          offset += 1;
+        }
         // marked drops a definition of a label already defined, raw text and all
         if (!text.startsWith(token.raw, offset)) {
           const skipped = this.droppedDefinitions(text, offset, token.raw);
@@ -316,7 +376,7 @@ class DocumentMarkdownManager extends MarkdownManager {
           });
           continue;
         }
-        const nodes = blocksFromJSON(doc.type.schema, self.parseTokens([token], false));
+        const nodes = blocksFromJSON(doc.type.schema, content ?? self.parseTokens([token], false));
         if (nodes.length === 0) return null;
         const matchesAt = (index: number) =>
           nodes.every((node, k) => children[index + k]?.eq(node) ?? false);
@@ -334,11 +394,13 @@ class DocumentMarkdownManager extends MarkdownManager {
       while (at < children.length && isEmptyParagraph(children[at])) {
         blocks.push({ nodes: [children[at++]], slice: null });
       }
+      if (read) offset += /^[ \t\n]*$/.test(text.slice(offset)) ? text.length - offset : 0;
       if (offset !== text.length || at !== children.length) return null;
       // every label is defined at the top level (one in a quote or a list item would go with it
       // when that block is rewritten), and its later definitions, which marked ignores, either
       // agree with the first or are never used
-      const links = (tokens as { links?: Record<string, unknown> }).links ?? {};
+      const links =
+        (read ? read.links : (lexed as { links?: Record<string, unknown> }).links) ?? {};
       const labels = new Set(definitions.filter((d) => d.first).map((d) => d.label));
       if (Object.keys(links).some((label) => !labels.has(label))) return null;
       for (const later of definitions.filter((d) => !d.first)) {
@@ -850,11 +912,15 @@ export function serializeKeepingSource(text: string, doc: JSONContent): string {
 
 /**
  * Each top-level node `text` reads as, with its slice of the text (with \n line ends); null for
- * an empty paragraph, or for all of them when the text has no map (MarkdownSource).
+ * an empty paragraph, or for all of them when the text has no map (MarkdownSource). With `reread`,
+ * the map is made by reading the text again rather than from what reading it gave.
  */
-export function markdownBlocks(text: string): ([number, number] | null)[] | null {
+export function markdownBlocks(text: string, reread = false): ([number, number] | null)[] | null {
   const manager = documentManager();
-  const source = manager.readSource(text, manager.parseDocument(documentSchema(), text));
+  const doc = manager.parseDocument(documentSchema(), text);
+  // reading another text forgets this one's tokens
+  if (reread) manager.parse('');
+  const source = manager.readSource(text, doc);
   return source
     ? source.blocks.flatMap((block) =>
         block.nodes.map(() => (block.nodes.length === 1 ? block.slice : null)),
