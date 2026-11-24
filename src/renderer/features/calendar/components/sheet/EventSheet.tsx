@@ -40,7 +40,7 @@ import {
 import { trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import { holdSavedText, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
+import { writeSaveToCache, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { dayText, useEventActions } from '../../hooks/use-event-actions';
 import { seriesOccurrenceOf, type EventPatch, type EventTarget } from '../../lib/occurrence';
 import { meetingUrlOf } from '../create/CreateEventDialog';
@@ -550,7 +550,7 @@ function EventDescription({
     event.description ?? '',
     (markdown) => {
       const description = toDescription(markdown);
-      holdSavedText(queryClient, trpc.events.get.queryKey({ id: event.id }), (cached) => ({
+      writeSaveToCache(queryClient, trpc.events.get.queryKey({ id: event.id }), (cached) => ({
         ...cached,
         description,
       }));

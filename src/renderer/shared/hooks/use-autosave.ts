@@ -64,7 +64,7 @@ export function useAutosave<T>(save: (value: T) => void, delay = 500) {
  * save is written over it.
  *
  * `save` must put the text in the cache `remote` is read from, as it will be stored, before it
- * sends it, and cancel a read of it on its way (`holdSavedText`). The editor's own save then
+ * sends it, and cancel a read of it on its way (`writeSaveToCache`). The editor's own save then
  * reaches `remote` as the text the editor holds, and every read that lands was sent after the
  * latest save, so none answers with a text older than it (docs/editor.md). A save whose text is
  * what the cache already holds is skipped.
@@ -108,7 +108,7 @@ function sameText(a: string, b: string): boolean {
  * cached entity with the text as it will be stored), and cancels a read of it on its way, whose
  * answer would be older than the save. Does nothing while the cache has no entity to write to.
  */
-export function holdSavedText<TData>(
+export function writeSaveToCache<TData>(
   queryClient: QueryClient,
   queryKey: DataTag<QueryKey, TData, unknown>,
   update: (cached: NoInfer<TData>) => NoInfer<TData>,

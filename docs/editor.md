@@ -104,7 +104,7 @@ older text would put it back.
 
 So the editor's own save never reaches the hook as a text it has to recognise:
 
-- **A save writes its text into the cache before it is sent** (`holdSavedText`): into the cached
+- **A save writes its text into the cache before it is sent** (`writeSaveToCache`): into the cached
   task, project or event as its `description`, as it will be stored (a blank one as none), or as
   the note's markdown. `remote` becomes the text the editor holds, and the entity opened again
   shows it at once.
@@ -138,7 +138,7 @@ So the editor's own save never reaches the hook as a text it has to recognise:
 - A note file edited on disk by another app is not followed: nothing watches the files.
 
 The hook holds no state of its own beyond the autosave's pending change. What it needs from a
-caller is that `save` goes through `holdSavedText` on the query `remote` is read from; a `remote`
+caller is that `save` goes through `writeSaveToCache` on the query `remote` is read from; a `remote`
 taken from another query (a list's row) would bring the editor's saves back as changes from outside.
 
 ### Why not through IPC

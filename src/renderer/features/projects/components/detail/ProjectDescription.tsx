@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Project } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
-import { holdSavedText, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
+import { writeSaveToCache, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
@@ -24,7 +24,7 @@ export function ProjectDescription({ project }: { project: Project }) {
     (markdown) => {
       // a blank description is stored as none
       const description = markdown.trim() === '' ? null : markdown;
-      holdSavedText(queryClient, trpc.projects.get.queryKey({ id: project.id }), (cached) => ({
+      writeSaveToCache(queryClient, trpc.projects.get.queryKey({ id: project.id }), (cached) => ({
         ...cached,
         description,
       }));
