@@ -4,9 +4,11 @@ import {
   createDocumentExtensions,
   normalizeMarkdown,
   parseMarkdown,
+  readMarkdown,
   relaxEntities,
   serializeMarkdown,
 } from '@renderer/editor/markdown';
+import type { MarkdownSource, SourceBlock } from '@renderer/editor/markdown';
 import { highlightToText } from '@renderer/editor/highlight';
 import { kbdVariants } from '@renderer/components/ui/Kbd';
 
@@ -158,6 +160,282 @@ describe('markdown round trip', () => {
       ].join('\n'),
     );
     expect(normalizeMarkdown(first)).toBe(first);
+  });
+});
+
+// The source map says which slice of a loaded text each top-level block was read from
+// (docs/editor.md, "The source map"). Nothing is written with it yet.
+describe('reading the source', () => {
+  const fixtures = Object.entries(
+    import.meta.glob<string>('./fixtures/real-world/*.md', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }),
+  ).map(([path, text]): [string, string] => [path.split('/').pop()!, text]);
+  const windows = (text: string) => text.replace(/\n/g, '\r\n');
+
+  function sourceOf(text: string): MarkdownSource {
+    const { source, reason } = readMarkdown(text);
+    expect(reason).toBeNull();
+    return source!;
+  }
+
+  const slices = (source: MarkdownSource) =>
+    source.blocks.filter((block): block is SourceBlock => block !== null);
+  const sliceText = (source: MarkdownSource, block: SourceBlock) =>
+    source.text.slice(block.from, block.to);
+  const definitionTexts = (source: MarkdownSource, firstOnly = false) =>
+    source.definitions
+      .filter((definition) => !firstOnly || definition.first)
+      .map((definition) => source.text.slice(definition.from, definition.to));
+
+  // the text between the slices, the slices and the document's blocks all line up
+  function expectLinedUp(text: string) {
+    const { doc } = readMarkdown(text);
+    const source = sourceOf(text);
+    const sliced = slices(source);
+    expect(source.text).toBe(text);
+    expect(source.between).toHaveLength(sliced.length + 1);
+    expect(
+      sliced.map((block, index) => source.between[index] + sliceText(source, block)).join('') +
+        source.between[sliced.length],
+    ).toBe(text);
+    // a slice has no blank line at either end, and what is between two holds nothing but blank
+    // lines and the definitions
+    for (const block of sliced) {
+      expect(sliceText(source, block)).toMatch(/\S/);
+      expect(sliceText(source, block)).not.toMatch(/^[^\S\n]*[\r\n]|[\r\n][^\S\n]*$/);
+    }
+    const outside = definitionTexts(source).reduce(
+      (rest, definition) => rest.replace(definition, ''),
+      source.between.join('\n'),
+    );
+    expect(outside.trim()).toBe('');
+    // the blocks are the document's, in order; null is an empty paragraph
+    expect(
+      source.blocks.flatMap((block) =>
+        block ? block.nodes.map((node) => node.type.name) : ['paragraph'],
+      ),
+    ).toEqual(doc.content?.map((node) => node.type));
+    return source;
+  }
+
+  it.each(fixtures)('lines %s up with its blocks, with either line end', (_name, text) => {
+    expect(text).not.toContain('\r');
+    const unix = expectLinedUp(text);
+    const crlf = expectLinedUp(windows(text));
+    expect(unix.lineEnd).toBe('\n');
+    expect(crlf.lineEnd).toBe('\r\n');
+    // the same blocks, read from the same text but for its line ends
+    expect(slices(crlf).map((block) => sliceText(crlf, block))).toEqual(
+      slices(unix).map((block) => windows(sliceText(unix, block))),
+    );
+    expect(crlf.blocks.length).toBe(unix.blocks.length);
+    slices(crlf).forEach((block, index) => {
+      const same = slices(unix)[index];
+      expect(block.nodes.every((node, k) => node.eq(same.nodes[k]))).toBe(true);
+    });
+  });
+
+  // No block of the fixtures reads differently alone (nor did any of 32,000 in docs/ and the
+  // READMEs of node_modules), given the definitions its reference links use: a slice is a whole
+  // block. What a block reads as can still depend on its neighbour (indented code straight after
+  // a paragraph is a line of that paragraph), which is for a save that moves blocks to check.
+  it.each(fixtures)('reads each block of %s the same alone', (_name, text) => {
+    const source = sourceOf(text);
+    const definitions = definitionTexts(source, true);
+    for (const block of slices(source)) {
+      const alone = sliceText(source, block);
+      const [read, ...others] = slices(
+        sourceOf(definitions.length > 0 ? `${alone}\n\n${definitions.join('\n')}` : alone),
+      );
+      expect(others).toEqual([]);
+      expect(read.nodes.map((node) => node.toJSON())).toEqual(
+        block.nodes.map((node) => node.toJSON()),
+      );
+      expect(read.nodes.every((node, index) => node.eq(block.nodes[index]))).toBe(true);
+    }
+  });
+
+  it('gives each block its lines, and the blank lines and line ends to the text between', () => {
+    const text = '# Title\nStraight under.\n\n- a\n- b\n\n\n```ts\ncode\n\n```\n';
+    const source = expectLinedUp(text);
+    expect(slices(source).map((block) => sliceText(source, block))).toEqual([
+      '# Title',
+      'Straight under.',
+      '- a\n- b',
+      '```ts\ncode\n\n```',
+    ]);
+    expect(source.between).toEqual(['', '\n', '\n\n', '\n\n\n', '\n']);
+    expect(source.blocks.map((block) => block?.nodes[0].type.name ?? null)).toEqual([
+      'heading',
+      'paragraph',
+      'bulletList',
+      'codeBlock',
+    ]);
+  });
+
+  it('leaves the blank lines a to-do list was read with out of its slice', () => {
+    // the to-do list's tokenizer takes the blank lines before it, so none is an empty paragraph
+    const source = expectLinedUp('Above\n\n\n\n- [ ] to do\n  - [x] nested\n\nBelow');
+    expect(source.blocks.map((block) => block && sliceText(source, block))).toEqual([
+      'Above',
+      '- [ ] to do\n  - [x] nested',
+      'Below',
+    ]);
+    expect(source.between).toEqual(['', '\n\n\n\n', '\n\n', '']);
+  });
+
+  it('gives the empty paragraphs read from blank lines no slice', () => {
+    // two blank lines more than the one between blocks, and one at each end
+    const text = '\n\nFirst\n\n\n\n\n\nSecond  \n\n\n';
+    const source = expectLinedUp(text);
+    expect(source.blocks.map((block) => block && sliceText(source, block))).toEqual([
+      null,
+      'First',
+      null,
+      null,
+      'Second  ',
+      null,
+    ]);
+    expect(source.between).toEqual(['\n\n', '\n\n\n\n\n\n', '\n\n\n']);
+
+    // a text of blank lines alone is all between
+    const blank = expectLinedUp('\n\n\n');
+    expect(blank.blocks).toEqual([null]);
+    expect(blank.between).toEqual(['\n\n\n']);
+  });
+
+  it('keeps the slice of a paragraph that holds only an image, which reads as the image', () => {
+    const source = expectLinedUp('Before\n\n![diagram](a.png "A")\n\nAfter');
+    const [, image] = slices(source);
+    expect(image.nodes.map((node) => node.type.name)).toEqual(['imageLink']);
+    expect(sliceText(source, image)).toBe('![diagram](a.png "A")');
+  });
+
+  it('gives a list split into to-do and bullet lists one slice', () => {
+    const source = expectLinedUp('- bullet\n- [ ] to do\n- [x] done\n- last\n\nAfter');
+    const [list] = slices(source);
+    expect(list.nodes.map((node) => node.type.name)).toEqual([
+      'bulletList',
+      'taskList',
+      'bulletList',
+    ]);
+    expect(sliceText(source, list)).toBe('- bullet\n- [ ] to do\n- [x] done\n- last');
+    expect(source.blocks).toHaveLength(2);
+  });
+
+  it('keeps definitions in the text between blocks, a label defined twice too', () => {
+    // marked gives no token for the second `[a]`, nor for the last one, at the end of the text
+    const text = [
+      'See [a] and [the docs][b].',
+      '',
+      '[a]: https://example.com/a',
+      '[B]: <https://example.com/b> "Docs"',
+      '',
+      '[a]: https://example.com/other',
+      '',
+      'End.',
+      '',
+      '[a]: https://example.com/a',
+      '',
+    ].join('\n');
+    for (const written of [text, windows(text)]) {
+      const source = expectLinedUp(written);
+      expect(slices(source).map((block) => sliceText(source, block))).toEqual([
+        'See [a] and [the docs][b].',
+        'End.',
+      ]);
+      expect(
+        source.definitions.map(({ label, href, title, first }) => ({ label, href, title, first })),
+      ).toEqual([
+        { label: 'a', href: 'https://example.com/a', title: null, first: true },
+        { label: 'b', href: 'https://example.com/b', title: 'Docs', first: true },
+        { label: 'a', href: 'https://example.com/other', title: null, first: false },
+        { label: 'a', href: 'https://example.com/a', title: null, first: false },
+      ]);
+      expect(definitionTexts(source)).toEqual([
+        '[a]: https://example.com/a',
+        '[B]: <https://example.com/b> "Docs"',
+        '[a]: https://example.com/other',
+        '[a]: https://example.com/a',
+      ]);
+    }
+    // GitHub's comments, each the label `//` again
+    const [, body] = fixtures.find(([name]) => name === 'github-pr-body.md')!;
+    expect(sourceOf(body).definitions.filter((definition) => !definition.first)).not.toEqual([]);
+  });
+
+  it('has no map for a text whose line ends are not all of one kind', () => {
+    expect(readMarkdown('One\r\n\r\nTwo\n\nThree')).toMatchObject({
+      source: null,
+      reason: 'mixed-line-ends',
+    });
+    for (const text of ['One\r\rTwo', 'One\r\n\r\nTwo\rThree']) {
+      expect(readMarkdown(text)).toMatchObject({ source: null, reason: 'lone-carriage-return' });
+    }
+    // and still reads as it does
+    expect(readMarkdown('One\r\rTwo').doc).toEqual(parseMarkdown('One\n\nTwo'));
+  });
+
+  it('has no map for a definition inside a list item, a quote, a callout or a collapsible section', () => {
+    for (const text of [
+      '- item [a]\n\n  [a]: https://example.com\n\nAfter',
+      '> [a]: https://example.com\n\nSee [a].',
+      '> [!NOTE]\n> Body\n>\n> [a]: https://example.com\n\nSee [a].',
+      '<details>\n<summary>S</summary>\n\n[a]: https://example.com\n\n</details>\n\nSee [a].',
+      // defined in a quote first: the one at the top level is a repeat
+      '> [a]: https://example.com\n\n[a]: https://example.com/other\n\nSee [a].',
+    ]) {
+      expect(readMarkdown(text)).toMatchObject({ source: null, reason: 'nested-definition' });
+    }
+  });
+
+  it('has no map for a text that reads as no blocks, shown as a paragraph of its lines', () => {
+    const definitions = readMarkdown('[a]: https://example.com\n[b]: https://example.org');
+    expect(definitions).toMatchObject({ source: null, reason: 'no-blocks' });
+    expect(definitions.doc.content).toEqual([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: '[a]: https://example.com' },
+          { type: 'hardBreak' },
+          { type: 'text', text: '[b]: https://example.org' },
+        ],
+      },
+    ]);
+    expect(readMarkdown('')).toEqual({
+      doc: { type: 'doc', content: [{ type: 'paragraph', content: [] }] },
+      source: null,
+      reason: 'no-blocks',
+    });
+  });
+
+  // what a save will compare: the editor's codec makes the map's nodes with the editor's schema
+  it.each(fixtures)('gives the blocks an editor holds once it loaded %s', (_name, text) => {
+    const editor = new Editor({
+      extensions: createDocumentExtensions(),
+      content: text,
+      contentType: 'markdown',
+    });
+    const { source } = editor.storage.documentMarkdown.codec.read(text);
+    const read = source!.blocks.flatMap((block) => (block ? block.nodes : [null]));
+    const held = editor.state.doc.children;
+    expect(held).toHaveLength(read.length);
+    held.forEach((node, index) => {
+      const block = read[index];
+      if (block) expect(node.eq(block)).toBe(true);
+      else expect(node.type.name === 'paragraph' && node.childCount === 0).toBe(true);
+    });
+    editor.destroy();
+  });
+
+  it('reads the same document as parseMarkdown', () => {
+    for (const [, text] of fixtures) {
+      expect(readMarkdown(text).doc).toEqual(parseMarkdown(text));
+      expect(readMarkdown(windows(text)).doc).toEqual(parseMarkdown(text));
+    }
   });
 });
 

@@ -18,11 +18,12 @@ import {
 } from '../extensions/html-elements';
 import { RawHtmlBlock, RawHtmlInline } from '../extensions/raw-html';
 import { SafeLink } from '../extensions/safe-link';
-import { MarkdownCodec } from './codec';
+import { MarkdownCodec, type MarkdownReading } from './codec';
 import { DocumentMarkdown } from './extension';
 
 export { escapeLineStart, relaxEntities } from './serializer';
-export { MarkdownCodec } from './codec';
+export { MarkdownCodec, type MarkdownReading } from './codec';
+export type { Definition, MarkdownSource, SourceBlock, UnmappedReason } from './source';
 
 /**
  * The editor's document model: which markdown it reads and how it writes it back. Every editor in
@@ -103,6 +104,11 @@ function documentCodec(): MarkdownCodec {
 
 export function parseMarkdown(markdown: string): JSONContent {
   return documentCodec().parse(markdown);
+}
+
+// the document an editor loads for the text, and the text's source map (source.ts)
+export function readMarkdown(markdown: string): MarkdownReading {
+  return documentCodec().read(markdown);
 }
 
 export function serializeMarkdown(doc: JSONContent): string {

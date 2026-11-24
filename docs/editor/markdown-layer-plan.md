@@ -6,11 +6,12 @@ markdown layer (`src/renderer/editor/markdown/`) from its first step, parity wit
 `@tiptap/markdown`, to a first-class layer that keeps each file's own text, and through what it
 needs to be production ready.
 
-> **Status:** milestone 0 (parity) is done (PR #256). Milestones 1–5 are to do. The reference for
-> the layer as built is `docs/editor.md` ("The markdown layer"); this plan is kept for the
-> reasoning and the steps. The prototype on `claude/markdown-block-preservation` is the
-> behavioural reference for milestones 1–3: its tests and its "What a save changes" notes carry
-> over, its TipTap-specific plumbing does not.
+> **Status:** milestone 0 (parity) is done (PR #256), and milestone 1 (the source map) is built on
+> it: reading a text gives its map, and nothing is written with it yet. Milestones 2–5 are to do.
+> The reference for the layer as built is `docs/editor.md` ("The markdown layer", "The source
+> map"); this plan is kept for the reasoning and the steps. The prototype on
+> `claude/markdown-block-preservation` is the behavioural reference for milestones 2–3: its tests
+> and its "What a save changes" notes carry over, its TipTap-specific plumbing does not.
 
 ## Goals
 
@@ -146,73 +147,106 @@ Each milestone lands as its own PR with code, tests and `docs/editor.md` togethe
 every existing test passing unchanged unless the milestone says which expectation changes and
 why.
 
-### Milestone 1: the source map
+### Milestone 1: the source map (built)
 
-Know, for a loaded text, which slice of it each top-level block was read from.
+Know, for a loaded text, which slice of it each top-level block was read from. `docs/editor.md`
+("The source map") describes it as built; this section keeps the steps and what turned out
+different from the plan.
 
-1. **Parser output with tokens.** Give `MarkdownParser` a `read(markdown)` that returns the
-   document and, per top-level token, `{ token, from, to, nodes }`: the token's offsets in the
-   normalised text and the JSON nodes it produced (zero for a definition or a space token's
-   separator, several for a list split by `parseList`, empty paragraphs for blank lines).
-   `parse()` stays, built on `read()`. Offsets come from finding each token's `raw` in the
-   normalised text, from the end of the token before it. The raws do **not** always concatenate
-   to the text: `marked` reads a link definition whose label is already defined and emits no
-   token for it (GitHub's `[//]: # (…)` comments, in `github-pr-body.md`; 3 of 995 files
-   checked). So where the text at the cursor is not the next raw, the gap before it must be
-   nothing but definition lines and blank lines, and becomes "between" text; anything else in a
-   gap means no map. Test it over the fixtures and the corpus; the tokenizers of ours that build
-   `raw` themselves (`orderedList`, `taskList`, `table`, `callout`, `details`) are the other
-   place it could break (none did on the corpus).
+1. **Parser output with tokens.** `MarkdownParser.read(markdown)` returns the document, the text
+   with `\n` line ends, the lexer's `links` and, per top-level token, `{ token, from, to, nodes }`:
+   the token's offsets in that text and the JSON nodes it produced (none for a definition or a
+   space token's separator, several for a list split by `parseList`, empty paragraphs for blank
+   lines). `parse()` is `read().doc`. Offsets come from finding each token's `raw` in the text,
+   from the end of the token before it. The raws do **not** always concatenate to the text:
+   `marked` reads a link definition whose label is already defined and emits no token for it
+   (GitHub's `[//]: # (…)` comments, in `github-pr-body.md`; 3 of 1,067 files checked). Where the
+   text at the cursor is not the next raw, the gap before it (and the one after the last token)
+   is read on its own: it must be nothing but definitions and blank lines, which are added as
+   tokens marked `repeated`, so the tokens cover the text end to end. Anything else in a gap
+   gives `tokens: null`, and no map.
 2. **Blank lines.** `extractAbsorbedBlankLines` moves a block's trailing blank lines into a space
-   token: compute offsets after it, so a block's slice ends at its last non-blank line and the
-   blank lines are "between" text. Empty paragraphs made from a space token have no slice: they
-   are matched as empty paragraphs (equal to any other), and written as blank lines.
+   token: offsets are computed after it. A block's slice ends at its last non-blank line, before
+   that line's end, so the line end and the blank lines are "between" text. Empty paragraphs
+   made from a space token have no slice: they are matched as empty paragraphs (equal to any
+   other), and written as blank lines.
 3. **`MarkdownSource`** (`source.ts`), built from `read()`'s output and the schema
-   (`schema.nodeFromJSON` per block, so blocks compare with `Node.eq`):
+   (`schema.nodeFromJSON` per node, so blocks compare with `Node.eq`):
 
    ```ts
    interface MarkdownSource {
-     text: string; // as loaded
+     text: string; // as loaded; every offset is into it
      lineEnd: '\n' | '\r\n';
-     blocks: ({ from: number; to: number; node: ProseMirrorNode } | null)[];
+     blocks: ({ from: number; to: number; nodes: ProseMirrorNode[] } | null)[];
      between: string[];
-     definitions: Definition[];
+     definitions: Definition[]; // { from, to, label, href, title, first }
    }
    ```
 
-   `between[i]` is the exact text between block `i - 1` and
-   block `i` (with `between[0]` before the first and `between[n]` after the last).
+   `blocks` follows the document's top-level nodes; `null` is one empty paragraph from blank
+   lines. `between[i]` is the exact text before the i-th block that has a slice, and the last
+   entry the text after the last one.
 
-4. **No map** when the text can't be lined up: line ends that mix `\r\n` and `\n`; a definition
-   inside a quote or list item (it would move with the block: a label in the lexer's `links`
-   with no top-level `def` token and no gap that defines it); a gap that holds anything but
-   definitions (step 1). `source` is then `null`, and saves write the whole document. Don't
-   validate blocks with `check()`: a paragraph that holds only an image reads as a bare
-   `imageLink` at the top level (inherited from TipTap's paragraph rule), which the schema
-   doesn't allow in a document but the editor holds and writes back; it must keep its slice like
-   any block (milestone 4 decides whether to make it a paragraph).
-5. **Links:** keep the lexer's `tokens.links` (public on `marked`'s token list) in the source, for
-   milestone 2's definition handling.
-6. **Codec API:** `codec.read(markdown): { doc: JSONContent, source: MarkdownSource | null }`,
-   and `parseDocument` built on it.
+4. **No map** (`source: null`, with a `reason`) when the text can't be lined up: line ends that
+   mix `\r\n` and `\n`, or a lone `\r`; a definition inside a quote, a list item, a callout or a
+   collapsible section (a label in the lexer's `links` with no top-level `def` token that
+   defines it first); a gap that holds anything but definitions (step 1); a block that reads as
+   no node; a text that reads as no blocks. Blocks are not validated with `check()`: a paragraph
+   that holds only an image reads as a bare `imageLink` at the top level, and keeps its slice
+   (milestone 4 decides whether to make it a paragraph).
+5. **Codec API:** `codec.read(markdown): { doc, source, reason }`, with `parseDocument` built on
+   it, and `readMarkdown` (`index.ts`) for the document schema without an editor.
 
-Tests (`markdown.test.ts`, a new `describe('reading the source')`):
+**What turned out different from the plan:**
 
-- the slices and the text between them concatenate to the text, for every fixture, with `\n`
-  and `\r\n`, and with a label defined twice;
-- each fixture's blocks, sliced out of the text and read alone, give the same node (or note the
-  exceptions: an indented code block or lazy line that only reads as it does after its neighbour);
-- no map for mixed line ends and for a definition inside a list item.
+- **A block holds `nodes`, not `node`.** A list split by `parseList` is one token and one slice
+  but several top-level nodes, and its parts can't be sliced apart safely (whether a list is
+  loose is decided over the whole list). The slice is kept when all of its nodes are, in order.
+- **`between` counts only blocks that have a slice.** An empty paragraph from blank lines has no
+  text of its own to stand between; it lies in the `between` of the slices around it.
+- **Offsets are into the text as loaded,** not the `\n` text, so a slice of a `\r\n` text holds
+  `\r\n` and the pieces concatenate to the file as it is. Milestone 2 converts only the markdown
+  it writes anew, not the whole output.
+- **A slice excludes blank lines before it too.** The to-do list's tokenizer takes the blank
+  lines before the list into its `raw` (so extra blank lines above a to-do list read as no empty
+  paragraphs, as they always have).
+- **The lexer's `links` are not kept in the source.** `definitions` carries each definition's
+  label, target, title and whether it is the label's first, which is everything `links` holds
+  once every label is known to be defined at the top level.
+- **Three more reasons for no map** than planned: `unread-token`, a block that gives no node
+  (found on the corpus: a fenced code block indented one to three spaces reads as nothing and is
+  lost on save, inherited from TipTap's code block rule; its text must not become "between"
+  text, which a save would drop without noticing); `invalid-node`, a node `nodeFromJSON` refuses;
+  and `no-blocks`, the text `parseDocument` shows as a paragraph of its lines (an empty text
+  included).
+- **No block read differently alone.** Every block of the fixtures and of the corpus (32,931)
+  reads as the same node when sliced out, given the first definitions appended for its reference
+  links. Known cases that do read differently, none of them in the corpus: a fence never closed
+  whose code ends in blank lines (the code holds them, the slice doesn't), and anything that
+  depends on its neighbour (indented code after a paragraph, a lazy line).
+- **Parity was checked against the layer before this change,** not `@tiptap/markdown`, which is
+  no longer installed: `parse()` gives byte-identical JSON on every corpus file, with `\n` and
+  with `\r\n`.
 
-Done when: `read()` gives a map for every fixture, `parse()` output is unchanged (parity holds on
-the corpus: re-run the parity test from `accded7` locally), and the docs describe the map.
+Tests (`markdown.test.ts`, `describe('reading the source')`): the slices and the text between
+them concatenate to the text, for every fixture with both line ends and for a label defined
+twice; each fixture's blocks read alone give the same node; an editor that loaded a fixture holds
+the map's blocks (`Node.eq`); blank lines, an image-only paragraph, a split list and a to-do list
+after blank lines map as above; no map for mixed line ends, a lone `\r`, a nested definition and
+a text of no blocks.
+
+Corpus (`docs/` and the `README.md` files under `node_modules`, 1,067 files): 1,060 have a map
+whose pieces concatenate to the text (three of them with a label defined twice); 7 have none:
+5 mix line ends, 1 defines its labels inside a collapsible section, 1 has an indented fence.
 
 ### Milestone 2: saving what was read
 
 Write a document keeping every unchanged block's slice.
 
 1. **Matching.** `serializeKeeping(doc, source)` (`keeping.ts`): match the document's top-level
-   children against `source.blocks` in order: take the common prefix and suffix first (an edit
+   children against `source.blocks` in order (a block with several nodes, a split list, is kept
+   only when all of them match, in a row; compare with nodes of the editor's own codec, since
+   nodes of two schemas are never equal): take the common prefix and suffix first (an edit
    usually leaves all but one block), then a longest common subsequence on `Node.eq` over what is
    left, so a long note costs a comparison per block, not per pair. Empty paragraphs match
    blank-line runs. A matched block is **kept**; an unmatched one is **new** (edited, added or moved).
@@ -223,8 +257,9 @@ Write a document keeping every unchanged block's slice.
      new block replaced exactly one old block in place, so `### Notes` straight above a list
      stays so when the list changes);
    - the text before the first block and after the last, when those blocks are kept;
-   - the file's final newline; its line ends (`\n` → `\r\n` on the whole output when the file
-     used `\r\n`).
+   - the file's final newline (it is in the last `between`); its line ends: slices and `between`
+     text already hold the file's own, so only markdown written anew is converted (`\n` →
+     `\r\n` when `lineEnd` is `\r\n`).
 3. **Seams.** Where a kept block meets a new one, or a block moved from elsewhere, read the two
    back together (the slice, the text between, the new markdown): if they don't read as the two
    nodes (`First\n* a` turned paragraph joins the paragraphs; an indented code block after a new
@@ -235,7 +270,9 @@ Write a document keeping every unchanged block's slice.
    (`Node.eq` on the whole document). A mismatch writes the whole document in the editor's
    spelling. This is the safety net for everything above; keep it even once the seam checks look
    complete, and measure it (milestone 4 budgets it).
-5. **Definitions.** A definition is kept with the `between` text that held it. When a save drops
+5. **Definitions.** A definition is kept with the `between` text that held it (a block read
+   back alone, for a seam check, needs the first definitions appended to read its reference
+   links). When a save drops
    that text (its neighbouring blocks were removed) and a kept link still uses the label, write
    the definition at the end of the file. A label defined twice is fine (GitHub's `[//]: #`
    comments) unless the two differ and a link uses it: then no map.
@@ -335,6 +372,10 @@ each block, and `docs/editor.md` lists the markers.
      blocks, which the schema doesn't allow (the editor holds it all the same). Reading it as a
      paragraph holding the image writes the same markdown and gives a valid document; it changes
      the JSON for that input, so list it, and check the caret and deletion around it either way.
+   - Fix the other inherited loss: a fenced code block indented one to three spaces reads as
+     nothing (`codeBlock`'s `parse` takes only a `raw` that starts with the fence) and is gone
+     on the next save. Such a text has no map today (`unread-token`). Reading it as a code block
+     changes parity for that input: list it.
    - Audit the ports for other inherited edge cases (`taskItem` builds a text node with
      `createNode('text', { text })`, which makes an attribute, not text; unreachable today).
 2. **Properties, not just cases.** Add property tests (add `fast-check` as a dev dependency):
