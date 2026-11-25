@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
-import { TaskStatus, type NoteListItem } from '@common/types';
+import { TaskStatus, type NoteListItem, type SearchResult } from '@common/types';
 import { queryClient } from '@renderer/ipc';
 import { noteContentQuery } from '@renderer/features/notes/api/queries';
 import { FakeMain, workspace } from './fake-main';
@@ -240,6 +240,29 @@ describe('the note page', () => {
     editorOf(app.container).chain().focus('end').insertContent('!').run();
     window.dispatchEvent(new Event('blur'));
     await eventually(() => expect(main.callsTo('notes.updateContent')).toHaveLength(1));
+  });
+
+  it('never offers the note itself on "@", as nothing mentions itself', async () => {
+    const { app } = notePage(undefined, NOTE, {}, (main) => {
+      const found = (id: string, title: string) =>
+        ({
+          entityType: 'note',
+          entity: { id, title, color: null },
+          title,
+          body: '',
+          key: null,
+          rank: -1,
+        }) as unknown as SearchResult;
+      main.searchResults = [found(NOTE, 'Architecture ADR #4'), found('nte_other', 'ADR #5')];
+    });
+    await eventually(() => expect(app.text()).toContain('The implicit flow leaks tokens.'));
+    editorOf(app.container).chain().focus('end').insertContent(' @adr').run();
+    let menu: Element | null = null;
+    await eventually(() => {
+      menu = document.querySelector('[aria-label="Mention"]');
+      expect(menu?.textContent ?? '').toContain('ADR #5');
+    });
+    expect(menu!.textContent).not.toContain('Architecture ADR #4');
   });
 
   it('opens New task on "/task", connected to the note and its project', async () => {

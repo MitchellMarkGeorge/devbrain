@@ -577,6 +577,7 @@ function EventDescription({
         ref={editor}
         editable={editable}
         placeholder="Add a description…"
+        ownerId={event.id}
         openNewTaskDialog={createTask}
         onChange={(markdown) => {
           if (series) pending.current = markdown;

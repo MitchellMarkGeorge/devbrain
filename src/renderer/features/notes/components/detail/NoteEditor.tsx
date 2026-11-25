@@ -68,6 +68,7 @@ function NoteEditorLoaded({
       onChange={onChange}
       onReady={onReady}
       editable={editable}
+      ownerId={noteId}
       newTaskOptions={{ projectId, linkedNoteId: noteId }}
       openNewTaskDialog={createTask}
     />

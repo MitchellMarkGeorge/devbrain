@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { NoteId, ProjectId } from '@common/ids';
-import type { SearchResult } from '@common/types';
+import type { MentionSourceId, SearchResult } from '@common/types';
 import { ipc, trpc } from '@renderer/ipc';
 import type { EditorEntity, EditorHost, MentionType } from '@renderer/editor/types';
 import { useMutationErrorToast } from '../lib/mutation-errors';
@@ -32,11 +32,18 @@ export type OpenNewTaskDialog = (options: {
  * from text takes the settings' default priority and due date, as the New task dialog does, and
  * `newTaskOptions`'s project and note. "/task" opens the New task dialog through
  * `openNewTaskDialog`, with the same project and note; without one there is no "/task".
+ * `ownerId` is the item whose text the editor holds: "@" never offers it, as an item can't mention
+ * itself (core ignores such a link too).
  */
-export function useWorkspaceEditorHost(
-  newTaskOptions: NewTaskOptions = {},
-  openNewTaskDialog?: OpenNewTaskDialog,
-): Pick<EditorHost, 'searchEntities' | 'onOpenUrl' | 'createTask' | 'openNewTask'> {
+export function useWorkspaceEditorHost({
+  ownerId,
+  newTaskOptions = {},
+  openNewTaskDialog,
+}: {
+  ownerId: MentionSourceId;
+  newTaskOptions?: NewTaskOptions;
+  openNewTaskDialog?: OpenNewTaskDialog;
+}): Pick<EditorHost, 'searchEntities' | 'onOpenUrl' | 'createTask' | 'openNewTask'> {
   const queryClient = useQueryClient();
   const { mutate: openUrl } = useMutation(trpc.workspace.openUrl.mutationOptions());
   const showError = useMutationErrorToast('Couldn’t create the task');
@@ -49,7 +56,7 @@ export function useWorkspaceEditorHost(
           const results = await queryClient.query(
             trpc.search.search.queryOptions({ query, entityType: types, limit: 20 }),
           );
-          return results.map(toEditorEntity);
+          return results.filter((result) => result.entity.id !== ownerId).map(toEditorEntity);
         } catch {
           // a query search cannot read yet ("@(") finds nothing rather than failing the menu
           return [];
@@ -77,7 +84,7 @@ export function useWorkspaceEditorHost(
         ? (title?: string) => openNewTaskDialog({ defaults: { title, projectId, linkedNoteId } })
         : undefined,
     }),
-    [queryClient, openUrl, showError, projectId, linkedNoteId, openNewTaskDialog],
+    [queryClient, openUrl, showError, ownerId, projectId, linkedNoteId, openNewTaskDialog],
   );
 }
 
