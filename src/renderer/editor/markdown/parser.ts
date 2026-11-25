@@ -3,7 +3,15 @@ import type { Lexer, Marked } from 'marked';
 import { decodeEntities } from './entities';
 import { createLexer } from './lexer';
 import type { RuleTable } from './rules';
-import type { MarkResult, MarkdownToken, ParseHelpers, ParseResult } from './types';
+import type {
+  LinkDefinitions,
+  MarkResult,
+  MarkdownToken,
+  ParseHelpers,
+  ParseResult,
+  ParsedText,
+  TokenRead,
+} from './types';
 
 /**
  * Markdown to the editor's JSON: `marked` reads the text into tokens, and the rule for each token's
@@ -17,6 +25,9 @@ import type { MarkResult, MarkdownToken, ParseHelpers, ParseResult } from './typ
  * - A list that mixes to-dos and bullets is split into a to-do list and a bullet list at each
  *   change (`parseList`).
  * - Inline marks are put on the text nodes they span, merging neighbours with the same marks.
+ *
+ * `read` gives, with the document, where in the text each top-level token was read from and the
+ * nodes it gave: what the source map (source.ts) is made from.
  */
 
 // blank lines a token's raw ended with, which marked folds into the block before them
@@ -109,15 +120,83 @@ export class MarkdownParser {
   }
 
   parse(markdown: string): JSONContent {
+    return this.read(markdown).doc;
+  }
+
+  /**
+   * The document, and its top-level tokens with the nodes each gave and where it stands in the
+   * text (with `\n` line ends, as `marked` reads it).
+   */
+  read(markdown: string): ParsedText {
     const previous = this.activeLexer;
     const lexer = createLexer(this.marked);
     this.activeLexer = lexer;
     try {
-      const tokens = lexer.lex(markdown) as MarkdownToken[];
-      return { type: 'doc', content: this.parseTokens(tokens, true) };
+      const lexed = lexer.lex(markdown);
+      const read = this.readTokens(lexed as MarkdownToken[], true);
+      const text = markdown.replace(/\r\n|\r/g, '\n');
+      return {
+        doc: { type: 'doc', content: read.flatMap(({ nodes }) => nodes) },
+        text,
+        tokens: this.locate(text, read),
+        links: lexed.links as LinkDefinitions,
+      };
     } finally {
       this.activeLexer = previous;
     }
+  }
+
+  /**
+   * Each token's place in the text: its `raw`, found from the end of the token before it. The
+   * raws don't always follow one another: `marked` reads a definition of a label that is defined
+   * already and gives no token for it. Such definitions (and blank lines with them) are given as
+   * tokens here, marked `repeated`, so the tokens cover the text end to end. Null when anything
+   * else stands between two tokens: then the text can't be lined up with what was read.
+   */
+  private locate(text: string, read: Omit<TokenRead, 'from' | 'to'>[]): TokenRead[] | null {
+    const located: TokenRead[] = [];
+    let offset = 0;
+    const skipTo = (next: number): boolean => {
+      if (next === offset) return true;
+      const skipped = next > offset ? this.repeatedDefinitions(text, offset, next) : null;
+      if (!skipped) return false;
+      located.push(...skipped);
+      offset = next;
+      return true;
+    };
+    for (const { token, nodes } of read) {
+      const raw = token.raw || '';
+      if (!text.startsWith(raw, offset) && !skipTo(text.indexOf(raw, offset))) return null;
+      located.push({ token, nodes, from: offset, to: offset + raw.length });
+      offset += raw.length;
+    }
+    return skipTo(text.length) ? located : null;
+  }
+
+  // The text from `from` to `to` as definitions and blank lines, or null when it holds anything
+  // else. Read on its own it gives each label's first definition and drops the repeats after it
+  // in turn, so it is read again from wherever one was dropped.
+  private repeatedDefinitions(text: string, from: number, to: number): TokenRead[] | null {
+    const found: TokenRead[] = [];
+    let offset = from;
+    while (offset < to) {
+      const start = offset;
+      for (const token of createLexer(this.marked).lex(text.slice(offset, to))) {
+        if (!text.startsWith(token.raw, offset)) break;
+        if (token.type !== 'def' && token.type !== 'space') return null;
+        const end = offset + token.raw.length;
+        found.push({
+          token: token as MarkdownToken,
+          nodes: [],
+          from: offset,
+          to: end,
+          repeated: token.type === 'def',
+        });
+        offset = end;
+      }
+      if (offset === start) return null;
+    }
+    return found;
   }
 
   private tokenizeInline(src: string): MarkdownToken[] {
@@ -125,24 +204,34 @@ export class MarkdownParser {
   }
 
   private parseTokens(tokens: MarkdownToken[], emptyParagraphsFromSpace = false): JSONContent[] {
+    return this.readTokens(tokens, emptyParagraphsFromSpace).flatMap(({ nodes }) => nodes);
+  }
+
+  // The nodes each token gives. With `emptyParagraphsFromSpace` the tokens are the ones left once
+  // a block's trailing blank lines are a `space` token of their own, so a block's `raw` ends at
+  // its last line.
+  private readTokens(
+    tokens: MarkdownToken[],
+    emptyParagraphsFromSpace = false,
+  ): { token: MarkdownToken; nodes: JSONContent[] }[] {
     const normalized = emptyParagraphsFromSpace ? extractAbsorbedBlankLines(tokens) : tokens;
     const blockIndexes = normalized.flatMap((token, index) =>
       token.type === 'space' ? [] : [index],
     );
     let previousBlock = -1;
     let nextBlockPointer = 0;
-    return normalized.flatMap((token, index) => {
+    return normalized.map((token, index) => {
       while (nextBlockPointer < blockIndexes.length && blockIndexes[nextBlockPointer] < index) {
         previousBlock = blockIndexes[nextBlockPointer];
         nextBlockPointer += 1;
       }
       if (emptyParagraphsFromSpace && token.type === 'space') {
         const nextBlock = blockIndexes[nextBlockPointer] ?? -1;
-        return this.emptyParagraphsFromSpace(token, previousBlock, nextBlock);
+        return { token, nodes: this.emptyParagraphsFromSpace(token, previousBlock, nextBlock) };
       }
       const parsed = this.parseToken(token, emptyParagraphsFromSpace);
-      if (parsed === null) return [];
-      return Array.isArray(parsed) ? parsed : [parsed];
+      if (parsed === null) return { token, nodes: [] };
+      return { token, nodes: Array.isArray(parsed) ? parsed : [parsed] };
     });
   }
 

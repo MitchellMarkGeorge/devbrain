@@ -15,6 +15,32 @@ export interface MarkdownToken {
   [key: string]: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
+/** The link reference definitions `marked` read in a text, by label as it keys them. */
+export type LinkDefinitions = Record<string, { href: string; title?: string | null }>;
+
+/** A top-level token, the nodes it gave, and where its `raw` stands in the text. */
+export interface TokenRead {
+  token: MarkdownToken;
+  // none for a definition or the blank line between two blocks, empty paragraphs for the blank
+  // lines beyond it, several for a list split into to-do and bullet lists
+  nodes: JSONContent[];
+  from: number;
+  to: number;
+  // a definition of a label defined before it, which `marked` reads and gives no token for
+  repeated?: boolean;
+}
+
+/** A text as the parser read it (`MarkdownParser.read`). */
+export interface ParsedText {
+  doc: JSONContent;
+  // the text with `\n` line ends, which the tokens' offsets are in
+  text: string;
+  // covering `text` end to end; null when the tokens couldn't be lined up with it
+  tokens: TokenRead[] | null;
+  // every definition read, wherever it stands (in a quote or a list item too)
+  links: LinkDefinitions;
+}
+
 /** A mark to put on the nodes read from a token's children (`**bold**` is `bold` on its text). */
 export interface MarkResult {
   mark: string;

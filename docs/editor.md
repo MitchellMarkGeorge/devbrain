@@ -143,11 +143,15 @@ extension and command APIs (`getSchema`, `setContent`, an extension's storage an
 `marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
 
 What is left to build on it (keeping unedited blocks and their markers on save) and what it
-needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md).
+needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its
+first step is built: reading a text gives its source map ("The source map", below). Nothing is
+written with it yet, so a save writes what it did.
 
-- `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `parseMarkdown`,
-  `serializeMarkdown` and `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s
-  schema, with no editor.
+- `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `read(markdown)` gives
+  the document an editor loads and the text's source map; `parseDocument` is that document alone,
+  and `parse` the parser's JSON as it is. `parseMarkdown`, `readMarkdown`, `serializeMarkdown` and
+  `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s schema, with no
+  editor.
 - `extension.ts`: `DocumentMarkdown`, the last of `createDocumentExtensions()`, plugs a codec into
   each editor: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec` (the clipboard reads
   and writes with it), and `contentType: 'markdown'`, which reads a string as markdown for the
@@ -171,7 +175,9 @@ needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-la
 - `parser.ts`: tokens to JSON. Besides each token's rule it reads blank lines beyond the one
   between two blocks as empty paragraphs (at the top level, and in a quote, callout or collapsible
   section), splits a list that mixes to-dos and bullets into separate lists at each change, and
-  puts each mark on the text it spans.
+  puts each mark on the text it spans. `read` gives, with the document, each top-level token's
+  place in the text and the nodes it gave.
+- `source.ts`: `MarkdownSource`, the source map, made from what `read` gives.
 - `serializer.ts`: JSON to markdown. It writes a run of text's marks itself, opening and closing
   each where its span starts and ends: the higher priority mark outside (a link around its bold
   text), spaces moved out of a mark's edges, and a mark that has to reopen where two overlap
@@ -184,6 +190,63 @@ raw HTML, as written; TipTap parsed it through the DOM and dropped it, losing it
 And a note that reads as no blocks at all (only link definitions, `[docs]: https://…`) shows its
 text, a line each, however it is loaded; TipTap showed it on the first load only (read as HTML,
 which lost an address in angle brackets) and loaded it empty through `setContent`.
+
+### The source map
+
+`codec.read(markdown)` returns `{ doc, source, reason }`. `source` is a `MarkdownSource`: which
+slice of the text each top-level block of `doc` was read from. It is what a save will use to write
+an unedited block back as it was written; today nothing reads it but the tests.
+
+```ts
+interface MarkdownSource {
+  text: string; // as loaded; every offset is into it
+  lineEnd: '\n' | '\r\n';
+  blocks: ({ from: number; to: number; nodes: ProseMirrorNode[] } | null)[];
+  between: string[];
+  definitions: { from; to; label; href; title; first }[];
+}
+```
+
+- **A block's slice** is `text.slice(from, to)`: from the block's first line, with its
+  indentation, to the last character of its last line that isn't blank. The line end after it and
+  any blank lines around it are not part of it.
+- **`blocks` follows the document's top-level nodes in order.** A slice gives one node, or
+  several: a list that mixes to-dos and bullets is one slice and the lists it is split into. A
+  paragraph that holds only an image reads as a bare `imageLink` and keeps its slice. `null`
+  stands for one empty paragraph read from blank lines: it has no slice, and its blank lines are
+  in the text between the blocks around it.
+- **`between`** is the text outside the slices: `between[i]` comes before the i-th slice (counting
+  only the blocks that have one), and the last entry after the last slice, so there is one more
+  entry than there are slices. It holds line ends, blank lines and link reference definitions,
+  nothing else. `between[0] + slice 0 + between[1] + … + between[n]` is the text, exactly.
+- **`definitions`** are the link reference definitions (`[docs]: https://…`), each inside a
+  `between`. `first` marks a label's first definition, the one links read. `marked` gives no
+  token for a later definition of the same label (GitHub's `[//]: # (…)` comments); the parser
+  finds those in the text between two tokens, so they are listed too, with `first: false`.
+- **The nodes are ProseMirror nodes** of the codec's schema (`schema.nodeFromJSON`), so a block
+  compares with one in an editor by `Node.eq`, given the editor's own codec
+  (`editor.storage.documentMarkdown.codec`): nodes of two schemas are never equal.
+  `readMarkdown` uses the schema `parseMarkdown` does.
+- **Offsets** are found by looking for each top-level token's `raw` from the end of the token
+  before it (`MarkdownParser.read`), after a block's trailing blank lines are made a token of
+  their own. A text written with `\r\n` is read as `marked` reads it, with `\n`, and its offsets
+  are moved to where they are in the text as loaded, so a slice of such a text holds `\r\n`.
+
+`source` is `null`, and `reason` says why, when the text and what was read can't be lined up. A
+save of such a text will write the whole document, as every save does today:
+
+| `reason`               | The text                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `mixed-line-ends`      | has both `\r\n` and `\n` line ends                                                                    |
+| `lone-carriage-return` | has a `\r` that isn't part of `\r\n` (`marked` reads it as a line end)                                |
+| `nested-definition`    | defines a label inside a quote, a list item, a callout or a collapsible section                       |
+| `unread-text`          | has something between two tokens that isn't a definition or a blank line                              |
+| `unread-token`         | has a block that reads as nothing (a fenced code block indented one to three spaces, which is lost)   |
+| `invalid-node`         | reads as a node the schema can't make                                                                 |
+| `no-blocks`            | reads as no blocks: empty, or only definitions (loaded as one paragraph, a line of the text per line) |
+
+On `docs/` and the READMEs in `node_modules` (1,067 files), 1,060 have a map; five mix line
+ends, one defines its labels inside a collapsible section and one has an indented fence.
 
 ## The note format
 
