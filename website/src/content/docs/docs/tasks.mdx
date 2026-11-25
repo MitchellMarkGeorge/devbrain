@@ -26,8 +26,7 @@ Cancelled closes a task without completing it: it doesn't count toward a project
 
 ## Creating tasks
 
-- **New Task** on the Tasks page, **New task** in the title bar's **+** menu, or press the
-  key <kbd>C</kbd> anywhere.
+- **New task** in the title bar's **+** menu, or press the key <kbd>C</kbd> anywhere.
 - On [Home](/docs/home/#quick-capture), type one line such as `Fix the login redirect tomorrow
 #Website`.
 - The **+** on a group's heading or a board column, which fills in that group's status, priority or
@@ -108,18 +107,21 @@ doesn't read the pull request's state from GitHub.
 
 ## The Tasks page
 
-The toolbar has **Filter** and (in the grouped view) **Group by** on the left, and **Sort**, the
-view switch and **New Task** on the right.
+The toolbar says which tasks are shown on the left (**Status**, your filters and **+ Filter**) and
+how they're drawn on the right (**Display**).
 
-### Views
+### Layouts
+
+**Display** switches between the list and the board, and groups the list.
 
 - **List**: every task in one list, each subtask indented under its parent, with a line joining
   them. The sort orders the top-level tasks, and each task's subtasks under it. Click a task's
   subtask count, such as **1/3**, or press <kbd>→</kbd> and <kbd>←</kbd>, to show and hide its
   subtasks; a task with more than 50 starts with them hidden. A subtask whose parent isn't in the
   list, because the filter leaves it out, shows its parent's name instead.
-- **Grouped**: the same list in groups, by **Project**, **Status**, **Priority** or **Due date**
-  (Overdue, Today, This week, Later, No due date). Click a group's heading to fold it.
+- **List, grouped**: pick **Group by** in **Display** to put the same list in groups, by
+  **Project**, **Status**, **Priority** or **Due date** (Overdue, Today, This week, Later, No due
+  date); **None** ungroups it. Click a group's heading to fold it.
 - **Board**: a column for each status. Drag a card to another column to change its status, or pick
   it up with <kbd>Space</kbd>, move it with <kbd>←</kbd> <kbd>→</kbd> and drop it
   with <kbd>Space</kbd>. Clicking a card opens it in a sheet beside the board, so you keep your place.
@@ -135,21 +137,25 @@ The view you open with is the **Default view** in [Settings › Tasks](/docs/set
 
 ### Filtering and sorting
 
-**Filter** narrows the list by:
+**Status** is always first in the toolbar: Open (Not started and In progress), All, or one status.
+Whether completed tasks show by default is the **Show completed tasks** setting.
 
-- **Status**: Open (Not started and In progress), All, or one status. Whether completed tasks show
-  by default is the **Show completed tasks** setting.
+**+ Filter** narrows the list further. Its menu lists every choice, and you can type to find one:
+
 - **Priority**: High, Medium, Low or No priority.
-- **Project**: one project, or **No project**.
 - **Due**: Overdue, Today, This week (the next seven days) or No due date.
 - **Source**: **Local** (your own tasks) or **Synced** (from Linear).
+- **Project**: one project, or **No project**.
 
-The button shows what's on, such as "Open · High"; **Clear filters** resets it.
+Each filter you set shows in the toolbar as its own button, such as "Priority High". Click it to
+change its value, or its **×** to remove it; **Clear filters** in the menu removes them all. A
+filter holds one value at a time.
 
-**Sort** orders the list (not the board, whose columns follow the status) by **Priority**, **Due
-date**, **Status**, **Last updated** or **Created**, ascending or descending.
+**Sort by** in **Display** orders the list (not the board, whose columns follow the status) by
+**Priority**, **Due date**, **Status**, **Last updated** or **Created**; the button beside it
+switches between ascending and descending.
 
-Your filters, sort and view are part of the page's address, so **Back** and **Forward** step
+Your filters, sort and layout are part of the page's address, so **Back** and **Forward** step
 through them, and DevBrain reopens the page as you left it.
 
 ### Working with many tasks

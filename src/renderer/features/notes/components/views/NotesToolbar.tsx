@@ -1,5 +1,4 @@
 import {
-  ArrowUpDown,
   CalendarDays,
   CircleCheck,
   CircleSlash,
@@ -8,35 +7,22 @@ import {
   LayoutGrid,
   Link,
   List,
-  ListFilter,
   Plus,
   Type,
   type LucideIcon,
 } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
 import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuFilter,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  ToggleGroup,
-  ToggleGroupItem,
+  ListDisplay,
+  ListFilters,
   useWorkspaceShell,
+  type ListToolbarOption,
 } from '@renderer/components';
-import { ProjectItems } from '@renderer/features/tasks/components/menus/TaskMenus';
 import { useProjectOptions } from '@renderer/features/tasks/hooks/use-project-options';
 import {
   CLEAR_FILTERS,
+  LINK_FILTERS,
+  NOTE_SORTS,
   type LinkFilter,
   type NoteSortParam,
   type NoteView,
@@ -45,9 +31,6 @@ import {
 } from '../../api/search';
 
 type SetSearch = (patch: Partial<NotesSearch>) => void;
-
-export const VIEW_LABELS: Record<NoteView, string> = { list: 'List', card: 'Cards' };
-export const VIEW_ICONS: Record<NoteView, LucideIcon> = { list: List, card: LayoutGrid };
 
 export const SORT_LABELS: Record<NoteSortParam, string> = {
   updated_at: 'Last edited',
@@ -61,9 +44,9 @@ const SORT_ICONS: Record<NoteSortParam, LucideIcon> = {
 };
 
 export const LINK_LABELS: Record<LinkFilter, string> = {
-  event: 'Linked to an event',
-  task: 'Linked to a task',
-  none: 'Not linked',
+  event: 'An event',
+  task: 'A task',
+  none: 'Nothing',
 };
 const LINK_ICONS: Record<LinkFilter, LucideIcon> = {
   event: CalendarDays,
@@ -71,190 +54,89 @@ const LINK_ICONS: Record<LinkFilter, LucideIcon> = {
   none: CircleSlash,
 };
 
-/** What the Filter button says: All, or the filters that narrow the list. */
-function filterValue(resolved: ResolvedNotesSearch, projectName: string | undefined): string {
-  const parts: string[] = [];
-  if (resolved.project)
-    parts.push(resolved.project === 'none' ? 'No project' : (projectName ?? 'Project'));
-  if (resolved.link) parts.push(LINK_LABELS[resolved.link]);
-  return parts.length > 0 ? parts.join(' · ') : 'All';
-}
+const SORT_OPTIONS: ListToolbarOption<NoteSortParam>[] = NOTE_SORTS.map((sort) => ({
+  value: sort,
+  label: SORT_LABELS[sort],
+  icon: SORT_ICONS[sort],
+}));
 
-/** Filter ▾: the project (or none), and what the note links to. */
-export function NotesFilterMenu({
+const LAYOUTS: ListToolbarOption<NoteView>[] = [
+  { value: 'list', label: 'List', icon: List },
+  { value: 'card', label: 'Cards', icon: LayoutGrid },
+];
+
+/** Which notes are shown: a chip per filter that is set (what it links to, its project), "+ Filter". */
+export function NotesToolbarStart({
   resolved,
   setSearch,
 }: {
   resolved: ResolvedNotesSearch;
   setSearch: SetSearch;
 }) {
-  const { size } = useWorkspaceShell();
+  const compact = useWorkspaceShell().size === 'compact';
   const projects = useProjectOptions();
-  const projectName = projects.find((project) => project.id === resolved.project)?.name;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={ListFilter}
-            value={filterValue(resolved, projectName)}
-            hideValue={size === 'compact'}
-            active={resolved.project !== undefined || resolved.link !== undefined}
-          >
-            Filter
-          </Button>
-        }
-      />
-      <DropdownMenuContent width="sm" align="start">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Filter</DropdownMenuLabel>
-          <DropdownMenuFilter autoHighlight>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent width="lg">
-                <ProjectItems
-                  projectId={
-                    resolved.project === 'none' ? null : (resolved.project as ProjectId | undefined)
-                  }
-                  onPick={(project) => setSearch({ project: project === null ? 'none' : project })}
-                />
-                {resolved.project && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      icon={CircleSlash}
-                      onClick={() => setSearch({ project: undefined })}
-                    >
-                      Any project
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </DropdownMenuFilter>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger icon={Link}>Link</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent width="sm">
-              <DropdownMenuRadioGroup
-                value={resolved.link ?? ''}
-                onValueChange={(link: string) =>
-                  setSearch({ link: link === '' ? undefined : (link as LinkFilter) })
-                }
-              >
-                <DropdownMenuRadioItem value="" icon={CircleSlash}>
-                  Any
-                </DropdownMenuRadioItem>
-                {(Object.keys(LINK_LABELS) as LinkFilter[]).map((link) => (
-                  <DropdownMenuRadioItem key={link} value={link} icon={LINK_ICONS[link]}>
-                    {LINK_LABELS[link]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem icon={CircleSlash} onClick={() => setSearch(CLEAR_FILTERS)}>
-          Clear filters
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ListFilters
+      compact={compact}
+      fields={[
+        {
+          id: 'link',
+          label: 'Linked to',
+          icon: Link,
+          options: LINK_FILTERS.map((link) => ({
+            value: link,
+            label: LINK_LABELS[link],
+            icon: LINK_ICONS[link],
+          })),
+          value: resolved.link,
+          onChange: (link) => setSearch({ link: link as LinkFilter | undefined }),
+        },
+        {
+          id: 'project',
+          label: 'Project',
+          icon: Folder,
+          options: [
+            ...projects.map((project) => ({
+              value: project.id,
+              label: project.name,
+              icon: Folder,
+            })),
+            { value: 'none', label: 'No project', icon: CircleSlash },
+          ],
+          value: resolved.project,
+          onChange: (project) => setSearch({ project: project as ProjectId | 'none' | undefined }),
+        },
+      ]}
+      onClear={() => setSearch(CLEAR_FILTERS)}
+    />
   );
 }
 
-/** Sort ▾: Last edited, Created or Title, then the order. */
-export function NotesSortMenu({
-  resolved,
-  setSearch,
-}: {
-  resolved: ResolvedNotesSearch;
-  setSearch: SetSearch;
-}) {
-  const { size } = useWorkspaceShell();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={ArrowUpDown}
-            value={SORT_LABELS[resolved.sort]}
-            hideValue={size === 'compact'}
-          >
-            Sort
-          </Button>
-        }
-      />
-      <DropdownMenuContent width="sm" align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.sort}
-            // a new sort takes its own natural order
-            onValueChange={(sort: string) =>
-              setSearch({ sort: sort as NoteSortParam, dir: undefined })
-            }
-          >
-            {(Object.keys(SORT_LABELS) as NoteSortParam[]).map((sort) => (
-              <DropdownMenuRadioItem key={sort} value={sort} icon={SORT_ICONS[sort]}>
-                {SORT_LABELS[sort]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Order</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.dir}
-            onValueChange={(dir: string) => setSearch({ dir: dir as 'asc' | 'desc' })}
-          >
-            <DropdownMenuRadioItem value="asc" icon={ArrowUpDown}>
-              Ascending
-            </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="desc" icon={ArrowUpDown}>
-              Descending
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** Sort, the list / cards toggle, and New Note. */
+/** How the notes are drawn: Display (List or Cards, and the sort). */
 export function NotesToolbarEnd({
   resolved,
   setSearch,
-  onNewNote,
 }: {
   resolved: ResolvedNotesSearch;
   setSearch: SetSearch;
-  onNewNote: () => void;
 }) {
+  const compact = useWorkspaceShell().size === 'compact';
   return (
-    <>
-      <NotesSortMenu resolved={resolved} setSearch={setSearch} />
-      <ToggleGroup
-        value={resolved.view}
-        aria-label="View"
-        onValueChange={(view) => {
-          if (view) setSearch({ view: view as NoteView });
-        }}
-      >
-        {(Object.keys(VIEW_LABELS) as NoteView[]).map((view) => (
-          <ToggleGroupItem
-            key={view}
-            value={view}
-            icon={VIEW_ICONS[view]}
-            aria-label={VIEW_LABELS[view]}
-          />
-        ))}
-      </ToggleGroup>
-      <Button variant="outline" icon={Plus} onClick={onNewNote}>
-        New Note
-      </Button>
-    </>
+    <ListDisplay
+      compact={compact}
+      layout={{
+        options: LAYOUTS,
+        value: resolved.view,
+        onChange: (view) => setSearch({ view }),
+      }}
+      sort={{
+        options: SORT_OPTIONS,
+        value: resolved.sort,
+        // a new sort takes its own natural order
+        onChange: (sort) => setSearch({ sort, dir: undefined }),
+        dir: resolved.dir,
+        onDirChange: (dir) => setSearch({ dir }),
+      }}
+    />
   );
 }

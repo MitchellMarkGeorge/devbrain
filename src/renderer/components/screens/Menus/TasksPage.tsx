@@ -1,23 +1,19 @@
 /** The Tasks list page the menu screens open over, as in Figma's "Tasks (list)". */
 import type { ReactNode } from 'react';
-import { ArrowUpDown, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
-import { Button } from '../../ui/Button';
+import { List } from 'lucide-react';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import { TaskList, type TaskListProps } from '../../lists/TaskList';
-import { ToggleGroup, ToggleGroupItem } from '../../ui/ToggleGroup';
 import { LIST_TASKS } from '../Tasks/data';
 import { AppFrame } from '../Tasks/frame';
 
 export function TasksPage({
   states,
-  filter,
-  sort,
+  open,
   children,
 }: {
   states?: TaskListProps['states'];
-  /** the Filter button, when a screen draws it open */
-  filter?: ReactNode;
-  /** the Sort button, when a screen draws it open */
-  sort?: ReactNode;
+  /** one of the toolbar's menus, drawn open */
+  open?: 'status' | 'filter' | 'display';
   /** menus held open over the page */
   children?: ReactNode;
 }) {
@@ -27,29 +23,9 @@ export function TasksPage({
         active="Tasks"
         breadcrumb={['Tasks', { label: 'List', icon: List }]}
         toolbarStart={
-          filter ?? (
-            <Button variant="outline" icon={ListFilter} value="Open">
-              Filter
-            </Button>
-          )
+          <DemoToolbarStart list="tasks" open={open === 'display' ? undefined : open} />
         }
-        toolbarEnd={
-          <>
-            {sort ?? (
-              <Button variant="outline" icon={ArrowUpDown} value="Priority">
-                Sort
-              </Button>
-            )}
-            <ToggleGroup defaultValue="list" aria-label="View">
-              <ToggleGroupItem value="list" icon={List} aria-label="List" />
-              <ToggleGroupItem value="group" icon={Group} aria-label="Grouped" />
-              <ToggleGroupItem value="board" icon={Kanban} aria-label="Board" />
-            </ToggleGroup>
-            <Button variant="outline" icon={Plus}>
-              New Task
-            </Button>
-          </>
-        }
+        toolbarEnd={<DemoToolbarEnd list="tasks" open={open === 'display'} />}
       >
         <TaskList tasks={LIST_TASKS} states={states} />
       </AppFrame>

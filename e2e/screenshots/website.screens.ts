@@ -22,9 +22,15 @@ async function openByTitle(window: Page, title: string): Promise<void> {
   await window.getByRole('main').getByText(title, { exact: true }).first().click();
 }
 
-/** Picks a view in the page toolbar's View switch (List, Board, Cards, …). */
+/** Picks a layout in the page toolbar's Display (List, Board, Cards), and closes it again. */
 async function chooseView(window: Page, name: string): Promise<void> {
-  await window.getByRole('main').getByLabel(name, { exact: true }).click();
+  const display = window.getByRole('main').getByRole('button', { name: /^Display/ });
+  await display.click();
+  const layouts = window.getByRole('group', { name: 'Layout' });
+  await layouts.getByRole('button', { name, exact: true }).click();
+  // closed with a click: Escape would leave the button drawn with its keyboard focus ring
+  await display.click();
+  await expect(layouts).toBeHidden();
 }
 
 // Each page starts from wherever the one before it left off, so each opens its own page first

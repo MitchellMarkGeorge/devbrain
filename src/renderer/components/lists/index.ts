@@ -3,6 +3,7 @@ export * from './DraftTaskRow';
 export * from './GroupHeading';
 export * from './LinkedTaskRow';
 export * from './ListRow';
+export * from './ListToolbar';
 export * from './MentionList';
 export * from './MentionRow';
 export * from './NoteList';

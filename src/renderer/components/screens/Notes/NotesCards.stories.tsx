@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpDown, LayoutGrid, List, ListFilter, Plus } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
 import { Breadcrumb } from '../../ui/Breadcrumb';
-import { Button } from '../../ui/Button';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import { NoteCard } from '../../notes/NoteCard';
-import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from '../Calendar/AppFrame';
 import { NOTES } from './data';
 
@@ -33,25 +32,9 @@ function NotesCardsScreen({ width, height }: { width?: number; height?: number }
         }
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 24px 20px' }}>
-        <Button variant="outline" icon={ListFilter} value="All" hideValue={compact}>
-          Filter
-        </Button>
+        <DemoToolbarStart list="notes" compact={compact} />
         <Spacer />
-        <Button variant="outline" icon={ArrowUpDown} value="Last edited" hideValue={compact}>
-          Sort
-        </Button>
-        <ToggleGroup
-          aria-label="Layout"
-          defaultValue="cards"
-          style={{ alignSelf: 'center' }}
-          items={[
-            { value: 'list', icon: List },
-            { value: 'cards', icon: LayoutGrid },
-          ]}
-        />
-        <Button variant="outline" icon={Plus}>
-          New Note
-        </Button>
+        <DemoToolbarEnd list="notes" compact={compact} layout="cards" />
       </div>
       <div
         style={{

@@ -1,0 +1,44 @@
+/* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
+
+/* a filter chip's ×: narrower than a square button, and quiet until pointed at */
+.remove {
+  width: 28px;
+  color: var(--muted-foreground);
+}
+
+/* "+ Filter": a quiet button after the chips */
+.add {
+  color: var(--muted-foreground);
+}
+
+/* Display's popover: the layout switch, then a row per setting */
+.display {
+  display: grid;
+  gap: 10px;
+}
+.layouts {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: 100%;
+}
+.row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rowLabel,
+.note {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) 13px / var(--text-sm-leading) var(--font-sans);
+}
+.sort {
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.select {
+  flex: 1;
+  min-width: 0;
+}

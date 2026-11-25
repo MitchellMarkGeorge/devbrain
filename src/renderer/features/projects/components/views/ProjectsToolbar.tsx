@@ -1,38 +1,24 @@
 import {
-  ArrowUpDown,
   Calendar,
   Circle,
-  CircleSlash,
+  CircleDashed,
   Clock,
   Cloud,
   LayoutGrid,
   List,
-  ListFilter,
   Plus,
   type LucideIcon,
 } from 'lucide-react';
 import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
+  ListDisplay,
+  ListFilters,
+  ListStatusChip,
   ProjectStatusIcon,
-  ToggleGroup,
-  ToggleGroupItem,
   useWorkspaceShell,
+  type ListToolbarOption,
 } from '@renderer/components';
-import { useCreateProject } from '../../hooks/use-create-project';
 import {
-  CLEAR_PROJECT_FILTERS,
+  PROJECT_SORTS,
   PROJECT_STATUS_OF,
   type ProjectSortParam,
   type ProjectStatusFilter,
@@ -42,12 +28,6 @@ import {
 } from '../../api/search';
 
 type SetSearch = (patch: Partial<ProjectsSearch>) => void;
-
-export const PROJECT_VIEW_LABELS: Record<ProjectView, string> = { list: 'List', card: 'Cards' };
-export const PROJECT_VIEW_ICONS: Record<ProjectView, LucideIcon> = {
-  list: List,
-  card: LayoutGrid,
-};
 
 export const PROJECT_STATUS_FILTER_LABELS: Record<ProjectStatusFilter, string> = {
   active: 'Active',
@@ -70,158 +50,72 @@ const SORT_ICONS: Record<ProjectSortParam, LucideIcon> = {
   created_at: Plus,
 };
 
-/** What the Filter button says: the status, and the source when one is picked. */
-function filterValue(resolved: ResolvedProjectsSearch): string {
-  const parts = [PROJECT_STATUS_FILTER_LABELS[resolved.status]];
-  if (resolved.source) parts.push(resolved.source === 'external' ? 'Synced' : 'Local');
-  return parts.join(' · ');
-}
+// Active (the default) and All, then each other status alone
+const STATUS_SCOPES: ListToolbarOption<ProjectStatusFilter>[] = (['active', 'all'] as const).map(
+  (status) => ({ value: status, label: PROJECT_STATUS_FILTER_LABELS[status] }),
+);
+const STATUS_OPTIONS: ListToolbarOption<ProjectStatusFilter>[] = (
+  ['not_started', 'on_hold', 'completed'] as const
+).map((status) => ({
+  value: status,
+  label: PROJECT_STATUS_FILTER_LABELS[status],
+  icon: <ProjectStatusIcon status={PROJECT_STATUS_OF[status]} />,
+}));
 
-/** Filter ▾: the status (Active by default, or All) and the source. */
-export function ProjectsFilterMenu({
+const SORT_OPTIONS: ListToolbarOption<ProjectSortParam>[] = PROJECT_SORTS.map((sort) => ({
+  value: sort,
+  label: PROJECT_SORT_LABELS[sort],
+  icon: SORT_ICONS[sort],
+}));
+
+const LAYOUTS: ListToolbarOption<ProjectView>[] = [
+  { value: 'list', label: 'List', icon: List },
+  { value: 'card', label: 'Cards', icon: LayoutGrid },
+];
+
+/** Which projects are shown: the Status chip (Active by default), the Source chip, "+ Filter". */
+export function ProjectsToolbarStart({
   resolved,
   setSearch,
 }: {
   resolved: ResolvedProjectsSearch;
   setSearch: SetSearch;
 }) {
-  const { size } = useWorkspaceShell();
+  const compact = useWorkspaceShell().size === 'compact';
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={ListFilter}
-            value={filterValue(resolved)}
-            hideValue={size === 'compact'}
-            active={resolved.status !== 'active' || resolved.source !== undefined}
-          >
-            Filter
-          </Button>
-        }
+    <>
+      <ListStatusChip
+        icon={CircleDashed}
+        options={STATUS_SCOPES}
+        statuses={STATUS_OPTIONS}
+        value={resolved.status}
+        active={resolved.status !== 'active'}
+        compact={compact}
+        // Active is the default, so it leaves the URL
+        onChange={(status) => setSearch({ status: status === 'active' ? undefined : status })}
       />
-      <DropdownMenuContent width="sm" align="start">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Status</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.status}
-            // Active is the default, so it leaves the URL
-            onValueChange={(status: string) =>
-              setSearch({
-                status: status === 'active' ? undefined : (status as ProjectStatusFilter),
-              })
-            }
-          >
-            {(Object.keys(PROJECT_STATUS_FILTER_LABELS) as ProjectStatusFilter[]).map((status) => (
-              <DropdownMenuRadioItem
-                key={status}
-                value={status}
-                icon={
-                  status === 'all' ? (
-                    Circle
-                  ) : (
-                    <ProjectStatusIcon status={PROJECT_STATUS_OF[status]} />
-                  )
-                }
-              >
-                {PROJECT_STATUS_FILTER_LABELS[status]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger icon={Cloud}>Source</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent width="sm">
-              <DropdownMenuRadioGroup
-                value={resolved.source ?? ''}
-                onValueChange={(source: string) =>
-                  setSearch({ source: source === '' ? undefined : (source as 'local') })
-                }
-              >
-                <DropdownMenuRadioItem value="" icon={CircleSlash}>
-                  Any
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="local" icon={Circle}>
-                  Local
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="external" icon={Cloud}>
-                  Synced
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem icon={CircleSlash} onClick={() => setSearch(CLEAR_PROJECT_FILTERS)}>
-          Clear filters
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <ListFilters
+        compact={compact}
+        fields={[
+          {
+            id: 'source',
+            label: 'Source',
+            icon: Cloud,
+            options: [
+              { value: 'local', label: 'Local', icon: Circle },
+              { value: 'external', label: 'Synced', icon: Cloud },
+            ],
+            value: resolved.source,
+            onChange: (source) => setSearch({ source: source as 'local' | 'external' | undefined }),
+          },
+        ]}
+        onClear={() => setSearch({ source: undefined })}
+      />
+    </>
   );
 }
 
-/** Sort ▾: what to sort by, then the order. */
-export function ProjectsSortMenu({
-  resolved,
-  setSearch,
-}: {
-  resolved: ResolvedProjectsSearch;
-  setSearch: SetSearch;
-}) {
-  const { size } = useWorkspaceShell();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={ArrowUpDown}
-            value={PROJECT_SORT_LABELS[resolved.sort]}
-            hideValue={size === 'compact'}
-          >
-            Sort
-          </Button>
-        }
-      />
-      <DropdownMenuContent width="sm" align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.sort}
-            // a new sort takes its own natural order
-            onValueChange={(sort: string) =>
-              setSearch({ sort: sort as ProjectSortParam, dir: undefined })
-            }
-          >
-            {(Object.keys(PROJECT_SORT_LABELS) as ProjectSortParam[]).map((sort) => (
-              <DropdownMenuRadioItem key={sort} value={sort} icon={SORT_ICONS[sort]}>
-                {PROJECT_SORT_LABELS[sort]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Order</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.dir}
-            onValueChange={(dir: string) => setSearch({ dir: dir as 'asc' | 'desc' })}
-          >
-            <DropdownMenuRadioItem value="asc" icon={ArrowUpDown}>
-              Ascending
-            </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="desc" icon={ArrowUpDown}>
-              Descending
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** Sort, the list / cards toggle, and New Project. */
+/** How the projects are drawn: Display (List or Cards, and the sort). */
 export function ProjectsToolbarEnd({
   resolved,
   setSearch,
@@ -229,29 +123,24 @@ export function ProjectsToolbarEnd({
   resolved: ResolvedProjectsSearch;
   setSearch: SetSearch;
 }) {
-  const createProject = useCreateProject();
+  const compact = useWorkspaceShell().size === 'compact';
   return (
-    <>
-      <ProjectsSortMenu resolved={resolved} setSearch={setSearch} />
-      <ToggleGroup
-        value={resolved.view}
-        aria-label="View"
-        onValueChange={(view) => {
-          if (view) setSearch({ view: view === 'list' ? undefined : (view as ProjectView) });
-        }}
-      >
-        {(Object.keys(PROJECT_VIEW_LABELS) as ProjectView[]).map((view) => (
-          <ToggleGroupItem
-            key={view}
-            value={view}
-            icon={PROJECT_VIEW_ICONS[view]}
-            aria-label={PROJECT_VIEW_LABELS[view]}
-          />
-        ))}
-      </ToggleGroup>
-      <Button variant="outline" icon={Plus} onClick={() => createProject()}>
-        New Project
-      </Button>
-    </>
+    <ListDisplay
+      compact={compact}
+      layout={{
+        options: LAYOUTS,
+        value: resolved.view,
+        // the list is the default, so it leaves the URL
+        onChange: (view) => setSearch({ view: view === 'list' ? undefined : view }),
+      }}
+      sort={{
+        options: SORT_OPTIONS,
+        value: resolved.sort,
+        // a new sort takes its own natural order
+        onChange: (sort) => setSearch({ sort, dir: undefined }),
+        dir: resolved.dir,
+        onDirChange: (dir) => setSearch({ dir }),
+      }}
+    />
   );
 }

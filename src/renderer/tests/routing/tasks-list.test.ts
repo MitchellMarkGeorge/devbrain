@@ -42,7 +42,9 @@ describe('the list view', () => {
     await eventually(() => expect(app.text()).toContain('Plan the launch'));
     expect(app.text()).toContain('Build the page');
     expect(app.text()).not.toContain('Ship it');
-    expect(app.text()).toContain('FilterOpen');
+    expect(app.text()).toContain('StatusOpen');
+    // the title bar's New creates a task: the toolbar has no button for it
+    expect(byText(app.container, 'button', 'New Task')).toBeNull();
   });
 
   it('shows the tasks a filter in the URL asks for', async () => {
@@ -68,9 +70,74 @@ describe('the list view', () => {
     const { app } = tasksPage();
     await eventually(() => expect(row('Plan the launch')).toBeDefined());
     const length = app.router.history.length;
-    click(app.container.querySelector('[aria-label="Grouped"]'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?view=group`));
+    click(byText(app.container, 'button', 'Display'));
+    await eventually(() => expect(byText(document.body, 'button', 'Board')).not.toBeNull());
+    click(byText(document.body, 'button', 'Board'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?view=board`));
     expect(app.router.history.length).toBe(length);
+  });
+
+  it('sets the status from the Status chip, the default leaving the URL', async () => {
+    const { app } = tasksPage();
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    const pick = async (status: string) => {
+      click(byText(app.container, 'button', 'Status'));
+      await eventually(() =>
+        expect(byText(document.body, '[role="menuitemradio"]', status)).not.toBeNull(),
+      );
+      click(byText(document.body, '[role="menuitemradio"]', status));
+    };
+    await pick('Completed');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?status=completed`));
+    await eventually(() => expect(row('Ship it')).toBeDefined());
+    await pick('Open');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
+  });
+
+  it('sets a filter from the Filter menu, and removes it by unticking it', async () => {
+    const { app, main } = tasksPage();
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    const item = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
+    click(byText(app.container, 'button', 'Filter'));
+    await eventually(() => expect(item('High')).not.toBeNull());
+    // every field's values are in the one menu
+    expect(item('Overdue')).not.toBeNull();
+    expect(item('Synced')).not.toBeNull();
+    expect(item('No project')).not.toBeNull();
+    click(item('High'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?priority=high`));
+    await eventually(() =>
+      expect(main.callsTo('tasks.tree').at(-1)!.input).toMatchObject({
+        filter: { priority: TaskPriority.HIGH },
+      }),
+    );
+    // one value a field: another replaces it
+    click(item('Low'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?priority=low`));
+    await eventually(() => expect(item('Low')!.getAttribute('aria-checked')).toBe('true'));
+    click(item('Low'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
+  });
+
+  it('groups the list from Display, and ungroups it with None', async () => {
+    const { app } = tasksPage();
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    const option = (label: string) => byText(document.body, '[role="option"]', label);
+    const groupBy = async (label: string) => {
+      click(document.querySelector('[aria-label="Group by"]'));
+      await eventually(() => expect(option(label)).not.toBeNull());
+      click(option(label));
+    };
+    click(byText(app.container, 'button', 'Display'));
+    await eventually(() =>
+      expect(document.querySelector('[aria-label="Group by"]')).not.toBeNull(),
+    );
+    await groupBy('Status');
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/tasks?view=group&group_by=status`),
+    );
+    await groupBy('None');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?view=list`));
   });
 
   it('starts a parent of more than 50 subtasks folded, and loads them when it is shown', async () => {

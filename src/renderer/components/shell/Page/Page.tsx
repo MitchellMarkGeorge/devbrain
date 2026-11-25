@@ -20,7 +20,7 @@ export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'
    * The page's actions, 8px apart: a detail page's `PageFavoriteButton` and `PageMenuButton`.
    * Inside a `WorkspaceShell` they go at the title bar's end (so they stay put while the page
    * scrolls, and take no room in the page); elsewhere the page draws them in a 48px bar at its top.
-   * Toolbars (filter, sort, view, "New Task") go in a `PageToolbar` in the page instead.
+   * Toolbars (status, filters, Display) go in a `PageToolbar` in the page instead.
    */
   actions?: ReactNode;
   /** classes for the scrolling element (the ScrollArea's viewport) */
@@ -114,9 +114,9 @@ export function PageMenuButton({ children, open, defaultOpen, onOpenChange }: Pa
 }
 
 export interface PageToolbarProps extends ComponentPropsWithoutRef<'div'> {
-  /** the left side: Filter, a search field */
+  /** the left side: which items are shown (Status, the filters, a search field) */
   start?: ReactNode;
-  /** the right side: Sort, the view switcher, the page's "New …" button */
+  /** the right side: how the items are drawn (Display) */
   end?: ReactNode;
 }
 

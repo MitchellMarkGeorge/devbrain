@@ -6,13 +6,9 @@
 import type { CSSProperties, ReactElement, ReactNode } from 'react';
 import { TaskPriority, TaskStatus } from '@common/types';
 import {
-  ArrowUpDown,
   Calendar,
   ChartNoAxesColumnIncreasing,
   Circle,
-  CircleAlert,
-  CircleSlash,
-  Clock,
   Code,
   Copy,
   CornerDownRight,
@@ -30,12 +26,8 @@ import {
 } from 'lucide-react';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuFilter,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -46,9 +38,8 @@ import {
   type DropdownMenuContentProps,
   type DropdownMenuSubTriggerProps,
 } from '../../ui/DropdownMenu';
-import { PriorityIcon } from '../../entities/PriorityIcon';
 import { PriorityMenuContent } from '../../entities/PriorityMenu';
-import { ProjectGlyph, ProjectPickerItems, type PickerProject } from '../../entities/ProjectPicker';
+import { ProjectGlyph, type PickerProject } from '../../entities/ProjectPicker';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { StatusMenuContent } from '../../entities/StatusMenu';
 
@@ -267,178 +258,6 @@ export function LinkPillMenu({ link, ...props }: ContentProps & { link: 'event' 
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem icon={X}>{event ? 'Remove link' : 'Remove task note'}</DropdownMenuItem>
-    </DropdownMenuContent>
-  );
-}
-
-// ---------- toolbar ----------
-
-/** Sort ▾ (SortMenu): what to sort by, then the order. */
-export function SortMenu(props: ContentProps) {
-  return (
-    <DropdownMenuContent width="sm" {...props}>
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-        <DropdownMenuRadioGroup defaultValue="priority">
-          <DropdownMenuRadioItem value="priority" icon={ChartNoAxesColumnIncreasing}>
-            Priority
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="due" icon={Calendar}>
-            Due date
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="status" icon={Circle}>
-            Status
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="updated" icon={Clock}>
-            Last updated
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="created" icon={Plus}>
-            Created
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Order</DropdownMenuLabel>
-        <DropdownMenuRadioGroup defaultValue="desc">
-          <DropdownMenuRadioItem value="asc" icon={ArrowUpDown}>
-            Ascending
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="desc" icon={ArrowUpDown}>
-            Descending
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuGroup>
-    </DropdownMenuContent>
-  );
-}
-
-/** Group by ▾ (GroupByMenu). */
-export function GroupByMenu(props: ContentProps) {
-  return (
-    <DropdownMenuContent width="sm" {...props}>
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Group by</DropdownMenuLabel>
-        <DropdownMenuRadioGroup defaultValue="project">
-          <DropdownMenuRadioItem value="none" icon={CircleSlash}>
-            None
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="project" icon={Folder}>
-            Project
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="status" icon={Circle}>
-            Status
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="priority" icon={ChartNoAxesColumnIncreasing}>
-            Priority
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="linked" icon={Link}>
-            Linked event/note
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuGroup>
-    </DropdownMenuContent>
-  );
-}
-
-/** Filter › Status (FilterStatusMenu): several statuses, each ticked one kept. */
-export function FilterStatusItems() {
-  return (
-    <>
-      <DropdownMenuCheckboxItem
-        icon={<StatusIcon status={TaskStatus.NOT_STARTED} />}
-        defaultChecked
-      >
-        Not started
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
-        defaultChecked
-      >
-        In progress
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={<StatusIcon status={TaskStatus.COMPLETED} />}>
-        Completed
-      </DropdownMenuCheckboxItem>
-    </>
-  );
-}
-
-/** Filter › Priority (FilterPriorityMenu). */
-export function FilterPriorityItems() {
-  return (
-    <>
-      <DropdownMenuCheckboxItem icon={<PriorityIcon priority={TaskPriority.HIGH} />} defaultChecked>
-        High
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        icon={<PriorityIcon priority={TaskPriority.MEDIUM} />}
-        defaultChecked
-      >
-        Medium
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={<PriorityIcon priority={TaskPriority.LOW} />}>
-        Low
-      </DropdownMenuCheckboxItem>
-    </>
-  );
-}
-
-/** Filter › Due (DueFilterMenu). */
-export function DueFilterItems() {
-  return (
-    <>
-      <DropdownMenuCheckboxItem icon={CircleAlert}>Overdue</DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={Calendar} defaultChecked>
-        Today
-      </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={Calendar}>This week</DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={CircleSlash}>No due date</DropdownMenuCheckboxItem>
-    </>
-  );
-}
-
-/** Filter ▾ (FilterMenu): each property opens its values. `open` names the one held open. */
-export function FilterMenu({
-  open,
-  ...props
-}: ContentProps & { open?: 'status' | 'priority' | 'project' | 'due' }) {
-  return (
-    <DropdownMenuContent width="sm" {...props}>
-      <DropdownMenuGroup>
-        <DropdownMenuLabel>Filter</DropdownMenuLabel>
-        <DropdownMenuSub open={open === 'status' || undefined}>
-          <DropdownMenuSubTrigger icon={Circle}>Status</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent width="sm">
-            <FilterStatusItems />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSub open={open === 'priority' || undefined}>
-          <DropdownMenuSubTrigger icon={ChartNoAxesColumnIncreasing}>
-            Priority
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent width="sm">
-            <FilterPriorityItems />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuFilter>
-          <DropdownMenuSub open={open === 'project' || undefined}>
-            <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent width="lg">
-              <ProjectPickerItems multiple projects={PROJECTS} value={['auth']} />
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuFilter>
-        <Submenu icon={Link} label="Linked to">
-          <LinkItems />
-        </Submenu>
-        <DropdownMenuSub open={open === 'due' || undefined}>
-          <DropdownMenuSubTrigger icon={Calendar}>Due</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent width="sm">
-            <DueFilterItems />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      </DropdownMenuGroup>
     </DropdownMenuContent>
   );
 }

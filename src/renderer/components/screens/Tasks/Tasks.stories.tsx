@@ -1,13 +1,12 @@
-import { Fragment, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpDown, Folder, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
+import { Folder, Group, Kanban, List } from 'lucide-react';
 import { Board, BoardColumn } from '../../board/BoardColumn';
-import { Button } from '../../ui/Button';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import { GroupHeading } from '../../lists/GroupHeading';
 import { SelectionBar } from '../../lists/SelectionBar';
 import { TaskList } from '../../lists/TaskList';
-import { ToggleGroup, ToggleGroupItem } from '../../ui/ToggleGroup';
 import { BOARD, GROUPS, LIST_TASKS } from './data';
 import { AppFrame } from './frame';
 
@@ -22,25 +21,6 @@ type Story = StoryObj<typeof meta>;
 type View = 'list' | 'group' | 'board';
 const VIEW_LABEL: Record<View, string> = { list: 'List', group: 'Grouped', board: 'Board' };
 const VIEW_ICON = { list: List, group: Group, board: Kanban };
-
-/** The toolbar's right side: Sort, the list / grouped / board toggle and New Task. */
-function ToolbarEnd({ view }: { view: View }) {
-  return (
-    <>
-      <Button variant="outline" icon={ArrowUpDown} value="Priority">
-        Sort
-      </Button>
-      <ToggleGroup defaultValue={view} aria-label="View">
-        {(['list', 'group', 'board'] as const).map((v) => (
-          <ToggleGroupItem key={v} value={v} icon={VIEW_ICON[v]} aria-label={VIEW_LABEL[v]} />
-        ))}
-      </ToggleGroup>
-      <Button variant="outline" icon={Plus}>
-        New Task
-      </Button>
-    </>
-  );
-}
 
 function TasksFrame({
   view,
@@ -59,19 +39,14 @@ function TasksFrame({
     <AppFrame
       active="Tasks"
       breadcrumb={['Tasks', { label: VIEW_LABEL[view], icon: VIEW_ICON[view] }]}
-      toolbarStart={
-        <>
-          <Button variant="outline" icon={ListFilter} value={filter}>
-            Filter
-          </Button>
-          {groupBy && (
-            <Button variant="outline" icon={Group} value={groupBy}>
-              Group by
-            </Button>
-          )}
-        </>
+      toolbarStart={<DemoToolbarStart list="tasks" status={filter === 'All' ? 'all' : undefined} />}
+      toolbarEnd={
+        <DemoToolbarEnd
+          list="tasks"
+          layout={view === 'board' ? 'board' : 'list'}
+          groupBy={groupBy ? groupBy.toLowerCase() : undefined}
+        />
       }
-      toolbarEnd={<ToolbarEnd view={view} />}
       bodyStyle={bodyStyle}
     >
       {children}
