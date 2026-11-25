@@ -5,7 +5,7 @@ The note editor's "/" menu, 260px wide under the caret, drawn as a menu: groups 
 - **Basic blocks**: Text, Heading 1 (#), Heading 2 (##), Heading 3 (###), Code (```), Quote (>), Callout (a Note `Callout`, its kind changed from its title).
 - **Lists**: Bulleted list (-), Numbered list (1.), To-do list ([ ]).
 - **DevBrain**: Task, Link to note, Link to task, Mention event.
-- **Others**: Divider (---), Table, Collapsible section (a `<details>` section in the note).
+- **Others**: Divider (---), Table, Collapsible section (a `<details>` section in the note). While Table is highlighted, the `TableSizePicker` opens beside the list to pick its size (→ moves the keys into it). Table is left out in a table's cell, as a Markdown table can't hold one.
 
 **Placement.** Below the caret, or above it when there's more room there, kept 8px inside the window. It is `fixed`, so it never makes the page or window taller, and no taller than 560px, 70% of the window or the room it has beside the caret (`--suggestion-max-height`, which the editor sets as it places it). Past that its items scroll in a `ScrollArea` inside the menu's surface, the thin scrollbar drawn over its edge; the list itself is the area's viewport (`role="listbox"`, never focused, as the caret stays in the editor), and ↑/↓ keep the highlighted item in view.
 

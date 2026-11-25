@@ -9,7 +9,7 @@ The note editor's block styles, for whichever editor library DevBrain adopts: wr
 - **Code blocks** (`pre[data-language]`): a `card` panel with 10px corners, 12px × 16px padding, the language as a 12px `muted-foreground` label, the code in 13px mono. The editor draws its code blocks with `CodeBlock`, which adds the language menu and the syntax colours.
 - **Quotes**: a 2px `border-strong` bar, the text 12px in from it in `muted-foreground`.
 - **Inline**: links underlined in `muted-foreground`, inline code on `accent` in 13px mono (`font-mono`), highlights on `accent` (or the ColourMenu's colours), the selection a 35% `swatch-blue`.
-- **Tables**: full width, fixed columns, 6px × 8px cells over a `border` line; the header row in medium `muted-foreground`. Cells a drag selects take a 15% `swatch-blue` tint.
+- **Tables**: full width, fixed columns, 6px × 8px cells over a `border` line; the header row in medium `muted-foreground`. Cells a drag selects take a 15% `swatch-blue` tint. While a table is pointed at or worked in (`.tableActive` on its wrapper), `border` lines show between its columns too; a table you only read keeps its row lines. Cells a delete would remove, while it is pointed at (`.tableCellDanger`), take a 12% `destructive` tint. The controls around an editable table are the `TableHandle`, `TableMenu` and `TableToolbar`.
 - **Collapsible sections** (Tiptap's details markup, `<details>` in the note): a 20px chevron button in `muted-foreground` (`accent` on hover) that turns down when open, then the summary in medium `foreground-strong` with the body 4px under it, hidden while closed.
 - **Sub- and superscript** at 0.75em; keys (`<kbd>`) are the `Kbd` component.
 - **Unsupported HTML**, shown as its source text, in mono `muted-foreground`.

@@ -1,0 +1,85 @@
+/* A table's handles, its "+" between lines and its add bars. See docs/design-system/components/TableHandle.md */
+.handle,
+.insert {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--edge);
+  background: var(--popover);
+  color: var(--muted-foreground);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.handle {
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  touch-action: none;
+}
+.handle[data-axis='column'] {
+  width: var(--control-xs);
+  height: 14px;
+}
+.handle[data-axis='row'] {
+  width: 14px;
+  height: var(--control-xs);
+}
+.handle:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+/* its menu is open, or it is being dragged: the selection's blue */
+.handle[data-active] {
+  border-color: var(--swatch-blue);
+  background: color-mix(in oklab, var(--swatch-blue) 20%, var(--popover));
+  color: var(--swatch-blue);
+}
+.handle[data-active]:active {
+  cursor: grabbing;
+}
+
+.insert {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+}
+.insert:hover {
+  border-color: var(--swatch-blue);
+  background: color-mix(in oklab, var(--swatch-blue) 20%, var(--popover));
+  color: var(--swatch-blue);
+}
+
+.add {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  color: var(--subtle-foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+/* under the table, inside the gap to the next block */
+.add[data-axis='row'] {
+  height: 10px;
+}
+.add[data-axis='column'] {
+  width: 14px;
+}
+.add:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.handle:focus-visible,
+.insert:focus-visible,
+.add:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}

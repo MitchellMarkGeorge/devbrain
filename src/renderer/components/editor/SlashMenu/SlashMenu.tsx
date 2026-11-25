@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import {
   Calendar,
   CircleCheck,
@@ -13,11 +13,18 @@ import { DropdownMenuShortcut, menuStyles } from '../../ui/DropdownMenu';
 import { renderIcon, type IconSource } from '../../ui/Icon';
 import { BLOCK_TYPES, type BlockType } from '../TurnIntoMenu';
 import {
+  DEFAULT_TABLE_SIZE,
+  TABLE_SIZE_LIMIT,
+  TableSizePicker,
+  type TableSize,
+} from '../TableSizePicker';
+import {
   SuggestionMenu,
   type SuggestionGroup,
   type SuggestionMenuHandle,
   type SuggestionMenuProps,
 } from './SuggestionMenu';
+import styles from './SlashMenu.module.css';
 
 /** What a slash command inserts: a block type, or one of DevBrain's own blocks. */
 export type SlashCommand =
@@ -39,6 +46,8 @@ export interface SlashItem {
   shortcut?: string;
   /** other words that find it ("h1", "checkbox") */
   keywords?: string[];
+  /** Table's size, when one was picked beside it */
+  tableSize?: TableSize;
 }
 
 const block = (value: BlockType, keywords?: string[]): SlashItem => {
@@ -98,7 +107,7 @@ export const SLASH_GROUPS: SuggestionGroup<SlashItem>[] = [
         shortcut: '---',
         keywords: ['rule', 'separator'],
       },
-      { value: 'table', label: 'Table', icon: Table },
+      { value: 'table', label: 'Table', icon: Table, keywords: ['grid', 'columns'] },
       {
         value: 'collapsible',
         label: 'Collapsible section',
@@ -138,15 +147,75 @@ export interface SlashMenuProps extends Omit<
 }
 
 /**
- * The editor's "/" menu, 260px wide under the caret: Basic blocks (with Callout), Lists, DevBrain (Task, Link to
- * note, Link to task, Mention event) and Others (Divider, Table, Collapsible section), each with its Markdown shortcut. Typing after
- * the "/" narrows it to the matching items; the first match is highlighted.
+ * The editor's "/" menu, 260px wide under the caret: Basic blocks (with Callout), Lists, DevBrain
+ * (Task, Link to note, Link to task, Mention event) and Others (Divider, Table, Collapsible
+ * section), each with its Markdown shortcut. Typing after the "/" narrows it to the matching items;
+ * the first match is highlighted.
+ *
+ * While Table is highlighted, a `TableSizePicker` opens beside the list. Pointing at it picks a
+ * size; → moves the arrow keys into it (←, →, ↑ and ↓ then change the size, and ← past one column
+ * gives them back to the list), and ↵ inserts a table of that size. ↵ on Table itself inserts 3 × 3.
+ * The picked size comes back on the item, as `tableSize`.
  */
-export function SlashMenu({ query = '', groups = SLASH_GROUPS, ...props }: SlashMenuProps) {
-  return (
+export function SlashMenu({
+  query = '',
+  groups = SLASH_GROUPS,
+  handleRef,
+  onSelect,
+  ...props
+}: SlashMenuProps) {
+  const list = useRef<SuggestionMenuHandle>(null);
+  const [highlighted, setHighlighted] = useState<string>();
+  const [size, setSize] = useState<TableSize>(DEFAULT_TABLE_SIZE);
+  const [sizing, setSizing] = useState(false);
+  const visible = filterSlashGroups(groups, query);
+  const tableItem = visible.flatMap((group) => group.items).find((item) => item.value === 'table');
+  const showPicker = highlighted === 'table' && tableItem !== undefined;
+
+  const pickSize = (picked: TableSize) => {
+    if (tableItem) onSelect?.({ ...tableItem, tableSize: picked });
+  };
+
+  useImperativeHandle(handleRef, () => ({
+    onKeyDown(event) {
+      if (showPicker && sizing) {
+        const clamp = (n: number, max: number) => Math.max(1, Math.min(max, n));
+        if (event.key === 'ArrowLeft' && size.cols === 1) {
+          setSizing(false);
+          return true;
+        }
+        const step: Record<string, [number, number]> = {
+          ArrowLeft: [-1, 0],
+          ArrowRight: [1, 0],
+          ArrowUp: [0, -1],
+          ArrowDown: [0, 1],
+        };
+        if (step[event.key]) {
+          const [cols, rows] = step[event.key];
+          setSize({
+            cols: clamp(size.cols + cols, TABLE_SIZE_LIMIT.cols),
+            rows: clamp(size.rows + rows, TABLE_SIZE_LIMIT.rows),
+          });
+          return true;
+        }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          pickSize(size);
+          return true;
+        }
+      }
+      if (showPicker && event.key === 'ArrowRight') {
+        setSizing(true);
+        return true;
+      }
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') setSizing(false);
+      return list.current?.onKeyDown(event) ?? false;
+    },
+  }));
+
+  const menu = (
     <SuggestionMenu
       aria-label="Insert block"
-      groups={filterSlashGroups(groups, query)}
+      groups={visible}
       getKey={(item) => item.value}
       renderItem={(item) => (
         <>
@@ -155,7 +224,25 @@ export function SlashMenu({ query = '', groups = SLASH_GROUPS, ...props }: Slash
           {item.shortcut && <DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>}
         </>
       )}
+      handleRef={list}
+      onSelect={onSelect}
+      onHighlightChange={setHighlighted}
       {...props}
     />
+  );
+  if (!showPicker) return menu;
+  return (
+    <div className={styles.withPicker}>
+      {menu}
+      <TableSizePicker
+        value={size}
+        keyboard={sizing}
+        onValueChange={(next) => {
+          setSize(next);
+          setSizing(false);
+        }}
+        onSelect={pickSize}
+      />
+    </div>
   );
 }

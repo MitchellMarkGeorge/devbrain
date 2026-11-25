@@ -211,3 +211,26 @@ export const ReadOnly: Story = {
 export const UntrustedContent: Story = {
   args: { initial: UNTRUSTED, editable: false, label: 'Description' },
 };
+
+const TABLE_NOTE = [
+  '# Tasks API v2 migration',
+  '',
+  'Endpoints the desktop client still calls, measured on staging.',
+  '',
+  '| Endpoint      | Method | Auth  | p95 (ms) |',
+  '| ------------- | ------ | ----- | ---: |',
+  '| /v2/tasks     | GET    | Token | 84       |',
+  '| /v2/tasks/:id | PATCH  | Token | 112      |',
+  '| /v2/sync      | POST   | OAuth | 340      |',
+  '| /v2/health    | GET    | None  | 9        |',
+  '',
+  'p95 is the last 24 hours. Sync is the one to watch before the cut-over.',
+].join('\n');
+
+/**
+ * A table to work in: point at a column or row for its handle (click for its menu, drag to move
+ * it), near the line between two for a +, and at the bars under and beside it to add one. The bar
+ * over its corner turns the header row off, copies its Markdown and deletes it; dragging across
+ * cells gives a bar to align, clear or delete them. "/table" picks a size.
+ */
+export const Table: Story = { args: { initial: TABLE_NOTE } };

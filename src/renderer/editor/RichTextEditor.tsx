@@ -1,5 +1,5 @@
 import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@tiptap/react';
-import { EditorContent, toast } from '@renderer/components';
+import { cn, EditorContent, toast } from '@renderer/components';
 import { Placeholder } from '@tiptap/extensions';
 import { closeHistory } from '@tiptap/pm/history';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
@@ -10,10 +10,12 @@ import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillVi
 import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
+import { TableControlsExtension } from './extensions/table-controls';
 import { createDocumentExtensions } from './markdown';
 import type { MarkdownProblem } from './markdown/extension';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
+import { TableControls } from './TableControls';
 import type { EditorHost, EntityLinkPill } from './types';
 import styles from './RichTextEditor.module.css';
 
@@ -111,6 +113,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       Placeholder.configure({ placeholder }),
       SlashMenu,
       EntityMenu,
+      // after the menus, so ↵ in a cell picks a menu item while one is open
+      TableControlsExtension,
     ]);
     const editor = useEditor({
       extensions,
@@ -185,8 +189,12 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     return (
       <EditorHostContext.Provider value={host}>
-        <EditorContent className={className} data-readonly={canEdit ? undefined : ''}>
+        <EditorContent
+          className={cn(styles.host, className)}
+          data-readonly={canEdit ? undefined : ''}
+        >
           <TiptapEditorContent editor={editor} />
+          {canEdit && <TableControls editor={editor} />}
         </EditorContent>
         {canEdit && (
           <FormatBubble

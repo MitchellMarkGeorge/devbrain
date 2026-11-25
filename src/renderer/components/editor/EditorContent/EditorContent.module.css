@@ -187,6 +187,19 @@
 .content :where(th, td) p {
   margin: 0;
 }
+/* column lines while you work in a table (pointed at, or the caret in it: `.tableActive` on its
+   wrapper); a table you only read keeps its quiet row lines */
+.content :global(.tableWrapper):is(:hover, :global(.tableActive)) :is(th, td) + :is(th, td) {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+/* the cells a delete would remove, while it is pointed at (`.tableCellDanger`) */
+.content :global(.tableCellDanger)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+  pointer-events: none;
+}
 /* the cells a drag selects (Tiptap's `selectedCell`) */
 .content :global(.selectedCell)::after {
   content: '';

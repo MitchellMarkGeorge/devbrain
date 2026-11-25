@@ -20,7 +20,13 @@ export const Filtered: Story = { args: { query: 'h' } };
 
 export const NoResults: Story = { args: { query: 'kanban' } };
 
-/** Type in the field as if after "/"; ↑, ↓ and Enter drive the menu while focus stays put */
+/** state=table: Table highlighted, its size picker beside the list */
+export const TableSize: Story = { args: { query: 'table' } };
+
+/**
+ * Type in the field as if after "/"; ↑, ↓ and Enter drive the menu while focus stays put, and → on
+ * Table moves the keys into its size picker
+ */
 export const Interactive: Story = {
   render: function Render() {
     const [query, setQuery] = useState('');
@@ -37,7 +43,17 @@ export const Interactive: Story = {
             if (menu.current?.onKeyDown(e)) e.preventDefault();
           }}
         />
-        <SlashMenu query={query} handleRef={menu} onSelect={(item) => setPicked(item.label)} />
+        <SlashMenu
+          query={query}
+          handleRef={menu}
+          onSelect={(item) =>
+            setPicked(
+              item.tableSize
+                ? `${item.label}, ${item.tableSize.cols} × ${item.tableSize.rows}`
+                : item.label,
+            )
+          }
+        />
         <span style={{ color: 'var(--muted-foreground)', fontSize: 12 }}>
           Picked: {picked || '—'}
         </span>

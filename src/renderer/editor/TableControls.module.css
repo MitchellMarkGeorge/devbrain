@@ -1,0 +1,33 @@
+/* The layer the table controls are drawn on: the editor's size, under its pointer */
+.layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.control {
+  position: absolute;
+  pointer-events: auto;
+}
+/* where a dragged column or row lands, or where the + inserts one: the selection's blue */
+.line {
+  position: absolute;
+  border-radius: 1px;
+  background: var(--swatch-blue);
+  pointer-events: none;
+}
+/* the table's bar, over its top right corner, its bottom edge above the column handles */
+.toolbar {
+  position: absolute;
+  transform: translate(-100%, -100%);
+  pointer-events: auto;
+}
+/* the selected cells' bar, centred over them (or under them) */
+.cellToolbar {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+}
+.cellToolbar[data-side='bottom'] {
+  transform: translateX(-50%);
+}

@@ -50,6 +50,8 @@ export interface SuggestionMenuProps<Item> extends Omit<
    * list's `id` as `aria-controls`) for a screen reader to announce the item.
    */
   onActiveDescendantChange?: (id: string | undefined) => void;
+  /** the highlighted item's key, each time it changes (undefined with no items) */
+  onHighlightChange?: (key: string | undefined) => void;
 }
 
 /**
@@ -66,6 +68,7 @@ export function SuggestionMenu<Item>({
   empty = 'No results',
   defaultHighlighted,
   onActiveDescendantChange,
+  onHighlightChange,
   className,
   ...props
 }: SuggestionMenuProps<Item>) {
@@ -83,6 +86,10 @@ export function SuggestionMenu<Item>({
       ?.querySelector<HTMLElement>('[data-highlighted]')
       ?.scrollIntoView({ block: 'nearest' });
   }, [current]);
+
+  useEffect(() => {
+    onHighlightChange?.(current);
+  }, [current, onHighlightChange]);
 
   const activeId = current ? `${id}-${current}` : undefined;
   useEffect(() => {

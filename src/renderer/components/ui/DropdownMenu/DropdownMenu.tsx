@@ -42,7 +42,10 @@ export const DropdownMenuGroup = Menu.Group;
 export const DropdownMenuRadioGroup = Menu.RadioGroup;
 export const DropdownMenuSub = Menu.SubmenuRoot;
 
-type PositionerProps = Pick<Menu.Positioner.Props, 'side' | 'align' | 'sideOffset' | 'alignOffset'>;
+type PositionerProps = Pick<
+  Menu.Positioner.Props,
+  'side' | 'align' | 'sideOffset' | 'alignOffset' | 'anchor'
+>;
 
 export interface DropdownMenuContentProps
   extends Menu.Popup.Props, PositionerProps, VariantProps<typeof menuPopupVariants> {}
@@ -67,12 +70,16 @@ export function MenuScrollArea({
   );
 }
 
-/** The menu's popup, portalled and positioned 4px from its trigger. */
+/**
+ * The menu's popup, portalled and positioned 4px from its trigger, or from `anchor` for a menu
+ * opened without one (a controlled `DropdownMenu` whose button also does something else).
+ */
 export function DropdownMenuContent({
   side = 'bottom',
   align = 'start',
   sideOffset = 4,
   alignOffset,
+  anchor,
   width,
   className,
   children,
@@ -85,6 +92,7 @@ export function DropdownMenuContent({
         align={align}
         sideOffset={sideOffset}
         alignOffset={alignOffset}
+        anchor={anchor}
         className={styles.positioner}
       >
         <Menu.Popup className={mergeClassName(menuPopupVariants({ width }), className)} {...props}>

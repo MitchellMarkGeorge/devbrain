@@ -62,7 +62,7 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   `SlashMenu`, the `@` menu by `MentionMenu`, and the toolbar over a selection by `FormatToolbar`,
   `TurnIntoMenu` and `LinkToolbar`. A change to how any of these look belongs in the
   component and its guide (`docs/design-system/components/`), not here; `RichTextEditor.module.css`
-  holds only the editor's own link rules.
+  holds only the editor's own rules: its links, and the box its table controls are drawn over.
 - Copy and paste move markdown (`extensions/clipboard.ts`). Copying puts the selection's markdown
   on the clipboard as plain text beside the HTML (inside a code block, the code as it is).
   Pasting plain text that looks like markdown (a heading, a list, a fence, a quote, a table, a
@@ -92,6 +92,20 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   `shared` doesn't import); without it the menu has no Task. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
+- A table has controls around it while you work in it (`TableControls.tsx`, drawn on a layer
+  over the editor, so they scroll with it): a `TableHandle` on the edge of the column and row
+  under the pointer or the caret (click for its `TableMenu`, drag to move it), a
+  `TableInsertButton` near the line between two columns or rows, `TableAddButton` bars under and
+  beside it, the `TableToolbar` over its corner (Header row, its size, Copy as Markdown, Delete
+  table) and the `TableCellToolbar` over a block of cells selected by dragging. What they do is
+  in `table-commands.ts`, each change one transaction so ⌘Z undoes it whole, and a delete says so
+  in a toast with Undo (which only undoes while nothing else has changed). The table keys and the
+  red tint over the cells a delete would remove are `extensions/table-controls.ts`: ↵ goes to the
+  cell below (a new row under the last), ⌘↵ inserts a row below, ⌘⌥←/→ a column, and ⌥⇧ with an
+  arrow moves the row or column. They offer only what a Markdown table holds: the first row as
+  the only header row (nothing is inserted or moved above it), one alignment a column, set on
+  every cell of it, and no merged cells, colours or widths. The slash menu's Table picks a size
+  (`TableSizePicker`), and is left out in a cell, as a table can't hold another.
 
 ## Saves, and changes from outside
 
