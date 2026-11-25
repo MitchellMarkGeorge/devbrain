@@ -27,12 +27,14 @@ import { GroupHeading } from '../../lists/GroupHeading';
 import { TaskList } from '../../lists/TaskList';
 import type { TaskRowData } from '../../lists/TaskRow';
 import { NoteCard } from '../../notes/NoteCard';
+import { CardGrid } from '../../shell/CardGrid';
+import { PageContent, PageToolbar } from '../../shell/Page';
 import { ProjectCard } from '../../projects/ProjectCard';
 import { SAMPLE_PROJECTS } from '../../projects/ProjectCard/fixtures';
 import { PRIORITY_LABELS, TASK_STATUS_LABELS, isClosed } from '../../types';
 import { NOTES } from '../Notes/data';
 import { BOARD, LIST_TASKS } from '../Tasks/data';
-import { AppFrame } from '../Tasks/frame';
+import { ScreenFrame, type PageName } from '../Shell/AppFrame';
 import {
   ListToolbarEnd,
   ListToolbarStart,
@@ -53,6 +55,32 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/** The window as the app draws it: the title bar with the page's title, the toolbar, the page. */
+function Frame({
+  page,
+  toolbar,
+  children,
+}: {
+  page: PageName;
+  toolbar: React.ComponentProps<typeof ListToolbarStart>;
+  children: React.ReactNode;
+}) {
+  return (
+    <ScreenFrame
+      page={page}
+      title={page}
+      width={toolbar.compact ? 960 : 1440}
+      height={toolbar.compact ? 640 : 1024}
+    >
+      <PageToolbar
+        start={<ListToolbarStart {...toolbar} />}
+        end={<ListToolbarEnd {...toolbar} />}
+      />
+      <PageContent layout="list">{children}</PageContent>
+    </ScreenFrame>
+  );
+}
 
 const SOURCE_FIELD = {
   id: 'source',
@@ -226,31 +254,23 @@ function TasksPage({
   const column = (status: TaskStatus) => tasks.filter((task) => task.status === status);
   const toolbar = { def: TASKS_DEF, state, onChange, compact };
   return (
-    <div style={{ width: compact ? 960 : undefined }}>
-      <AppFrame
-        active="Tasks"
-        breadcrumb={['Tasks']}
-        toolbarStart={<ListToolbarStart {...toolbar} />}
-        toolbarEnd={<ListToolbarEnd {...toolbar} />}
-        bodyStyle={state.layout === 'board' ? { padding: '4px 24px 24px' } : undefined}
-      >
-        {state.layout === 'board' ? (
-          <Board>
-            <BoardColumn status={TaskStatus.NOT_STARTED} tasks={column(TaskStatus.NOT_STARTED)} />
-            <BoardColumn status={TaskStatus.IN_PROGRESS} tasks={column(TaskStatus.IN_PROGRESS)} />
-            <BoardColumn
-              status={TaskStatus.COMPLETED}
-              tasks={column(TaskStatus.COMPLETED)}
-              add={false}
-            />
-          </Board>
-        ) : state.groupBy === 'none' ? (
-          <TaskList tasks={tasks} selectionBar={false} />
-        ) : (
-          <TaskList groups={groupsOf(tasks, state.groupBy)} selectionBar={false} />
-        )}
-      </AppFrame>
-    </div>
+    <Frame page="Tasks" toolbar={toolbar}>
+      {state.layout === 'board' ? (
+        <Board>
+          <BoardColumn status={TaskStatus.NOT_STARTED} tasks={column(TaskStatus.NOT_STARTED)} />
+          <BoardColumn status={TaskStatus.IN_PROGRESS} tasks={column(TaskStatus.IN_PROGRESS)} />
+          <BoardColumn
+            status={TaskStatus.COMPLETED}
+            tasks={column(TaskStatus.COMPLETED)}
+            add={false}
+          />
+        </Board>
+      ) : state.groupBy === 'none' ? (
+        <TaskList tasks={tasks} selectionBar={false} />
+      ) : (
+        <TaskList groups={groupsOf(tasks, state.groupBy)} selectionBar={false} />
+      )}
+    </Frame>
   );
 }
 
@@ -299,14 +319,6 @@ export const TasksFilteredLight: Story = {
 
 // ---------- Projects and Notes ----------
 
-const grid = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(max(240px, calc((100% - 32px) / 3)), 1fr))',
-  gap: 16,
-  padding: '0 8px',
-  alignContent: 'start',
-} as const;
-
 const PROJECTS_DEF: ListToolbarDef = {
   noun: 'Project',
   scopes: [
@@ -349,18 +361,13 @@ export const Projects: Story = {
         (state.scope === 'done') === (project.status === ProjectStatus.COMPLETED),
     );
     return (
-      <AppFrame
-        active="Projects"
-        breadcrumb={['Projects']}
-        toolbarStart={<ListToolbarStart {...toolbar} />}
-        toolbarEnd={<ListToolbarEnd {...toolbar} />}
-      >
-        <div style={grid}>
+      <Frame page="Projects" toolbar={toolbar}>
+        <CardGrid gap="md">
           {projects.map(({ project, stats }) => (
             <ProjectCard key={project.title} project={project} stats={stats} />
           ))}
-        </div>
-      </AppFrame>
+        </CardGrid>
+      </Frame>
     );
   },
 };
@@ -425,18 +432,13 @@ export const Notes: Story = {
         picked('project', note.project?.title ?? '') && picked('link', note.link?.type ?? 'none'),
     );
     return (
-      <AppFrame
-        active="Notes"
-        breadcrumb={['Notes']}
-        toolbarStart={<ListToolbarStart {...toolbar} />}
-        toolbarEnd={<ListToolbarEnd {...toolbar} />}
-      >
-        <div style={grid}>
+      <Frame page="Notes" toolbar={toolbar}>
+        <CardGrid gap="md">
           {notes.map((note) => (
             <NoteCard key={note.title} note={note} />
           ))}
-        </div>
-      </AppFrame>
+        </CardGrid>
+      </Frame>
     );
   },
 };
