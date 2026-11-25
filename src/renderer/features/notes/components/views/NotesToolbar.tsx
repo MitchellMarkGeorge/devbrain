@@ -15,6 +15,7 @@ import type { ProjectId } from '@common/ids';
 import {
   ListDisplay,
   ListFilters,
+  ProjectGlyph,
   useWorkspaceShell,
   type ListToolbarOption,
 } from '@renderer/components';
@@ -65,7 +66,7 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
-/** Which notes are shown: a chip per filter that is set (what it links to, its project), "+ Filter". */
+/** Which notes are shown: Filter (what a note links to, its project). */
 export function NotesToolbarStart({
   resolved,
   setSearch,
@@ -95,11 +96,12 @@ export function NotesToolbarStart({
           id: 'project',
           label: 'Project',
           icon: Folder,
+          search: 'Search projects…',
           options: [
             ...projects.map((project) => ({
               value: project.id,
               label: project.name,
-              icon: Folder,
+              icon: <ProjectGlyph color={project.color} />,
             })),
             { value: 'none', label: 'No project', icon: CircleSlash },
           ],

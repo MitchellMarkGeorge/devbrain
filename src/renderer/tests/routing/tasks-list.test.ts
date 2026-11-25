@@ -94,28 +94,33 @@ describe('the list view', () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
   });
 
-  it('sets a filter from the Filter menu, and removes it by unticking it', async () => {
+  it('sets a filter from a submenu of the Filter menu, and removes it with Any', async () => {
     const { app, main } = tasksPage();
     await eventually(() => expect(row('Plan the launch')).toBeDefined());
-    const item = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
-    click(byText(app.container, 'button', 'Filter'));
-    await eventually(() => expect(item('High')).not.toBeNull());
-    // every field's values are in the one menu
-    expect(item('Overdue')).not.toBeNull();
-    expect(item('Synced')).not.toBeNull();
-    expect(item('No project')).not.toBeNull();
-    click(item('High'));
+    const field = (label: string) => byText(document.body, '[role="menuitem"]', label);
+    const value = (label: string) => byText(document.body, '[role="menuitemradio"]', label);
+    // opens Filter › Priority, whatever is open already
+    const openPriority = async () => {
+      if (value('Any')) return;
+      if (!field('Priority')) click(byText(app.container, 'button', 'Filter'));
+      await eventually(() => expect(field('Priority')).not.toBeNull());
+      click(field('Priority'));
+      await eventually(() => expect(value('Any')).not.toBeNull());
+    };
+    await openPriority();
+    // a submenu for each field
+    for (const label of ['Due', 'Source', 'Project']) expect(field(label)).not.toBeNull();
+    click(value('High'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?priority=high`));
     await eventually(() =>
       expect(main.callsTo('tasks.tree').at(-1)!.input).toMatchObject({
         filter: { priority: TaskPriority.HIGH },
       }),
     );
-    // one value a field: another replaces it
-    click(item('Low'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?priority=low`));
-    await eventually(() => expect(item('Low')!.getAttribute('aria-checked')).toBe('true'));
-    click(item('Low'));
+    // the button names the one filter that is set
+    await eventually(() => expect(app.text()).toContain('FilterHigh'));
+    await openPriority();
+    click(value('Any'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
   });
 

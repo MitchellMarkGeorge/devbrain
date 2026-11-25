@@ -41,7 +41,7 @@ attachments, labels, cycles, and issues assigned to other people are not brought
 
 Each task shows its issue's key (such as **ENG-124**), and [search](/docs/search/) finds it by that
 key. Its page says when it last synced.
-**+ Filter › Synced** on the Tasks page shows only these.
+**Filter › Source › Synced** on the Tasks page shows only these.
 
 ### Statuses and priorities
 

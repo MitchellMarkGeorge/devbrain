@@ -25,9 +25,15 @@ import {
   Type,
 } from 'lucide-react';
 import { PriorityIcon } from '../../entities/PriorityIcon';
+import { ProjectGlyph } from '../../entities/ProjectPicker';
 import { ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
 import { StatusIcon } from '../../entities/StatusIcon';
-import { PRIORITY_LABELS, PROJECT_STATUS_LABELS, TASK_STATUS_LABELS } from '../../types';
+import {
+  PRIORITY_LABELS,
+  PROJECT_STATUS_LABELS,
+  TASK_STATUS_LABELS,
+  type Swatch,
+} from '../../types';
 import {
   ListDisplay,
   ListFilters,
@@ -51,12 +57,24 @@ const SOURCE: Field = {
   ],
 };
 
+const PROJECT_COLOURS: Record<string, Swatch> = {
+  'Auth Overhaul': 'blue',
+  'API Gateway v2': 'amber',
+  'AI Action Items': 'green',
+  'User Interface Revamp': 'indigo',
+};
+
 const projectField = (names: string[]): Field => ({
   id: 'project',
   label: 'Project',
   icon: Folder,
+  search: 'Search projects…',
   options: [
-    ...names.map((name) => ({ value: name, label: name, icon: Folder })),
+    ...names.map((name) => ({
+      value: name,
+      label: name,
+      icon: <ProjectGlyph color={PROJECT_COLOURS[name] ?? 'blue'} />,
+    })),
     { value: 'none', label: 'No project', icon: CircleSlash },
   ],
 });
@@ -155,7 +173,7 @@ export interface DemoToolbarStartProps {
   fixedProject?: boolean;
 }
 
-/** The start of a list page's toolbar: its Status chip, its filter chips and "+ Filter". */
+/** The start of a list page's toolbar: its Status chip and its Filter button. */
 export function DemoToolbarStart({
   list,
   compact,

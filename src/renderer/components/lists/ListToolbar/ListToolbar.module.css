@@ -1,14 +1,11 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
-/* a filter chip's ×: narrower than a square button, and quiet until pointed at */
-.remove {
-  width: 28px;
-  color: var(--muted-foreground);
-}
-
-/* "+ Filter": a quiet button after the chips */
-.add {
-  color: var(--muted-foreground);
+/* the Filter button's value: a long project name is cut with "…" */
+.value {
+  display: block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Display's popover: the layout switch, then a row per setting */

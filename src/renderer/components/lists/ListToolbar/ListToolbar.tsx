@@ -3,15 +3,11 @@ import {
   ArrowUpNarrowWide,
   CircleSlash,
   ListFilter,
-  Plus,
   SlidersHorizontal,
-  X,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { ButtonGroup } from '../../ui/ButtonGroup';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuEmpty,
   DropdownMenuFilter,
@@ -23,6 +19,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSearch,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import type { IconSource } from '../../ui/Icon';
@@ -120,51 +119,56 @@ export interface ListFilterField {
   options: ListToolbarOption[];
   value: string | undefined;
   onChange: (value: string | undefined) => void;
+  /**
+   * gives the field's submenu a search row with this placeholder ("Search projects…"): for a
+   * field whose values are the user's own, and so may be many
+   */
+  search?: string;
 }
 
-/** A filter that is set: its value opens the field's values, × removes it. */
-function FilterChip({ field }: { field: ListFilterField }) {
+/**
+ * A field in the Filter menu: an item naming the field and the value it is filtered to, opening
+ * its values as a choice of one, "Any" first (which removes the filter).
+ */
+function FieldSubmenu({ field }: { field: ListFilterField }) {
   const current = field.options.find((option) => option.value === field.value);
-  return (
-    <ButtonGroup aria-label={`${field.label} filter`}>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="outline" icon={field.icon} value={current?.label}>
-              {field.label}
-            </Button>
-          }
-        />
-        <DropdownMenuContent width="sm" align="start">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{field.label}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={field.value ?? ''}
-              onValueChange={(next: string) => field.onChange(next)}
-            >
-              <RadioItems options={field.options} />
-            </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Button
-        variant="outline"
-        size="icon"
-        icon={X}
-        aria-label={`Remove ${field.label} filter`}
-        className={styles.remove}
-        onClick={() => field.onChange(undefined)}
-      />
-    </ButtonGroup>
+  const values = (
+    <DropdownMenuRadioGroup
+      value={field.value ?? ''}
+      onValueChange={(next: string) => field.onChange(next === '' ? undefined : next)}
+    >
+      <DropdownMenuRadioItem value="" icon={CircleSlash}>
+        Any
+      </DropdownMenuRadioItem>
+      <RadioItems options={field.options} />
+    </DropdownMenuRadioGroup>
   );
+  const submenu = (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger icon={field.icon} value={current?.label}>
+        {field.label}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent width={field.search === undefined ? 'sm' : 'lg'}>
+        {field.search === undefined ? (
+          values
+        ) : (
+          <>
+            <DropdownMenuSearch aria-label={field.search} placeholder={field.search} />
+            <DropdownMenuList>{values}</DropdownMenuList>
+            <DropdownMenuEmpty>No matches</DropdownMenuEmpty>
+          </>
+        )}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+  // typing in the search row filters this submenu's values only
+  if (field.search === undefined) return submenu;
+  return <DropdownMenuFilter autoHighlight>{submenu}</DropdownMenuFilter>;
 }
-
-// a menu this long gets a search row
-const SEARCH_FROM = 9;
 
 export interface ListFiltersProps {
   fields: ListFilterField[];
-  /** a narrow window: the chips fold into one "Filter" button with a count */
+  /** a narrow window: the button keeps its name and drops its value */
   compact?: boolean;
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
@@ -173,74 +177,51 @@ export interface ListFiltersProps {
 }
 
 /**
- * A list's filters: a chip for each one that is set, then "+ Filter", whose menu lists every
- * field's values (with a search row once there are many). A field holds one value: ticking
- * another replaces it, and unticking it removes the filter.
+ * A list's filters, as one "Filter" button however many are set: it names the one filter that is
+ * set ("Filter High") or counts them ("Filter 3"). Its menu has an item for each field, showing
+ * the value it is filtered to and opening its values in a submenu (with a search row for a field
+ * that asks for one). A field holds one value.
  */
 export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => field.value !== undefined);
-  const searchable = fields.reduce((n, field) => n + field.options.length, 0) >= SEARCH_FROM;
-  const menu = (
-    <DropdownMenuFilter>
-      <DropdownMenu defaultOpen={defaultOpen}>
-        <DropdownMenuTrigger
-          render={
-            compact ? (
-              <Button
-                variant="outline"
-                icon={ListFilter}
-                value={set.length > 0 ? String(set.length) : undefined}
-              >
-                Filter
-              </Button>
-            ) : (
-              <Button variant="ghost" icon={Plus} className={styles.add}>
-                Filter
-              </Button>
-            )
-          }
-        />
-        <DropdownMenuContent width={searchable ? 'lg' : 'sm'} align="start" aria-label="Filter">
-          {searchable && (
-            <DropdownMenuSearch aria-label="Search filters" placeholder="Filter by…" />
-          )}
-          <DropdownMenuList>
-            {fields.map((field) => (
-              <DropdownMenuGroup key={field.id}>
-                <DropdownMenuLabel>{field.label}</DropdownMenuLabel>
-                {field.options.map((option) => (
-                  <DropdownMenuCheckboxItem
-                    key={option.value}
-                    icon={option.icon}
-                    checked={field.value === option.value}
-                    onCheckedChange={(checked) =>
-                      field.onChange(checked ? option.value : undefined)
-                    }
-                  >
-                    {option.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuGroup>
-            ))}
-          </DropdownMenuList>
-          {searchable && <DropdownMenuEmpty>No filters match</DropdownMenuEmpty>}
-          {set.length > 0 && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
-                Clear filters
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </DropdownMenuFilter>
-  );
+  const only = set.length === 1 ? set[0] : undefined;
+  const value = only
+    ? only.options.find((option) => option.value === only.value)?.label
+    : set.length > 1
+      ? String(set.length)
+      : undefined;
   return (
-    <>
-      {!compact && set.map((field) => <FilterChip key={field.id} field={field} />)}
-      {menu}
-    </>
+    <DropdownMenu defaultOpen={defaultOpen}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            icon={ListFilter}
+            value={value === undefined ? undefined : <span className={styles.value}>{value}</span>}
+            hideValue={compact}
+            active={set.length > 0}
+          >
+            Filter
+          </Button>
+        }
+      />
+      <DropdownMenuContent width="sm" align="start" aria-label="Filter">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+          {fields.map((field) => (
+            <FieldSubmenu key={field.id} field={field} />
+          ))}
+        </DropdownMenuGroup>
+        {set.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
+              Clear filters
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

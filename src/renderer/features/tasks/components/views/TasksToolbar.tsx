@@ -20,6 +20,7 @@ import {
   ListDisplay,
   ListFilters,
   ListStatusChip,
+  ProjectGlyph,
   PriorityIcon,
   StatusIcon,
   useWorkspaceShell,
@@ -128,8 +129,8 @@ const LAYOUTS: ListToolbarOption<'list' | 'board'>[] = [
 
 /**
  * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
- * completed tasks"), a chip per filter that is set (priority, due, source, project), and
- * "+ Filter". A project's Tasks tab has its project fixed: no Project filter.
+ * completed tasks") and Filter (priority, due, source, project). A project's Tasks tab has its
+ * project fixed: no Project filter.
  */
 export function TasksToolbarStart({
   resolved,
@@ -187,8 +188,13 @@ export function TasksToolbarStart({
       id: 'project',
       label: 'Project',
       icon: Folder,
+      search: 'Search projects…',
       options: [
-        ...projects.map((project) => ({ value: project.id, label: project.name, icon: Folder })),
+        ...projects.map((project) => ({
+          value: project.id,
+          label: project.name,
+          icon: <ProjectGlyph color={project.color} />,
+        })),
         { value: 'none', label: 'No project', icon: CircleSlash },
       ],
       value: resolved.project,

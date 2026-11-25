@@ -312,9 +312,9 @@ describe('a project’s page', () => {
     expect(app.text()).not.toContain('Unfiled task');
     click(byText(app.container, 'button', 'Filter'));
     await eventually(() =>
-      expect(byText(document.body, '[role="menuitemcheckbox"]', 'High')).not.toBeNull(),
+      expect(byText(document.body, '[role="menuitem"]', 'Priority')).not.toBeNull(),
     );
-    expect(byText(document.body, '[role="menuitemcheckbox"]', 'No project')).toBeNull();
+    expect(byText(document.body, '[role="menuitem"]', 'Project')).toBeNull();
   });
 
   it('files a task created from its Tasks tab in the project', async () => {

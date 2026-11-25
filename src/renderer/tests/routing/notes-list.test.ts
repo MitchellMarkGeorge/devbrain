@@ -90,7 +90,7 @@ describe('the notes list', () => {
       filter: { projectId: PROJECT.id, linkedTo: 'task' },
       sort: { sortBy: 'title', direction: 'asc' },
     });
-    // the test window is compact: the two filters' chips fold into the Filter button's count
+    // two filters are set: the Filter button counts them
     expect(app.text()).toContain('Filter2');
   });
 
