@@ -19,6 +19,7 @@ import {
   type TableSize,
 } from '../TableSizePicker';
 import {
+  resolveHighlighted,
   SuggestionMenu,
   type SuggestionGroup,
   type SuggestionMenuHandle,
@@ -165,12 +166,14 @@ export function SlashMenu({
   ...props
 }: SlashMenuProps) {
   const list = useRef<SuggestionMenuHandle>(null);
-  const [highlighted, setHighlighted] = useState<string>();
+  const [highlighted, setHighlighted] = useState<string | null>(null);
   const [size, setSize] = useState<TableSize>(DEFAULT_TABLE_SIZE);
   const [sizing, setSizing] = useState(false);
   const visible = filterSlashGroups(groups, query);
   const tableItem = visible.flatMap((group) => group.items).find((item) => item.value === 'table');
-  const showPicker = highlighted === 'table' && tableItem !== undefined;
+  // the list's highlight is held here, so the picker shows in the same render as Table's highlight
+  const keys = visible.flatMap((group) => group.items.map((item) => item.value));
+  const showPicker = resolveHighlighted(keys, highlighted) === 'table' && tableItem !== undefined;
 
   const pickSize = (picked: TableSize) => {
     if (tableItem) onSelect?.({ ...tableItem, tableSize: picked });
@@ -226,7 +229,8 @@ export function SlashMenu({
       )}
       handleRef={list}
       onSelect={onSelect}
-      onHighlightChange={setHighlighted}
+      highlighted={highlighted}
+      onHighlightedChange={setHighlighted}
       {...props}
     />
   );

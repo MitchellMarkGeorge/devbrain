@@ -42,16 +42,33 @@ export interface SuggestionMenuProps<Item> extends Omit<
   handleRef?: Ref<SuggestionMenuHandle>;
   /** shown when no group has items */
   empty?: ReactNode;
-  /** the first item highlighted at first; the first item by default */
+  /** the first item highlighted at first, while it isn't controlled; the first item by default */
   defaultHighlighted?: string;
+  /**
+   * The highlighted item's key, for an owner that draws something for it (the slash menu's size
+   * picker beside Table). null, or a key no longer in the list, highlights the first item. Leave
+   * it out for the menu to keep its own.
+   */
+  highlighted?: string | null;
+  /** ↑, ↓ or the pointer moved the highlight; the new key */
+  onHighlightedChange?: (key: string) => void;
   /**
    * The highlighted item's element id, each time it changes (undefined with no items). The caret
    * stays in the editor, so the editor's element carries it as `aria-activedescendant` (and the
    * list's `id` as `aria-controls`) for a screen reader to announce the item.
    */
   onActiveDescendantChange?: (id: string | undefined) => void;
-  /** the highlighted item's key, each time it changes (undefined with no items) */
-  onHighlightChange?: (key: string | undefined) => void;
+}
+
+/**
+ * The item highlighted for `highlighted`: that one while it is in `keys`, otherwise the first
+ * (undefined with no items). An owner of `highlighted` reads it the same way.
+ */
+export function resolveHighlighted(
+  keys: readonly string[],
+  highlighted: string | null | undefined,
+): string | undefined {
+  return highlighted != null && keys.includes(highlighted) ? highlighted : keys[0];
 }
 
 /**
@@ -67,8 +84,9 @@ export function SuggestionMenu<Item>({
   handleRef,
   empty = 'No results',
   defaultHighlighted,
+  highlighted: controlled,
+  onHighlightedChange,
   onActiveDescendantChange,
-  onHighlightChange,
   className,
   ...props
 }: SuggestionMenuProps<Item>) {
@@ -76,8 +94,12 @@ export function SuggestionMenu<Item>({
   const visible = groups.filter((group) => group.items.length > 0);
   const flat = visible.flatMap((group) => group.items);
   const keys = flat.map(getKey);
-  const [highlighted, setHighlighted] = useState(defaultHighlighted ?? keys[0]);
-  const current = highlighted != null && keys.includes(highlighted) ? highlighted : keys[0];
+  const [own, setOwn] = useState(defaultHighlighted ?? keys[0]);
+  const current = resolveHighlighted(keys, controlled === undefined ? own : controlled);
+  const setHighlighted = (key: string) => {
+    if (controlled === undefined) setOwn(key);
+    onHighlightedChange?.(key);
+  };
   const list = useRef<HTMLDivElement>(null);
 
   // keeps the highlighted item in view as ↑ and ↓ move it
@@ -86,10 +108,6 @@ export function SuggestionMenu<Item>({
       ?.querySelector<HTMLElement>('[data-highlighted]')
       ?.scrollIntoView({ block: 'nearest' });
   }, [current]);
-
-  useEffect(() => {
-    onHighlightChange?.(current);
-  }, [current, onHighlightChange]);
 
   const activeId = current ? `${id}-${current}` : undefined;
   useEffect(() => {
