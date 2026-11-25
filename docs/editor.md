@@ -105,7 +105,59 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   arrow moves the row or column. They offer only what a Markdown table holds: the first row as
   the only header row (nothing is inserted or moved above it), one alignment a column, set on
   every cell of it, and no merged cells, colours or widths. The slash menu's Table picks a size
-  (`TableSizePicker`), and is left out in a cell, as a table can't hold another.
+  (`TableSizePicker`), and is left out in a cell, as a table can't hold another. How the
+  controls are drawn is under "Table controls", below.
+
+## Table controls
+
+The controls around a table are not part of the table: TipTap draws it as it always does
+(`div.tableWrapper > table`), and `TableControls.tsx` draws React components on a layer over the
+editor, placed by measuring the table's DOM.
+
+**The layer.** `RichTextEditor` renders `TableControls` beside TipTap's content, inside the same
+`EditorContent` (`position: relative`), while the editor can be edited. It renders one `div`,
+`position: absolute; inset: 0; pointer-events: none`, so clicks reach the text through it; each
+control in it takes `pointer-events: auto`. Being inside the editor's box, it scrolls with the
+text and needs no repositioning on scroll.
+
+**Which table and cell.** It holds what the pointer is over (`hover`: the table's position, a
+row and a column), the open menu and a drag.
+
+- It listens for `pointermove` on the whole document, at most once a frame, not on the editor:
+  the handles sit outside the table, and leaving the text for one isn't leaving the table. It
+  walks the document's tables, finds each one's DOM (`editor.view.nodeDOM(pos)`), and takes the
+  one whose box, plus room for the handles and the table bar, holds the pointer. The row and
+  column come from the pointer against the rows' and cells' boxes.
+- While the editor has focus, the table the selection is in counts too (`tableAround` and
+  `selectedCell`, `table-commands.ts`), so the handles follow the caret.
+- It draws again on every transaction, on focus and blur, and when the editor's size changes (a
+  `ResizeObserver`), so an edit that moves the table moves its controls.
+
+**Placing them.** `measure()` reads the boxes of the table, its rows and its first row's cells,
+relative to the layer, and each control is placed by `left` and `top`: the column handle centred
+over its column, 18px above the table; the row handle 18px left of it, centred on its row; the
+"+" on the line nearest the pointer in the handles' strip; the add bars under and right of the
+table; the `TableToolbar` at the table's top right corner, moved up and left by its own size;
+the `TableCellToolbar` centred over the selected cells (under them when they start at the first
+row). The parts are the design system's (`TableHandle`, `TableToolbar` and the rest): they draw,
+and `TableControls` decides where they go and what they do.
+
+**Menus.** The column and row menu is a Base UI menu, portalled to the end of the page. It is
+controlled (`open`, `onOpenChange`) rather than opened by a trigger, since the handle also drags,
+and placed against the handle through `DropdownMenuContent`'s `anchor`. Opening it selects the
+column or row (a `CellSelection`, tinted as dragged cells are); closing it having done nothing
+puts the selection back.
+
+**The one thing drawn in the table.** The red tint over the cells a delete would remove has to
+sit on those cells, so it is a ProseMirror decoration: pointing at a delete calls
+`setTableDanger()`, which keeps the cells in the `tableControls` plugin's state
+(`extensions/table-controls.ts`); the plugin gives them `tableCellDanger`, which `EditorContent`
+tints. Any change to the document clears it.
+
+**Why not a node view.** A table node view would put the controls in the table's own DOM, but
+means writing the table's view by hand and keeping it in step with prosemirror-tables' handling
+of cells. The layer leaves the table's DOM and its markdown alone; what it costs is measuring the
+layout, which is why it measures again on every transaction and resize.
 
 ## Saves, and changes from outside
 
