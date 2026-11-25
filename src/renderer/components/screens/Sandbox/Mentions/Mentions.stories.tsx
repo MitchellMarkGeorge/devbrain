@@ -2,7 +2,7 @@
  * Sandbox: mock-ups of "Mentioned in", what mentions a task, note or event, on its page and
  * sheet, so every item shows the connections made to it in your notes. Not built; mock data only.
  */
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { AtSign, CalendarDays, CircleCheck, Clock, Link, Plus, Repeat } from 'lucide-react';
@@ -30,7 +30,8 @@ import { NOW, WEEK_EVENTS } from '../../Calendar/data';
 import { CalendarView, calendarEventInput } from '../../../calendar/CalendarView';
 import { PageContent } from '../../../shell/Page';
 import { TaskRow } from '../../../lists/TaskRow';
-import { DetailScreen, DockedSheet, NoteHead, SheetPill } from './frame';
+import { DetailScreen, DockedSheet, NoteHead } from './frame';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/Popover';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../../TaskDetail/data';
 import { storyDate } from '../../../lib/story-dates';
 import { MentionList, MentionsSection } from './MentionsSection';
@@ -93,11 +94,10 @@ function Paragraph({ children }: { children: ReactNode }) {
 
 /**
  * The task page: properties, description, subtasks and note. What mentions it is a pill on the
- * links line, "7 mentions", that opens the Links sheet beside the page, as a note's pills do, so
- * the page doesn't grow by a list.
+ * links line, "7 mentions", opening the list in a popover under it: one short list needs no
+ * sheet, and the page doesn't grow by it.
  */
-function TaskPageWithLinks() {
-  const [open, setOpen] = useState(true);
+function TaskPageWithMentions() {
   return (
     <DetailScreen page="Tasks" title={PKCE_TITLE}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32, paddingBottom: 64 }}>
@@ -118,9 +118,24 @@ function TaskPageWithLinks() {
             </>
           }
           links={
-            <SheetPill glyph={AtSign} active={open} onClick={() => setOpen(!open)}>
-              {PKCE_MENTIONS.length} mentions
-            </SheetPill>
+            <Popover defaultOpen>
+              <PopoverTrigger render={<EntityPill glyph={AtSign} />}>
+                {PKCE_MENTIONS.length} mentions
+              </PopoverTrigger>
+              <PopoverContent size="auto" initialFocus={false} style={{ width: 340, padding: 4 }}>
+                <div
+                  style={{
+                    padding: '6px 8px 4px',
+                    color: 'var(--muted-foreground)',
+                    fontSize: 12,
+                    lineHeight: '16px',
+                  }}
+                >
+                  Mentioned in
+                </div>
+                <MentionList mentions={PKCE_MENTIONS} limit={50} />
+              </PopoverContent>
+            </Popover>
           }
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14 }}>
@@ -153,18 +168,13 @@ function TaskPageWithLinks() {
           />
         </DetailSection>
       </div>
-      <DockedSheet open={open} onOpenChange={setOpen} header={<SheetHeader>Links</SheetHeader>}>
-        <DetailSection title="Mentioned in" count={PKCE_MENTIONS.length}>
-          <MentionList mentions={PKCE_MENTIONS} limit={50} />
-        </DetailSection>
-      </DockedSheet>
     </DetailScreen>
   );
 }
 
 export const TaskPage: Story = {
   name: 'Task page',
-  render: () => <TaskPageWithLinks />,
+  render: () => <TaskPageWithMentions />,
 };
 
 /** The task sheet: what mentions it, folded to one line under the task until opened */
