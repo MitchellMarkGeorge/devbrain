@@ -508,6 +508,61 @@ describe("migration 0027 — Linear's no priority", () => {
   });
 });
 
+describe('migration 0028 — task keys in the search index', () => {
+  it('keeps every entry, note bodies included, and gives each linked task its key', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(27) });
+    sqlite.exec(`
+      INSERT INTO tasks (id, title) VALUES
+        ('tsk_synced', 'Synced'), ('tsk_detached', 'Detached'), ('tsk_local', 'Local');
+      INSERT INTO external_links (id, provider, task_id, external_id, external_key, external_url,
+          external_updated_at, state, last_synced_at) VALUES
+        ('lnk_s', 'linear', 'tsk_synced', 'issue-s', 'ENG-123', 'https://linear.app/s', 1000,
+          'synced', 1000),
+        ('lnk_d', 'linear', 'tsk_detached', 'issue-d', 'OPS-7', 'https://linear.app/d', 1000,
+          'detached', 1000);
+      INSERT INTO search_index (title, body, entity_id, entity_type) VALUES
+        ('Synced', 'Synced body', 'tsk_synced', 'task'),
+        ('Detached', '', 'tsk_detached', 'task'),
+        ('Local', 'Local body', 'tsk_local', 'task'),
+        ('A note', 'Read from its file', 'nte_a', 'note');
+    `);
+
+    runMigrations(sqlite, db, migrationsUpTo(28));
+
+    expect(
+      sqlite
+        .prepare(`SELECT entity_id, entity_type, title, body, key FROM search_index ORDER BY 1`)
+        .all(),
+    ).toEqual([
+      {
+        entity_id: 'nte_a',
+        entity_type: 'note',
+        title: 'A note',
+        body: 'Read from its file',
+        key: '',
+      },
+      { entity_id: 'tsk_detached', entity_type: 'task', title: 'Detached', body: '', key: 'OPS-7' },
+      { entity_id: 'tsk_local', entity_type: 'task', title: 'Local', body: 'Local body', key: '' },
+      {
+        entity_id: 'tsk_synced',
+        entity_type: 'task',
+        title: 'Synced',
+        body: 'Synced body',
+        key: 'ENG-123',
+      },
+    ]);
+    // the rebuilt table is searchable, by a key and by a prefix of one
+    const match = (query: string) =>
+      sqlite
+        .prepare(`SELECT entity_id FROM search_index WHERE search_index MATCH ? ORDER BY 1`)
+        .all(query);
+    expect(match('"ENG-12"*')).toEqual([{ entity_id: 'tsk_synced' }]);
+    expect(match('"file"*')).toEqual([{ entity_id: 'nte_a' }]);
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {

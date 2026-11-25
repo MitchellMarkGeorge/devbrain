@@ -34,8 +34,14 @@ describe('toFtsQuery', () => {
     expect(toFtsQuery('!!! ---')).toBeNull();
   });
 
-  it('quotes without a prefix star when a term has non-token punctuation mixed in', () => {
+  it('quotes without a prefix star when a term ends in non-token punctuation', () => {
     expect(toFtsQuery('hello!')).toBe('"hello!"');
+  });
+
+  it('keeps the prefix star on a term with punctuation inside, such as a key', () => {
+    expect(toFtsQuery('ENG-123')).toBe('"ENG-123"*');
+    expect(toFtsQuery('ENG-12')).toBe('"ENG-12"*');
+    expect(toFtsQuery('v1.2')).toBe('"v1.2"*');
   });
 
   it('treats underscore, plus, and hash as token characters (prefix retained)', () => {
@@ -49,8 +55,9 @@ describe('toFtsQuery', () => {
     expect(toFtsQuery('123')).toBe('"123"*');
   });
 
-  it('escapes embedded double quotes and drops the prefix star', () => {
-    expect(toFtsQuery('foo"bar')).toBe('"foo""bar"');
+  it('escapes embedded double quotes', () => {
+    expect(toFtsQuery('foo"bar')).toBe('"foo""bar"*');
+    expect(toFtsQuery('"foo"')).toBe('"""foo"""');
   });
 
   it('caps the query at the first 12 terms', () => {

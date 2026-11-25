@@ -39,7 +39,8 @@ whose parent leaves later (reassigned to someone else, or deleted) while the sub
 it becomes a task of its own then, and goes back under its parent if the parent comes back to you. Comments,
 attachments, labels, cycles, and issues assigned to other people are not brought in.
 
-Each task shows its issue's key (such as **ENG-124**), and its page says when it last synced.
+Each task shows its issue's key (such as **ENG-124**), and [search](/docs/search/) finds it by that
+key. Its page says when it last synced.
 **Filter › Source › Synced** on the Tasks page shows only these.
 
 ### Statuses and priorities
