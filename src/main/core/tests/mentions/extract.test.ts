@@ -4,52 +4,29 @@ import { extractMentions } from '../../mentions/extract';
 const task = (label: string, id = 'tsk_1') => `[${label}](devbrain://task/${id})`;
 
 describe('extractMentions', () => {
-  it('finds each linked item once, in the order first mentioned, with how often', () => {
+  it('finds each linked item once, in the order first mentioned', () => {
     const md = [
       `See ${task('PKCE')} and [ADR](devbrain://note/nte_1).`,
       `Then ${task('PKCE again')}, in [Auth](devbrain://project/prj_1) for [Review](devbrain://event/evt_1).`,
     ].join('\n');
-    expect(extractMentions(md).map(({ targetId, count }) => [targetId, count])).toEqual([
-      ['tsk_1', 2],
-      ['nte_1', 1],
-      ['prj_1', 1],
-      ['evt_1', 1],
-    ]);
+    expect(extractMentions(md)).toEqual(['tsk_1', 'nte_1', 'prj_1', 'evt_1']);
   });
 
-  it('keeps the line of the first mention as plain text either side of it', () => {
-    const [mention] = extractMentions(
-      `- [ ] Pair on ${task('Implement **PKCE**')} before *Thursday*, see [ADR](devbrain://note/nte_1)`,
-    );
-    expect(mention).toMatchObject({
-      contextBefore: 'Pair on ',
-      contextAfter: ' before Thursday, see ADR',
-    });
-  });
-
-  it('strips a heading and a quote around the mention', () => {
-    expect(extractMentions(`## Milestone 1: ${task('PKCE')}`)[0]).toMatchObject({
-      contextBefore: 'Milestone 1: ',
-      contextAfter: '',
-    });
-    expect(extractMentions(`> Blocked on ${task('PKCE')}`)[0]).toMatchObject({
-      contextBefore: 'Blocked on ',
-    });
-  });
-
-  it('shows another link on the line by its label, unescaped', () => {
-    const [, second] = extractMentions(
-      `[Design \\[review\\]](devbrain://event/evt_1) then ${task('PKCE')}`,
-    );
-    expect(second.contextBefore).toBe('Design [review] then ');
-  });
-
-  it('cuts a long line either side with "…"', () => {
-    const [mention] = extractMentions(`${'a'.repeat(200)} ${task('PKCE')} ${'b'.repeat(200)}`);
-    expect(mention.contextBefore).toMatch(/^…a+ $/);
-    expect(mention.contextBefore).toHaveLength(121);
-    expect(mention.contextAfter).toMatch(/^ b+…$/);
-    expect(mention.contextAfter).toHaveLength(161);
+  it('finds links in every block that holds text: headings, quotes, to-dos, table cells', () => {
+    const md = [
+      `## ${task('heading', 'tsk_1')}`,
+      '',
+      `> ${task('quote', 'tsk_2')}`,
+      '',
+      `- [ ] ${task('to-do', 'tsk_3')}`,
+      '',
+      '| Task | Why |',
+      '| --- | --- |',
+      `| ${task('cell', 'tsk_4')} | **${task('bold', 'tsk_5')}** |`,
+      '',
+      `A label with \\[brackets\\]: [Design \\[review\\]](devbrain://event/evt_1)`,
+    ].join('\n');
+    expect(extractMentions(md)).toEqual(['tsk_1', 'tsk_2', 'tsk_3', 'tsk_4', 'tsk_5', 'evt_1']);
   });
 
   it('leaves out links in code blocks and code spans', () => {
@@ -62,7 +39,7 @@ describe('extractMentions', () => {
       '~~~',
       `\`${task('in a span', 'tsk_4')}\` but ${task('this one')}`,
     ].join('\n');
-    expect(extractMentions(md).map((m) => m.targetId)).toEqual(['tsk_1']);
+    expect(extractMentions(md)).toEqual(['tsk_1']);
   });
 
   it('leaves out links in code wherever the code is: a list item, a quote, indented', () => {
@@ -80,7 +57,12 @@ describe('extractMentions', () => {
       '',
       `Text ${task('this one')}`,
     ].join('\n');
-    expect(extractMentions(md).map((m) => m.targetId)).toEqual(['tsk_1']);
+    expect(extractMentions(md)).toEqual(['tsk_1']);
+  });
+
+  it('ends a fence only at one of the same character at least as long', () => {
+    const md = ['````', '```', task('still code', 'tsk_2'), '````', task('after')].join('\n');
+    expect(extractMentions(md)).toEqual(['tsk_1']);
   });
 
   it('leaves out links in raw HTML, but reads a <details> body as the markdown it is', () => {
@@ -94,41 +76,7 @@ describe('extractMentions', () => {
       '',
       '</details>',
     ].join('\n');
-    expect(extractMentions(md)).toEqual([
-      { targetId: 'tsk_1', count: 1, contextBefore: 'Then ', contextAfter: '' },
-    ]);
-  });
-
-  it('finds a link in a table cell, with the cell as its context', () => {
-    const md = ['| Task | Why |', '| --- | --- |', `| ${task('PKCE')} | blocks the release |`].join(
-      '\n',
-    );
-    expect(extractMentions(md)).toEqual([
-      { targetId: 'tsk_1', count: 1, contextBefore: '', contextAfter: '' },
-    ]);
-  });
-
-  it('takes the whole paragraph around a mention, its lines joined', () => {
-    const [mention] = extractMentions(`First line,\nthen ${task('PKCE')}\nand the last.`);
-    expect(mention).toMatchObject({
-      contextBefore: 'First line, then ',
-      contextAfter: ' and the last.',
-    });
-  });
-
-  it('shows inline formatting and tags by their text, and decodes character references', () => {
-    const [mention] = extractMentions(
-      `Press <kbd>K</kbd> &amp; see \`code\` in ${task('PKCE')} ~~now~~`,
-    );
-    expect(mention).toMatchObject({
-      contextBefore: 'Press K & see code in ',
-      contextAfter: ' now',
-    });
-  });
-
-  it('ends a fence only at one of the same character at least as long', () => {
-    const md = ['````', '```', task('still code', 'tsk_2'), '````', task('after')].join('\n');
-    expect(extractMentions(md).map((m) => m.targetId)).toEqual(['tsk_1']);
+    expect(extractMentions(md)).toEqual(['tsk_1']);
   });
 
   it('leaves out a link whose id is not of its type', () => {

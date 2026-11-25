@@ -143,13 +143,13 @@ export const TaskPage: Story = {
             updated="2h ago"
           />
         </DetailSection>
-        <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
+        <MentionsSection mentions={PKCE_MENTIONS} />
       </div>
     </DetailScreen>
   ),
 };
 
-/** The task sheet: what mentions it, titles only */
+/** The task sheet: what mentions it */
 export const TaskSheet: Story = {
   name: 'Task sheet',
   render: () => (
@@ -178,14 +178,9 @@ export const TaskSheet: Story = {
         Replace the implicit-flow handoff with PKCE for every first-party client, on web and mobile.
       </Paragraph>
       <DetailSection title="Task note" style={{ gap: 8 }}>
-        <TaskNoteCard
-          title={PKCE_TITLE}
-          tasksSummary="2 tasks · 1 in progress"
-          updated="2h ago"
-          layout="stacked"
-        />
+        <TaskNoteCard title={PKCE_TITLE} tasksSummary="2 tasks · 1 in progress" updated="2h ago" />
       </DetailSection>
-      <MentionsSection variant="sheet" selfLabel="this task" mentions={PKCE_MENTIONS} />
+      <MentionsSection variant="sheet" mentions={PKCE_MENTIONS} />
     </TasksWithSheet>
   ),
 };
@@ -236,7 +231,7 @@ export const NotePageMentions: Story = {
         >
           <TaskList selectionBar={false} tasks={ADR_TASKS} />
         </DetailSection>
-        <MentionsSection collapsible selfLabel="this note" mentions={ADR_MENTIONS} />
+        <MentionsSection collapsible mentions={ADR_MENTIONS} />
       </div>
     </DetailScreen>
   ),
@@ -271,7 +266,7 @@ export const EventSheet: Story = {
           />
         </div>
       </DetailSection>
-      <MentionsSection variant="sheet" selfLabel="this event" mentions={DESIGN_REVIEW_MENTIONS} />
+      <MentionsSection variant="sheet" mentions={DESIGN_REVIEW_MENTIONS} />
     </CalendarWithSheet>
   ),
 };
@@ -292,13 +287,13 @@ export const States: Story = {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
-          <MentionsSection selfLabel="this task" mentions={[]} />
-          <MentionsSection selfLabel="this note" mentions={ADR_MENTIONS} />
-          <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
+          <MentionsSection mentions={[]} />
+          <MentionsSection mentions={ADR_MENTIONS} />
+          <MentionsSection mentions={PKCE_MENTIONS} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
-          <MentionsSection variant="sheet" selfLabel="this task" mentions={[]} />
-          <MentionsSection variant="sheet" selfLabel="this task" mentions={PKCE_MENTIONS} />
+          <MentionsSection variant="sheet" mentions={[]} />
+          <MentionsSection variant="sheet" mentions={PKCE_MENTIONS} />
         </div>
       </div>
     </TooltipProvider>

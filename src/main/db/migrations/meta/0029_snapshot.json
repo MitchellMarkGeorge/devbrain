@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "58704842-abb4-40eb-b96e-7fb206285223",
+  "id": "58a30af4-0540-4da6-91b6-e36bf2fe1f37",
   "prevId": "fdda0bc4-938b-43ab-aa98-2c3eb6c9a149",
   "tables": {
     "calendars": {
@@ -868,27 +868,6 @@
         },
         "target_id": {
           "name": "target_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "count": {
-          "name": "count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "context_before": {
-          "name": "context_before",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "context_after": {
-          "name": "context_after",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

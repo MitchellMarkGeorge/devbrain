@@ -77,7 +77,7 @@ function TaskRows() {
 
 /**
  * A: a side panel. The text keeps the page; Tasks and Mentioned in sit in a quiet column on the
- * right, each line under its title.
+ * right.
  */
 export const SidePanel: Story = {
   name: 'A – Side panel',
@@ -105,7 +105,7 @@ export const SidePanel: Story = {
             <TaskRows />
           </DetailSection>
           <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
-            <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+            <MentionList mentions={ADR_MENTIONS} />
           </DetailSection>
         </aside>
       }
@@ -142,7 +142,7 @@ export const HeaderPills: Story = {
                 {ADR_MENTIONS.length} mentions
               </PopoverTrigger>
               <PopoverContent size="auto" style={{ width: 380 }} initialFocus={false}>
-                <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+                <MentionList mentions={ADR_MENTIONS} />
               </PopoverContent>
             </Popover>
           </>
@@ -222,13 +222,7 @@ function NoteWithSheet() {
           <TaskRows />
         </DetailSection>
         <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
-          <MentionList
-            selfLabel="this note"
-            mentions={ADR_MENTIONS}
-            layout="stacked"
-            wrap
-            limit={50}
-          />
+          <MentionList mentions={ADR_MENTIONS} limit={50} />
         </DetailSection>
       </DockedSheet>
     </DetailScreen>
@@ -274,7 +268,7 @@ function FooterTabs() {
         )}
       </div>
       {open === 'tasks' && <TaskList selectionBar={false} tasks={ADR_TASKS} />}
-      {open === 'mentions' && <MentionList selfLabel="this note" mentions={ADR_MENTIONS} />}
+      {open === 'mentions' && <MentionList mentions={ADR_MENTIONS} />}
     </div>
   );
 }
@@ -334,7 +328,7 @@ function NoteSheetBody({ open }: { open: 'none' | 'mentions' }) {
         title="Mentioned in"
         count={<Badge variant="secondary">{ADR_MENTIONS.length}</Badge>}
       >
-        <MentionList selfLabel="this note" mentions={ADR_MENTIONS} layout="stacked" />
+        <MentionList mentions={ADR_MENTIONS} />
       </DetailSection>
     </>
   );
@@ -355,7 +349,7 @@ function TaskBehind({ children }: { children: ReactNode }) {
           <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
         </div>
         <p style={{ margin: 0, fontSize: 14, lineHeight: '20px' }}>{PKCE_DESCRIPTION[0]}</p>
-        <MentionsSection selfLabel="this task" mentions={PKCE_MENTIONS} />
+        <MentionsSection mentions={PKCE_MENTIONS} />
       </div>
       {children}
     </DetailScreen>

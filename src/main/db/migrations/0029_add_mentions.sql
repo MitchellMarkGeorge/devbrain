@@ -6,9 +6,6 @@ CREATE TABLE `index_builds` (
 CREATE TABLE `mentions` (
 	`source_id` text NOT NULL,
 	`target_id` text NOT NULL,
-	`count` integer NOT NULL,
-	`context_before` text NOT NULL,
-	`context_after` text NOT NULL,
 	PRIMARY KEY(`source_id`, `target_id`)
 );
 --> statement-breakpoint

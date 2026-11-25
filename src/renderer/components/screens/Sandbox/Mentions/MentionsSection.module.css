@@ -1,10 +1,10 @@
-/* Sandbox mock: the "Mentioned in" section of a detail page or sheet. Not part of the design system. */
+/* Sandbox mock: the rows of "Mentioned in". Not part of the design system. */
 .list {
   display: flex;
   flex-direction: column;
 }
 
-/* a row like a linked task's: glyph, title, the line that mentions it, then when */
+/* a row like a linked task's: glyph, title, then when the source changed */
 .row {
   display: flex;
   align-items: center;
@@ -29,30 +29,13 @@
   color: var(--muted-foreground);
 }
 .title {
-  flex: none;
-  max-width: 45%;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   color: var(--foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-[data-layout='title'] .title {
-  flex: 1;
-  max-width: none;
-}
-.context {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--subtle-foreground);
-  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* where the line names this item */
-.self {
-  color: var(--muted-foreground);
 }
 .time {
   flex: none;
@@ -78,40 +61,4 @@
   color: var(--subtle-foreground);
   font-size: var(--text-sm);
   line-height: var(--control-lg);
-}
-
-/* stacked: the title and time, then the line under them (a side panel, a popover) */
-[data-layout='stacked'] .row {
-  align-items: flex-start;
-  height: auto;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-[data-layout='stacked'] .glyph {
-  margin-top: 0;
-}
-.stack {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-.stackTop {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-[data-layout='stacked'] .title {
-  flex: 1;
-  max-width: none;
-}
-[data-layout='stacked'] .context {
-  font-size: var(--text-xs);
-  line-height: var(--text-xs-leading);
-}
-
-/* wrapped: the whole line under the title, for a sheet given to the mentions */
-[data-wrap] .context {
-  white-space: normal;
 }

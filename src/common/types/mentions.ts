@@ -23,17 +23,9 @@ export type MentionSource =
   | ({ type: 'event' } & EventSummary)
   | ({ type: 'note'; linkedEventId: EventId | null } & NoteSummary);
 
-/** One item that mentions another, and the line it does it in. */
+/** One item that mentions another. */
 export interface Mention {
   source: MentionSource;
   /** when the source last changed */
   updatedAt: Date;
-  /** how many times the source mentions the item */
-  count: number;
-  /**
-   * The line of the first mention as plain text, either side of it: "Close SR-12 once " and
-   * " ships to mobile". Long lines are cut with "…".
-   */
-  contextBefore: string;
-  contextAfter: string;
 }

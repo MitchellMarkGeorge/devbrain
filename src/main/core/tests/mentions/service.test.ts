@@ -48,9 +48,8 @@ afterEach(async () => {
 
 const link = (type: string, id: string, label = 'it') => `[${label}](devbrain://${type}/${id})`;
 
-// what mentions `id`, as [source id, contextBefore, contextAfter]
-const mentionsOf = (id: MentionTargetId) =>
-  workspace.mentions.list(id).map((m) => [m.source.id, m.contextBefore, m.contextAfter]);
+// the ids of what mentions `id`, as listed
+const mentionsOf = (id: MentionTargetId) => workspace.mentions.list(id).map((m) => m.source.id);
 
 describe('MentionService', () => {
   it('indexes a note as it is created and saved', async () => {
@@ -59,7 +58,7 @@ describe('MentionService', () => {
       title: 'ADR',
       content: `Carried out by ${link('task', target.id)} soon`,
     });
-    expect(mentionsOf(target.id)).toEqual([[note.id, 'Carried out by ', ' soon']]);
+    expect(mentionsOf(target.id)).toEqual([note.id]);
     expect(changes).toEqual([{ type: 'changed', targetIds: [target.id] }]);
 
     await workspace.notes.updateNoteContent(note.id, 'No links now');
@@ -98,7 +97,6 @@ describe('MentionService', () => {
       { type: 'project', id: project.id, title: 'Auth', color: project.color },
       { type: 'task', id: task.id, title: 'PKCE', status: task.status },
     ]);
-    expect(list[0].count).toBe(2);
     expect(workspace.mentions.count(target.id)).toBe(3);
   });
 
@@ -108,7 +106,7 @@ describe('MentionService', () => {
     changes = [];
 
     workspace.tasks.updateTask(task.id, { description: `Blocked on ${link('task', target.id)}` });
-    expect(mentionsOf(target.id)).toEqual([[task.id, 'Blocked on ', '']]);
+    expect(mentionsOf(target.id)).toEqual([task.id]);
     expect(changes).toEqual([{ type: 'changed', targetIds: [target.id] }]);
 
     // a change that leaves the description's links as they were announces nothing
@@ -139,7 +137,6 @@ describe('MentionService', () => {
           startAt: event.startAt,
           color: null,
         },
-        contextBefore: 'Walk through ',
       }),
     ]);
 
@@ -163,11 +160,11 @@ describe('MentionService', () => {
     // what the workspace does when an item's text may have changed
     workspace.mentions.indexSource(synced.id, synced.description);
     workspace.mentions.indexSource(detached.id, detached.description);
-    expect(mentionsOf(target.id)).toEqual([[detached.id, '', '']]);
+    expect(mentionsOf(target.id)).toEqual([detached.id]);
 
     clearIndex();
     await workspace.mentions.rebuild();
-    expect(mentionsOf(target.id)).toEqual([[detached.id, '', '']]);
+    expect(mentionsOf(target.id)).toEqual([detached.id]);
   });
 
   it('hides a trashed source until it is restored, without re-indexing', async () => {
@@ -177,7 +174,7 @@ describe('MentionService', () => {
     workspace.archive.archiveNote(note.id);
     expect(mentionsOf(target.id)).toEqual([]);
     workspace.archive.restoreNote(note.id);
-    expect(mentionsOf(target.id)).toEqual([[note.id, '', '']]);
+    expect(mentionsOf(target.id)).toEqual([note.id]);
   });
 
   it('drops a deleted item’s rows, as source and as target', async () => {
@@ -223,20 +220,17 @@ describe('MentionService', () => {
     workspace.archive.archiveNote(trashed.id);
     clearIndex();
 
+    const other = workspace.tasks.createTask({ title: 'Other' });
     const rebuilt = workspace.mentions.rebuild();
-    // saved while the files are read: the rebuild must keep this, not what it read
-    await workspace.notes.updateNoteContent(note.id, `Now ${link('task', target.id)}`);
+    // saved while the files are read: the rebuild must keep this, not the file it read
+    await workspace.notes.updateNoteContent(note.id, `Now ${link('task', other.id)}`);
     expect(await rebuilt).toBe(3);
 
-    expect(mentionsOf(target.id)).toEqual(
-      expect.arrayContaining([
-        [task.id, '', ''],
-        [note.id, 'Now ', ''],
-      ]),
-    );
+    expect(mentionsOf(target.id)).toEqual([task.id]);
+    expect(mentionsOf(other.id)).toEqual([note.id]);
     // the trashed note was indexed too, so restoring it shows it at once
     workspace.archive.restoreNote(trashed.id);
-    expect(workspace.mentions.count(target.id)).toBe(3);
+    expect(workspace.mentions.count(target.id)).toBe(2);
   });
 
   it('builds the index once, when the workspace starts and it never was', async () => {
@@ -248,7 +242,7 @@ describe('MentionService', () => {
     workspace.startIndexes();
     await workspace.mentions.whenIdle();
     expect(workspace.mentions.isBuilt()).toBe(true);
-    expect(mentionsOf(target.id)).toEqual([[note.id, '', '']]);
+    expect(mentionsOf(target.id)).toEqual([note.id]);
 
     // built: a later start reads nothing, even with no mentions left at all
     clearIndex();

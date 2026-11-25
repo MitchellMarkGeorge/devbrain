@@ -19,7 +19,7 @@ import type { NoteService } from '../notes/service';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { isIndexBuilt, markIndexBuilt } from '../shared/index-builds';
 import { errorClass, type Logger } from '../shared/logger';
-import { extractMentions, type ExtractedMention } from './extract';
+import { extractMentions } from './extract';
 
 // What indexing changed, for in-process subscribers such as the IPC layer forwarding it to the
 // renderer: the items whose Mentioned in now reads differently. Sent after the write commits.
@@ -61,16 +61,15 @@ export class MentionService {
    * Replaces what `sourceId` mentions with the links in `markdown` (a note's content, a task's,
    * project's or event's description; null when it has none). A synced item (from Linear or Google)
    * mentions nothing: its text is the provider's. A source's links to itself are left out.
-   * Announces the targets whose mention changed, if any.
+   * Announces the targets it now mentions or no longer does, if any.
    */
   indexSource(sourceId: MentionSourceId, markdown: string | null): void {
     this.rebuildWrites?.add(sourceId);
     // a synced item's text is the provider's: it holds no links of the user's
     const text = markdown && !this.isSynced(sourceId) ? markdown : null;
-    const extracted = text ? extractMentions(text) : [];
-    const rows = extracted
-      .filter((mention) => mention.targetId !== sourceId)
-      .map((mention) => toRow(sourceId, mention));
+    const rows = (text ? extractMentions(text) : [])
+      .filter((targetId) => targetId !== sourceId)
+      .map((targetId) => ({ sourceId, targetId }));
 
     const changed = this.db.transaction((tx) => {
       const before = tx.select().from(mentions).where(eq(mentions.sourceId, sourceId)).all();
@@ -104,8 +103,8 @@ export class MentionService {
   }
 
   /**
-   * The items that mention `targetId`, most recently changed first, each with the line it
-   * mentions it in. Trashed sources are left out, as are events whose provider item was removed.
+   * The items that mention `targetId`, most recently changed first. Trashed sources are left
+   * out, as are events whose provider item was removed.
    */
   list(targetId: MentionTargetId): Mention[] {
     const rows = this.db.select().from(mentions).where(eq(mentions.targetId, targetId)).all();
@@ -190,9 +189,7 @@ export class MentionService {
     return rows
       .flatMap((row): Mention[] => {
         const found = sources.get(row.sourceId);
-        if (!found) return [];
-        const { count, contextBefore, contextAfter } = row;
-        return [{ ...found, count, contextBefore, contextAfter }];
+        return found ? [found] : [];
       })
       .sort(
         (a, b) =>
@@ -288,8 +285,8 @@ export class MentionService {
           .filter(([id, text]) => text && !written.has(id))
           .flatMap(([id, text]) =>
             extractMentions(text!)
-              .filter((mention) => mention.targetId !== id)
-              .map((mention) => toRow(id, mention)),
+              .filter((targetId) => targetId !== id)
+              .map((targetId) => ({ sourceId: id, targetId })),
           );
         for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
           tx.insert(mentions)
@@ -322,17 +319,9 @@ export class MentionService {
   }
 }
 
-function toRow(sourceId: MentionSourceId, mention: ExtractedMention): MentionRow {
-  const { targetId, count, contextBefore, contextAfter } = mention;
-  return { sourceId, targetId, count, contextBefore, contextAfter };
-}
-
-/** the targets whose row was added, removed or changed between `before` and `after` */
+/** the targets mentioned before or after, but not both */
 function changedTargets(before: MentionRow[], after: MentionRow[]): MentionTargetId[] {
-  const key = (row: MentionRow) =>
-    `${row.count}\u0000${row.contextBefore}\u0000${row.contextAfter}`;
-  const old = new Map(before.map((row) => [row.targetId, key(row)]));
-  const now = new Map(after.map((row) => [row.targetId, key(row)]));
-  const ids = new Set([...old.keys(), ...now.keys()]);
-  return [...ids].filter((id) => old.get(id) !== now.get(id));
+  const old = new Set(before.map((row) => row.targetId));
+  const now = new Set(after.map((row) => row.targetId));
+  return [...old, ...now].filter((id) => old.has(id) !== now.has(id));
 }
