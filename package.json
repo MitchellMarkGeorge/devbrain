@@ -125,7 +125,7 @@
     "csv-parse": "^7.0.3",
     "drizzle-orm": "^0.45.2",
     "electron-log": "^5.4.4",
-    "electron-store": "^11.0.2",
+    "electron-store": "^12.0.0",
     "highlight.js": "^11.12.0",
     "js-yaml": "^5.4.1",
     "junk": "^4.0.1",
