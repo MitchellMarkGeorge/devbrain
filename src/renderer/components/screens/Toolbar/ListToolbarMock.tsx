@@ -1,17 +1,19 @@
 /**
  * A proposal, not the app's toolbar: one list toolbar for Tasks, Projects and Notes, drawn from a
- * definition of the page's scopes, filters, sorts, groupings and layouts.
+ * definition of the page's status scopes, filters, sorts, groupings and layouts.
  *
- *   [Open | All | Done]  [Priority High ×]  [+ Filter]            [Display ▾]  [+ New Task]
+ *   [Status Open ▾]  [Priority High ×]  [+ Filter]                              [Display ▾]
  *
  * The left side says which items are shown; the right side how they are drawn. Each filter that is
  * set is a chip of its own, taking several values; Sort, Group by and the view toggle share one
- * Display popover; the page's "New …" button is the only filled control.
+ * Display popover. Creating is the title bar's "+", so the toolbar has no "New …" button.
+ * `scopeStyle` draws the status scope (Open / All / Done) four ways, to compare them.
  */
 import type { CSSProperties } from 'react';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
+  CircleDashed,
   CircleSlash,
   ListFilter,
   Plus,
@@ -31,12 +33,16 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuList,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSearch,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import type { IconSource } from '../../ui/Icon';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
+import { Switch } from '../../ui/Switch';
+import { Tabs, TabsList, TabsTab } from '../../ui/Tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../ui/Select';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 
@@ -55,10 +61,15 @@ export interface ToolbarFilterField {
 
 /** What a list page gives the toolbar: everything that differs between Tasks, Projects and Notes. */
 export interface ListToolbarDef {
-  /** "Task": the button reads "New Task" */
-  noun: string;
-  /** the segmented control at the start (Open / All / Done); none for a page without a status */
+  /**
+   * the status scopes, the first being the page's default (Open / All / Done); none for a page
+   * without a status
+   */
   scopes?: ToolbarOption[];
+  /** single statuses the scope's chip also offers: "In progress" alone */
+  scopeMore?: ToolbarOption[];
+  /** the scope that shows closed items too ("all"): what "Show completed" turns on */
+  scopeAll?: string;
   fields: ToolbarFilterField[];
   sorts: ToolbarOption[];
   /** the groupings of the list layout, the first being "None"; none for a page that has no groups */
@@ -84,7 +95,15 @@ interface ToolbarProps {
   onChange: (patch: Partial<ListToolbarState>) => void;
   /** a narrow window: the chips fold into one "Filter" button with a count */
   compact?: boolean;
+  /**
+   * how the status scope is drawn: `chip` (a Status chip that is always there, the default),
+   * `tabs` (text tabs), `display` (nothing in the row: a "Show completed" switch in Display) or
+   * `segmented` (the first draft's segmented control)
+   */
+  scopeStyle?: ScopeStyle;
 }
+
+export type ScopeStyle = 'chip' | 'tabs' | 'display' | 'segmented';
 
 function toggled(values: string[], value: string, on: boolean): string[] {
   return on ? [...values, value] : values.filter((v) => v !== value);
@@ -200,19 +219,92 @@ function FilterMenu({
   );
 }
 
+/** The status scope at the start of the row, drawn as `scopeStyle` says. */
+function Scope({ def, state, onChange, compact, scopeStyle }: ToolbarProps) {
+  if (!def.scopes || scopeStyle === 'display') return null;
+  if (scopeStyle === 'segmented') {
+    return (
+      <ToggleGroup
+        aria-label="Status"
+        value={state.scope}
+        onValueChange={(scope) => onChange({ scope })}
+        items={def.scopes}
+      />
+    );
+  }
+  if (scopeStyle === 'tabs') {
+    return (
+      <Tabs
+        variant="ghost"
+        value={state.scope}
+        onValueChange={(scope) => onChange({ scope: String(scope) })}
+      >
+        <TabsList aria-label="Status">
+          {def.scopes.map((scope) => (
+            <TabsTab key={scope.value} value={scope.value}>
+              {scope.label}
+            </TabsTab>
+          ))}
+        </TabsList>
+      </Tabs>
+    );
+  }
+  const options = [...def.scopes, ...(def.scopeMore ?? [])];
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            icon={CircleDashed}
+            value={options.find((option) => option.value === state.scope)?.label}
+            hideValue={compact}
+            active={state.scope !== def.scopes[0]?.value}
+          >
+            Status
+          </Button>
+        }
+      />
+      <DropdownMenuContent width="sm" align="start">
+        <DropdownMenuRadioGroup
+          value={state.scope}
+          onValueChange={(scope: string) => onChange({ scope })}
+        >
+          {def.scopes.map((scope) => (
+            <DropdownMenuRadioItem key={scope.value} value={scope.value} icon={scope.icon}>
+              {scope.label}
+            </DropdownMenuRadioItem>
+          ))}
+          {def.scopeMore && <DropdownMenuSeparator />}
+          {def.scopeMore?.map((scope) => (
+            <DropdownMenuRadioItem key={scope.value} value={scope.value} icon={scope.icon}>
+              {scope.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Which items are shown: the scope, a chip per filter that is set, and "+ Filter". */
-export function ListToolbarStart({ def, state, onChange, compact = false }: ToolbarProps) {
+export function ListToolbarStart({
+  def,
+  state,
+  onChange,
+  compact = false,
+  scopeStyle = 'chip',
+}: ToolbarProps) {
   const set = def.fields.filter((field) => (state.filters[field.id] ?? []).length > 0);
   return (
     <>
-      {def.scopes && (
-        <ToggleGroup
-          aria-label="Show"
-          value={state.scope}
-          onValueChange={(scope) => onChange({ scope })}
-          items={def.scopes}
-        />
-      )}
+      <Scope
+        def={def}
+        state={state}
+        onChange={onChange}
+        compact={compact}
+        scopeStyle={scopeStyle}
+      />
       {compact ? (
         <FilterMenu
           def={def}
@@ -285,8 +377,14 @@ function OptionSelect({
   );
 }
 
-/** How the items are drawn (Display: layout, grouping, sort and its direction), then "New …". */
-export function ListToolbarEnd({ def, state, onChange, compact = false }: ToolbarProps) {
+/** How the items are drawn: Display (layout, grouping, sort and its direction). */
+export function ListToolbarEnd({
+  def,
+  state,
+  onChange,
+  compact = false,
+  scopeStyle = 'chip',
+}: ToolbarProps) {
   const fixed = state.layout === def.fixedLayout;
   const layout = def.layouts.find((l) => l.value === state.layout);
   const sort = def.sorts.find((s) => s.value === state.sort);
@@ -351,13 +449,24 @@ export function ListToolbarEnd({ def, state, onChange, compact = false }: Toolba
                 </div>
               </div>
             )}
+            {scopeStyle === 'display' && def.scopes && def.scopeAll && (
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <span style={rowLabel}>Show completed</span>
+                <Switch
+                  aria-label="Show completed"
+                  checked={state.scope === def.scopeAll}
+                  onCheckedChange={(checked) =>
+                    onChange({ scope: checked ? def.scopeAll : def.scopes?.[0]?.value })
+                  }
+                />
+              </div>
+            )}
             {fixed && <span style={rowLabel}>The board groups tasks by status.</span>}
           </div>
         </PopoverContent>
       </Popover>
-      <Button variant="primary" icon={Plus}>
-        New {def.noun}
-      </Button>
     </>
   );
 }

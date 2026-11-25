@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Board, BoardColumn } from '../../board/BoardColumn';
 import { PriorityIcon } from '../../entities/PriorityIcon';
+import { ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { STORY_NOW } from '../../lib/story-dates';
 import { GroupHeading } from '../../lists/GroupHeading';
@@ -31,7 +32,13 @@ import { CardGrid } from '../../shell/CardGrid';
 import { PageContent, PageToolbar } from '../../shell/Page';
 import { ProjectCard } from '../../projects/ProjectCard';
 import { SAMPLE_PROJECTS } from '../../projects/ProjectCard/fixtures';
-import { PRIORITY_LABELS, TASK_STATUS_LABELS, isClosed } from '../../types';
+import {
+  PRIORITY_LABELS,
+  PROJECT_STATUSES,
+  PROJECT_STATUS_LABELS,
+  TASK_STATUS_LABELS,
+  isClosed,
+} from '../../types';
 import { NOTES } from '../Notes/data';
 import { BOARD, LIST_TASKS } from '../Tasks/data';
 import { ScreenFrame, type PageName } from '../Shell/AppFrame';
@@ -40,6 +47,7 @@ import {
   ListToolbarStart,
   type ListToolbarDef,
   type ListToolbarState,
+  type ScopeStyle,
 } from './ListToolbarMock';
 
 /*
@@ -102,12 +110,22 @@ const PROJECT_NAMES = [
 ];
 
 const TASKS_DEF: ListToolbarDef = {
-  noun: 'Task',
   scopes: [
     { value: 'open', label: 'Open' },
     { value: 'all', label: 'All' },
     { value: 'done', label: 'Done' },
   ],
+  scopeAll: 'all',
+  scopeMore: [
+    TaskStatus.NOT_STARTED,
+    TaskStatus.IN_PROGRESS,
+    TaskStatus.COMPLETED,
+    TaskStatus.CANCELLED,
+  ].map((status) => ({
+    value: `status-${status}`,
+    label: TASK_STATUS_LABELS[status],
+    icon: <StatusIcon status={status} />,
+  })),
   fields: [
     {
       id: 'priority',
@@ -180,7 +198,9 @@ function shownTasks(state: ListToolbarState): TaskRowData[] {
   };
   const tasks = ALL_TASKS.filter(
     (task) =>
-      (state.scope === 'all' || (state.scope === 'done') === isClosed(task.status)) &&
+      (state.scope.startsWith('status-')
+        ? state.scope === `status-${task.status}`
+        : state.scope === 'all' || (state.scope === 'done') === isClosed(task.status)) &&
       picked('priority', String(task.priority)) &&
       picked('project', task.project?.title ?? '') &&
       picked('due', dueBucket(task)) &&
@@ -274,7 +294,7 @@ function TasksPage({
   );
 }
 
-/** Nothing filtered: the scope, a quiet "+ Filter", then Display and the one filled button. */
+/** Nothing filtered: the Status chip, a quiet "+ Filter", and Display at the end. */
 export const Tasks: Story = { render: () => <TasksPage /> };
 
 /** Two filters set, one with two values, grouped by project: each filter is a chip with its own ×. */
@@ -299,7 +319,7 @@ export const TasksBoard: Story = {
   render: () => <TasksPage initial={{ scope: 'all', layout: 'board' }} />,
 };
 
-/** A narrow window: the chips fold into "Filter 2", and Display drops its value. */
+/** A narrow window: Status and Display drop their values, and the chips fold into "Filter 2". */
 export const TasksCompact: Story = {
   name: 'Tasks — compact window',
   render: () => (
@@ -320,12 +340,17 @@ export const TasksFilteredLight: Story = {
 // ---------- Projects and Notes ----------
 
 const PROJECTS_DEF: ListToolbarDef = {
-  noun: 'Project',
   scopes: [
     { value: 'active', label: 'Active' },
     { value: 'all', label: 'All' },
     { value: 'done', label: 'Done' },
   ],
+  scopeAll: 'all',
+  scopeMore: PROJECT_STATUSES.map((status) => ({
+    value: `status-${status}`,
+    label: PROJECT_STATUS_LABELS[status],
+    icon: <ProjectStatusIcon status={status} />,
+  })),
   fields: [SOURCE_FIELD],
   sorts: [
     { value: 'due', label: 'Due date', icon: Calendar },
@@ -355,10 +380,11 @@ export const Projects: Story = {
       state,
       onChange: (patch: Partial<ListToolbarState>) => setState((s) => ({ ...s, ...patch })),
     };
-    const projects = SAMPLE_PROJECTS.filter(
-      ({ project }) =>
-        state.scope === 'all' ||
-        (state.scope === 'done') === (project.status === ProjectStatus.COMPLETED),
+    const projects = SAMPLE_PROJECTS.filter(({ project }) =>
+      state.scope.startsWith('status-')
+        ? state.scope === `status-${project.status}`
+        : state.scope === 'all' ||
+          (state.scope === 'done') === (project.status === ProjectStatus.COMPLETED),
     );
     return (
       <Frame page="Projects" toolbar={toolbar}>
@@ -373,7 +399,6 @@ export const Projects: Story = {
 };
 
 const NOTES_DEF: ListToolbarDef = {
-  noun: 'Note',
   fields: [
     {
       id: 'project',
@@ -441,4 +466,81 @@ export const Notes: Story = {
       </Frame>
     );
   },
+};
+
+// ---------- The status scope, four ways ----------
+
+const SCOPE_STYLES: { style: ScopeStyle; title: string; note: string }[] = [
+  {
+    style: 'chip',
+    title: 'A Status chip that is always there',
+    note: 'Reads like the other chips. Its menu has Open, All and Done, then each status alone.',
+  },
+  {
+    style: 'tabs',
+    title: 'Text tabs',
+    note: 'One click, as the segmented control was, without a second boxed control in the row.',
+  },
+  {
+    style: 'display',
+    title: 'A "Show completed" switch in Display',
+    note: 'Nothing in the row: the list is open tasks unless the switch is on.',
+  },
+  {
+    style: 'segmented',
+    title: 'The segmented control (first draft)',
+    note: 'For comparison.',
+  },
+];
+
+function ScopeRow({ scopeStyle }: { scopeStyle: ScopeStyle }) {
+  const [state, setState] = useState<ListToolbarState>({
+    scope: 'open',
+    filters: { priority: [String(TaskPriority.HIGH)] },
+    sort: 'priority',
+    dir: 'desc',
+    groupBy: 'none',
+    layout: 'list',
+  });
+  const toolbar = {
+    def: TASKS_DEF,
+    state,
+    onChange: (patch: Partial<ListToolbarState>) => setState((s) => ({ ...s, ...patch })),
+    scopeStyle,
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <ListToolbarStart {...toolbar} />
+      <span style={{ flex: 1 }} />
+      <ListToolbarEnd {...toolbar} />
+    </div>
+  );
+}
+
+/** The same toolbar with the status scope drawn each way; every row works. */
+export const ScopeAlternatives: Story = {
+  name: 'Status scope — alternatives',
+  render: () => (
+    <div
+      style={{
+        display: 'grid',
+        gap: 28,
+        width: 920,
+        padding: 32,
+        background: 'var(--background)',
+        color: 'var(--foreground)',
+        font: 'var(--font-weight-normal) 13px / var(--text-sm-leading) var(--font-sans)',
+      }}
+    >
+      {SCOPE_STYLES.map(({ style, title, note }) => (
+        <div key={style} style={{ display: 'grid', gap: 10 }}>
+          <div>
+            <span style={{ fontWeight: 'var(--font-weight-medium)' }}>{title}</span>
+            <span style={{ color: 'var(--muted-foreground)' }}> · {note}</span>
+          </div>
+          <ScopeRow scopeStyle={style} />
+        </div>
+      ))}
+    </div>
+  ),
 };
