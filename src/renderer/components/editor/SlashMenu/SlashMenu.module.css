@@ -22,3 +22,10 @@
   color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
+
+/* the slash menu with the table size picker beside it, while Table is highlighted */
+.withPicker {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+}

@@ -7,6 +7,7 @@ export {
   type SlashMenuProps,
 } from './SlashMenu';
 export {
+  resolveHighlighted,
   SuggestionMenu,
   type SuggestionGroup,
   type SuggestionMenuHandle,

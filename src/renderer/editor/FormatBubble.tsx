@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
+import { CellSelection } from '@tiptap/pm/tables';
 import { useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { useEffect, useRef, useState } from 'react';
@@ -29,7 +30,8 @@ import { selectionTaskTitle, turnSelectionIntoTask } from './turn-into-task';
  * one block: it makes a task titled with the text and puts a link to it in the text's place
  * (turn-into-task.ts).
  *
- * It shows only while the editor (or the toolbar) has focus, for a text selection outside code;
+ * It shows only while the editor (or the toolbar) has focus, for a text selection outside code
+ * (selected table cells have the table's own bar);
  * a read-only editor has none. The link editor closes on Enter, on Escape (in it or in the text)
  * and when the text takes focus back.
  */
@@ -132,6 +134,8 @@ export function FormatBubble({
         if (editor.storage.editorHost.linkEditing) return true;
         const { selection, doc } = editorState;
         if (selection.empty || selection instanceof NodeSelection) return false;
+        // selected table cells have the table's own bar (TableControls.tsx)
+        if (selection instanceof CellSelection) return false;
         if (selection.$from.parent.type.spec.code) return false;
         return doc.textBetween(from, to).trim().length > 0;
       }}

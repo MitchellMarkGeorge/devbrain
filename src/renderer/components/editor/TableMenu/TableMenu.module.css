@@ -1,0 +1,42 @@
+/* A table column's or row's menu. See docs/design-system/components/TableMenu.md */
+.menu {
+  min-width: 224px;
+}
+.label {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the column's alignment: a segmented control of three radio items */
+.alignments {
+  display: flex;
+  gap: var(--space-0-5);
+  margin: var(--space-0-5) var(--space-1) var(--space-1);
+  padding: var(--space-0-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--segment-track);
+}
+.alignment {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  height: var(--control-xs);
+  border-radius: var(--radius-md);
+  color: var(--segment-foreground);
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.alignment[data-highlighted] {
+  color: var(--foreground);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.alignment[data-checked] {
+  background: var(--segment-thumb);
+  color: var(--foreground);
+  box-shadow: var(--shadow-segment);
+}

@@ -1,0 +1,42 @@
+/* The slash menu's table size grid. See docs/design-system/components/TableSizePicker.md */
+.picker {
+  width: auto;
+  padding: var(--space-2);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(8, 18px);
+  gap: 3px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+}
+.grid[data-keyboard] {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.square {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+.square[data-on] {
+  border-color: color-mix(in oklab, var(--swatch-blue) 60%, transparent);
+  background: var(--swatch-blue-tint);
+}
+.square[data-on][data-header] {
+  background: color-mix(in oklab, var(--swatch-blue) 30%, transparent);
+}
+.size {
+  margin-top: var(--space-2);
+  color: var(--foreground);
+  font: var(--font-weight-medium) 13px / var(--text-sm-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.hint {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}

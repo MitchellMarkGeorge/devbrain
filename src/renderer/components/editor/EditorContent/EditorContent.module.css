@@ -167,25 +167,47 @@
   color: var(--muted-foreground);
 }
 
-/* tables: a quiet grid of `border` row lines, the header in `muted-foreground` */
+/* tables: an `edge` outline with 8px corners round a grid of `border` lines, the header row on a
+   `muted` fill in medium `foreground`. Separate borders, so the outline can round; each cell
+   draws the lines on its right and under it, and the last ones leave them to the outline. */
 .content table {
   width: 100%;
-  border-collapse: collapse;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-md);
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
+  overflow: hidden;
 }
 .content :where(th, td) {
   position: relative;
   padding: var(--space-1-5) var(--space-2);
+  border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
 }
+.content :where(th, td):last-child {
+  border-right: 0;
+}
+.content tr:last-child > :where(th, td) {
+  border-bottom: 0;
+}
 .content th {
-  color: var(--muted-foreground);
+  background: var(--muted);
+  color: var(--foreground);
   font-weight: var(--font-weight-medium);
 }
 .content :where(th, td) p {
   margin: 0;
+}
+/* the cells a delete would remove, while it is pointed at (`.tableCellDanger`) */
+.content :global(.tableCellDanger)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+  pointer-events: none;
 }
 /* the cells a drag selects (Tiptap's `selectedCell`) */
 .content :global(.selectedCell)::after {
