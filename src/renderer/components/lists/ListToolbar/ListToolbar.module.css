@@ -1,11 +1,41 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
-/* the Filter button's value: a long project name is cut with "…" */
+/*
+ * A filter chip: its value and its × joined into one control. Each half squares its own inner
+ * corners, whatever is mounted beside it (an open menu's parts sit next to the trigger).
+ */
+.chip {
+  display: inline-flex;
+  flex: none;
+  isolation: isolate;
+}
+.chipValue {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* the ×: narrower than a square button, quiet until pointed at, its border over the value's */
+.chipRemove {
+  width: 28px;
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  color: var(--muted-foreground);
+}
+/* the focused half's ring sits above the other */
+.chip :focus-visible {
+  z-index: 1;
+}
+/* a chip's value: a long project name is cut with "…" */
 .value {
   display: block;
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* "+ Filter": a quiet button after the chips */
+.add {
+  color: var(--muted-foreground);
 }
 
 /* Display's popover: the layout switch, then a row per setting */

@@ -66,7 +66,7 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
-/** Which notes are shown: Filter (what a note links to, its project). */
+/** Which notes are shown: a chip per filter that is set (what it links to, its project), "+ Filter". */
 export function NotesToolbarStart({
   resolved,
   setSearch,

@@ -117,8 +117,8 @@ describe('the list view', () => {
         filter: { priority: TaskPriority.HIGH },
       }),
     );
-    // the button names the one filter that is set
-    await eventually(() => expect(app.text()).toContain('FilterHigh'));
+    // the test window is compact: the filter's chip folds into the Filter button's count
+    await eventually(() => expect(app.text()).toContain('Filter1'));
     await openPriority();
     click(value('Any'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));

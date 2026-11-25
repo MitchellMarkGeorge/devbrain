@@ -45,21 +45,28 @@
 }
 
 /* ---------- toolbar: 32px controls, 12px above the content ---------- */
+/*
+ * The start group wraps onto further rows when its controls (a list's filter chips) don't fit, so
+ * they never run under the end group, which keeps its size on the first row.
+ */
 .toolbar {
   display: flex;
   flex: none;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
   padding: 1px var(--space-6) var(--space-3);
 }
 .group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
 .end {
+  flex: none;
+  flex-wrap: nowrap;
   margin-left: auto;
 }
 

@@ -173,7 +173,7 @@ export interface DemoToolbarStartProps {
   fixedProject?: boolean;
 }
 
-/** The start of a list page's toolbar: its Status chip and its Filter button. */
+/** The start of a list page's toolbar: its Status chip, its filter chips and "+ Filter". */
 export function DemoToolbarStart({
   list,
   compact,

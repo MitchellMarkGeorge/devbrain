@@ -48,10 +48,10 @@ function Toolbar({
 
 const FILTERED = { priority: String(TaskPriority.HIGH), source: 'external' };
 
-/** Nothing filtered: the Status chip, Filter, and Display at the end. */
+/** Nothing filtered: the Status chip, a quiet "+ Filter", and Display at the end. */
 export const Tasks: Story = { render: () => <Toolbar start={{ list: 'tasks' }} /> };
 
-/** Two filters set: the Filter button counts them ("Filter 2"), however many there are. */
+/** Two filters set: each is a chip, its value opening the field's values and its × removing it. */
 export const Filtered: Story = {
   render: () => <Toolbar start={{ list: 'tasks', filters: FILTERED }} />,
 };
@@ -61,10 +61,32 @@ export const StatusMenu: Story = {
   render: () => <Toolbar height={360} start={{ list: 'tasks', open: 'status' }} />,
 };
 
-/** Filter: an item for each field, showing the value it is filtered to and opening its values. */
+/** "+ Filter": an item for each field, showing the value it is filtered to and opening its values. */
 export const FilterMenu: Story = {
   render: () => (
     <Toolbar height={640} start={{ list: 'tasks', filters: FILTERED, open: 'filter' }} />
+  ),
+};
+
+/**
+ * Every filter set in a page too narrow for them: the chips wrap onto a second row under Status,
+ * and Display stays where it is. A long project name is cut with "…".
+ */
+export const ManyFilters: Story = {
+  render: () => (
+    <Toolbar
+      width={760}
+      height={120}
+      start={{
+        list: 'tasks',
+        filters: {
+          priority: String(TaskPriority.NONE),
+          due: 'overdue',
+          source: 'external',
+          project: 'User Interface Revamp',
+        },
+      }}
+    />
   ),
 };
 
@@ -84,7 +106,7 @@ export const Board: Story = {
   ),
 };
 
-/** A narrow window: Status, Filter and Display keep their names and drop their values. */
+/** A narrow window: Status and Display drop their values, and the chips fold into "Filter 2". */
 export const Compact: Story = {
   render: () => <Toolbar width={640} start={{ list: 'tasks', filters: FILTERED, compact: true }} />,
 };
@@ -94,7 +116,7 @@ export const Projects: Story = {
   render: () => <Toolbar start={{ list: 'projects' }} end={{ layout: 'cards' }} />,
 };
 
-/** Notes have no status, so the row starts with Filter, here naming its one filter. */
+/** Notes have no status, so the row starts with the filters. */
 export const Notes: Story = {
   render: () => <Toolbar start={{ list: 'notes', filters: { project: 'Auth Overhaul' } }} />,
 };
