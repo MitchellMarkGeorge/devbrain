@@ -192,14 +192,14 @@ describe('SearchService — task keys', () => {
     });
   });
 
-  it('gives an empty key for an entry with none', () => {
+  it('gives a null key for an entry with none', () => {
     const task = taskService.createTask({ title: 'Local work', dueDate: TOMORROW });
     searchService.indexTask(task);
     searchService.indexProject(projectService.createProject({ title: 'Local plan' }));
 
     expect(searchService.search({ query: 'local', entityType: [] }).map(({ key }) => key)).toEqual([
-      '',
-      '',
+      null,
+      null,
     ]);
   });
 

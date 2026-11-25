@@ -83,7 +83,7 @@ function result(
     },
     title: fields.title ?? '',
     body: fields.body ?? '',
-    key: fields.key ?? '',
+    key: fields.key ?? null,
     rank: -1,
   } as unknown as SearchResult;
 }

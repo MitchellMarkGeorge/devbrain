@@ -14,7 +14,7 @@ const result = (entityType: SearchEntityType, n: number): SearchResult =>
     entity: { id: `${entityType}_${n}` },
     title: `${entityType} ${n}`,
     body: '',
-    key: '',
+    key: null,
     rank: -n,
   }) as unknown as SearchResult;
 

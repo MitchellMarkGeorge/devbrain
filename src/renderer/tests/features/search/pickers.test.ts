@@ -116,7 +116,7 @@ function found(
   entity: { title: string } & Record<string, unknown>,
   title = entity.title.replace(/^(\S+)/, '<b>$1</b>'),
 ): SearchResult {
-  return { entityType, entity, title, body: '', key: '', rank: -1 } as unknown as SearchResult;
+  return { entityType, entity, title, body: '', key: null, rank: -1 } as unknown as SearchResult;
 }
 const foundTasks = (...rows: ReturnType<typeof taskRow>[]) => rows.map((row) => found('task', row));
 const inputsTo = (path: string) => main.callsTo(path).map(({ input }) => input);

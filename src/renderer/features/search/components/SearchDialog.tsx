@@ -515,7 +515,7 @@ function entityIcon(
  * search result's `keyHtml` is that key with what the query matched in bold, drawn in its place
  * when it is the same key: the index follows every write, so it differs only for a moment.
  */
-function sourcePill(external: ExternalRef | null | undefined, keyHtml?: string): ReactNode {
+function sourcePill(external: ExternalRef | null | undefined, keyHtml?: string | null): ReactNode {
   if (!external?.key) return undefined;
   return (
     <SourcePill provider={providerOf(external)} detached={isDetached({ external })}>
