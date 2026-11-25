@@ -95,6 +95,21 @@ describe('onChanged', () => {
     expect(count('recents.list')).toBe(3);
   });
 
+  it('refetches only what mentions an item when a save changes its links, and it when a source changes', async () => {
+    await Promise.all(['mentions.list', 'notes.list', 'tasks.list'].map((path) => query(path)));
+
+    await queryInvalidator.onChanged(['mention']);
+
+    expect(count('mentions.list')).toBe(2);
+    expect(count('notes.list')).toBe(1);
+    expect(count('tasks.list')).toBe(1);
+
+    // a source renamed or trashed
+    await queryInvalidator.onChanged(['task']);
+
+    expect(count('mentions.list')).toBe(3);
+  });
+
   it('refetches the settings when they change, and nothing else', async () => {
     await Promise.all(['settings.get', 'tasks.list'].map((path) => query(path)));
 

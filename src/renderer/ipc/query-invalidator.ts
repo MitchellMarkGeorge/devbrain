@@ -52,6 +52,9 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   archive: ['task', 'project', 'note'],
   // each match is its entity as its list returns it: a task or note row shows its links
   search: ['task', 'project', 'note', 'event', 'calendar'],
+  // a row shows its source as it is now (a task's status, an event in its calendar's colour), and
+  // a trashed source drops out
+  mentions: ['mention', 'task', 'project', 'note', 'event', 'calendar'],
   integrations: ['integration', 'externalSource'],
   // counts the synced rows a disconnect would delete or keep, and those notes point at
   'integrations.previewDisconnect': [

@@ -7,7 +7,8 @@ import type { EntityType } from './ids';
 // workspace is open from the `workspace.changed` event (src/renderer/ipc/query-invalidator.ts).
 // `recent` is not a kind of row: it says a task, project, note or event was viewed, which only the
 // recents list reads, so a view doesn't refetch every list of that entity. `settings` is the app's
-// settings, outside any workspace (the theme, the time format).
+// settings, outside any workspace (the theme, the time format). `mention` is what mentions an
+// item: a saved note or description added or removed a link (core/mentions).
 export type ChangedEntity =
   | Extract<
       EntityType,
@@ -21,4 +22,5 @@ export type ChangedEntity =
       | 'workspace'
     >
   | 'recent'
+  | 'mention'
   | 'settings';

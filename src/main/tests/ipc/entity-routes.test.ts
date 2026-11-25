@@ -5,6 +5,7 @@ import {
   AuthType,
   type Event,
   type FavoritedEntity,
+  type Mention,
   type Note,
   type Page,
   type Project,
@@ -26,7 +27,7 @@ import { attachRouter } from '@main/ipc/server';
 import { resetElectronMock } from '../__mocks__/electron';
 import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
-// The notes, projects, events, favorites, recents and search routes end to end, through the transport and
+// The notes, projects, events, favorites, recents, search and mentions routes end to end, through the transport and
 // the change tracker, over a real DevBrain folder.
 
 let devBrain: DevBrain;
@@ -677,6 +678,66 @@ describe('search', () => {
   it('refuses a limit that is not a whole number within a page', async () => {
     for (const limit of [0, 1.5, 201]) {
       expect(await call('search.search', { query: 'x', limit })).toMatchObject({
+        ok: false,
+        error: { data: { code: 'invalid_input' } },
+      });
+    }
+  });
+});
+
+describe('mentions', () => {
+  const link = (type: string, id: string, label = 'it') => `[${label}](devbrain://${type}/${id})`;
+
+  it('lists what mentions an item, most recently changed first, as core returns it', async () => {
+    const ws = workspace();
+    const task = ws.tasks.createTask({ title: 'Ship PKCE', dueDate: DUE });
+    const note = await ws.notes.createNote({
+      title: 'ADR',
+      content: `See ${link('task', task.id)}`,
+    });
+    const project = ws.projects.createProject({
+      title: 'Auth',
+      dueDate: DUE,
+      description: link('task', task.id),
+    });
+
+    const mentions = await data<Mention[]>('mentions.list', { targetId: task.id });
+    expect(mentions.map(({ source }) => source.id).sort()).toEqual([note.id, project.id].sort());
+    expect(mentions.find(({ source }) => source.id === note.id)).toMatchObject({
+      source: { type: 'note', title: 'ADR', linkedEventId: null },
+      updatedAt: expect.any(Date),
+    });
+    // nothing mentions the note
+    expect(await data<Mention[]>('mentions.list', { targetId: note.id })).toEqual([]);
+  });
+
+  it('reports mention in changed when a save adds or removes a link, and not otherwise', async () => {
+    const ws = workspace();
+    const task = ws.tasks.createTask({ title: 'Ship', dueDate: DUE });
+    const note = await ws.notes.createNote({ title: 'Plan' });
+
+    const linked = await mutate('notes.updateContent', {
+      id: note.id,
+      content: `Do ${link('task', task.id)}`,
+    });
+    expect(linked).toMatchObject({ ok: true });
+    expect([...linked.changed].sort()).toEqual(['mention', 'note']);
+
+    // the same link again: what mentions the task is unchanged
+    const same = await mutate('notes.updateContent', {
+      id: note.id,
+      content: `Do ${link('task', task.id)} today`,
+    });
+    expect(same.changed).toEqual(['note']);
+
+    const unlinked = await mutate('notes.updateContent', { id: note.id, content: 'Done' });
+    expect([...unlinked.changed].sort()).toEqual(['mention', 'note']);
+    expect(await data<Mention[]>('mentions.list', { targetId: task.id })).toEqual([]);
+  });
+
+  it('refuses an id of anything that cannot be mentioned', async () => {
+    for (const targetId of ['wsp_1', 'cal_1', 'not an id', undefined]) {
+      expect(await call('mentions.list', { targetId })).toMatchObject({
         ok: false,
         error: { data: { code: 'invalid_input' } },
       });
