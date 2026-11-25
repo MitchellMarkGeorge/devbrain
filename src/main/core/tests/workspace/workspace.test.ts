@@ -1470,3 +1470,59 @@ describe('Workspace — failed opening cleanup', () => {
     }
   });
 });
+
+describe('Workspace — building indexes', () => {
+  it('builds search and mentions once, on the first start after they never were', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
+    try {
+      const task = workspace.tasks.createTask({ title: 'Apollo launch', dueDate: new Date() });
+      const note = await workspace.notes.createNote({
+        title: 'Apollo plan',
+        content: `See [launch](devbrain://task/${task.id})`,
+      });
+      // a workspace from before index_builds: what it saved isn't indexed, and nothing is built
+      const sqlite = workspace['sqliteClient'];
+      sqlite.prepare('DELETE FROM search_index').run();
+      sqlite.prepare('DELETE FROM mentions').run();
+      expect(workspace.search.isBuilt()).toBe(false);
+      expect(workspace.mentions.isBuilt()).toBe(false);
+
+      workspace.startIndexes();
+      await workspace.search.whenIdle();
+      await workspace.mentions.whenIdle();
+      expect(searchIds(workspace, 'Apollo')).toEqual([task.id, note.id].sort());
+      expect(workspace.mentions.count(task.id)).toBe(1);
+      expect(workspace.search.isBuilt()).toBe(true);
+      expect(workspace.mentions.isBuilt()).toBe(true);
+
+      // built: a later start rebuilds nothing, so entries dropped meanwhile stay dropped
+      sqlite.prepare('DELETE FROM search_index').run();
+      workspace.startIndexes();
+      await workspace.search.whenIdle();
+      expect(searchIds(workspace, 'Apollo')).toEqual([]);
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('builds again an index whose row a migration deleted', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
+    try {
+      workspace.startIndexes();
+      await workspace.search.whenIdle();
+      await workspace.mentions.whenIdle();
+      const task = workspace.tasks.createTask({ title: 'Apollo launch', dueDate: new Date() });
+      const sqlite = workspace['sqliteClient'];
+      // what a migration changing search does: drop its entries and its row
+      sqlite.prepare('DELETE FROM search_index').run();
+      sqlite.prepare("DELETE FROM index_builds WHERE name = 'search'").run();
+
+      workspace.startIndexes();
+      await workspace.search.whenIdle();
+      expect(searchIds(workspace, 'Apollo')).toEqual([task.id]);
+      expect(workspace.mentions.isBuilt()).toBe(true);
+    } finally {
+      await workspace.close();
+    }
+  });
+});

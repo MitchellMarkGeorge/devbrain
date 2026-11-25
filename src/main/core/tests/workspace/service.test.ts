@@ -82,7 +82,8 @@ async function setOpenWorkspace(service: WorkspaceService, workspace: { info: Wo
   const registry = makeRegistry(service.listAll().items);
   registry[info.id] ??= info;
   writeRegistry(tmpDir, Object.values(registry));
-  if (!('sync' in workspace)) Object.assign(workspace, { sync: { start: vi.fn() } });
+  if (!('sync' in workspace))
+    Object.assign(workspace, { sync: { start: vi.fn() }, startIndexes: vi.fn() });
   vi.mocked(Workspace.open).mockResolvedValueOnce(workspace as never);
   await service.open(info.id);
 }
@@ -142,7 +143,12 @@ describe('WorkspaceService — create', () => {
     const workspacesDir = path.join(tmpDir, 'workspaces');
     await fs.mkdir(workspacesDir);
 
-    const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -156,7 +162,12 @@ describe('WorkspaceService — create', () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
-    const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -173,6 +184,7 @@ describe('WorkspaceService — create', () => {
       info: makeInfo(),
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -210,7 +222,12 @@ describe('WorkspaceService — create', () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
-    const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -231,6 +248,7 @@ describe('WorkspaceService — create', () => {
       info: makeInfo(),
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -250,6 +268,7 @@ describe('WorkspaceService — create', () => {
       info: makeInfo(),
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -374,7 +393,7 @@ describe('WorkspaceService — update', () => {
 
   it('updates the open workspace’s info when it is the one changed', async () => {
     const { service, infos } = setup();
-    const open = { info: { ...infos[0] }, sync: { start: vi.fn() } };
+    const open = { info: { ...infos[0] }, sync: { start: vi.fn() }, startIndexes: vi.fn() };
     await setOpenWorkspace(service, open);
 
     await service.update(infos[0].id, { name: 'Renamed', color: '#fe9a00' });
@@ -385,7 +404,7 @@ describe('WorkspaceService — update', () => {
 
   it('leaves the open workspace’s info alone when another one is changed', async () => {
     const { service, infos } = setup();
-    const open = { info: { ...infos[0] }, sync: { start: vi.fn() } };
+    const open = { info: { ...infos[0] }, sync: { start: vi.fn() }, startIndexes: vi.fn() };
     await setOpenWorkspace(service, open);
 
     await service.update(infos[1].id, { name: 'Other' });
@@ -451,7 +470,7 @@ describe('WorkspaceService — update', () => {
 
     const open = service.open(infos[0].id);
     const update = service.update(infos[0].id, { name: 'Renamed' });
-    opening.resolve({ info: { ...infos[0] }, sync: { start: vi.fn() } });
+    opening.resolve({ info: { ...infos[0] }, sync: { start: vi.fn() }, startIndexes: vi.fn() });
     await Promise.all([open, update]);
 
     // open's lastOpenedAt write and the rename both landed
@@ -689,7 +708,12 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -703,7 +727,12 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const before = Date.now();
@@ -722,7 +751,12 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -740,6 +774,7 @@ describe('WorkspaceService — open', () => {
       info,
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -751,22 +786,33 @@ describe('WorkspaceService — open', () => {
 });
 
 describe('WorkspaceService — sync', () => {
-  it('open starts syncing the opened workspace', async () => {
+  it('open starts syncing the opened workspace, and building its indexes if they never were', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.open(info.id);
 
     expect(fakeWorkspace.sync.start).toHaveBeenCalledOnce();
+    expect(fakeWorkspace.startIndexes).toHaveBeenCalledOnce();
   });
 
   it('create leaves the workspace closed and not current: only an opened one is', async () => {
-    const created = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
+    const created = {
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.create).mockResolvedValue(created as never);
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     const types: string[] = [];
@@ -792,7 +838,12 @@ describe('WorkspaceService — sync', () => {
       info: makeInfo({ id: 'wsp_prev' as WorkspaceId }),
       close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
     };
-    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const nextWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -818,6 +869,7 @@ describe('WorkspaceService — sync', () => {
       info,
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -862,8 +914,14 @@ describe('WorkspaceService — opening while another is open', () => {
       info: makeInfo({ id: 'wsp_prev' as WorkspaceId }),
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     };
-    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const nextWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -880,7 +938,12 @@ describe('WorkspaceService — opening while another is open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const nextWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -894,7 +957,12 @@ describe('WorkspaceService — opening while another is open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const nextWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
+    };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -920,6 +988,7 @@ describe('WorkspaceService — workspace options', () => {
       info: makeInfo(),
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     await new WorkspaceService(tmpDir, options).create({ name: 'WS', color: '#000000' });
@@ -935,6 +1004,7 @@ describe('WorkspaceService — workspace options', () => {
       info,
       close: vi.fn(),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
     } as never);
 
     await new WorkspaceService(tmpDir, options).open(info.id);
@@ -998,6 +1068,7 @@ describe('WorkspaceService — onChange', () => {
       info,
       close: vi.fn(async () => log.push(`close ${info.id}`)),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
       integrations: fakeIntegrations([]),
     }));
     const service = new WorkspaceService(tmpDir, options);
@@ -1239,6 +1310,7 @@ describe('WorkspaceService — overlapping transitions', () => {
       info,
       close: vi.fn(async () => {}),
       sync: { start: vi.fn() },
+      startIndexes: vi.fn(),
       integrations: fakeIntegrations([]),
     }));
     return { service: new WorkspaceService(tmpDir, WORKSPACE_OPTIONS), infos, workspaces };
@@ -1318,7 +1390,12 @@ describe('WorkspaceService — overlapping transitions', () => {
 });
 
 describe('WorkspaceService — openIfNoneOpen', () => {
-  const fakeOf = (info: WorkspaceInfo) => ({ info, close: vi.fn(), sync: { start: vi.fn() } });
+  const fakeOf = (info: WorkspaceInfo) => ({
+    info,
+    close: vi.fn(),
+    sync: { start: vi.fn() },
+    startIndexes: vi.fn(),
+  });
 
   it('opens the workspace it is given while none is open', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });

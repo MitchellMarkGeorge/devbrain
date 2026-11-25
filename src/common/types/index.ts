@@ -4,6 +4,7 @@ export * from './archive';
 export * from './calendars';
 export * from './events';
 export * from './integrations';
+export * from './mentions';
 export * from './notes';
 export * from './projects';
 export * from './search';

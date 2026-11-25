@@ -1,4 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core';
+import { entityLinkTokenizer, entityUrl, escapeLinkLabel } from '@common/entity-links';
 import type { MarkdownRule } from '../markdown/types';
 import { EDITOR_ENTITY_TYPES, type EditorEntityType } from '../types';
 
@@ -10,25 +11,6 @@ import { EDITOR_ENTITY_TYPES, type EditorEntityType } from '../types';
  * made; the pill shows the current title when the host can resolve it, and the label otherwise.
  * These links are resolved in the app and never reach openUrl (docs/security/untrusted-content.md).
  */
-
-export const ENTITY_URL_PREFIX = 'devbrain://';
-
-// [label](devbrain://type/id), the label without brackets or line breaks
-const ENTITY_LINK =
-  /^\[((?:\\.|[^\\\]\n])*)\]\(devbrain:\/\/(task|project|note|event)\/([A-Za-z0-9_-]+)\)/;
-const ENTITY_LINK_START = /\[(?:\\.|[^\\\]\n])*\]\(devbrain:\/\//;
-
-export function entityUrl(type: EditorEntityType, id: string): string {
-  return `${ENTITY_URL_PREFIX}${type}/${id}`;
-}
-
-function escapeLabel(label: string): string {
-  return label.replace(/[\\[\]]/g, (char) => `\\${char}`);
-}
-
-function unescapeLabel(label: string): string {
-  return label.replace(/\\(.)/g, '$1');
-}
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -108,22 +90,8 @@ export const EntityLink = Node.create({
 export const entityLinkMarkdown: MarkdownRule = {
   name: 'entityLink',
 
-  tokenizer: {
-    name: 'entityLink',
-    level: 'inline',
-    start: (src) => src.search(ENTITY_LINK_START),
-    tokenize(src) {
-      const match = ENTITY_LINK.exec(src);
-      if (!match) return undefined;
-      return {
-        type: 'entityLink',
-        raw: match[0],
-        label: unescapeLabel(match[1]),
-        entityType: match[2],
-        id: match[3],
-      };
-    },
-  },
+  // the tokenizer core reads mentions with too (@common/entity-links)
+  tokenizer: entityLinkTokenizer,
 
   parse(token) {
     return {
@@ -134,6 +102,6 @@ export const entityLinkMarkdown: MarkdownRule = {
 
   render(node) {
     const { type, id, label } = node.attrs ?? {};
-    return `[${escapeLabel(label ?? '')}](${entityUrl(type, id)})`;
+    return `[${escapeLinkLabel(label ?? '')}](${entityUrl(type, id)})`;
   },
 };
