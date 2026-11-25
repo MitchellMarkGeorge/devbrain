@@ -1,6 +1,25 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
 /*
+ * The filters' row: the room the toolbar leaves after Status, on one line. Its width is the room
+ * there is, not what its chips need (it grows from nothing), so the chips that fit can be counted.
+ */
+.filters {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* a chip folded into "Filter +N": out of the row and unseen, but still its own width */
+.folded {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
  * A filter chip: its value and its × joined into one control. Each half squares its own inner
  * corners, whatever is mounted beside it (an open menu's parts sit next to the trigger).
  */
@@ -31,6 +50,15 @@
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* a field's value in the Filter menu: cut before it squeezes the field's name */
+.menuValue {
+  display: block;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* "+ Filter": a quiet button after the chips */

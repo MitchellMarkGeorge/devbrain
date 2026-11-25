@@ -25,13 +25,16 @@ Rules:
 - The toolbar has no "New …" button: the title bar's New creates. The exception is a project's
   Tasks tab, which keeps New Task after Display because it files the task in that project.
 - Order at the start: Status, the chips in the fields' order, "+ Filter". Nothing else goes there.
-- When the chips don't fit beside Display they wrap onto a second row under Status
-  (`PageToolbar`'s start group wraps); Display keeps its place on the first row.
+- The toolbar is always one row. `ListFilters` takes the room left after Status and measures it:
+  the chips that fit are drawn, and the rest fold into the trailing button, which becomes an
+  outlined "Filter +2" (two more filters than the chips shown). A folded filter is still in the
+  menu, beside its field's name, and comes back as a chip when there is room (the window widens, or
+  a chip before it is removed). Chips fold from the end, in the fields' order.
 - A chip is not a `ButtonGroup`: its two halves square their own inner corners, because an open
   menu mounts parts beside its trigger and a rule by sibling position would round them again.
 - In a compact window (`compact`) Status and Display keep their names and drop their values
-  (`Button`'s `hideValue`; Status draws pressed while it is off its default), and the chips fold
-  into one "Filter" button whose value is how many filters are set.
+  (`Button`'s `hideValue`; Status draws pressed while it is off its default), and every chip folds:
+  the button reads "Filter 2", how many filters are set.
 - The page owns the state (its URL's search params); the pieces are controlled. A status equal to
   the page's default leaves the URL.
 - `defaultOpen` draws a menu open for a picture; the app never sets it.

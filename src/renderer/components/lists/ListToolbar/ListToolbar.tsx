@@ -7,7 +7,8 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import {
   DropdownMenu,
@@ -174,7 +175,10 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
   return (
     <Searchable field={field}>
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger icon={field.icon} value={current?.label}>
+        <DropdownMenuSubTrigger
+          icon={field.icon}
+          value={current && <span className={styles.menuValue}>{current.label}</span>}
+        >
           {field.label}
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent width={field.search === undefined ? 'sm' : 'lg'}>
@@ -186,12 +190,19 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
 }
 
 /** A filter that is set, as a chip: its value opens the field's values, its × removes it. */
-function FilterChip({ field }: { field: ListFilterField }) {
+function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean }) {
   const current = field.options.find((option) => option.value === field.value);
   return (
     // Not a ButtonGroup: that squares corners by a button's place among its siblings, and the
     // trigger stops being the first child while its menu is open. Each half squares its own.
-    <div role="group" aria-label={`${field.label} filter`} className={styles.chip}>
+    <div
+      role="group"
+      aria-label={`${field.label} filter`}
+      data-chip=""
+      // a folded chip stays in the row, unseen, so its width is still there to measure
+      aria-hidden={folded || undefined}
+      className={cn(styles.chip, folded && styles.folded)}
+    >
       <Searchable field={field}>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -229,7 +240,7 @@ function FilterChip({ field }: { field: ListFilterField }) {
 
 export interface ListFiltersProps {
   fields: ListFilterField[];
-  /** a narrow window: the chips fold into one "Filter" button with a count */
+  /** a narrow window: every chip folds into the "Filter" button, which counts them */
   compact?: boolean;
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
@@ -237,31 +248,97 @@ export interface ListFiltersProps {
   onClear: () => void;
 }
 
+// the room kept for the trailing button once chips are folded into it: "Filter +2"
+const MORE_WIDTH = 112;
+
 /**
- * A list's filters: a chip for each one that is set (its value opens the field's values, its ×
- * removes it), then "+ Filter". The menu has an item for each field, showing the value it is
- * filtered to and opening its values in a submenu (with a search row for a field that asks for
- * one). In a compact window the chips fold into one "Filter" button that counts them. A field
- * holds one value.
+ * How many chips of these widths (each with the gap after it) fit in `available`, before the
+ * trailing button. All of them while they fit with "+ Filter" (`plainWidth`) after them; otherwise
+ * as many as leave room for "Filter +N". Chips fold from the end.
+ */
+export function chipsThatFit(widths: number[], available: number, plainWidth: number): number {
+  const all = widths.reduce((sum, width) => sum + width, 0);
+  if (all + plainWidth <= available) return widths.length;
+  let used = MORE_WIDTH;
+  let fit = 0;
+  for (const width of widths) {
+    if (used + width > available) break;
+    used += width;
+    fit += 1;
+  }
+  return fit;
+}
+
+/** `chipsThatFit` for the chips in `row`. A row that has not been laid out shows them all. */
+function measure(row: HTMLElement, plainWidth: number): number {
+  const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
+  if (row.clientWidth === 0) return chips.length;
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+  return chipsThatFit(
+    chips.map((chip) => chip.offsetWidth + gap),
+    row.clientWidth,
+    plainWidth,
+  );
+}
+
+/**
+ * A list's filters, on one row: a chip for each one that is set (its value opens the field's
+ * values, its × removes it), then "+ Filter". The chips that don't fit the row fold into the
+ * button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). The menu
+ * has an item for each field, showing the value it is filtered to (so a folded filter is still
+ * one click away) and opening its values in a submenu, with a search row for a field that asks for
+ * one. A field holds one value.
  */
 export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => field.value !== undefined);
+  const row = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // "+ Filter"'s width, as last drawn with no chip folded
+  const plainWidth = useRef(84);
+  const [shown, setShown] = useState(set.length);
+  // what the fit depends on: which chips there are and what they say, and the row's width
+  const chipsKey = set.map((field) => `${field.id}:${field.value}`).join('|');
+  const [rowWidth, setRowWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setRowWidth(element.clientWidth));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!row.current) return;
+    if (shown >= set.length && trigger.current) plainWidth.current = trigger.current.offsetWidth;
+    setShown(measure(row.current, plainWidth.current));
+    // `shown` is this effect's own result: measured again only when the chips or the row change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chipsKey, rowWidth, compact]);
+
+  const folded = compact ? set.length : Math.max(0, set.length - shown);
   return (
-    <>
-      {!compact && set.map((field) => <FilterChip key={field.id} field={field} />)}
+    <div ref={row} className={styles.filters}>
+      {!compact &&
+        set.map((field, index) => (
+          <FilterChip key={field.id} field={field} folded={index >= shown} />
+        ))}
       <DropdownMenu defaultOpen={defaultOpen}>
         <DropdownMenuTrigger
           render={
-            compact ? (
+            folded > 0 ? (
               <Button
+                ref={trigger}
                 variant="outline"
                 icon={ListFilter}
-                value={set.length > 0 ? String(set.length) : undefined}
+                // every filter folded: how many are set; some: how many more than the chips shown
+                value={folded === set.length ? String(folded) : `+${folded}`}
+                active
               >
                 Filter
               </Button>
             ) : (
-              <Button variant="ghost" icon={Plus} className={styles.add}>
+              <Button ref={trigger} variant="ghost" icon={Plus} className={styles.add}>
                 Filter
               </Button>
             )
@@ -284,7 +361,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-    </>
+    </div>
   );
 }
 

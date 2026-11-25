@@ -131,7 +131,7 @@ export const PageToolbar = forwardRef<HTMLDivElement, PageToolbarProps>(function
 ) {
   return (
     <div ref={ref} className={cn(styles.toolbar, className)} {...props}>
-      {start && <div className={styles.group}>{start}</div>}
+      {start && <div className={cn(styles.group, styles.start)}>{start}</div>}
       {children}
       {end && <div className={cn(styles.group, styles.end)}>{end}</div>}
     </div>

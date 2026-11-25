@@ -69,8 +69,9 @@ export const FilterMenu: Story = {
 };
 
 /**
- * Every filter set in a page too narrow for them: the chips wrap onto a second row under Status,
- * and Display stays where it is. A long project name is cut with "…".
+ * Every filter set in a page too narrow for them: the row stays one line. The chips that fit are
+ * drawn, and the rest fold into the button, which counts them ("Filter +3"); they are still in its
+ * menu, each beside its field's name.
  */
 export const ManyFilters: Story = {
   render: () => (

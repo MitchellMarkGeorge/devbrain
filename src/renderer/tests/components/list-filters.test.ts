@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
+import { chipsThatFit } from '../../components/lists/ListToolbar/ListToolbar';
 import {
   ListFilters,
   type ListFilterField,
@@ -11,7 +12,8 @@ import {
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // A list's filters in its toolbar: a chip for each one that is set, with its own ×, then
-// "+ Filter"; in a compact window the chips fold into one "Filter" button with a count.
+// "+ Filter"; the chips that don't fit the row fold into the button's count, and in a compact
+// window they all do. (jsdom lays nothing out, so here every chip fits.)
 
 let container: HTMLDivElement;
 let root: Root;
@@ -73,5 +75,29 @@ describe('ListFilters', () => {
     render({ fields: [field('Priority', 'a'), field('Due', 'b')], compact: true });
     expect(chips()).toEqual([]);
     expect(buttons()).toEqual(['Filter2']);
+  });
+});
+
+describe('chipsThatFit', () => {
+  // three chips of 150px (gap included), "+ Filter" 84px wide; "Filter +N" keeps 112px
+  const chips = [150, 150, 150];
+
+  it('shows every chip while they fit with "+ Filter" after them', () => {
+    expect(chipsThatFit(chips, 534, 84)).toBe(3);
+  });
+
+  it('folds from the end, leaving room for "Filter +N"', () => {
+    // one pixel short of all three: the third folds, though it would fit without the button
+    expect(chipsThatFit(chips, 533, 84)).toBe(2);
+    expect(chipsThatFit(chips, 412, 84)).toBe(2);
+    expect(chipsThatFit(chips, 411, 84)).toBe(1);
+  });
+
+  it('folds them all when not one fits', () => {
+    expect(chipsThatFit(chips, 200, 84)).toBe(0);
+  });
+
+  it('stops at the first chip that does not fit, so the chips shown stay in order', () => {
+    expect(chipsThatFit([300, 100], 250, 84)).toBe(0);
   });
 });
