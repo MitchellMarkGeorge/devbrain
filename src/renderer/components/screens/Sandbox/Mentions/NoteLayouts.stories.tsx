@@ -11,18 +11,23 @@ import { DetailSection } from '../../../detail/DetailSection';
 import { EditorContent } from '../../../editor/EditorContent';
 import { EntityPill } from '../../../entities/EntityPill';
 import { IconButton } from '../../../ui/IconButton';
-import { LinkedTaskRow, type LinkedTaskRowData } from '../../../lists/LinkedTaskRow';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/Popover';
+import { LinkedTaskRow } from '../../../lists/LinkedTaskRow';
 import { SheetDivider, SheetHeader, SheetItemTitle } from '../../../ui/Sheet';
 import { Badge } from '../../../ui/Badge';
 import { Heading } from '../../../layout/Heading';
 import { StatusIcon } from '../../../entities/StatusIcon';
 import { PKCE_DESCRIPTION } from '../../TaskDetail/data';
 import { TaskList } from '../../../lists/TaskList';
-import { storyDate } from '../../../lib/story-dates';
-import { MentionList } from './MentionsSection';
-import { DetailScreen, DockedSheet, NoteHead, SheetPill } from './frame';
-import { ADR_MENTIONS, ADR_TASKS, ADR_TITLE, PKCE_MENTIONS, PKCE_TITLE } from './data';
+import { MentionList, MentionsPill, TasksPill } from './MentionsSection';
+import { DetailScreen, DockedSheet, NoteHead } from './frame';
+import {
+  ADR_MENTIONS,
+  ADR_TASK_ROWS,
+  ADR_TASKS,
+  ADR_TITLE,
+  PKCE_MENTIONS,
+  PKCE_TITLE,
+} from './data';
 import { MentionsSection } from './MentionsSection';
 
 const meta = {
@@ -32,11 +37,6 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-const TASK_ROWS: LinkedTaskRowData[] = [
-  { title: 'Implement OAuth2 PKCE flow', status: TaskStatus.IN_PROGRESS, dueDate: storyDate(2) },
-  { title: 'Write PKCE migration guide', status: TaskStatus.NOT_STARTED, dueDate: storyDate(6) },
-];
 
 function Body() {
   return (
@@ -68,7 +68,7 @@ const projectPill = (
 function TaskRows() {
   return (
     <div>
-      {TASK_ROWS.map((t) => (
+      {ADR_TASK_ROWS.map((t) => (
         <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
       ))}
     </div>
@@ -117,8 +117,8 @@ export const SidePanel: Story = {
 };
 
 /**
- * B: pills in the note's header. "2 tasks" and "4 mentions" sit with the project; each opens
- * its list in a popover. Nothing under the text.
+ * B (chosen): pills in the note's header. "2 tasks" and "4 mentions" sit with the project; each
+ * opens its list in a popover. Nothing under the text, and a task page does the same.
  */
 export const HeaderPills: Story = {
   name: 'B – Header pills',
@@ -129,22 +129,8 @@ export const HeaderPills: Story = {
         pills={
           <>
             {projectPill}
-            <Popover>
-              <PopoverTrigger render={<EntityPill glyph={CircleCheck} />}>
-                2 tasks · 1 in progress
-              </PopoverTrigger>
-              <PopoverContent size="auto" style={{ width: 360 }}>
-                <TaskRows />
-              </PopoverContent>
-            </Popover>
-            <Popover defaultOpen>
-              <PopoverTrigger render={<EntityPill glyph={AtSign} />}>
-                {ADR_MENTIONS.length} mentions
-              </PopoverTrigger>
-              <PopoverContent size="auto" style={{ width: 380 }} initialFocus={false}>
-                <MentionList mentions={ADR_MENTIONS} />
-              </PopoverContent>
-            </Popover>
+            <TasksPill tasks={ADR_TASK_ROWS} label="2 tasks · 1 in progress" />
+            <MentionsPill mentions={ADR_MENTIONS} defaultOpen />
           </>
         }
       />
@@ -154,64 +140,6 @@ export const HeaderPills: Story = {
 };
 
 type Tab = 'tasks' | 'mentions';
-
-/**
- * The note page with its Links sheet: either header pill opens the one sheet, which
- * holds the note's Tasks and then its Mentioned in. Both pills stay filled while it's open; either
- * closes it again.
- */
-function NoteWithSheet() {
-  const [open, setOpen] = useState(true);
-  return (
-    <DetailScreen page="Notes" title={ADR_TITLE}>
-      <NoteHead
-        title={ADR_TITLE}
-        pills={
-          <>
-            {projectPill}
-            <SheetPill glyph={CircleCheck} active={open} onClick={() => setOpen(!open)}>
-              2 tasks · 1 in progress
-            </SheetPill>
-            <SheetPill glyph={AtSign} active={open} onClick={() => setOpen(!open)}>
-              {ADR_MENTIONS.length} mentions
-            </SheetPill>
-          </>
-        }
-      />
-      <Body />
-      <DockedSheet open={open} onOpenChange={setOpen} header={<SheetHeader>Links</SheetHeader>}>
-        <DetailSection
-          title="Tasks"
-          count={2}
-          action={
-            <>
-              <Button size="xs" variant="ghost">
-                Link
-              </Button>
-              <Button size="xs" icon={Plus}>
-                New
-              </Button>
-            </>
-          }
-        >
-          <TaskRows />
-        </DetailSection>
-        <DetailSection title="Mentioned in" count={ADR_MENTIONS.length}>
-          <MentionList mentions={ADR_MENTIONS} limit={50} />
-        </DetailSection>
-      </DockedSheet>
-    </DetailScreen>
-  );
-}
-
-/**
- * B with a sheet: the header pills open one Links sheet, just for the note's tasks and mentions,
- * docked beside it, rather than a popover. A row opens its item in the sheet.
- */
-export const HeaderPillsSheet: Story = {
-  name: 'B – Header pills, Links sheet',
-  render: () => <NoteWithSheet />,
-};
 
 function FooterTabs() {
   const [open, setOpen] = useState<Tab | null>('mentions');

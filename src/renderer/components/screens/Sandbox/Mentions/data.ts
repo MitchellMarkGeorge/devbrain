@@ -5,6 +5,7 @@ import { TaskPriority } from '@common/types';
 import { sampleLinear, sampleTask } from '../../../lists/TaskRow/fixtures';
 import { storyDate } from '../../../lib/story-dates';
 import type { Mention } from './MentionsSection';
+import type { LinkedTaskRowData } from '../../../lists/LinkedTaskRow';
 
 export const PKCE_TITLE = 'Implement OAuth2 PKCE flow';
 
@@ -110,4 +111,10 @@ export const ADR_TASKS = [
     priority: TaskPriority.MEDIUM,
     dueDate: storyDate(6),
   }),
+];
+
+/** The ADR note's tasks as compact rows, for its "2 tasks" popover. */
+export const ADR_TASK_ROWS: LinkedTaskRowData[] = [
+  { title: PKCE_TITLE, status: TaskStatus.IN_PROGRESS, dueDate: storyDate(2) },
+  { title: 'Write PKCE migration guide', status: TaskStatus.NOT_STARTED, dueDate: storyDate(6) },
 ];

@@ -62,3 +62,22 @@
   font-size: var(--text-sm);
   line-height: var(--control-lg);
 }
+
+/* a page's pill opening its list: the list's width, sized to its rows */
+.popover {
+  width: 340px;
+  padding: var(--space-1);
+}
+.popoverHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 28px;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}
+.popoverHeading > span {
+  flex: 1;
+}

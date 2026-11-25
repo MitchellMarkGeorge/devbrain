@@ -3,13 +3,17 @@
  * something that mentions it: its glyph, its title and when it changed. Mock data only; not in
  * the design system.
  */
-import { useState } from 'react';
-import { FileText, Folder } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { AtSign, CircleCheck, FileText, Folder, Link, Plus } from 'lucide-react';
 import { TaskStatus } from '@common/types';
 import { Badge } from '../../../ui/Badge';
+import { Button } from '../../../ui/Button';
+import { LinkedTaskRow, type LinkedTaskRowData } from '../../../lists/LinkedTaskRow';
 import { ColourBar } from '../../../ui/ColourBar';
 import { DetailSection } from '../../../detail/DetailSection';
-import { Icon } from '../../../ui/Icon';
+import { EntityPill } from '../../../entities/EntityPill';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/Popover';
+import { Icon, type IconSource } from '../../../ui/Icon';
 import { StatusIcon } from '../../../entities/StatusIcon';
 import { resolveColor } from '../../../types';
 import styles from './MentionsSection.module.css';
@@ -113,5 +117,95 @@ export function MentionsSection({
     >
       <MentionList mentions={mentions} limit={limit} />
     </DetailSection>
+  );
+}
+
+/**
+ * A pill on a page ("2 tasks", "7 mentions") that opens a short list in a popover under it,
+ * headed by `title`, with the list's actions on the right. A page shows its links this way,
+ * so the page doesn't grow by them.
+ */
+export function PillPopover({
+  glyph,
+  label,
+  title,
+  action,
+  defaultOpen,
+  children,
+}: {
+  glyph: IconSource;
+  label: ReactNode;
+  title: string;
+  action?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Popover defaultOpen={defaultOpen}>
+      <PopoverTrigger render={<EntityPill glyph={glyph} />}>{label}</PopoverTrigger>
+      <PopoverContent size="auto" initialFocus={false} className={styles.popover}>
+        <div className={styles.popoverHeading}>
+          <span>{title}</span>
+          {action}
+        </div>
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** "7 mentions", opening what mentions the item */
+export function MentionsPill({
+  mentions,
+  defaultOpen,
+}: {
+  mentions: Mention[];
+  defaultOpen?: boolean;
+}) {
+  return (
+    <PillPopover
+      glyph={AtSign}
+      label={`${mentions.length} ${mentions.length === 1 ? 'mention' : 'mentions'}`}
+      title="Mentioned in"
+      defaultOpen={defaultOpen}
+    >
+      <MentionList mentions={mentions} limit={50} />
+    </PillPopover>
+  );
+}
+
+/** "2 tasks · 1 in progress", opening a note's tasks, with Link and New */
+export function TasksPill({
+  tasks,
+  label,
+  defaultOpen,
+}: {
+  tasks: LinkedTaskRowData[];
+  label: string;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <PillPopover
+      glyph={CircleCheck}
+      label={label}
+      title="Tasks"
+      defaultOpen={defaultOpen}
+      action={
+        <>
+          <Button size="xs" variant="ghost" icon={Link}>
+            Link
+          </Button>
+          <Button size="xs" variant="ghost" icon={Plus}>
+            New
+          </Button>
+        </>
+      }
+    >
+      <div>
+        {tasks.map((task) => (
+          <LinkedTaskRow key={task.title} task={task} onOpen={() => undefined} />
+        ))}
+      </div>
+    </PillPopover>
   );
 }

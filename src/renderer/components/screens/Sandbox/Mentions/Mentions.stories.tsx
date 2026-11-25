@@ -5,8 +5,7 @@
 import type { ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { AtSign, CalendarDays, CircleCheck, Clock, Link, Plus, Repeat } from 'lucide-react';
-import { Badge } from '../../../ui/Badge';
+import { CalendarDays, Clock, Plus, Repeat } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import { DateRange } from '../../../detail/DateRange';
 import { DetailRow, DetailRows } from '../../../detail/DetailRow';
@@ -31,13 +30,12 @@ import { CalendarView, calendarEventInput } from '../../../calendar/CalendarView
 import { PageContent } from '../../../shell/Page';
 import { TaskRow } from '../../../lists/TaskRow';
 import { DetailScreen, DockedSheet, NoteHead } from './frame';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../ui/Popover';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../../TaskDetail/data';
 import { storyDate } from '../../../lib/story-dates';
-import { MentionList, MentionsSection } from './MentionsSection';
+import { MentionsPill, MentionsSection, TasksPill } from './MentionsSection';
 import {
   ADR_MENTIONS,
-  ADR_TASKS,
+  ADR_TASK_ROWS,
   ADR_TITLE,
   DESIGN_REVIEW_MENTIONS,
   PKCE_MENTIONS,
@@ -117,26 +115,7 @@ function TaskPageWithMentions() {
               <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
             </>
           }
-          links={
-            <Popover defaultOpen>
-              <PopoverTrigger render={<EntityPill glyph={AtSign} />}>
-                {PKCE_MENTIONS.length} mentions
-              </PopoverTrigger>
-              <PopoverContent size="auto" initialFocus={false} style={{ width: 340, padding: 4 }}>
-                <div
-                  style={{
-                    padding: '6px 8px 4px',
-                    color: 'var(--muted-foreground)',
-                    fontSize: 12,
-                    lineHeight: '16px',
-                  }}
-                >
-                  Mentioned in
-                </div>
-                <MentionList mentions={PKCE_MENTIONS} limit={50} />
-              </PopoverContent>
-            </Popover>
-          }
+          links={<MentionsPill mentions={PKCE_MENTIONS} defaultOpen />}
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14 }}>
           {PKCE_DESCRIPTION.map((p) => (
@@ -213,7 +192,10 @@ export const TaskSheet: Story = {
   ),
 };
 
-/** The note page: Tasks, then Mentioned in, folding like it */
+/**
+ * The note page: its tasks and what mentions it are pills in its header, "2 tasks" and
+ * "4 mentions", each opening its list in a popover, so nothing sits under the text.
+ */
 export const NotePageMentions: Story = {
   name: 'Note page',
   render: () => (
@@ -223,7 +205,8 @@ export const NotePageMentions: Story = {
         pills={
           <>
             <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
-            <EntityPill glyph={CircleCheck}>2 tasks · 1 in progress</EntityPill>
+            <TasksPill tasks={ADR_TASK_ROWS} label="2 tasks · 1 in progress" />
+            <MentionsPill mentions={ADR_MENTIONS} defaultOpen />
           </>
         }
       />
@@ -239,28 +222,6 @@ export const NotePageMentions: Story = {
           <li>Expire authorization codes after 10 minutes.</li>
         </ul>
       </EditorContent>
-      <SheetDivider style={{ margin: '4px 0 16px' }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <DetailSection
-          collapsible
-          spacing="page"
-          title="Tasks"
-          count={<Badge variant="secondary">2</Badge>}
-          action={
-            <>
-              <Button size="xs" variant="ghost" icon={Link}>
-                Link Task
-              </Button>
-              <Button size="xs" icon={Plus}>
-                New Task
-              </Button>
-            </>
-          }
-        >
-          <TaskList selectionBar={false} tasks={ADR_TASKS} />
-        </DetailSection>
-        <MentionsSection collapsible mentions={ADR_MENTIONS} />
-      </div>
     </DetailScreen>
   ),
 };
