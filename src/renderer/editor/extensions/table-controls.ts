@@ -18,9 +18,8 @@ import {
 /**
  * What the table controls (TableControls.tsx) draw on the table itself, and the table's keys:
  *
- * - the table the selection is in carries `tableActive` on its wrapper, and the cells a delete
- *   would remove, while its button or menu item is pointed at, carry `tableCellDanger`
- *   (`setTableDanger`); EditorContent styles both.
+ * - the cells a delete would remove, while its button or menu item is pointed at, carry
+ *   `tableCellDanger` (`setTableDanger`), which EditorContent styles.
  * - ↵ in a cell goes to the cell below, adding a row under the last; ⇧↵ stays a line break.
  *   ⌘↵ inserts a row below, ⌘⌥← and ⌘⌥→ a column left or right, and ⌥⇧ with an arrow moves the
  *   row or column. Tab and ⇧Tab are TipTap's (Tab in the last cell adds a row).
@@ -44,13 +43,8 @@ export function setTableDanger(editor: Editor, danger: Danger | null): void {
 }
 
 function decorations(state: EditorState, danger: Danger | null): DecorationSet {
+  if (!danger) return DecorationSet.empty;
   const decos: Decoration[] = [];
-  const active = tableAround(state);
-  if (active) {
-    decos.push(
-      Decoration.node(active.pos, active.pos + active.node.nodeSize, { class: 'tableActive' }),
-    );
-  }
   const table = danger && tableAt(state.doc, danger.tablePos);
   if (danger && table) {
     const { rect } = danger;

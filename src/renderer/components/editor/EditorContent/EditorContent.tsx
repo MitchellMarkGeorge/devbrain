@@ -15,9 +15,9 @@ import styles from './EditorContent.module.css';
  *   and them takes no box
  * - code blocks: `pre[data-language]` (the language shows as a label) around `code`
  * - quotes: `blockquote`, a 2px bar on the left
- * - tables: `table` with `th`/`td`, row lines in `border`; dragged cells (`.selectedCell`) tinted;
- *   column lines too while the table is pointed at or worked in (`.tableWrapper.tableActive`),
- *   and the cells a delete would remove tinted red (`.tableCellDanger`)
+ * - tables: `table` with `th`/`td`, an `edge` outline with rounded corners round a grid of
+ *   `border` lines, the header row on a `muted` fill; dragged cells (`.selectedCell`) tinted, and
+ *   the cells a delete would remove tinted red (`.tableCellDanger`)
  * - collapsible sections (Tiptap's details markup): `[data-type='details']` with its toggle
  *   button, `summary` and `[data-type='detailsContent']`, open on `.is-open`
  * - unsupported HTML shown as its source: `[data-raw-html]`, in mono `muted-foreground`
