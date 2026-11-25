@@ -1,0 +1,31 @@
+/* What mentions an item. See docs/design-system/components/MentionList.md */
+.list {
+  display: flex;
+  flex-direction: column;
+}
+/* "Show n more": a quiet text button, in line with the titles */
+.more {
+  align-self: flex-start;
+  height: var(--control-sm);
+  margin-top: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+}
+.more:hover {
+  color: var(--foreground);
+}
+.more:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.empty {
+  padding: 0 var(--space-2);
+  color: var(--subtle-foreground);
+  font-size: var(--text-sm);
+  line-height: var(--control-lg);
+}

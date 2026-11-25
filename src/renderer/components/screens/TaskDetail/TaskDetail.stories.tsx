@@ -15,6 +15,8 @@ import { StatusIcon } from '../../entities/StatusIcon';
 import { SyncedBadge } from '../../entities/SyncedBadge';
 import { TaskList } from '../../lists/TaskList';
 import { TaskNoteCard } from '../../detail/TaskNoteCard';
+import { MentionsPill } from '../../detail/MentionsSection';
+import { SAMPLE_MENTIONS } from '../../lists/MentionRow/fixtures';
 import type { TaskRowData } from '../../lists/TaskRow';
 import { AppWindow, DetailPage, DetailTopBar } from './frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from './data';
@@ -129,7 +131,10 @@ function TaskPage({
   );
 }
 
-/** Task detail (7158:6266): a local task with dates, project, subtasks and its note */
+/**
+ * Task detail (7158:6266): a local task with dates, project, subtasks and its note, and what
+ * mentions it on the links line
+ */
 export const TaskDetail: Story = {
   render: () => (
     <TaskPage
@@ -147,6 +152,7 @@ export const TaskDetail: Story = {
           <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
         </>
       }
+      links={<MentionsPill mentions={SAMPLE_MENTIONS} />}
       description={PKCE_DESCRIPTION}
       subtasks={PKCE_SUBTASKS}
       done={3}

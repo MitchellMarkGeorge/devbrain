@@ -39,6 +39,8 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
   duePicker?: ReactNode;
   /** the start date picker: the start pill, or "+ Start date", opens it */
   startPicker?: ReactNode;
+  /** pills after the dates, to other items: what mentions the project (`MentionsPill`) */
+  links?: ReactNode;
   /** quiet text after the pills: how long is left ("6 days left", "2 days overdue") */
   meta?: ReactNode;
   /** the description: the page's `RichTextEditor`, or paragraphs of 14px body text */
@@ -47,7 +49,8 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
 
 /**
  * The top of a project's overview, as a document's: the project's tile, the name (30px), its
- * properties as pills (where a synced project comes from, status, start → due) with how long is left, then the description.
+ * properties as pills (where a synced project comes from, status, start → due, then its links)
+ * with how long is left, then the description.
  */
 export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(function ProjectHeader(
   {
@@ -57,6 +60,7 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
     statusPill,
     duePicker,
     startPicker,
+    links,
     meta,
     description,
     className,
@@ -98,6 +102,7 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
             startPicker={startPicker}
           />
         )}
+        {links}
         {meta != null && <span className={styles.meta}>{meta}</span>}
       </div>
       {description != null && <div className={styles.description}>{description}</div>}

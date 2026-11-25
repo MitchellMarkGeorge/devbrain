@@ -17,7 +17,7 @@ export interface DetailSectionProps extends Omit<ComponentPropsWithoutRef<'secti
   /** `sheet`: the content 4px under the heading (the default); `page`: 8px, on a detail page */
   spacing?: 'sheet' | 'page';
   /**
-   * a chevron before the title folds the content away (a note's Tasks panel). Uncontrolled
+   * a chevron before the title folds the content away (a sheet's Mentioned in). Uncontrolled
    * through `defaultOpen` (open by default), or controlled with `open` and `onOpenChange`.
    */
   collapsible?: boolean;

@@ -10,6 +10,8 @@ import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SyncedBadge } from '../../entities/SyncedBadge';
 import { StatusIcon } from '../../entities/StatusIcon';
+import { MentionsPill } from '../MentionsSection';
+import { SAMPLE_MENTIONS } from '../../lists/MentionRow/fixtures';
 import { TaskNoteCard } from '../TaskNoteCard';
 import { PropertyRow, TASK_ADD_ITEMS } from './PropertyRow';
 
@@ -47,7 +49,7 @@ type Story = StoryObj<typeof meta>;
 /** A local task: properties and "+ Add" (Parent task, Event, Pull request still unset), no links */
 export const LocalTask: Story = {};
 
-/** A task page header: the title, then the property rows */
+/** A task page header: the title, then the property rows, its links ending in what mentions it */
 export const TaskPageHeader: Story = {
   render: (args) => (
     <Stack gap="4">
@@ -68,6 +70,7 @@ export const TaskPageHeader: Story = {
                 status: TaskStatus.IN_PROGRESS,
               }}
             />
+            <MentionsPill mentions={SAMPLE_MENTIONS} />
           </>
         }
       />
