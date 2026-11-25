@@ -178,13 +178,29 @@ describe('SearchService — task keys', () => {
     expect(searchService.counts('ENG-12').task).toBe(1);
   });
 
-  it('leaves the title unhighlighted when only the key matched', () => {
+  it('highlights what matched in the key, and leaves the title alone when only the key did', () => {
     searchService.indexTask(linkedTask('Fix the login flow', 'ENG-123'));
 
-    expect(searchService.search({ query: 'ENG-123', entityType: [] })[0]).toMatchObject({
+    expect(searchService.search({ query: 'ENG-12', entityType: [] })[0]).toMatchObject({
       title: 'Fix the login flow',
+      key: '<b>ENG-123</b>',
       entity: { external: { key: 'ENG-123' } },
     });
+    expect(searchService.search({ query: 'login', entityType: [] })[0]).toMatchObject({
+      title: 'Fix the <b>login</b> flow',
+      key: 'ENG-123',
+    });
+  });
+
+  it('gives an empty key for an entry with none', () => {
+    const task = taskService.createTask({ title: 'Local work', dueDate: TOMORROW });
+    searchService.indexTask(task);
+    searchService.indexProject(projectService.createProject({ title: 'Local plan' }));
+
+    expect(searchService.search({ query: 'local', entityType: [] }).map(({ key }) => key)).toEqual([
+      '',
+      '',
+    ]);
   });
 
   it('finds a detached task by the key it still shows, and no local task by one', () => {

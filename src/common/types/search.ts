@@ -25,6 +25,8 @@ export type SearchResult<Type extends SearchEntityType = SearchEntityType> = {
     title: string;
     // an excerpt of the body around the matches, '…' where it was cut, highlighted
     body: string;
+    // a synced task's provider key (ENG-123), highlighted; '' for a task with none and other types
+    key: string;
     rank: number;
   };
 }[Type];

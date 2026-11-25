@@ -59,9 +59,9 @@ export class SearchService {
 
   /**
    * The entries matching `query`, best first, each with the entity it found as that entity's list
-   * returns it (a `TaskListItem`, `NoteListItem`, `ProjectListItem` or `Event`). `title` and `body`
-   * are HTML: the indexed text escaped, with each match in <b>…</b> and nothing else (see
-   * highlightToHtml). Titles and bodies hold user and provider text, so they are never handed out
+   * returns it (a `TaskListItem`, `NoteListItem`, `ProjectListItem` or `Event`). `title`, `body`
+   * and `key` (a task's provider key, '' for none) are HTML: the indexed text escaped, with each match in <b>…</b> and nothing else (see
+   * highlightToHtml). Titles, bodies and keys hold user and provider text, so they are never handed out
    * with unescaped markup.
    *
    * The matches are ranked and cut to `limit` first, then the entities are read: one query per
@@ -78,6 +78,8 @@ export class SearchService {
       .select({
         title: sql<string>`highlight(${searchIndex}, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END})`,
         body: sql<string>`snippet(${searchIndex}, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15)`,
+        // null for an entry inserted with no key at all; the service always writes one
+        key: sql<string | null>`highlight(${searchIndex}, 2, ${HIGHLIGHT_START}, ${HIGHLIGHT_END})`,
         entityId: searchIndex.entityId,
         entityType: searchIndex.entityType,
         // a key match ranks with a title match: a key is how its task is named elsewhere
@@ -106,6 +108,7 @@ export class SearchService {
           entity,
           title: highlightToHtml(match.title),
           body: highlightToHtml(match.body),
+          key: highlightToHtml(match.key ?? ''),
           rank: match.rank,
         } as SearchResult,
       ];
