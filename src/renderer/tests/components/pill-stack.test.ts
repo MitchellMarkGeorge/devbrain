@@ -2,12 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import {
-  PillHoverCardsProvider,
-  type PillHoverCardsProviderProps,
-  type PillTarget,
-} from '@renderer/components/entities/EntityHoverCard';
-import { TaskRow } from '@renderer/components/lists/TaskRow';
+import { TaskRow, type TaskRowProps } from '@renderer/components/lists/TaskRow';
 import {
   sampleEventLink,
   sampleProject,
@@ -16,9 +11,8 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// A stacked deck of pills spreads while pointed at and folds once left, but not while one of its
-// pills' hover card is open: the pointer has gone on to the card, portalled outside the row, and
-// the card stays by its pill. It folds once the card closes.
+// A stacked side keeps every pill whole (icon and label). Pointing at the row spreads it back out,
+// which is CSS alone (TaskRow.module.css): happy-dom draws no hover, so the browser checks that.
 
 let container: HTMLDivElement;
 let root: Root;
@@ -40,98 +34,102 @@ const TASK = sampleTask({
   link: sampleEventLink('Architecture review', 'blue'),
 });
 
-// the cards open and close at once; each shows its pill's name
-const CARDS: Omit<PillHoverCardsProviderProps, 'children'> = {
-  delay: 0,
-  closeDelay: 0,
-  renderCard: (target: PillTarget) => createElement('div', null, `Card of ${target.title}`),
-};
-
-function render() {
-  act(() =>
-    root.render(
-      createElement(
-        PillHoverCardsProvider,
-        CARDS as PillHoverCardsProviderProps,
-        createElement(TaskRow, { task: TASK, stack: 'right' }),
-      ),
-    ),
-  );
+function render(props: Partial<TaskRowProps> = {}) {
+  act(() => root.render(createElement(TaskRow, { task: TASK, ...props })));
 }
 
-const stack = () => container.querySelector<HTMLElement>('[data-side] [data-stack]')!;
-const pill = (text: string) =>
-  [...stack().querySelectorAll<HTMLElement>('button')].find((el) => el.textContent === text)!;
+const rightStack = () => container.querySelector<HTMLElement>('[data-side] [data-stack]')!;
 
-// the pointer moves from outside onto `element` (React's enter and leave come from over and out)
-function enter(element: HTMLElement) {
-  act(() => {
-    element.dispatchEvent(
-      new PointerEvent('pointerover', { bubbles: true, relatedTarget: document.body }),
-    );
-    element.dispatchEvent(
-      new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body }),
-    );
-    element.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }));
-    element.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
-    element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
-    element.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-  });
-}
-
-// the pointer leaves `element` for `to`, outside the row
-function leave(element: HTMLElement, to: HTMLElement) {
-  act(() => {
-    element.dispatchEvent(new PointerEvent('pointerout', { bubbles: true, relatedTarget: to }));
-    element.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: to }));
-    element.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false, relatedTarget: to }));
-    element.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false, relatedTarget: to }));
-    to.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }));
-    to.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
-    to.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
-    to.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-  });
-}
-
-async function eventually(assertion: () => void, timeout = 2000) {
-  const start = Date.now();
-  for (;;) {
-    try {
-      assertion();
-      return;
-    } catch (error) {
-      if (Date.now() - start > timeout) throw error;
-      await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
-    }
-  }
-}
-
-describe('a stacked deck of pills', () => {
-  it('folds once the pointer leaves it', async () => {
-    render();
-    enter(pill('Platform'));
-    expect(stack().hasAttribute('data-spread')).toBe(true);
-    leave(pill('Platform'), document.body);
-    await eventually(() => expect(stack().hasAttribute('data-spread')).toBe(false));
+describe('a stack of pills', () => {
+  it('keeps every pill’s label when stacked', () => {
+    render({ stack: 'right' });
+    expect(rightStack().hasAttribute('data-stacked')).toBe(true);
+    expect(rightStack().textContent).toContain('Architecture review');
+    expect(rightStack().textContent).toContain('Platform');
   });
 
-  it('stays spread while a pill’s card is open, and folds once it closes', async () => {
-    render();
-    enter(pill('Platform'));
-    await eventually(() => expect(document.body.textContent).toContain('Card of Platform'));
-    // on to the card, which is outside the row
-    const card = document.querySelector<HTMLElement>('[aria-label="Platform"]')!;
-    leave(pill('Platform'), card);
-    await act(() => new Promise((resolve) => setTimeout(resolve, 200)));
-    expect(stack().hasAttribute('data-spread')).toBe(true);
-    expect(stack().hasAttribute('data-closing')).toBe(false);
-
+  it('keeps its level while pointed at: the spread is drawn, not measured', () => {
+    render({ stack: 'right' });
     act(() => {
-      document.body.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
-      );
+      rightStack().dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+      rightStack().dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     });
-    await eventually(() => expect(pill('Platform').hasAttribute('data-popup-open')).toBe(false));
-    await eventually(() => expect(stack().hasAttribute('data-spread')).toBe(false));
+    expect(rightStack().hasAttribute('data-stacked')).toBe(true);
+    expect(container.querySelector('[data-spread]')).toBeNull();
+  });
+
+  it('never stacks a side with one pill', () => {
+    render({ stack: 'both', task: { ...TASK, link: null } });
+    expect(rightStack().hasAttribute('data-stacked')).toBe(false);
+  });
+
+  // A stacked pill can shorten its label (to an ellipsis, or away to its icon). The row must
+  // still count its full width, or it would measure narrow, unstack, measure wide and stack again,
+  // without end ("Maximum update depth exceeded").
+  it('settles on a level when its stacked pills are shortened', () => {
+    const restore = fakeLayout();
+    try {
+      // both pills apart (306px) overflow; stacked (each capped at 140px, 276px) they fit
+      render();
+      expect(rightStack().hasAttribute('data-stacked')).toBe(true);
+      render();
+      expect(rightStack().hasAttribute('data-stacked')).toBe(true);
+    } finally {
+      restore();
+    }
   });
 });
+
+/**
+ * happy-dom lays nothing out, so this fakes a row's: 500px of room from the title to the row's end,
+ * a 200px title, and pills 150px in full (50px of icon and padding, a 100px label) that drop their
+ * label when stacked. Returns what puts the real one back.
+ */
+function fakeLayout(): () => void {
+  const pillOf = (el: Element) => !!el.parentElement?.hasAttribute('data-stack');
+  const labelOf = (el: Element) =>
+    !!el.parentElement && pillOf(el.parentElement) && el === el.parentElement.lastElementChild;
+  const stacked = (el: Element) => !!el.closest('[data-stacked]');
+  const scrollWidth = (el: Element) => {
+    if (el.hasAttribute('data-name')) return 200;
+    if (pillOf(el)) return stacked(el) ? 50 : 150;
+    if (labelOf(el)) return 100;
+    return 0;
+  };
+  const clientWidth = (el: Element) => (labelOf(el) && stacked(el) ? 0 : scrollWidth(el));
+  const rect = (el: Element) => {
+    const left = el.hasAttribute('data-title') ? 100 : 0;
+    const right = el.getAttribute('role') === 'row' ? 600 : 0;
+    return { left, right, top: 0, bottom: 0, width: right - left, height: 0, x: left, y: 0 };
+  };
+  const fakes: Record<string, PropertyDescriptor> = {
+    scrollWidth: {
+      get(this: Element) {
+        return scrollWidth(this);
+      },
+    },
+    clientWidth: {
+      get(this: Element) {
+        return clientWidth(this);
+      },
+    },
+    getBoundingClientRect: {
+      value(this: Element) {
+        return rect(this) as DOMRect;
+      },
+    },
+  };
+  const proto = Element.prototype;
+  const saved = Object.keys(fakes).map(
+    (name) => [name, Object.getOwnPropertyDescriptor(proto, name)] as const,
+  );
+  for (const [name, descriptor] of Object.entries(fakes)) {
+    Object.defineProperty(proto, name, { configurable: true, ...descriptor });
+  }
+  return () => {
+    for (const [name, descriptor] of saved) {
+      if (descriptor) Object.defineProperty(proto, name, descriptor);
+      else delete (proto as unknown as Record<string, unknown>)[name];
+    }
+  };
+}

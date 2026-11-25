@@ -8,7 +8,6 @@ import {
   useState,
   type ComponentProps,
   type CSSProperties,
-  type FocusEvent,
   type MouseEvent,
   type ReactNode,
   type Ref,
@@ -79,8 +78,9 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
    */
   compact?: boolean;
   /**
-   * How the pills stack when the row runs out of room. `auto` (the default) measures the row:
-   * first the pills after the title stack, then the key with the subtask or parent pill, and the
+   * How the pills stack (overlapping, labels shortened) when the row runs out of room; pointing at
+   * the row spreads them back out over the end of the title. `auto` (the
+   * default) measures the row: first the pills after the title stack, then the key with the subtask or parent pill, and the
    * title shortens only after that. `none`, `right` and `both` pin a level, for pictures of the
    * row. A side with one pill never stacks.
    */
@@ -124,170 +124,72 @@ export type StackMode = 'auto' | 'none' | 'right' | 'both';
 type StackLevel = 0 | 1 | 2;
 const LEVELS: Record<Exclude<StackMode, 'auto'>, StackLevel> = { none: 0, right: 1, both: 2 };
 
-// a stacked pill shows this much of its edge (its icon) behind the next one
-const STACK_EDGE = 26;
-// the gap between spread pills (--space-1-5)
+// stacked pills overlap by this much, each over the one before (--space-1)
+const STACK_OVERLAP = 4;
+// the gap between pills that are not stacked (--space-1-5)
 const STACK_GAP = 6;
-
-// how far a spread deck may reach left: just before the title, never over the status icon
-const DECK_LEFT_SLACK = 8;
-// the spread deck's padding before its first pill, where its ground fades in (--space-4)
-const DECK_FADE = 16;
-// how long a closing deck stays on top of the row while its pills fold back (--duration-normal)
-const CLOSE_MS = 150;
-
-// a deck's width spread out, measured while its pills may still be folded or mid-animation
-function spreadWidth(deck: HTMLElement): number {
-  const pills = Array.from(deck.children) as HTMLElement[];
-  const widths = pills.reduce((total, pill) => total + pill.scrollWidth + 2, 0);
-  return widths + STACK_GAP * (pills.length - 1) + DECK_FADE;
-}
+// a pill's widest: 240px (Badge's cap), or 140px while stacked
+const PILL_MAX = 240;
+const STACKED_PILL_MAX = 140;
+// a pill shortened to its icon: its border, padding and 12px icon (TaskRow.module.css's 34px)
+const PILL_ICON_WIDTH = 34;
+// how far the title gives way while the row's stacks are spread (pointed at)
+const SPREAD_NAME_MIN = 40;
 
 /**
- * The pills on one side of the title, stacked like a deck when the row runs out of room: the last
- * in full, the ones behind showing their edge and icon. Pointing at the stack or focusing it
- * spreads it out on top of the row, over the end of the title, without moving anything: the
- * pills behind grow to full width and their labels fade in. Leaving folds them back the same way,
- * once the hover card a pill opened has closed (the pointer may have gone on to it).
+ * The pills on one side of the title. Stacked, when the row runs out of room, they overlap a
+ * little, each pill over the one before, and each is capped at 140px with its label shortened.
+ * Pointing at the row (or focusing it) spreads every stack in it back out, full labels and all,
+ * over the end of the title, which gives way down to a word or two (TaskRow.module.css).
  */
 function PillStack({ stacked, children }: { stacked: boolean; children: ReactNode }) {
   const pills = Children.toArray(children);
-  const ref = useRef<HTMLSpanElement>(null);
-  const deckRef = useRef<HTMLSpanElement>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // while a pill's hover card is open after the pointer left the stack: folds the deck once it
-  // closes
-  const cardWatch = useRef<MutationObserver | null>(null);
-  // the stacked width, kept while the deck is spread (and while it folds back) so the row does
-  // not reflow
-  const [spreadFrom, setSpreadFrom] = useState<number | null>(null);
-  const [closing, setClosing] = useState(false);
-  // The spread deck grows leftwards from the stack's right edge; when that would run past the
-  // start of the title it shifts right instead, over the pills on the right, and its ground runs
-  // on to the end of that stack so none of it peeks out from under the deck.
-  const [cover, setCover] = useState({ shift: 0, pad: 0 });
-  const isStacked = stacked && pills.length > 1;
-  const spreadOut = isStacked && spreadFrom != null;
-  const open = spreadOut && !closing;
-
-  useLayoutEffect(() => {
-    const stack = ref.current;
-    const deck = deckRef.current;
-    const row = stack?.closest('[role="row"]');
-    const title = row?.querySelector('[data-title]');
-    if (!open || !stack || !deck || !row || !title) {
-      setCover({ shift: 0, pad: 0 });
-      return;
-    }
-    const minLeft = title.getBoundingClientRect().left - DECK_LEFT_SLACK;
-    const stackRight = stack.getBoundingClientRect().right;
-    const shift = Math.max(0, minLeft - (stackRight - spreadWidth(deck)));
-    let pad = 0;
-    if (shift > 0) {
-      const deckRight = stackRight + shift;
-      for (const other of row.querySelectorAll('[data-stack]')) {
-        const box = other.getBoundingClientRect();
-        if (other !== stack && box.left < deckRight && box.right > deckRight) {
-          pad = box.right - deckRight;
-        }
-      }
-    }
-    setCover({ shift, pad });
-  }, [open]);
-
-  useLayoutEffect(
-    () => () => {
-      clearTimeout(closeTimer.current);
-      cardWatch.current?.disconnect();
-    },
-    [],
-  );
-
   if (pills.length === 0) return null;
-
-  function spread() {
-    if (!isStacked || !ref.current) return;
-    cardWatch.current?.disconnect();
-    cardWatch.current = null;
-    clearTimeout(closeTimer.current);
-    setClosing(false);
-    if (spreadFrom == null) setSpreadFrom(ref.current.offsetWidth);
-  }
-  function close() {
-    if (spreadFrom == null) return;
-    // the pointer went on to a pill's hover card (portalled outside the stack), or focus opened
-    // one: the deck stays spread, so the card stays by its pill, and folds once the card closes
-    const deck = deckRef.current;
-    if (deck?.querySelector('[data-popup-open]')) {
-      if (cardWatch.current) return;
-      const watch = new MutationObserver(() => {
-        if (deck.querySelector('[data-popup-open]')) return;
-        watch.disconnect();
-        cardWatch.current = null;
-        fold();
-      });
-      watch.observe(deck, { subtree: true, attributeFilter: ['data-popup-open'] });
-      cardWatch.current = watch;
-      return;
-    }
-    fold();
-  }
-  function fold() {
-    setClosing(true);
-    clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => {
-      setSpreadFrom(null);
-      setClosing(false);
-    }, CLOSE_MS);
-  }
-  function handleBlur(event: FocusEvent<HTMLSpanElement>) {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close();
-  }
-
   return (
     <span
-      ref={ref}
       className={styles.stack}
       data-stack=""
-      data-stacked={isStacked ? '' : undefined}
-      data-spread={spreadOut ? '' : undefined}
-      data-closing={spreadOut && closing ? '' : undefined}
-      style={spreadOut ? { width: spreadFrom } : undefined}
-      onPointerEnter={spread}
-      onPointerLeave={close}
-      onFocus={spread}
-      onBlur={handleBlur}
+      data-stacked={stacked && pills.length > 1 ? '' : undefined}
+      // stacked, the stack narrows no further than every pill's icon
+      style={{ ['--pills' as string]: pills.length }}
     >
-      <span
-        ref={deckRef}
-        className={styles.deck}
-        data-shifted={cover.shift ? '' : undefined}
-        style={
-          cover.shift
-            ? { right: -cover.shift - cover.pad, paddingRight: cover.pad || undefined }
-            : undefined
-        }
-      >
-        {pills}
-      </span>
+      {pills}
     </span>
   );
 }
 
-// a pill's full width, even while it is cut to its edge or mid-animation (Badge caps it at 240px)
-function pillWidth(pill: Element): number {
-  return Math.min(pill.scrollWidth + 2, 240);
+/**
+ * A pill's full width, the same however it is drawn: capped, shortened to its icon in a stack, or
+ * mid-animation. Its own scroll width counts the parts that run past its edge, and each part that
+ * clips its own text (the label, shortened to an ellipsis) adds what it hides. Measuring the pill
+ * as drawn would loop: a shortened pill measures narrow, the row unstacks, and it measures wide.
+ */
+function pillWidth(pill: Element, max: number): number {
+  let hidden = 0;
+  for (const part of pill.querySelectorAll('*')) {
+    hidden += Math.max(0, part.scrollWidth - part.clientWidth);
+  }
+  return Math.min(pill.scrollWidth + 2 + hidden, max);
 }
 
-// a stack's width spread out and stacked, from its pills' full widths
-function stackWidths(stack: Element | null): { spread: number; stacked: number } {
-  const pills = Array.from(stack?.firstElementChild?.children ?? []);
-  if (pills.length === 0) return { spread: 0, stacked: 0 };
-  const widths = pills.map(pillWidth);
-  const last = widths[widths.length - 1];
+// a stack's width with its pills apart and stacked, from their full widths
+function stackWidths(stack: Element | null): { spread: number; stacked: number; floor: number } {
+  const pills = Array.from(stack?.children ?? []);
+  if (pills.length === 0) return { spread: 0, stacked: 0, floor: 0 };
+  const sum = (max: number) => pills.reduce((total, pill) => total + pillWidth(pill, max), 0);
   return {
-    spread: widths.reduce((sum, w) => sum + w, 0) + STACK_GAP * (pills.length - 1),
-    stacked: pills.length > 1 ? STACK_EDGE * (pills.length - 1) + last : last,
+    // spread with nothing pointed at, as narrow as it goes: the key and the subtask count
+    // (`data-keep`) whole, every other pill at its icon
+    floor:
+      pills.reduce(
+        (total, pill) =>
+          total + (pill.hasAttribute('data-keep') ? pillWidth(pill, PILL_MAX) : PILL_ICON_WIDTH),
+        0,
+      ) +
+      STACK_GAP * (pills.length - 1),
+    spread: sum(PILL_MAX) + STACK_GAP * (pills.length - 1),
+    stacked:
+      pills.length > 1 ? sum(STACKED_PILL_MAX) - STACK_OVERLAP * (pills.length - 1) : sum(PILL_MAX),
   };
 }
 
@@ -296,7 +198,8 @@ function gapOf(element: Element): number {
 }
 
 /**
- * The stack level that fits the row: the first of none, right, both at which the title's full text
+ * The stack level that fits the row (and, for any row, how its stacks share the room when spread):
+ * the first of none, right, both at which the title's full text
  * fits beside the pills. It works from full widths (the title's text, each pill, the priority and
  * the date), never from the row as it is drawn, so it gives the same answer while the pills are
  * animating between levels.
@@ -310,7 +213,7 @@ function useAutoStack(
 
   const fit = useCallback(() => {
     const row = rowRef.current;
-    if (!enabled || !row || row.querySelector('[data-spread]')) return;
+    if (!row) return;
     const title = row.querySelector<HTMLElement>('[data-title]');
     const name = title?.querySelector<HTMLElement>('[data-name]');
     const side = row.querySelector<HTMLElement>('[data-side]');
@@ -328,8 +231,22 @@ function useAutoStack(
     const sideFixed =
       sideParts.reduce((sum, part) => sum + (part as HTMLElement).offsetWidth, 0) +
       gapOf(side) * (side.children.length - 1);
-    const fixed = name.scrollWidth + gapOf(row) + sideFixed + (left.spread ? gapOf(title) : 0);
+    const titleGap = left.spread ? gapOf(title) : 0;
 
+    // Spread (the row pointed at), the title gives way down to SPREAD_NAME_MIN and the two stacks
+    // share what is left between it and the priority, each in proportion to its full width: the
+    // title's cell is held at the title's floor and the stack before it's share, and the side
+    // takes the rest. Written straight onto the row: it changes nothing React draws.
+    const budget = Math.max(0, room - SPREAD_NAME_MIN - titleGap - gapOf(row) - sideFixed);
+    const pills = left.spread + right.spread;
+    // never less than either stack's floor, so no pill spills out of its stack
+    const share = pills <= budget ? left.spread : (budget * left.spread) / pills;
+    const leftShare = Math.max(left.floor, Math.min(share, budget - right.floor));
+    row.style.setProperty('--spread-name-min', `${SPREAD_NAME_MIN}px`);
+    row.style.setProperty('--spread-title-min', `${SPREAD_NAME_MIN + titleGap + leftShare}px`);
+
+    if (!enabled) return;
+    const fixed = name.scrollWidth + gapOf(row) + sideFixed + titleGap;
     const fits = (l: StackLevel) =>
       fixed + (l >= 1 ? right.stacked : right.spread) + (l === 2 ? left.stacked : left.spread) <=
       room + 0.5;
@@ -344,12 +261,12 @@ function useAutoStack(
   useLayoutEffect(fit);
   useLayoutEffect(() => {
     const row = rowRef.current;
-    if (!enabled || !row) return;
+    if (!row) return;
     const observer = new ResizeObserver(() => fit());
     observer.observe(row);
     document.fonts?.ready.then(() => fit());
     return () => observer.disconnect();
-  }, [enabled, rowRef, fit]);
+  }, [rowRef, fit]);
 
   return level;
 }
@@ -542,7 +459,11 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         <PillStack stacked={level === 2}>
           {key && task.external && (
             <PillHoverCard target={{ type: 'source', title: task.title, external: task.external }}>
-              <SourcePill provider={providerOf(task.external)} detached={isDetached(task)}>
+              <SourcePill
+                provider={providerOf(task.external)}
+                detached={isDetached(task)}
+                data-keep=""
+              >
                 {key}
               </SourcePill>
             </PillHoverCard>
@@ -563,6 +484,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
                 aria-expanded={subtasksShown}
                 aria-label={`Subtasks, ${subtasks.completed} of ${subtasks.total} done`}
                 data-subtasks-toggle=""
+                data-keep=""
                 onClick={() => onSubtasksShownChange(!subtasksShown)}
               >
                 <span className={styles.toggle}>
@@ -581,6 +503,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
                   icon={
                     <ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />
                   }
+                  data-keep=""
                 >
                   {subtasks.completed}/{subtasks.total}
                 </Badge>

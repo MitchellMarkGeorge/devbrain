@@ -49,7 +49,7 @@ function tasksPage(search = '') {
 }
 
 const pill = (text: string) =>
-  [...document.querySelectorAll<HTMLElement>('[role="row"] [data-stack] > span > *')].find(
+  [...document.querySelectorAll<HTMLElement>('[role="row"] [data-stack] > *')].find(
     (el) => el.textContent === text,
   );
 // a pill anywhere on the page: a row's or a board card's

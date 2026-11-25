@@ -144,7 +144,8 @@ export const StatusMenuOpen: Story = {
 /**
  * The row stacks its own pills as it narrows (`stack="auto"`, the default): first the pills after
  * the title, then the key with the parent and subtask pills; the title shortens only after that.
- * Point at a stack to spread it out over the end of the title.
+ * Stacked pills overlap by 4px and shorten their labels. Point at a row to spread them back out
+ * over the end of the title.
  */
 export const StackedPills: Story = {
   decorators: [
@@ -166,7 +167,7 @@ export const StackedPills: Story = {
   ),
 };
 
-/** Drag the handle at the bottom right to resize the row and watch the pills stack and spread. */
+/** Drag the handle at the bottom right to resize the row and watch the pills stack; point at a row to spread them. */
 export const Resizable: Story = {
   render: () => (
     <div
