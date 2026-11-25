@@ -122,6 +122,18 @@ function measure(editor: Editor, tablePos: number, layer: HTMLElement): Geometry
   };
 }
 
+/**
+ * Whether the pointer, over `target`, is over the editor whose controls are drawn in `layer`: on
+ * its text or its controls (inside the editor's area, the layer's parent), or on the page around
+ * them (an element holding that area), where the handles and + sit. Anything else under it, such
+ * as a dialog, a sheet or a menu, is drawn over the editor and covers it.
+ */
+function reaches(layer: HTMLElement, target: EventTarget | null): boolean {
+  const area = layer.parentElement;
+  if (!area || !(target instanceof Node)) return false;
+  return area.contains(target) || target.contains(area);
+}
+
 // the span `at` falls in, or the nearest
 function spanAt(spans: Span[], at: number): number {
   let index = 0;
@@ -244,11 +256,13 @@ export function TableControls({ editor }: { editor: Editor }) {
   }, [findHover]);
 
   // the pointer anywhere: the controls sit outside the editor's text, so leaving it isn't leaving
-  // the table
+  // the table. Only where nothing covers the page, though: findHover goes by position alone, so the
+  // pointer over a dialog, sheet, menu or toast drawn above the table is not over the table.
   useEffect(() => {
     let frame = 0;
     const onMove = (event: PointerEvent) => {
-      pointer.current = { x: event.clientX, y: event.clientY };
+      pointer.current =
+        host && reaches(host, event.target) ? { x: event.clientX, y: event.clientY } : null;
       if (!frame) {
         frame = requestAnimationFrame(() => {
           frame = 0;
@@ -267,7 +281,7 @@ export function TableControls({ editor }: { editor: Editor }) {
       document.removeEventListener('pointermove', onMove);
       document.documentElement.removeEventListener('pointerleave', onLeave);
     };
-  }, [updateHover]);
+  }, [host, updateHover]);
 
   // an edit, a new selection, focus or a new size moves or changes the table
   useEffect(() => {

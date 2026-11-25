@@ -128,6 +128,10 @@ row and a column), the open menu and a drag.
   walks the document's tables, finds each one's DOM (`editor.view.nodeDOM(pos)`), and takes the
   one whose box, plus room for the handles and the table bar, holds the pointer. The row and
   column come from the pointer against the rows' and cells' boxes.
+- That goes by position alone, so a move counts only when the element under the pointer is in the
+  editor's area (its text or its controls) or holds it (the page around the table): anything else
+  there, such as ⌘K, a dialog, a sheet, a menu or a toast, is drawn over the table and covers it
+  (`reaches`).
 - While the editor has focus, the table the selection is in counts too (`tableAround` and
   `selectedCell`, `table-commands.ts`), so the handles follow the caret.
 - It draws again on every transaction, on focus and blur, and when the editor's size changes (a
