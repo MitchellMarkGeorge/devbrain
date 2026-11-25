@@ -32,6 +32,7 @@ import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
+import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
 import { isSynced, listedTask } from '../../api/queries';
 import { useTaskActions } from '../../hooks/use-task-actions';
@@ -293,6 +294,7 @@ function TaskSheetBody({ task }: { task: TaskListItem }) {
       <TaskDescription key={task.id} task={task} className={styles.description} />
       <TaskSubtasksSection task={task} compact />
       <TaskNoteSection task={task} compact />
+      <ItemMentionsSection targetId={task.id} />
     </>
   );
 }

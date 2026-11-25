@@ -20,6 +20,7 @@ import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { ProjectPill } from '@renderer/features/tasks/components/menus/pickers';
+import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { NoteEditor } from '../detail/NoteEditor';
 import { useNoteActions } from '../../hooks/use-note-actions';
 import styles from './NoteSheet.module.css';
@@ -155,6 +156,7 @@ function NoteSheetBody({ note }: { note: NoteListItem }) {
       <div className={styles.body}>
         <NoteEditor noteId={note.id} />
       </div>
+      <ItemMentionsSection targetId={note.id} />
     </>
   );
 }

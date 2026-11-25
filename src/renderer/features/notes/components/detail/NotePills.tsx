@@ -1,20 +1,12 @@
-import { useMemo } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { CircleCheck, Plus } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
 import type { Note, NoteListItem } from '@common/types';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  EntityPill,
-} from '@renderer/components';
+import { EntityPill } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
+import { ItemMentionsPill } from '@renderer/shared/components/ItemMentions';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { ProjectPill } from '@renderer/features/tasks/components/menus/pickers';
-import { TaskPickerSubmenu } from '../menus/NoteMenus';
-import { noteTasksQuery, tasksSummary } from '../../api/queries';
+import { NoteTasksPill } from './NoteTasksPill';
 import type { NoteActions } from '../../hooks/use-note-actions';
 
 /** The task or event the note links to, as a pill opening it; nothing while it loads. */
@@ -51,27 +43,23 @@ function LinkPill({ note }: { note: Note }) {
 
 /**
  * The pills under a note's title (Figma `7158:16387`, `7158:16863`, `7421:36683`): its project, or
- * "+ Add to project"; the task or event it links to; and the tasks made from it ("3 tasks · 2 in
- * progress"), or "+ Add task", which creates one linked to the note or links one that exists.
+ * "+ Add to project"; the task or event it links to; its tasks ("3 tasks · 2 in progress",
+ * opening them in a popover), or "+ Add task"; and what mentions it ("4 mentions").
  */
 export function NotePills({
   note,
   actions,
   onNewTask,
   onLinkTask,
+  onOpenTask,
 }: {
   /** as `notes.get` reads it: with its project, which its pill draws */
   note: NoteListItem;
   actions: NoteActions;
   onNewTask: () => void;
   onLinkTask: (id: TaskId) => void;
+  onOpenTask: (id: TaskId) => void;
 }) {
-  const tasks = useInfiniteQuery(noteTasksQuery(note.id));
-  const statuses = useMemo(
-    () => tasks.data?.pages.flatMap((page) => page.items.map((task) => task.status)) ?? [],
-    [tasks.data],
-  );
-  const summary = tasksSummary(statuses);
   return (
     <>
       <ProjectPill
@@ -80,27 +68,13 @@ export function NotePills({
         onChange={(project) => actions.setProject([note], project?.id ?? null)}
       />
       <LinkPill note={note} />
-      {summary ? (
-        <EntityPill glyph={CircleCheck}>{summary}</EntityPill>
-      ) : (
-        tasks.isSuccess && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <EntityPill interactive glyph={Plus}>
-                  Add task
-                </EntityPill>
-              }
-            />
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem icon={Plus} onClick={onNewTask}>
-                New task linked to this note
-              </DropdownMenuItem>
-              <TaskPickerSubmenu exclude={new Set()} onPick={onLinkTask} />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      )}
+      <NoteTasksPill
+        noteId={note.id}
+        onNewTask={onNewTask}
+        onLinkTask={onLinkTask}
+        onOpenTask={onOpenTask}
+      />
+      <ItemMentionsPill targetId={note.id} />
     </>
   );
 }

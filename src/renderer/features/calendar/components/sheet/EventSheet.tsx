@@ -51,6 +51,7 @@ import { EventNoteSection, eventNoteQuery } from './EventNoteSection';
 import { EventNoteFooter, EventNoteView } from './EventNoteView';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
+import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { moveEnd, moveStart, moveToDay, shownTiming, zoneAbbreviation } from '../../lib/timing';
 import styles from './EventSheet.module.css';
 
@@ -369,6 +370,7 @@ function EventSheetBody({
       />
       <EventNoteSection event={event} onOpenNote={onOpenNote} />
       <EventLinkedTasks eventId={event.id} onOpenTask={onOpenTask} />
+      <ItemMentionsSection targetId={event.id} />
       {!synced && (
         <div>
           <Button

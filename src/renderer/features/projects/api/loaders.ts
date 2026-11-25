@@ -5,6 +5,7 @@ import { isId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { loadTasks } from '@renderer/features/tasks/api/loaders';
+import { primeMentions } from '@renderer/shared/api/loaders';
 import {
   overviewDoneTasksQuery,
   overviewNotesQuery,
@@ -46,12 +47,13 @@ export function projectLoaderDeps({ search }: { search: ProjectSearch }): Projec
 }
 
 /**
- * The project page: the project (a missing one is the route's not-found) and its stats, then the
- * tab's first data: the Overview's open and recently completed tasks and its latest notes, the Tasks tab's view (as the tasks page loads it), or
+ * The project page: the project (a missing one is the route's not-found), its stats and what
+ * mentions it, then the tab's first data: the Overview's open and recently completed tasks and its latest notes, the Tasks tab's view (as the tasks page loads it), or
  * the notes.
  */
 export async function loadProject(context: RouterContext, id: ProjectId, search: ProjectSearch) {
   const { queryClient, trpc } = context;
+  const mentions = primeMentions(context, id);
   try {
     await queryClient.query({ ...trpc.projects.get.queryOptions({ id }), staleTime: 'static' });
   } catch (error) {
@@ -73,4 +75,5 @@ export async function loadProject(context: RouterContext, id: ProjectId, search:
       queryClient.query({ ...overviewNotesQuery(id), staleTime: 'static' }),
     ]);
   }
+  await mentions;
 }

@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import type { TaskId } from '@common/ids';
 import { isId } from '@common/ids';
 import type { RouterContext } from '@renderer/app/router';
-import { primeLinks } from '@renderer/shared/api/loaders';
+import { primeLinks, primeMentions } from '@renderer/shared/api/loaders';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { groupDefs, PRIMED_GROUPS } from '../lib/groups';
 import { groupTasksQuery, subtasksQuery, taskTreeQuery } from './queries';
@@ -72,11 +72,12 @@ export const parseTaskParams = {
 };
 
 /**
- * The task page: the task (a missing one is the route's not-found) and the event or note it links
- * to, for its pill; its subtasks after.
+ * The task page: the task (a missing one is the route's not-found), the event or note it links
+ * to and what mentions it, for their pills; its subtasks after.
  */
 export async function loadTask(context: RouterContext, id: TaskId) {
   const { queryClient, trpc } = context;
+  const mentions = primeMentions(context, id);
   let task;
   try {
     task = await queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime: 'static' });
@@ -85,5 +86,5 @@ export async function loadTask(context: RouterContext, id: TaskId) {
     throw error;
   }
   queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime: 'static' }).catch(noop);
-  await primeLinks(context, task);
+  await Promise.all([primeLinks(context, task), mentions]);
 }
