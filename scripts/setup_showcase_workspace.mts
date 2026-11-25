@@ -14,6 +14,7 @@ import {
   TaskStatus,
 } from '@common/types';
 import type { Workspace } from '@main/core/workspace/workspace';
+import { entityUrl, escapeLinkLabel, type EntityLinkType } from '@common/entity-links';
 
 /**
  * Makes a small, hand-written workspace for the website's screenshots of the app
@@ -304,6 +305,8 @@ async function seedWorkspace(workspace: Workspace) {
     { title: 'Read the Postgres 18 release notes', priority: LOW, due: null },
   ];
 
+  // the tasks by title, for the notes that mention them
+  const made = new Map<string, { id: string; title: string }>();
   for (const def of tasks) {
     const task = workspace.tasks.createTask({
       title: def.title,
@@ -314,6 +317,7 @@ async function seedWorkspace(workspace: Workspace) {
       pullRequestUrl: def.pr,
       linkedNoteId: def.note?.id,
     });
+    made.set(task.title, task);
     for (const subtask of def.subtasks ?? []) {
       workspace.tasks.createSubtask(task.id, {
         title: subtask.title,
@@ -359,7 +363,12 @@ async function seedWorkspace(workspace: Workspace) {
     events.set(meeting.title, event);
   }
 
-  // Notes
+  // a mention, as the editor writes one: [title](devbrain://task/tsk_…)
+  const mention = (type: EntityLinkType, item: { id: string; title: string } | undefined) =>
+    item ? `[${escapeLinkLabel(item.title)}](${entityUrl(type, item.id)})` : '';
+  const proration = made.get('Ship proration for mid-cycle plan changes');
+
+  // Notes, some mentioning the work they're about (each item's Mentioned in)
   await workspace.notes.createNote({
     title: 'Invoice email copy',
     projectId: projects.billing.id,
@@ -374,7 +383,7 @@ async function seedWorkspace(workspace: Workspace) {
     projectId: projects.billing.id,
     content: [
       '- [x] Webhooks on the new endpoint',
-      '- [ ] Proration live behind a flag',
+      `- [ ] ${mention('task', proration)} live behind a flag, as in ${mention('note', prorationNote)}`,
       '- [ ] Runbook for on-call',
       '- [ ] Announce in the changelog',
     ].join('\n'),
@@ -408,8 +417,9 @@ async function seedWorkspace(workspace: Workspace) {
     content: [
       '## This week',
       '',
-      '- Proration ships Friday if the design review agrees.',
+      `- ${mention('project', projects.billing)}: ${mention('task', proration)} on Friday, if the design review agrees.`,
       '- API keys: scopes are settled; per-project keys next.',
+      `- ${mention('event', events.get('Onboarding usability test'))} on Thursday.`,
       '',
       '## Next week',
       '',
