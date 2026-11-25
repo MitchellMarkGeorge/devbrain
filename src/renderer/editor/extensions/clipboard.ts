@@ -34,8 +34,8 @@ export function looksLikeMarkdown(text: string): boolean {
 // the markdown as a slice that pastes like copied content: open at both ends, so a single line
 // joins the paragraph it lands in
 function markdownSlice(editor: Editor, text: string): Slice | null {
-  const json = editor.markdown?.parse(text);
-  if (!json?.content?.length) return null;
+  const json = editor.storage.documentMarkdown.codec.parse(text);
+  if (!json.content?.length) return null;
   const doc = editor.schema.nodeFromJSON(json);
   return Slice.maxOpen(doc.content);
 }
@@ -81,9 +81,10 @@ export const MarkdownClipboard = Extension.create({
             if ($from.parent.type.spec.code && $from.sameParent($to)) {
               return slice.content.textBetween(0, slice.content.size, '\n');
             }
-            const manager = editor.markdown;
-            if (!manager) return slice.content.textBetween(0, slice.content.size, '\n\n');
-            return manager.serialize({ type: 'doc', content: slice.content.toJSON() ?? [] });
+            return editor.storage.documentMarkdown.codec.serialize({
+              type: 'doc',
+              content: slice.content.toJSON() ?? [],
+            });
           },
 
           clipboardTextParser(text, _context, plain, view) {

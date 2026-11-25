@@ -1,4 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core';
+import type { MarkdownRule } from '../markdown/types';
 import { EDITOR_ENTITY_TYPES, type EditorEntityType } from '../types';
 
 /**
@@ -88,9 +89,26 @@ export const EntityLink = Node.create({
     return node.attrs.label;
   },
 
-  markdownTokenName: 'entityLink',
+  addCommands() {
+    return {
+      insertEntityLink:
+        (attrs) =>
+        ({ chain }) =>
+          chain()
+            .insertContent([
+              { type: this.name, attrs },
+              { type: 'text', text: ' ' },
+            ])
+            .run(),
+    };
+  },
+});
 
-  markdownTokenizer: {
+// read and written in markdown (markdown/rules.ts)
+export const entityLinkMarkdown: MarkdownRule = {
+  name: 'entityLink',
+
+  tokenizer: {
     name: 'entityLink',
     level: 'inline',
     start: (src) => src.search(ENTITY_LINK_START),
@@ -107,29 +125,15 @@ export const EntityLink = Node.create({
     },
   },
 
-  parseMarkdown(token) {
+  parse(token) {
     return {
       type: 'entityLink',
       attrs: { type: token.entityType, id: token.id, label: token.label },
     };
   },
 
-  renderMarkdown(node) {
+  render(node) {
     const { type, id, label } = node.attrs ?? {};
     return `[${escapeLabel(label ?? '')}](${entityUrl(type, id)})`;
   },
-
-  addCommands() {
-    return {
-      insertEntityLink:
-        (attrs) =>
-        ({ chain }) =>
-          chain()
-            .insertContent([
-              { type: this.name, attrs },
-              { type: 'text', text: ' ' },
-            ])
-            .run(),
-    };
-  },
-});
+};

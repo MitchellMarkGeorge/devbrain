@@ -1,5 +1,6 @@
 import { mergeAttributes, Node } from '@tiptap/core';
 import type { CalloutKind } from '@renderer/components/editor/Callout';
+import type { MarkdownRule } from '../markdown/types';
 
 /**
  * A callout, written as GitHub's alert syntax, which GitHub draws as an alert and other markdown
@@ -49,9 +50,25 @@ export const Callout = Node.create({
     return ['div', mergeAttributes(HTMLAttributes), ['div', { 'data-callout-body': '' }, 0]];
   },
 
-  markdownTokenName: 'callout',
+  addCommands() {
+    return {
+      setCallout:
+        (kind = 'note') =>
+        ({ commands }) =>
+          commands.wrapIn(this.name, { kind }),
+      setCalloutKind:
+        (kind) =>
+        ({ commands }) =>
+          commands.updateAttributes(this.name, { kind }),
+    };
+  },
+});
 
-  markdownTokenizer: {
+// read and written in markdown (markdown/rules.ts)
+export const calloutMarkdown: MarkdownRule = {
+  name: 'callout',
+
+  tokenizer: {
     name: 'callout',
     level: 'block',
     start: (src) => src.search(/^ {0,3}> ?\[!/im),
@@ -75,7 +92,7 @@ export const Callout = Node.create({
     },
   },
 
-  parseMarkdown(token, helpers) {
+  parse(token, helpers) {
     const body = helpers.parseChildren(token.tokens ?? []);
     return {
       type: 'callout',
@@ -84,23 +101,10 @@ export const Callout = Node.create({
     };
   },
 
-  renderMarkdown(node, helpers) {
+  render(node, helpers) {
     const kind = String(node.attrs?.kind ?? 'note').toUpperCase();
     const body = helpers.renderChildren(node.content ?? [], '\n\n');
     const lines = body.split('\n').map((line) => (line ? `> ${line}` : '>'));
     return [`> [!${kind}]`, ...lines].join('\n');
   },
-
-  addCommands() {
-    return {
-      setCallout:
-        (kind = 'note') =>
-        ({ commands }) =>
-          commands.wrapIn(this.name, { kind }),
-      setCalloutKind:
-        (kind) =>
-        ({ commands }) =>
-          commands.updateAttributes(this.name, { kind }),
-    };
-  },
-});
+};
