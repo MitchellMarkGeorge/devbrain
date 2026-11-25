@@ -21,7 +21,7 @@ import { PKCE_DESCRIPTION } from '../../TaskDetail/data';
 import { TaskList } from '../../../lists/TaskList';
 import { storyDate } from '../../../lib/story-dates';
 import { MentionList } from './MentionsSection';
-import { DetailScreen, DockedSheet, NoteHead } from './frame';
+import { DetailScreen, DockedSheet, NoteHead, SheetPill } from './frame';
 import { ADR_MENTIONS, ADR_TASKS, ADR_TITLE, PKCE_MENTIONS, PKCE_TITLE } from './data';
 import { MentionsSection } from './MentionsSection';
 
@@ -154,31 +154,6 @@ export const HeaderPills: Story = {
 };
 
 type Tab = 'tasks' | 'mentions';
-
-/** A header pill that opens a view in the sheet; filled while its view is open. */
-function SheetPill({
-  glyph,
-  active,
-  onClick,
-  children,
-}: {
-  glyph: typeof AtSign;
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <EntityPill
-      glyph={glyph}
-      onClick={onClick}
-      style={
-        active ? { background: 'var(--pill-fill-hover)', color: 'var(--foreground)' } : undefined
-      }
-    >
-      {children}
-    </EntityPill>
-  );
-}
 
 /**
  * The note page with its Links sheet: either header pill opens the one sheet, which

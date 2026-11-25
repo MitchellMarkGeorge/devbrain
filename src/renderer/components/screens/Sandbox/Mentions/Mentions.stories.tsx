@@ -2,10 +2,10 @@
  * Sandbox: mock-ups of "Mentioned in", what mentions a task, note or event, on its page and
  * sheet, so every item shows the connections made to it in your notes. Not built; mock data only.
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { CalendarDays, CircleCheck, Clock, Link, Plus, Repeat } from 'lucide-react';
+import { AtSign, CalendarDays, CircleCheck, Clock, Link, Plus, Repeat } from 'lucide-react';
 import { Badge } from '../../../ui/Badge';
 import { Button } from '../../../ui/Button';
 import { DateRange } from '../../../detail/DateRange';
@@ -30,10 +30,10 @@ import { NOW, WEEK_EVENTS } from '../../Calendar/data';
 import { CalendarView, calendarEventInput } from '../../../calendar/CalendarView';
 import { PageContent } from '../../../shell/Page';
 import { TaskRow } from '../../../lists/TaskRow';
-import { DetailScreen, DockedSheet, NoteHead } from './frame';
+import { DetailScreen, DockedSheet, NoteHead, SheetPill } from './frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from '../../TaskDetail/data';
 import { storyDate } from '../../../lib/story-dates';
-import { MentionsSection } from './MentionsSection';
+import { MentionList, MentionsSection } from './MentionsSection';
 import {
   ADR_MENTIONS,
   ADR_TASKS,
@@ -91,10 +91,14 @@ function Paragraph({ children }: { children: ReactNode }) {
   return <p style={{ margin: 0, fontSize: 14, lineHeight: '20px' }}>{children}</p>;
 }
 
-/** The task page: properties, description, subtasks and note, then what mentions it */
-export const TaskPage: Story = {
-  name: 'Task page',
-  render: () => (
+/**
+ * The task page: properties, description, subtasks and note. What mentions it is a pill on the
+ * links line, "7 mentions", that opens the Links sheet beside the page, as a note's pills do, so
+ * the page doesn't grow by a list.
+ */
+function TaskPageWithLinks() {
+  const [open, setOpen] = useState(true);
+  return (
     <DetailScreen page="Tasks" title={PKCE_TITLE}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32, paddingBottom: 64 }}>
         <Heading level={1} variant="document">
@@ -112,6 +116,11 @@ export const TaskPage: Story = {
               <DateRange start="Jun 15" due="Jun 24" />
               <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
             </>
+          }
+          links={
+            <SheetPill glyph={AtSign} active={open} onClick={() => setOpen(!open)}>
+              {PKCE_MENTIONS.length} mentions
+            </SheetPill>
           }
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14 }}>
@@ -143,13 +152,22 @@ export const TaskPage: Story = {
             updated="2h ago"
           />
         </DetailSection>
-        <MentionsSection mentions={PKCE_MENTIONS} />
       </div>
+      <DockedSheet open={open} onOpenChange={setOpen} header={<SheetHeader>Links</SheetHeader>}>
+        <DetailSection title="Mentioned in" count={PKCE_MENTIONS.length}>
+          <MentionList mentions={PKCE_MENTIONS} limit={50} />
+        </DetailSection>
+      </DockedSheet>
     </DetailScreen>
-  ),
+  );
+}
+
+export const TaskPage: Story = {
+  name: 'Task page',
+  render: () => <TaskPageWithLinks />,
 };
 
-/** The task sheet: what mentions it */
+/** The task sheet: what mentions it, folded to one line under the task until opened */
 export const TaskSheet: Story = {
   name: 'Task sheet',
   render: () => (
@@ -180,7 +198,7 @@ export const TaskSheet: Story = {
       <DetailSection title="Task note" style={{ gap: 8 }}>
         <TaskNoteCard title={PKCE_TITLE} tasksSummary="2 tasks · 1 in progress" updated="2h ago" />
       </DetailSection>
-      <MentionsSection variant="sheet" mentions={PKCE_MENTIONS} />
+      <MentionsSection variant="sheet" collapsible defaultOpen={false} mentions={PKCE_MENTIONS} />
     </TasksWithSheet>
   ),
 };
@@ -293,7 +311,12 @@ export const States: Story = {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
           <MentionsSection variant="sheet" mentions={[]} />
-          <MentionsSection variant="sheet" mentions={PKCE_MENTIONS} />
+          <MentionsSection
+            variant="sheet"
+            collapsible
+            defaultOpen={false}
+            mentions={PKCE_MENTIONS}
+          />
         </div>
       </div>
     </TooltipProvider>

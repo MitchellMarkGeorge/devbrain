@@ -86,6 +86,8 @@ export interface MentionsSectionProps {
    * badge as Tasks has it
    */
   collapsible?: boolean;
+  /** collapsible only: open at first (the default) or folded to its heading */
+  defaultOpen?: boolean;
 }
 
 export function MentionsSection({
@@ -93,6 +95,7 @@ export function MentionsSection({
   variant = 'page',
   limit = 5,
   collapsible,
+  defaultOpen,
 }: MentionsSectionProps) {
   return (
     <DetailSection
@@ -106,6 +109,7 @@ export function MentionsSection({
         )
       }
       collapsible={collapsible}
+      defaultOpen={defaultOpen}
     >
       <MentionList mentions={mentions} limit={limit} />
     </DetailSection>

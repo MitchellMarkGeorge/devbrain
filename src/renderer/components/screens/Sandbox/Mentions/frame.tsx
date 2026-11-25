@@ -6,6 +6,8 @@
 import type { ReactNode } from 'react';
 import { Copy, Trash2 } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../../ui/DropdownMenu';
+import { EntityPill } from '../../../entities/EntityPill';
+import type { IconSource } from '../../../ui/Icon';
 import { EditorTitle } from '../../../editor/EditorContent';
 import { PageContent, PageFavoriteButton, PageMenuButton } from '../../../shell/Page';
 import { Sheet, SheetBody, SheetContent } from '../../../ui/Sheet';
@@ -101,5 +103,33 @@ export function DockedSheet({
         <SheetBody>{children}</SheetBody>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * A pill on the page that opens a list in the docked sheet ("2 tasks", "7 mentions"), filled
+ * while the sheet is open.
+ */
+export function SheetPill({
+  glyph,
+  active,
+  onClick,
+  children,
+}: {
+  glyph: IconSource;
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <EntityPill
+      glyph={glyph}
+      onClick={onClick}
+      style={
+        active ? { background: 'var(--pill-fill-hover)', color: 'var(--foreground)' } : undefined
+      }
+    >
+      {children}
+    </EntityPill>
   );
 }
