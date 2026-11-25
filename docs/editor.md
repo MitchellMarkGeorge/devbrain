@@ -484,6 +484,10 @@ it as an alert, other markdown apps as a quote. Kinds: `NOTE`, `TIP`, `IMPORTANT
 | Any other HTML (`<div>`, `<span>`, `<img>`, an unclosed `<kbd>`)       | Its source, as text; kept in the file as written                         | `extensions/raw-html.ts`    |
 | `[text](javascript:…)` and other refused targets                       | Plain text; the target stays in the file                                 | `extensions/safe-link.ts`   |
 
+An entity link is read by `entityLinkTokenizer` (`src/common/entity-links.ts`), which core also
+plugs into `marked` to find what a note or description mentions (`src/main/core/mentions`): a
+link the editor draws as a pill is a mention, and one in code or raw HTML is neither.
+
 Other HTML only arrives from outside: imported files, Linear, Google descriptions. It is kept as
 written so nothing is lost, and so a supported tag added later picks it up.
 

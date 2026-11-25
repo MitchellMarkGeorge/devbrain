@@ -65,6 +65,67 @@ describe('extractMentions', () => {
     expect(extractMentions(md).map((m) => m.targetId)).toEqual(['tsk_1']);
   });
 
+  it('leaves out links in code wherever the code is: a list item, a quote, indented', () => {
+    const md = [
+      '- item',
+      '  ```',
+      `  ${task('fence in a list item', 'tsk_2')}`,
+      '  ```',
+      '',
+      '> ```',
+      `> ${task('fence in a quote', 'tsk_3')}`,
+      '> ```',
+      '',
+      `    ${task('indented code', 'tsk_4')}`,
+      '',
+      `Text ${task('this one')}`,
+    ].join('\n');
+    expect(extractMentions(md).map((m) => m.targetId)).toEqual(['tsk_1']);
+  });
+
+  it('leaves out links in raw HTML, but reads a <details> body as the markdown it is', () => {
+    const md = [
+      `<div>${task('in HTML', 'tsk_2')}</div>`,
+      '',
+      '<details>',
+      '<summary>Steps</summary>',
+      '',
+      `Then ${task('in the body')}`,
+      '',
+      '</details>',
+    ].join('\n');
+    expect(extractMentions(md)).toEqual([
+      { targetId: 'tsk_1', count: 1, contextBefore: 'Then ', contextAfter: '' },
+    ]);
+  });
+
+  it('finds a link in a table cell, with the cell as its context', () => {
+    const md = ['| Task | Why |', '| --- | --- |', `| ${task('PKCE')} | blocks the release |`].join(
+      '\n',
+    );
+    expect(extractMentions(md)).toEqual([
+      { targetId: 'tsk_1', count: 1, contextBefore: '', contextAfter: '' },
+    ]);
+  });
+
+  it('takes the whole paragraph around a mention, its lines joined', () => {
+    const [mention] = extractMentions(`First line,\nthen ${task('PKCE')}\nand the last.`);
+    expect(mention).toMatchObject({
+      contextBefore: 'First line, then ',
+      contextAfter: ' and the last.',
+    });
+  });
+
+  it('shows inline formatting and tags by their text, and decodes character references', () => {
+    const [mention] = extractMentions(
+      `Press <kbd>K</kbd> &amp; see \`code\` in ${task('PKCE')} ~~now~~`,
+    );
+    expect(mention).toMatchObject({
+      contextBefore: 'Press K & see code in ',
+      contextAfter: ' now',
+    });
+  });
+
   it('ends a fence only at one of the same character at least as long', () => {
     const md = ['````', '```', task('still code', 'tsk_2'), '````', task('after')].join('\n');
     expect(extractMentions(md).map((m) => m.targetId)).toEqual(['tsk_1']);

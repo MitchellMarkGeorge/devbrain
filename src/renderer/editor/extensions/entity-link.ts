@@ -1,11 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core';
-import {
-  ENTITY_LINK,
-  ENTITY_LINK_START,
-  entityUrl,
-  escapeLinkLabel,
-  unescapeLinkLabel,
-} from '@common/entity-links';
+import { entityLinkTokenizer, entityUrl, escapeLinkLabel } from '@common/entity-links';
 import type { MarkdownRule } from '../markdown/types';
 import { EDITOR_ENTITY_TYPES, type EditorEntityType } from '../types';
 
@@ -96,22 +90,8 @@ export const EntityLink = Node.create({
 export const entityLinkMarkdown: MarkdownRule = {
   name: 'entityLink',
 
-  tokenizer: {
-    name: 'entityLink',
-    level: 'inline',
-    start: (src) => src.search(ENTITY_LINK_START),
-    tokenize(src) {
-      const match = ENTITY_LINK.exec(src);
-      if (!match) return undefined;
-      return {
-        type: 'entityLink',
-        raw: match[0],
-        label: unescapeLinkLabel(match[1]),
-        entityType: match[2],
-        id: match[3],
-      };
-    },
-  },
+  // the tokenizer core reads mentions with too (@common/entity-links)
+  tokenizer: entityLinkTokenizer,
 
   parse(token) {
     return {
