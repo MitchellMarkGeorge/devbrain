@@ -55,6 +55,21 @@ describe('pasting plain text', () => {
     expect(editor.getMarkdown()).toBe(markdown);
   });
 
+  it('takes no markers from pasted markdown, which is not the note’s own text', () => {
+    load('* kept\n\nEnd');
+    editor.commands.focus('end');
+    paste({ 'text/plain': '\n\n* pasted\n\n__bold__ and a tilde fence:\n\n~~~\ncode\n~~~' });
+    // what was pasted saves in the editor's spelling; the note's own list keeps its bullet
+    expect(editor.saveMarkdown()).toBe(
+      '* kept\n\nEnd\n\n- pasted\n\n**bold** and a tilde fence:\n\n```\ncode\n```',
+    );
+    const markups: unknown[] = [];
+    editor.state.doc.descendants((node) => {
+      markups.push(node.attrs.markup, ...node.marks.map((mark) => mark.attrs.markup));
+    });
+    expect(markups.filter(Boolean)).toEqual(['*']);
+  });
+
   it('joins a pasted line into the paragraph it lands in', () => {
     load('Ask');
     editor.commands.focus('end');

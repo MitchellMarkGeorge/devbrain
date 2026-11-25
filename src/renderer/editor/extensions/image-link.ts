@@ -53,6 +53,7 @@ export const ImageLink = Node.create({
 export const imageLinkMarkdown: MarkdownRule = {
   name: 'imageLink',
   token: 'image',
+  linkable: true,
 
   parse(token) {
     return {

@@ -45,11 +45,11 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   takes an object one of whose values is passed as a `ref` for a ref, and refuses to read it
   while rendering.
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
-  file alone, and undoing back to the text last loaded sends it exactly as it was stored, not in
-  the editor's own spelling: markdown has several spellings for one thing (`* one` and `- one`)
-  and the editor writes only its own, so it remembers the text it loaded and its own markdown for
-  it (its baseline), and sends the stored text while the content is still that (see "What a save
-  changes"). `RichTextEditorHandle.markdown()` gives the same text.
+  file alone, and undoing back to the text last loaded sends it exactly as it was stored. After
+  an edit it sends the stored text with only the blocks that changed written anew: markdown has
+  several spellings for one thing (`* one` and `- one`) and the editor writes only its own, so
+  it remembers the text it loaded and where each block of it was read from, and keeps the rest
+  as written (see "What a save changes"). `RichTextEditorHandle.markdown()` gives the same text.
 - Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
   a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never imports IPC, React Query, the router or the app. It gets what it needs through
@@ -142,10 +142,9 @@ reads and writes every note exactly as that package did (checked against it on t
 extension and command APIs (`getSchema`, `setContent`, an extension's storage and commands) and
 `marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
 
-What is left to build on it (keeping unedited blocks and their markers on save) and what it
-needs to be production ready: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its
-first step is built: reading a text gives its source map ("The source map", below). Nothing is
-written with it yet, so a save writes what it did.
+How to change it safely, find out why a save did what it did, and what to run before a pull
+request: [editor/markdown-layer-maintenance.md](editor/markdown-layer-maintenance.md). How it came
+to be built this way: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md).
 
 - `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `read(markdown)` gives
   the document an editor loads and the text's source map; `parseDocument` is that document alone,
@@ -153,11 +152,24 @@ written with it yet, so a save writes what it did.
   `normalizeMarkdown` (`index.ts`) use one for `createDocumentExtensions()`'s schema, with no
   editor.
 - `extension.ts`: `DocumentMarkdown`, the last of `createDocumentExtensions()`, plugs a codec into
-  each editor: `editor.getMarkdown()`, `editor.storage.documentMarkdown.codec` (the clipboard reads
-  and writes with it), and `contentType: 'markdown'`, which reads a string as markdown for the
-  editor's first `content` and for `setContent`. Either way the text is read with
-  `codec.parseDocument` and loaded as JSON (a text with no blocks, only link definitions, loads
-  as a paragraph showing its lines).
+  each editor, as methods on the editor, so nothing outside the layer reaches into it:
+
+  | Method                              | Gives                                                                                              |
+  | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+  | `editor.getMarkdown()`              | the whole document in the editor's spelling                                                        |
+  | `editor.saveMarkdown()`             | the markdown to store: the loaded text while the document is the one loaded, kept text once edited |
+  | `editor.markdownToContent(text)`    | markdown from outside as content to insert, without its markers (a paste)                          |
+  | `editor.contentToMarkdown(content)` | a document or some nodes as markdown in the editor's spelling (a copy)                             |
+
+  And `contentType: 'markdown'`, which reads a string as markdown for the editor's first `content`
+  and for `setContent`. Either way the text is read with `codec.read` and loaded as JSON (a text
+  with no blocks, only link definitions, loads as a paragraph showing its lines), and the text,
+  its source map and the document it loaded as are kept in the extension's storage (`loaded`),
+  for `saveMarkdown()` (`codec.serializeKeeping`). `RichTextEditor` sends what that gives. A
+  `setContent` of anything but markdown forgets the loaded text. The codec itself is
+  `editor.storage.documentMarkdown.codec`, for what needs more than the methods (a text's source
+  map).
+
 - `lexer.ts`: the `marked` instance notes are read with, its own (`new Marked()`, GFM), never the
   global one, so nothing else that uses `marked` changes how notes read, and an editor adds
   nothing to it: the tokenizers are fixed, added once. Each token keeps its `raw` source text.
@@ -178,24 +190,84 @@ written with it yet, so a save writes what it did.
   puts each mark on the text it spans. `read` gives, with the document, each top-level token's
   place in the text and the nodes it gave.
 - `source.ts`: `MarkdownSource`, the source map, made from what `read` gives.
+- `keeping.ts`: `writeKeeping`, a document written keeping the text of its source
+  (`codec.writeKeeping`, `codec.serializeKeeping`).
+- `markup.ts`: `DocumentMarkup`, the `markup` attribute a node or mark keeps its marker in
+  (`*` bullets, `__bold__`, an underlined heading), with `stripMarkup` and `hasMarkup`. The
+  rules read and write it; `codec.serialize` writes the editor's own spelling whatever markers a
+  document has, `codec.serializeWithMarkup` writes them.
 - `serializer.ts`: JSON to markdown. It writes a run of text's marks itself, opening and closing
   each where its span starts and ends: the higher priority mark outside (a link around its bold
   text), spaces moved out of a mark's edges, and a mark that has to reopen where two overlap
   written as its HTML tag (`<strong>`). Text is escaped as "What a save changes" says
   (`relaxEntities`, `escapeLineStart`).
 
-Where it differs from `@tiptap/markdown`: HTML that `marked` reads as inline HTML but no tokenizer
-takes (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as
-raw HTML, as written; TipTap parsed it through the DOM and dropped it, losing it on the next save.
-And a note that reads as no blocks at all (only link definitions, `[docs]: https://…`) shows its
-text, a line each, however it is loaded; TipTap showed it on the first load only (read as HTML,
-which lost an address in angle brackets) and loaded it empty through `setContent`.
+Where it reads or writes otherwise than `@tiptap/markdown` did, each a fault of that package's
+the layer no longer has:
+
+- **HTML it dropped is kept.** HTML that `marked` reads as inline HTML but no tokenizer takes
+  (`<?php … ?>`, `<!DOCTYPE …>`, `<![CDATA[…]]>`, an empty pair like `<kbd></kbd>`) is kept as raw
+  HTML, as written; TipTap parsed it through the DOM and lost it on the next save.
+- **A note that reads as no blocks** (only link definitions, `[docs]: https://…`) shows its text, a
+  line each, however it is loaded; TipTap showed it on the first load only and loaded it empty
+  through `setContent`.
+- **A list is numbered with digits only** (`1.`, `2)`), as on GitHub and as typing `1. ` in the
+  editor makes one. TipTap also read letters and roman numerals (`a.`, `iv)`), and with them any
+  word of one or two letters before a full stop: "No. I think so" was read as an item numbered
+  "No", and saved as `1. I think so`. Such lines are paragraphs now, a lettered list included,
+  and a lettered list that arrives as HTML (`<ol type="a">`, pasted) is written with numbers. A
+  paragraph that is `-` or `+` alone is written escaped.
+- **A paragraph that holds only an image is a paragraph.** It was read as a bare image among the
+  document's blocks, which the schema doesn't allow.
+- **A numbered item with no text** (`1.` alone) has an empty paragraph; it had none, and could not
+  be written back.
+- **A wrapped line has no indentation in the text.** The lines after the first of a list item, and
+  the line after a line break, start at their first character that isn't a space, and the spaces
+  before a line break are no text either. `<br>` at a line's end is one line break; it was a break
+  and a new paragraph once saved.
+- **Code is fenced with enough backticks.** A code block that holds a line of three backticks is
+  fenced with four; three closed it early.
+- **A heading is written on one line,** with `#`s that end its text escaped (`## C \#`); a line
+  end in its text made the rest a paragraph, and the `#`s were read as its closing ones.
+- **A line break or spaces that end a paragraph are not written:** they read as nothing.
+- **A link around an image is kept** (`[![build](badge.svg)](https://ci…)`, a badge): the image's
+  node carries the link mark (`linkable` on its rule), is written inside the link, and a click
+  on it opens the link. The link was dropped the first time the block was rewritten.
+- **Marks close in the reverse of the order they opened in.** `<sub><sup>x</sup></sub>` was
+  written `<sub><sup>x</sub></sup>`, and a bold link `[**x**](url)` with its `**` outside the link.
+- **Every line of a paragraph is escaped where it would start a block,** not only the first:
+  a line that starts `- `, `1. `, `# ` or `>`, or is only `-`s or `=`s (which would make a
+  heading of the line above it).
+- **Every line of a list item is indented under its text.** The lines after the first of an
+  item's first paragraph were written at the list's own indent, where one starting with `#236` or
+  `<https://…>` ended the item. A blank line in an item is written empty, without indentation.
+- **Text after a block in an item is a paragraph.** In an item with no blank line in it, a line
+  of text after a code block or a table was read as bare text, its `code` and links as written.
+- **HTML in an item has a blank line before and after it:** it goes on to the next blank line,
+  and took the block after it.
+- **An item with no text is still an item.** A bullet item that holds only a list is written with
+  the list on its line (`- - item`), any other empty one as a bare `-`: `- ` and a line end reads
+  as a paragraph.
+- **A line break with nothing before it on its line is written `<br>`:** the second of two breaks,
+  or a paragraph's first. As two spaces it was a blank line and ended the paragraph. And a line
+  end before a `<br>` on a line of its own is no part of the text.
+- **A list after a list of its kind is written with another marker** (`-` then `*`, `1.` then
+  `1)`; `withListsApart`, markup.ts), as two lists with one marker are one list in markdown. A
+  numbered list ends where the delimiter changes, as a bullet list does where the bullet does.
+- **`<` stays `&lt;` where a `>` follows it in its block:** `marked` reads no emphasis between a
+  `<` with no space after it and the next `>`.
+- **A code block whose fence is indented is read.** A fence up to three spaces in (at the top
+  level, or four spaces or a tab under a bullet, past the item's text) read as nothing, and the
+  code was gone when its block was rewritten. Its lines lose the fence's indentation, and it is
+  written back with the fence at the block's own indent.
+- **The blank lines after a collapsible section are kept** as empty paragraphs, as after any
+  other block.
 
 ### The source map
 
 `codec.read(markdown)` returns `{ doc, source, reason }`. `source` is a `MarkdownSource`: which
-slice of the text each top-level block of `doc` was read from. It is what a save will use to write
-an unedited block back as it was written; today nothing reads it but the tests.
+slice of the text each top-level block of `doc` was read from. A save uses it to write an
+unedited block back as it was written (`keeping.ts`).
 
 ```ts
 interface MarkdownSource {
@@ -212,7 +284,7 @@ interface MarkdownSource {
   any blank lines around it are not part of it.
 - **`blocks` follows the document's top-level nodes in order.** A slice gives one node, or
   several: a list that mixes to-dos and bullets is one slice and the lists it is split into. A
-  paragraph that holds only an image reads as a bare `imageLink` and keeps its slice. `null`
+  paragraph that holds only an image is a paragraph like any other. `null`
   stands for one empty paragraph read from blank lines: it has no slice, and its blank lines are
   in the text between the blocks around it.
 - **`between`** is the text outside the slices: `between[i]` comes before the i-th slice (counting
@@ -233,7 +305,7 @@ interface MarkdownSource {
   are moved to where they are in the text as loaded, so a slice of such a text holds `\r\n`.
 
 `source` is `null`, and `reason` says why, when the text and what was read can't be lined up. A
-save of such a text will write the whole document, as every save does today:
+save of such a text, once edited, writes the whole document in the editor's spelling:
 
 | `reason`               | The text                                                                                              |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -241,12 +313,13 @@ save of such a text will write the whole document, as every save does today:
 | `lone-carriage-return` | has a `\r` that isn't part of `\r\n` (`marked` reads it as a line end)                                |
 | `nested-definition`    | defines a label inside a quote, a list item, a callout or a collapsible section                       |
 | `unread-text`          | has something between two tokens that isn't a definition or a blank line                              |
-| `unread-token`         | has a block that reads as nothing (a fenced code block indented one to three spaces, which is lost)   |
+| `unread-token`         | has a block that reads as nothing: a token no rule makes a node of                                    |
 | `invalid-node`         | reads as a node the schema can't make                                                                 |
 | `no-blocks`            | reads as no blocks: empty, or only definitions (loaded as one paragraph, a line of the text per line) |
+| `unreadable`           | could not be read at all: reading it threw ("When reading or writing fails")                          |
 
-On `docs/` and the READMEs in `node_modules` (1,067 files), 1,060 have a map; five mix line
-ends, one defines its labels inside a collapsible section and one has an indented fence.
+Of the 1,673 markdown files under `docs/` and `node_modules`, 1,664 have a map; seven mix line
+ends, one defines its labels inside a collapsible section and one is only definitions.
 
 ## The note format
 
@@ -254,7 +327,9 @@ Notes, and every description, are **GitHub-flavoured markdown**, with a short li
 what GFM has no syntax for, and DevBrain's entity links. Users write it through the editor, never
 as HTML: the menus and shortcuts produce it, typing markdown syntax (`## `, `- [ ] `, `**bold**`)
 turns into formatting as you type, and pasted rich text is converted into it. A file in this
-format reads the same on GitHub.
+format reads the same on GitHub. (A code block opens on the third backtick or tilde of a fence
+typed at the start of a line, `DocumentCodeBlock`'s input rule: TipTap's own waits for a
+language and a space, and the language is picked from the block's label here.)
 
 **Markdown (GFM):** headings, paragraphs, bold, italic, strikethrough, inline code, bulleted,
 numbered and to-do lists (nested), quotes, code blocks, rules, tables, links and autolinks, images,
@@ -309,7 +384,7 @@ it as an alert, other markdown apps as a quote. Kinds: `NOTE`, `TIP`, `IMPORTANT
 | Written as                                                             | Shown as                                                                 | Where                       |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------- |
 | `[Fix login](devbrain://task/tsk_…)` (also `project`, `note`, `event`) | An EntityPill with the entity's current title; the label is the fallback | `extensions/entity-link.ts` |
-| `![alt](url "title")`                                                  | A chip with the alt text; the image is never loaded                      | `extensions/image-link.ts`  |
+| `![alt](url "title")`                                                  | A chip with the alt text, never the image; in a link, it opens the link  | `extensions/image-link.ts`  |
 | Any other HTML (`<div>`, `<span>`, `<img>`, an unclosed `<kbd>`)       | Its source, as text; kept in the file as written                         | `extensions/raw-html.ts`    |
 | `[text](javascript:…)` and other refused targets                       | Plain text; the target stays in the file                                 | `extensions/safe-link.ts`   |
 
@@ -322,19 +397,169 @@ remote images are loaded, links open only through `safeExternalUrl` and `Workspa
 
 ### What a save changes
 
-Loading a note and saving it gives the file back, except for these spellings, which the editor
-writes its own way (after the first save the file stays as it is):
+**Opening a note never changes it, and a save rewrites only the blocks that changed.** The editor
+keeps the text it loaded and its source map. While the document is the one it loaded (just
+opened, or undone back to it), what it saves is that text, exactly. Once edited, each top-level
+block that is still as it was read is written back as its slice of the text, byte for byte, with
+the text that stood around it; only the other blocks are written anew, in the editor's spelling
+(`keeping.ts`, `codec.writeKeeping`).
 
-- one blank line between blocks (a heading straight above its paragraph gets one), and inside a
-  collapsible section around its body;
-- `<br>` outside a table cell becomes two trailing spaces, GFM's line break;
-- `-` bullets (`*` and `+` become `-`), `**bold**` and `*italic*` (not `__` and `_`);
+```markdown
+# Title # Title
+
+- one \* one
+- two → \* two
+
+**bold** text **bold** text!
+```
+
+Here `!` was typed after "text": the paragraph is written anew (`**bold**`), and the heading, the
+`*` list and the single line end between them stay as they were.
+
+- **What is kept.** The document's top-level blocks are matched with the source's in the order
+  they were read by a diff (`diffBlocks` in `keeping.ts`: a longest common subsequence on `Node.eq`, the algorithm behind `diff`). A block that matches is kept; one
+  that was edited, added or moved is new. Kept blocks that are still neighbours keep the exact
+  text between them: blank lines, definitions, a single line end. The text before the first block
+  and after the last (the final newline) is kept with them, and so are the file's line ends
+  (`\r\n`): new markdown is written with the file's own.
+- **Around a new block.** One written where the source had another gets the source's text on
+  each side (`### Notes` straight above a list stays so when the list is edited). One added
+  between two neighbours gets a blank line on each side. Where a block is removed, its
+  neighbours are joined by one blank line.
+- **Definitions** (`[docs]: https://…`) stay where they are while a block next to them is kept
+  or rewritten in place. One whose surroundings are all gone is written at the end of the text,
+  so the kept links that use it still read as links.
+- **Empty paragraphs** are blank lines: one the source read from blank lines is kept with the text
+  between its neighbours, a new one is a blank line more.
+- **The check.** What keeping wrote is read back and compared with the document, block for
+  block: a kept block must read as itself, a new one as the editor's spelling of it reads on its
+  own. If it doesn't (indented code kept after a new list would continue the list's item), it is
+  written again with a blank line around each new block, and if that still reads differently the
+  whole document is written in the editor's spelling. Kept text never changes what a note means.
+
+None of the text is kept, and the whole document is written anew (`KeptWriting.whole` says
+why), in four cases. In the editor's spelling: when the text has no source map (`no-source`;
+"The source map" lists the reasons), when the check fails (`readback-mismatch`), and when keeping
+throws (`error`). With the markers its blocks were read with (below), the file's line ends and
+its final newline: when no block is as it was read (`nothing-kept`, a note of one paragraph being
+edited). The editor counts the first three by reason (`editor.storage.documentMarkdown.wholeWrites`)
+and logs each reason once in development, never with the text.
+
+**The check reads back only what the save wrote.** Reading the whole text back on every save
+would cost a parse of the note per keystroke's save. Instead each stretch of new blocks is read
+with the kept block on either side of it (and the text's definitions, for its reference links),
+and must read as those blocks, the kept ones each from its own slice. A kept block that reads as
+part of its new neighbour (a to-do list after a new bullet list is one list with it) is read by
+what follows it too, so then, and whenever a stretch doesn't read as expected or a definition
+moved, the whole text is read (`keeping.ts`, `Keeping.regionsOf`; `check: 'whole'` and `'both'`
+ask for the whole text every time).
+
+**A block written anew keeps the markers it was read with.** Where markdown has more than one
+spelling and the text used another than the editor's, the node or mark keeps it in a `markup`
+attribute (`markup.ts`; null for the editor's own spelling, which everything made in the editor
+has), set by the rule that reads it and written back by the same rule:
+
+| Node or mark               | `markup`                          | Written                                 |
+| -------------------------- | --------------------------------- | --------------------------------------- |
+| `bulletList`, `taskList`   | `*` or `+`                        | each item's bullet; a new item takes it |
+| `orderedList`              | `)`                               | `1)` for `1.`                           |
+| `taskItem`                 | `X`                               | `[X]` while it is checked               |
+| `heading`                  | `setext:=====`, `setext:---`      | the text over its underline, as long    |
+| `heading`                  | `##` (closing `#`s)               | `## Title ##`                           |
+| `horizontalRule`           | the line (`***`, `___`, `* * *`)  | that line                               |
+| `codeBlock`                | the fence (`~~~`, ` ```` `)       | that fence                              |
+| `bold`, `italic`, `strike` | `__`, `_`, `~`                    | `__bold__`, `_italic_`, `~struck~`      |
+| `hardBreak`                | `\`, or the tag (`<br>`, `<br/>`) | `\` at the line's end, or the tag       |
+
+- The attribute is never drawn, read from HTML or copied: the clipboard
+  (`editor.contentToMarkdown`, and `editor.markdownToContent` for a paste), `editor.getMarkdown()`,
+  `serializeMarkdown`, `normalizeMarkdown` and a document written whole for want of a map or
+  after a failed check use the editor's spelling, and pasted markdown is read without its
+  markers (it isn't the note's text).
+- A marker is written only where it can stand: an underline under one line of text of its own
+  level (a title made a section takes `#`s), a fence no line of the code would close, a `<br>`
+  outside a table cell (in a cell a line break is always `<br>`, and has no marker).
+- Indented code (four spaces, no fence) has no marker: it stays as written while its block is
+  kept, and is fenced once edited.
+- **A marker never changes what a block reads as.** A block with markers is written with them,
+  read back, and compared with the block: `_it_s` is no emphasis where `*it*s` is, so that
+  paragraph is written in the editor's spelling. So is every new block of a save whose markers
+  would join it to a neighbour (a `*` list put next to another `*` list).
+
+Besides its markers, a block written anew, and all of a document written whole, are in the
+editor's spelling:
+
+- one blank line between the blocks inside it, and around a collapsible section's body;
+- nothing where it reads as nothing: the spaces or line break a paragraph ends with, the
+  indentation of a wrapped line;
+- `-` bullets, `1.` numbers, `**bold**`, `*italic*`, `~~struck~~`, `#` headings, `---`, three
+  backticks (indented code too), two trailing spaces for a line break;
 - tables padded into columns;
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
-  and `x < y` stay as written.
+  and `x < y` stay as written;
+- links written in full: a reference link (`[text][label]`) in an edited block becomes
+  `[text](url)`, and its definition stays in the file.
 
-`src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged;
-add a case there when a new kind of content must survive.
+Blocks are matched in order, so of two blocks that swap places one is kept and the other written
+anew (with its markers). A list is one block: editing one item rewrites the list, with its
+bullets.
+
+### When reading or writing fails
+
+The layer must never lose a note, whatever it is given:
+
+- **Reading throws** (`codec.read` catches it): the text is shown as it is written, a line of a
+  paragraph each, with no source map (`unreadable`). `RichTextEditor` keeps that editor
+  read-only and says so in a toast; `saveMarkdown()` gives the text as loaded, so its file is
+  untouched.
+- **Keeping throws** (`codec.writeKeeping` catches it): the whole document is written in the
+  editor's spelling (`whole: 'error'`).
+- **Writing throws altogether** (`editor.saveMarkdown` catches it): it gives what it gave last, so
+  nothing new is stored over the last good text, and a toast says the change wasn't saved. The
+  next save that works clears it.
+
+`editor.storage.documentMarkdown.problem` is `unreadable`, `unsaveable` or null, and `onProblem`
+hears it change.
+
+### Checking it on real files
+
+Three checks stand beside the cases in the tests:
+
+- **Properties** (`markdown-properties.test.ts`, with `fast-check`): generated documents read back
+  as written and are written the same twice; generated texts (the real-world fixtures' blocks in
+  any order, with either line end) save unedited as they are, and any single block replaced,
+  removed or added saves as the edited document with the rest of the text as it was. `npm test`
+  runs 300 cases of each; `MARKDOWN_PROPERTY_RUNS=10000 npm test -- markdown-properties` runs the
+  10,000 they were built on. The generated text leaves out bare web and email addresses
+  (`www.…`, `a@b.c`), which read as links by design, and a run of text has one mark at most.
+- **The corpus** (`npm run markdown:corpus -- <folders>`, not part of `npm test`): reads every
+  `.md` file under the folders, and for each checks that the source map's pieces are the text,
+  that it saves unedited as it is, and that an edit, a removal and an addition at eight of its
+  blocks (`--all-blocks` for every one) each save as the edited document and leave the rest of the
+  text alone, reading the save back both ways. It prints what it found and exits with 1 when a
+  text could be lost. Run it on `docs node_modules`, and on real notes (an Obsidian vault, a
+  wiki's checkout) before a release.
+- **The file on disk** (`e2e/flows/note-file.spec.ts`): a note's file written as another app
+  would write it is opened, left, and edited in one paragraph, and is read back from disk each
+  time.
+
+On `docs/` and `node_modules` (1,673 files, 31,371 saves): no text lost or changed, 98.9% of the
+saves kept the text outside their block, and 1.1% wrote the whole document (317 of the 331 a
+removal that brings its two neighbours together: two lists, which the kept text would join, so
+the document is written whole with a different marker on the second). Every file is written the
+same the second time the editor writes it whole (the run counts those that aren't as "unstable
+spelling"; there were 27 before milestone 5). 205 of the saves gave a document the editor's own
+spelling doesn't read back either, and are not counted as a fault: most are the run's own edit
+(text added inside a bare address, which stops being bare) or an underlined heading of several
+lines, which is written on one.
+
+Timings and budgets: [performance.md](performance.md) ("The editor's markdown").
+
+`src/renderer/tests/editor/markdown.test.ts` holds the documents that must come back unchanged
+("markdown round trip"), what a save keeps ("saving what was read"), each marker ("keeping
+markers in an edited block") and what a save must never render ("untrusted content through a
+save"); `markdown-keeping.test.ts` edits, removes and adds a block at every place in each
+real-world fixture, with both line ends. Add a case when a new kind of content must survive.
 
 ## Extending it
 
@@ -344,7 +569,10 @@ kind of element is a TipTap node (or mark) with:
 
 1. a `MarkdownRule` exported beside it: a `tokenizer` for its syntax (inline or block) if `marked`
    doesn't read it, `parse` to make the node from the token, and `render` to write it back exactly.
-   List it in `DOCUMENT_RULES` (`markdown/rules/index.ts`), minding the order there;
+   List it in `DOCUMENT_RULES` (`markdown/rules/index.ts`), minding the order there. If its
+   syntax has more than one spelling, add it to `MARKUP_TYPES` (`markdown/markup.ts`), read the
+   marker in `parse` (`withMarkup`) and write it in `render` (`markupOf`), checking there that
+   it can stand, and add a row to the markers' test;
 2. `parseHTML`/`renderHTML` for copy and paste;
 3. for a React view, `addNodeView()` with `ReactNodeViewRenderer`, as `EntityPillView.tsx` does.
 

@@ -19,12 +19,11 @@ import type { MarkdownRule, MarkdownTokenizer } from '../types';
 
 /**
  * Every node's and mark's markdown, in one table: how each is read from `marked`'s tokens and
- * written back. The rules for the nodes and marks TipTap's extensions give the schema (here, in
- * blocks.ts, lists.ts, marks.ts and tables.ts) are ports of those extensions' own; DevBrain's are
- * beside the node they read, in extensions/, and listed here.
+ * written back. The rules for the nodes and marks TipTap's extensions give the schema are here
+ * (blocks.ts, lists.ts, marks.ts and tables.ts); those for DevBrain's own nodes are beside the
+ * node they read, in extensions/, and listed here.
  *
- * The order is the one TipTap's markdown package registered them in, and it matters in two
- * places: a token type several rules read (`list`) goes to the first that makes something of it,
+ * The order matters in two places: a token type several rules read (`list`) goes to the first that makes something of it,
  * and where two tokenizers match at one place, the later one in this list wins (`marked` runs the
  * last added first): raw HTML is tried before the tags it leaves to html-elements.ts.
  */

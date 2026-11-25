@@ -66,9 +66,11 @@ export const EditorHostExtension = Extension.create({
           // `click`, after ProseMirror has handled the mouseup, so only this can stop it
           handleDOMEvents: {
             click(view, event) {
-              const link = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-                'a[href], [data-image-src]',
-              );
+              // an image in a link opens the link
+              const target = event.target as HTMLElement | null;
+              const link =
+                target?.closest<HTMLElement>('a[href]') ??
+                target?.closest<HTMLElement>('[data-image-src]');
               if (!link) return false;
               event.preventDefault();
               // a plain click while editing places the caret

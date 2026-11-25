@@ -139,7 +139,8 @@ Linux).
 
 For your safety, a note never loads anything from the internet:
 
-- **Images** show as a chip with their description; click it to open the image in your browser.
+- **Images** show as a chip with their description; click it to open the image in your browser,
+  or the link when the image is inside one.
 - Only web (`http` and `https`) links can be opened.
 - HTML that isn't one of the elements above shows as its source text.
 
@@ -161,8 +162,11 @@ How a plan change mid-cycle is charged…
 
 The note's project, links and favourite are kept in the workspace's database, not in the file.
 
-- Opening a note never changes its file. The first time you edit one, DevBrain writes it in its own
-  consistent Markdown style: `-` for bullets, `**` for bold, tables lined up in columns.
+- Opening a note never changes its file. When you edit one, DevBrain rewrites only the blocks you
+  edited (a paragraph, a list, a table) and leaves the rest of the file as it was. An edited block
+  keeps the way it was written: `*` bullets stay `*`, `__bold__` stays `__bold__`. What you add is
+  written in DevBrain's own Markdown style (`-` for bullets, `**` for bold), and an edited table is
+  lined up in columns.
 - Saves are written to a new file and then moved into place, so a crash never leaves half a note.
 - **Show in Finder** (Explorer, File Manager) in a note's **…** menu shows its file in your file manager.
 

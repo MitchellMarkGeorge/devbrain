@@ -1,4 +1,10 @@
-import { getSchema, mergeAttributes, type AnyExtension, type JSONContent } from '@tiptap/core';
+import {
+  getSchema,
+  mergeAttributes,
+  textblockTypeInputRule,
+  type AnyExtension,
+  type JSONContent,
+} from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
@@ -20,9 +26,11 @@ import { RawHtmlBlock, RawHtmlInline } from '../extensions/raw-html';
 import { SafeLink } from '../extensions/safe-link';
 import { MarkdownCodec, type MarkdownReading } from './codec';
 import { DocumentMarkdown } from './extension';
+import { DocumentMarkup } from './markup';
 
 export { escapeLineStart, relaxEntities } from './serializer';
 export { MarkdownCodec, type MarkdownReading } from './codec';
+export { hasMarkup, stripMarkup } from './markup';
 export type { Definition, MarkdownSource, SourceBlock, UnmappedReason } from './source';
 
 /**
@@ -77,6 +85,7 @@ export function createDocumentExtensions(
     DetailsContent,
     RawHtmlBlock,
     RawHtmlInline,
+    DocumentMarkup,
     DocumentMarkdown,
   ];
 }
@@ -84,6 +93,13 @@ export function createDocumentExtensions(
 // a code block, highlighted in its language (code-languages.ts); its `pre` carries the language,
 // which EditorContent shows as a label where the CodeBlock component doesn't draw it
 export const DocumentCodeBlock = CodeBlockLowlight.extend({
+  // Three backticks or tildes at the start of a line open a code block at once. (TipTap's rule
+  // waits for a language and a space or Enter, so the fence sat there as text; the language is
+  // picked from the block's label.)
+  addInputRules() {
+    return [/^```$/, /^~~~$/].map((find) => textblockTypeInputRule({ find, type: this.type }));
+  },
+
   renderHTML({ node, HTMLAttributes }) {
     const language: string | null = node.attrs.language || null;
     return [

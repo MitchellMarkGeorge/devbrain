@@ -17,7 +17,7 @@ import type {
  * Markdown to the editor's JSON: `marked` reads the text into tokens, and the rule for each token's
  * type (rules.ts) makes its nodes. A token no rule reads gives its children, or nothing.
  *
- * What it does besides, as TipTap's markdown package did, so notes read as they always have:
+ * What it does besides:
  *
  * - Blank lines beyond the one between two blocks read as empty paragraphs, at the top level of
  *   the document and in a quote, a callout or a collapsible section (`parseBlockChildren`), so the
@@ -288,7 +288,8 @@ export class MarkdownParser {
       let processed = item;
       if (isTask) {
         const lines = (item.raw || item.text || '').split('\n');
-        const mainContent = lines[0].match(/^\s*[-+*]\s+\[([ xX])\]\s+(.*)$/)?.[2] ?? '';
+        const [, bullet, checkedMark, mainContent = ''] =
+          lines[0].match(/^\s*([-+*])\s+\[([ xX])\]\s+(.*)$/) ?? [];
         let nestedTokens: MarkdownToken[] = [];
         const nestedLines = lines.slice(1);
         if (nestedLines.join('\n').trim()) {
@@ -307,6 +308,9 @@ export class MarkdownParser {
           raw: '',
           mainContent,
           checked: checked ?? false,
+          // the markers the to-do list's own tokenizer puts on its items (rules/lists.ts)
+          bullet,
+          checkedMark,
           text: mainContent,
           tokens: this.tokenizeInline(mainContent),
           nestedTokens,
@@ -355,9 +359,19 @@ export class MarkdownParser {
   /** Inline tokens as text and inline nodes, each mark put on the text it spans. */
   private parseInline(tokens: MarkdownToken[]): JSONContent[] {
     const result: JSONContent[] = [];
-    for (const token of tokens) {
+    tokens.forEach((token, index) => {
       if (token.type === 'text') {
-        result.push({ type: 'text', text: decodeEntities(token.text || '') });
+        // A line of a paragraph starts at its first character that isn't a space: the
+        // indentation of the lines after the first (a wrapped list item's) is no part of the text.
+        // Nor are the spaces before a line break, or a line end before one (`<br>` on a line of
+        // its own).
+        const afterBreak = tokens[index - 1]?.type === 'br';
+        const beforeBreak = tokens[index + 1]?.type === 'br';
+        let text = (token.text || '').replace(/\n[ \t]+/g, '\n');
+        // (after `<br>` the line's own end is still in the text: it is the break's)
+        if (afterBreak) text = text.replace(/^[ \t]*\n?[ \t]*/, '');
+        if (beforeBreak) text = text.replace(/[ \t\n]+$/, '');
+        if (text) result.push({ type: 'text', text: decodeEntities(text) });
       } else if (token.type === 'escape') {
         result.push({ type: 'text', text: token.text || '' });
       } else if (token.type === 'html') {
@@ -379,7 +393,7 @@ export class MarkdownParser {
           result.push(...this.parseInline(token.tokens));
         }
       }
-    }
+    });
     // neighbouring text with the same marks is one text node
     for (let i = result.length - 1; i > 0; i -= 1) {
       const current = result[i];
@@ -403,7 +417,9 @@ export class MarkdownParser {
     attrs?: Record<string, unknown>,
   ): JSONContent[] {
     return content.map((node) => {
-      if (node.type === 'text') {
+      // text, and an image in a link
+      const linked = mark === 'link' && this.rules.rendererOf(node.type ?? '')?.linkable;
+      if (node.type === 'text' || linked) {
         const added = attrs ? { type: mark, attrs } : { type: mark };
         return { ...node, marks: [...(node.marks || []), added] };
       }

@@ -95,7 +95,9 @@ Every place the user writes or reads markdown uses `RichTextEditor` (`src/render
 with markdown in and out; a page renders it as `WorkspaceRichTextEditor`
 (`src/renderer/shared/components`), which gives it the app's actions. `docs/editor.md` says what it reads and writes, what a save changes, and
 how to add an element. A new element needs a round trip case in
-`src/renderer/tests/editor/markdown.test.ts`.
+`src/renderer/tests/editor/markdown.test.ts`. Before changing how markdown is read or written
+(`src/renderer/editor/markdown`), read `docs/editor/markdown-layer-maintenance.md`: what the layer
+promises, and the checks to run.
 
 ## Loading data in components
 

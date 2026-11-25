@@ -75,10 +75,18 @@ function escapePipesInCellText(text: string): string {
   return text.replace(/\\.|\|/g, (match) => (match === '|' ? '\\|' : match));
 }
 
+// a line break with no marker of its own (markup.ts): in a cell it is always `<br>`
+function withoutBreakMarkup(node: JSONContent): JSONContent {
+  if (node.type === 'hardBreak') return node.attrs ? { type: 'hardBreak' } : node;
+  return node.content ? { ...node, content: node.content.map(withoutBreakMarkup) } : node;
+}
+
 function renderTable(node: JSONContent, h: RenderHelpers): string {
   if (!node.content || node.content.length === 0) return '';
   const rows = node.content.map((row) =>
-    (row.content ?? []).map((cell) => {
+    (row.content ?? []).map((plainCell) => {
+      // a line break in a cell is written `<br>`, whatever it was read as
+      const cell = withoutBreakMarkup(plainCell);
       const raw =
         Array.isArray(cell.content) && cell.content.length > 1
           ? cell.content.map((child) => h.renderChildren(child)).join('\n')
@@ -141,7 +149,8 @@ export const tableRules: Record<string, MarkdownRule> = {
       const cellOf = (type: string, cell: { tokens: never[]; align?: unknown }, index: number) => {
         const align = normalizeAlign(aligns[index] ?? cell.align);
         return h.createNode(type, align ? { align } : {}, [
-          { type: 'paragraph', content: h.parseInline(cell.tokens) },
+          // `<br>` is how a cell breaks a line: it is no marker of the text's own there
+          { type: 'paragraph', content: h.parseInline(cell.tokens).map(withoutBreakMarkup) },
         ]);
       };
       const rows: JSONContent[] = [];
@@ -169,12 +178,15 @@ export const tableRules: Record<string, MarkdownRule> = {
     tokenizer: {
       name: 'table',
       level: 'block',
+      // (`marked` asks this at every paragraph, so only the two lines are looked at, never the
+      // rest of the text)
       start: (src) => {
-        const lines = src.split('\n');
-        if (lines.length < 2) return -1;
-        const delimiter = lines[1];
+        const firstEnd = src.indexOf('\n');
+        if (firstEnd === -1) return -1;
+        const secondEnd = src.indexOf('\n', firstEnd + 1);
+        const delimiter = src.slice(firstEnd + 1, secondEnd === -1 ? undefined : secondEnd);
         if (!DELIMITER_ROW.test(delimiter) || !delimiter.includes('|')) return -1;
-        return lines[0].includes('|') ? 0 : -1;
+        return src.slice(0, firstEnd).includes('|') ? 0 : -1;
       },
       // only a table with `|` in a code span: marked reads the rest itself
       tokenize: (src, _tokens, lexer) => {
@@ -189,7 +201,7 @@ export const tableRules: Record<string, MarkdownRule> = {
         const table = lexer.blockTokens(preprocessed)[0];
         if (table?.type !== 'table' || !table.raw) return undefined;
         const lineCount = table.raw.split('\n').length;
-        return { ...table, raw: src.split('\n').slice(0, lineCount).join('\n') };
+        return { ...table, raw: candidate.split('\n').slice(0, lineCount).join('\n') };
       },
     },
   },

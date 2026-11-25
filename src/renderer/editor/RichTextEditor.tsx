@@ -1,8 +1,8 @@
 import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@tiptap/react';
-import { EditorContent } from '@renderer/components';
+import { EditorContent, toast } from '@renderer/components';
 import { Placeholder } from '@tiptap/extensions';
 import { closeHistory } from '@tiptap/pm/history';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { CalloutView } from './CalloutView';
 import { CodeBlockView } from './CodeBlockView';
 import { TaskItemView } from './TaskItemView';
@@ -11,6 +11,7 @@ import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
 import { createDocumentExtensions } from './markdown';
+import type { MarkdownProblem } from './markdown/extension';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
 import type { EditorHost, EntityLinkPill } from './types';
@@ -23,8 +24,9 @@ import styles from './RichTextEditor.module.css';
  * - `initialValue` is the markdown as stored, read once, when the editor is made: the editor holds
  *   its text from then on, and a later `initialValue` changes nothing. `onChange` hears the
  *   markdown after each edit, and never on load: opening a note and closing it again leaves its
- *   file alone. Undoing back to the start gives back `initialValue` exactly, not the editor's own
- *   spelling of it.
+ *   file alone. An edit rewrites only the blocks it changed: the rest of the markdown is the
+ *   stored text, as written (docs/editor.md, "What a save changes"). Undoing back to the start
+ *   gives back `initialValue` exactly.
  * - A text from outside (a sync, a reattach) is loaded through the editor's handle, its `ref`
  *   (`RichTextEditorHandle.load`), which `onChange` doesn't hear either. In the app
  *   `useEditorAutosave` does it, for a change its content query reports (docs/editor.md).
@@ -61,23 +63,23 @@ export interface RichTextEditorHandle {
   load(markdown: string): void;
   /**
    * The markdown the content stands for: the text last loaded, exactly as given, while the content
-   * is still what it loaded (opened, or undone back to it); the editor's own markdown once edited.
-   * It is what `onChange` sends.
+   * is still what it loaded (opened, or undone back to it); once edited, that text with the
+   * blocks that changed written anew. It is what `onChange` sends.
    */
   markdown(): string;
 }
 
-// the text last loaded, as stored, and the editor's own markdown for it (see `baseline` below)
-interface Baseline {
-  value: string;
-  markdown: string;
-}
-
-// the markdown the content stands for: the stored text while it is still what was loaded
-function markdownOf(editor: Editor, baseline: Baseline | null): string {
-  const markdown = editor.getMarkdown();
-  return markdown === baseline?.markdown ? baseline.value : markdown;
-}
+// what the user is told when the markdown layer fails; the note's file is safe either way
+const PROBLEM_TOASTS: Record<MarkdownProblem, { title: string; description: string }> = {
+  unreadable: {
+    title: 'This text can’t be shown as rich text',
+    description: 'It’s shown as plain text and can’t be edited here. Nothing was changed.',
+  },
+  unsaveable: {
+    title: 'Your last change couldn’t be saved',
+    description: 'What was saved before is kept. Copy your changes before you leave.',
+  },
+};
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
   function RichTextEditor(
@@ -134,34 +136,24 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       setEditorHost(editor, host);
     });
 
-    // The text last loaded, as stored, and the editor's own markdown for it. Markdown has several
-    // spellings for one thing (`* one` and `- one`), and the editor writes back only its own, so
-    // while the content is still what it loaded (opened, or undone back to it) it stands for the
-    // stored text: a note only opened, or edited and undone, is saved as it was (docs/editor.md,
-    // "What a save changes"). Read in effects and the handle, never while rendering.
-    const baseline = useRef<Baseline | null>(null);
-    // the first text, as loaded, before any edit can be sent; set once, so a later `initialValue`
-    // changes nothing
-    useEffect(() => {
-      baseline.current ??= { value: initialValue, markdown: editor.getMarkdown() };
-    }, [editor, initialValue]);
-
+    // The markdown the content stands for is the editor's to give (DocumentMarkdown): it holds
+    // the text last loaded and writes the content keeping it, so a note only opened, or edited
+    // and undone, is saved as it was, and an edit rewrites only its own blocks.
     useImperativeHandle(
       ref,
       () => ({
         load(text) {
           editor.commands.setContent(text, { contentType: 'markdown', emitUpdate: false });
           editor.view.dispatch(closeHistory(editor.state.tr));
-          baseline.current = { value: text, markdown: editor.getMarkdown() };
         },
-        markdown: () => markdownOf(editor, baseline.current),
+        markdown: () => editor.saveMarkdown(),
       }),
       [editor],
     );
 
     useEffect(() => {
       // back to how it was loaded, it sends the stored text, unchanged
-      const send = () => onChange?.(markdownOf(editor, baseline.current));
+      const send = () => onChange?.(editor.saveMarkdown());
       editor.on('update', send);
       return () => {
         editor.off('update', send);
@@ -172,16 +164,31 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       onReady?.(editor);
     }, [editor, onReady]);
 
+    // A text the layer could not read is shown as plain text, read-only, and one it could not
+    // write keeps its last saved text (DocumentMarkdown): either way the user is told once.
+    const [problem, setProblem] = useState(() => editor.storage.documentMarkdown.problem);
     useEffect(() => {
-      editor.setEditable(editable, false);
-    }, [editor, editable]);
+      const storage = editor.storage.documentMarkdown;
+      storage.onProblem = setProblem;
+      return () => {
+        storage.onProblem = null;
+      };
+    }, [editor]);
+    useEffect(() => {
+      if (problem) toast({ tone: 'error', timeout: 0, ...PROBLEM_TOASTS[problem] });
+    }, [problem]);
+
+    const canEdit = editable && problem !== 'unreadable';
+    useEffect(() => {
+      editor.setEditable(canEdit, false);
+    }, [editor, canEdit]);
 
     return (
       <EditorHostContext.Provider value={host}>
-        <EditorContent className={className} data-readonly={editable ? undefined : ''}>
+        <EditorContent className={className} data-readonly={canEdit ? undefined : ''}>
           <TiptapEditorContent editor={editor} />
         </EditorContent>
-        {editable && (
+        {canEdit && (
           <FormatBubble
             editor={editor}
             onOpenUrl={host.onOpenUrl}

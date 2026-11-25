@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/core';
+import { markupOf, withMarkup } from '../markup';
 import type {
   MarkdownRule,
   MarkdownToken,
@@ -9,9 +10,14 @@ import type {
 } from '../types';
 
 /**
- * Bullet, numbered and to-do lists, read and written as TipTap's list extensions did: `marked`
- * reads bullet lists; numbered lists and to-do lists have tokenizers of their own, which read
- * `a.`, `i.` and `A)` numbering and nest items by their indent.
+ * Bullet, numbered and to-do lists. `marked` reads bullet lists; numbered lists and to-do lists
+ * have tokenizers of their own, which nest items by their indent. A numbered list is numbers
+ * only, as GitHub's is (no `a.` or `iv)`).
+ *
+ * A list keeps the marker it was written with when it isn't the editor's, in its `markup`
+ * attribute (markup.ts): `*` or `+` for a bullet or to-do list, `)` for a numbered one, and `X`
+ * on a to-do item checked with a capital. An item is written with its list's marker, so one added
+ * to a list takes it.
  */
 
 // ---- writing an item: its first paragraph after the marker, the rest indented under it
@@ -27,156 +33,78 @@ function columnWidth(text: string): number {
   return width;
 }
 
+const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
+const isList = (node?: JSONContent) => LIST_TYPES.has(node?.type ?? '');
+
+/**
+ * An item after its marker: its first block on the marker's line, each block after it on lines
+ * of its own, and every line but the first indented under the item's text so it stays the
+ * item's (by the marker's width in a numbered list, where `alignNestedToPrefix`).
+ */
 function renderNestedContent(
   node: JSONContent,
   h: RenderHelpers,
   prefix: string,
-  options: { alignNestedToPrefix?: boolean; indentMainContent?: boolean } = {},
+  options: {
+    alignNestedToPrefix?: boolean;
+    listOnMarkerLine?: boolean;
+    bareMarkerWhenEmpty?: boolean;
+  } = {},
 ): string {
   if (!node || !Array.isArray(node.content)) return '';
   const [content, ...children] = node.content;
-  const mainContent = h.renderChildren([content]);
-  let output = `${prefix}${
-    options.indentMainContent
-      ? mainContent
-          .split('\n')
-          .map((line, index) => (index === 0 ? line : h.indent(line)))
-          .join('\n')
-      : mainContent
-  }`;
+  const configured = h.indent('');
+  const indentation =
+    options.alignNestedToPrefix && columnWidth(configured) < columnWidth(prefix)
+      ? ' '.repeat(columnWidth(prefix))
+      : configured;
+  // (a blank line stays empty: it is the item's without indentation)
+  const indented = (text: string, firstLine = true) =>
+    text
+      .split('\n')
+      .map((line, index) =>
+        (index === 0 && !firstLine) || line === '' ? line : indentation + line,
+      )
+      .join('\n');
+
+  const first = indented(h.renderChildren([content]), false);
+  // (`- ` and a line end isn't an item's start: a marker with no text on its line has no space)
+  let output = first === '' && options.bareMarkerWhenEmpty ? prefix.trimEnd() : prefix + first;
   children.forEach((child, index) => {
     const childContent = h.renderChild(child, index + 1);
     if (childContent === undefined || childContent === null) return;
-    const indentLine = (line: string) => {
-      if (!options.alignNestedToPrefix) return h.indent(line);
-      const configured = h.indent('');
-      const prefixWidth = columnWidth(prefix);
-      return (columnWidth(configured) >= prefixWidth ? configured : ' '.repeat(prefixWidth)) + line;
-    };
-    // blank lines are indented too
-    const indented = childContent
-      .split('\n')
-      .map((line) => indentLine(line))
-      .join('\n');
-    output += child.type === 'paragraph' ? `\n\n${indented}` : `\n${indented}`;
+    const previous = node.content![index];
+    if (index === 0 && options.listOnMarkerLine && isList(child) && !previous.content?.length) {
+      // a list in an item with no text of its own starts on the marker's line (`- - item`):
+      // under a marker alone it would be read as a list after an empty one
+      output = prefix + indented(childContent, false);
+      return;
+    }
+    // A blank line before a paragraph, which would run on from the block above it, and around
+    // HTML, which goes on to the next blank line and doesn't always end a paragraph.
+    const apart =
+      child.type === 'paragraph' ||
+      child.type === 'rawHtmlBlock' ||
+      previous.type === 'rawHtmlBlock';
+    output += `${apart ? '\n\n' : '\n'}${indented(childContent)}`;
   });
   return output;
 }
 
-// ---- numbering: 1., a., A., i., I.
-
-const ROMAN_NUMERALS: [number, string][] = [
-  [1000, 'm'],
-  [900, 'cm'],
-  [500, 'd'],
-  [400, 'cd'],
-  [100, 'c'],
-  [90, 'xc'],
-  [50, 'l'],
-  [40, 'xl'],
-  [10, 'x'],
-  [9, 'ix'],
-  [5, 'v'],
-  [4, 'iv'],
-  [1, 'i'],
-];
-const ALPHA_NUMERALS = 'abcdefghijklmnopqrstuvwxyz';
-
-// a numbered item's marker: digits, a roman numeral, or one or two letters
-const ORDERED_LIST_MARKER_PATTERN = String.raw`\d+|[ivxlcdmIVXLCDM]+|[a-zA-Z]{1,2}`;
-
-function toRoman(num: number): string {
-  let remaining = num;
-  let result = '';
-  for (const [value, numeral] of ROMAN_NUMERALS) {
-    while (remaining >= value) {
-      result += numeral;
-      remaining -= value;
-    }
-  }
-  return result;
-}
-
-function fromRoman(roman: string): number {
-  const lower = roman.toLowerCase();
-  let index = 0;
-  let result = 0;
-  while (index < lower.length) {
-    const found = ROMAN_NUMERALS.find(([, numeral]) => lower.startsWith(numeral, index));
-    if (!found) return 0;
-    result += found[0];
-    index += found[1].length;
-  }
-  return result;
-}
-
-function isValidRoman(marker: string): boolean {
-  if (!/^[ivxlcdmIVXLCDM]+$/.test(marker)) return false;
-  const value = fromRoman(marker);
-  if (value <= 0) return false;
-  return (
-    (marker === marker.toLowerCase() ? toRoman(value) : toRoman(value).toUpperCase()) === marker
-  );
-}
-
-function fromAlpha(marker: string): number {
-  const lower = marker.toLowerCase();
-  if (lower.length === 1) return lower.charCodeAt(0) - 97 + 1;
-  if (lower.length === 2) {
-    return (lower.charCodeAt(0) - 97 + 1) * 26 + (lower.charCodeAt(1) - 97) + 1;
-  }
-  return 0;
-}
-
-function toAlpha(num: number): string {
-  if (num <= 26) return ALPHA_NUMERALS[num - 1];
-  const first = Math.floor((num - 1) / 26) - 1;
-  const second = (num - 1) % 26;
-  if (first < 0) return ALPHA_NUMERALS[second];
-  return ALPHA_NUMERALS[first] + ALPHA_NUMERALS[second];
-}
-
-// the list's `type` attribute for a marker: undefined for digits
-function detectMarkerType(marker: string): string | undefined {
-  if (!marker || /^\d+$/.test(marker)) return undefined;
-  if (isValidRoman(marker)) return marker === marker.toLowerCase() ? 'i' : 'I';
-  if (/^[a-z]{1,2}$/.test(marker)) return 'a';
-  if (/^[A-Z]{1,2}$/.test(marker)) return 'A';
-  return undefined;
-}
-
-function markerToStart(marker: string): number {
-  if (/^\d+$/.test(marker)) return parseInt(marker, 10);
-  const type = detectMarkerType(marker);
-  if (type === 'i' || type === 'I') return fromRoman(marker);
-  if (type === 'a' || type === 'A') {
-    const start = fromAlpha(marker);
-    return start > 0 ? start : 1;
-  }
-  const parsed = parseInt(marker, 10);
-  return Number.isNaN(parsed) ? 1 : parsed;
-}
-
-function listMarker(type: unknown, index: number, separator = '. '): string {
-  const position = index + 1;
-  switch (type) {
-    case 'a':
-      return `${toAlpha(position)}${separator}`;
-    case 'A':
-      return `${toAlpha(position).toUpperCase()}${separator}`;
-    case 'i':
-      return `${toRoman(position)}${separator}`;
-    case 'I':
-      return `${toRoman(position).toUpperCase()}${separator}`;
-    default:
-      return `${position}${separator}`;
-  }
-}
-
 // ---- reading numbered lists
 
-// a numbered item's line: (1) indent, (2) marker, (3) `.` or `)`, (4) its text
-const ORDERED_LIST_ITEM = new RegExp(`^(\\s*)(${ORDERED_LIST_MARKER_PATTERN})([.)])\\s+(.*)$`);
+/**
+ * A numbered item's line: (1) indent, (2) number, (3) `.` or `)`, (4) its text. The number is
+ * digits only, as in GitHub's markdown and as typing `1. ` in the editor makes a list: a letter
+ * or a word before a full stop is the start of a sentence ("No. I think so", "a. m."), never an
+ * item.
+ */
+const ORDERED_LIST_ITEM = /^(\s*)(\d{1,9})([.)])\s+(.*)$/;
+
+// a line as a numbered item: its indent, number, delimiter and text; null when it isn't one
+function orderedItemOf(line: string): RegExpMatchArray | null {
+  return line.match(ORDERED_LIST_ITEM);
+}
 const INDENTED_LINE = /^\s/;
 
 // blocks that can interrupt a paragraph, so a line starting with one is never lazy continuation
@@ -192,7 +120,7 @@ function isBlockContentLine(line: string): boolean {
   const trimmed = line.trimStart();
   return (
     PARAGRAPH_INTERRUPTERS.bulletItem.test(trimmed) ||
-    ORDERED_LIST_ITEM.test(trimmed.trimStart()) ||
+    orderedItemOf(trimmed.trimStart()) !== null ||
     PARAGRAPH_INTERRUPTERS.heading.test(trimmed) ||
     (PARAGRAPH_INTERRUPTERS.thematicBreak.test(trimmed) && !trimmed.startsWith('-')) ||
     /^>\s?/.test(trimmed) ||
@@ -226,13 +154,26 @@ function splitItemContent(contentLines: string[]) {
   return { paragraphLines, blockLines };
 }
 
+// An item's blocks after its first paragraph, without the blank lines around them and the
+// indentation they all share (a fence one space past the item's text, and its code with it).
+function withoutSharedIndent(lines: string[]): string {
+  const indents = lines.filter((line) => line.trim()).map((line) => /^ */.exec(line)![0].length);
+  const shared = indents.length > 0 ? Math.min(...indents) : 0;
+  return lines
+    .map((line) => (line.trim() ? line.slice(shared) : ''))
+    .join('\n')
+    .replace(/^\n+/, '')
+    .trimEnd();
+}
+
 interface OrderedItem {
   indent: number;
   number: number;
-  type: string | undefined;
   content: string;
   contentLines: string[];
   raw: string;
+  // `.` or `)` after the number
+  delimiter: string;
 }
 
 // the numbered items at the start of `lines`, flat, and how many lines they took
@@ -242,20 +183,21 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
   let consumed = 0;
   while (index < lines.length) {
     const line = lines[index];
-    const match = line.match(ORDERED_LIST_ITEM);
+    const match = orderedItemOf(line);
     if (!match) break;
-    const [, indent, marker, , content] = match;
+    const [, indent, marker, delimiter, content] = match;
     const indentLevel = indent.length;
-    const number = parseInt(marker, 10);
-    const markerType = Number.isNaN(number) ? detectMarkerType(marker) : undefined;
-    const itemNumber = Number.isNaN(number) ? markerToStart(marker) : number;
+    // another delimiter starts another list (`1.` then `1)`), as another bullet does
+    const first = items[0];
+    if (first && indentLevel <= first.indent && delimiter !== first.delimiter) break;
+    const itemNumber = parseInt(marker, 10);
     const contentLines = [content];
     const itemLines = [line];
     let next = index + 1;
     let sawBlankLine = false;
     while (next < lines.length) {
       const nextLine = lines[next];
-      if (nextLine.match(ORDERED_LIST_ITEM)) break;
+      if (orderedItemOf(nextLine)) break;
       if (nextLine.trim() === '') {
         itemLines.push(nextLine);
         contentLines.push('');
@@ -263,7 +205,8 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
         next += 1;
       } else if (nextLine.match(INDENTED_LINE)) {
         const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
-        const contentIndent = indentLevel + marker.length + 1;
+        // the column the item's text starts at, after its number, delimiter and spaces
+        const contentIndent = line.length - content.length;
         itemLines.push(nextLine);
         contentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
         next += 1;
@@ -277,10 +220,10 @@ function collectOrderedListItems(lines: string[]): [OrderedItem[], number] {
     items.push({
       indent: indentLevel,
       number: itemNumber,
-      type: markerType,
       content: contentLines.join('\n').trim(),
       contentLines,
       raw: itemLines.join('\n'),
+      delimiter,
     });
     consumed = next;
     index = next;
@@ -309,7 +252,7 @@ function takeLines(source: string, max: number): string[] {
 function collectOrderedListItemsFromSource(source: string): [OrderedItem[], number, string[]] {
   const firstLineEnd = source.indexOf('\n');
   const firstLine = firstLineEnd === -1 ? source : source.slice(0, firstLineEnd);
-  if (!ORDERED_LIST_ITEM.test(firstLine)) return [[], 0, []];
+  if (!orderedItemOf(firstLine)) return [[], 0, []];
   let windowSize = ORDERED_LIST_SCAN_WINDOW;
   let lines = takeLines(source, windowSize);
   let collected = collectOrderedListItems(lines);
@@ -341,7 +284,7 @@ function buildNestedStructure(
     if (mainText) {
       tokens.push({ type: 'paragraph', raw: mainText, tokens: lexer.inlineTokens(mainText) });
     }
-    const additional = blockLines.join('\n').trim();
+    const additional = withoutSharedIndent(blockLines);
     if (additional) tokens.push(...lexer.blockTokens(additional));
     let lookAhead = index + 1;
     const nested: OrderedItem[] = [];
@@ -354,7 +297,7 @@ function buildNestedStructure(
         type: 'list',
         ordered: true,
         start: nested[0].number,
-        typeMarker: nested[0].type,
+        delimiter: nested[0].delimiter,
         items: buildNestedStructure(nested, Math.min(...nested.map((n) => n.indent)), lexer),
         raw: nested.map((n) => n.raw).join('\n'),
       });
@@ -379,7 +322,9 @@ function parseOrderedListItems(items: MarkdownToken[], helpers: ParseHelpers): J
         if (parsed.length > 0) content.push(...parsed);
       }
     }
-    return { type: 'listItem', content };
+    // an item starts with a paragraph, an empty one when it has no text (`1.` alone)
+    if (content.length === 0) content.push({ type: 'paragraph', content: [] });
+    return { type: 'listItem', content: ensureLeadingParagraph(content) };
   });
 }
 
@@ -420,6 +365,9 @@ function parseTaskItems(
   src: string,
   lexer: TokenizerHelpers,
 ): { items: MarkdownToken[]; raw: string } | undefined {
+  // `marked` asks at every block of a text: unless the first line that isn't blank is a to-do
+  // item there is nothing to read, and the rest of the text is never looked at
+  if (!TASK_ITEM.test(/^(?:[^\S\n]*\n)*([^\n]*)/.exec(src)?.[1] ?? '')) return undefined;
   const lines = src.split('\n');
   const items: MarkdownToken[] = [];
   let totalRaw = '';
@@ -485,6 +433,8 @@ function parseTaskItems(
       mainContent: data.mainContent,
       indentLevel: data.indentLevel,
       checked: data.checked,
+      bullet: itemMatch[2],
+      checkedMark: itemMatch[3],
       text: data.mainContent,
       tokens: lexer.inlineTokens(data.mainContent),
       nestedTokens,
@@ -533,9 +483,22 @@ function isSameLineOrderedListToken(token: MarkdownToken): boolean {
 function listItemPrefix(context: RenderContext): string {
   if (context.parentType === 'orderedList') {
     const start = (context.meta.parentAttrs?.start as number) || 1;
-    return listMarker(context.meta.parentAttrs?.type, start - 1 + (context.index || 0), '. ');
+    const delimiter = markupOf(context.meta.parentAttrs) === ')' ? ') ' : '. ';
+    // always a number: letters and roman numerals (`<ol type="a">`, pasted) are no markdown
+    return `${start + (context.index || 0)}${delimiter}`;
   }
-  return '- ';
+  return `${bulletOf(context)} `;
+}
+
+// the bullet of the list an item is in: the one it was written with, or the editor's `-`
+function bulletOf(context: RenderContext): string {
+  const markup = markupOf(context.meta.parentAttrs);
+  return markup === '*' || markup === '+' ? markup : '-';
+}
+
+// the bullet a list was read with, when it isn't the editor's
+function bulletMarkup(bullet: unknown): string | null {
+  return bullet === '*' || bullet === '+' ? bullet : null;
 }
 
 export const listRules: Record<string, MarkdownRule> = {
@@ -544,7 +507,12 @@ export const listRules: Record<string, MarkdownRule> = {
     token: 'list',
     parse: (token, helpers) => {
       if (token.type !== 'list' || token.ordered) return [];
-      return { type: 'bulletList', content: token.items ? helpers.parseChildren(token.items) : [] };
+      const content = token.items ? helpers.parseChildren(token.items) : [];
+      // `marked` starts a new list where the bullet changes, so the first item's is the list's
+      const bullet = bulletMarkup((token.items?.[0]?.raw || token.raw || '').trimStart()[0]);
+      return bullet
+        ? { type: 'bulletList', attrs: { markup: bullet }, content }
+        : { type: 'bulletList', content };
     },
     render: (node, h) => (node.content ? h.renderChildren(node.content, '\n') : ''),
     indentsContent: true,
@@ -579,24 +547,28 @@ export const listRules: Record<string, MarkdownRule> = {
             ],
           };
         }
-        if (tokens.some((t) => t.type === 'paragraph')) {
-          content = helpers.parseBlockChildren(tokens);
-        } else if (first.type === 'text' && first.tokens && first.tokens.length > 0) {
-          content = [{ type: 'paragraph', content: helpers.parseInline(first.tokens) }];
-          if (tokens.length > 1) content.push(...helpers.parseBlockChildren(tokens.slice(1)));
-        } else {
-          content = helpers.parseBlockChildren(tokens);
-        }
+        // In an item with no blank line in it `marked` gives lines of text as `text` tokens:
+        // each is a paragraph, wherever in the item it is.
+        content = helpers.parseBlockChildren(
+          tokens.map((child) =>
+            child.type === 'text' && child.tokens ? { ...child, type: 'paragraph' } : child,
+          ),
+        );
       }
       if (content.length === 0) content = [{ type: 'paragraph', content: [] }];
       return { type: 'listItem', content: ensureLeadingParagraph(content) };
     },
     render: (node, h, context) => {
       const prefix = listItemPrefix(context);
+      // (a numbered item's first line is read as its text, so a list can't start on it)
+      const ordered = context.parentType === 'orderedList';
+      const listFirst = !ordered && hasEmptyLeadingParagraph(node) && isList(node.content?.[1]);
       const output = renderNestedContent(node, h, prefix, {
-        alignNestedToPrefix: context.parentType === 'orderedList',
+        alignNestedToPrefix: ordered,
+        listOnMarkerLine: listFirst,
+        bareMarkerWhenEmpty: !ordered,
       });
-      if (!hasEmptyLeadingParagraph(node) || (context.level ?? 1) <= 1) return output;
+      if (!hasEmptyLeadingParagraph(node) || listFirst || (context.level ?? 1) <= 1) return output;
       return `${prefix}${EMPTY_ITEM_TEXT}${output.slice(prefix.length)}`;
     },
   },
@@ -610,7 +582,9 @@ export const listRules: Record<string, MarkdownRule> = {
       const content = token.items ? parseOrderedListItems(token.items, helpers) : [];
       const attrs: Record<string, unknown> = {};
       if (start !== 1) attrs.start = start;
-      if (token.typeMarker) attrs.type = token.typeMarker;
+      // `1)`: read by the tokenizer here, or from the first item where `marked` read the list
+      const delimiter = token.delimiter ?? /^\s*\w+([.)])/.exec(token.raw || '')?.[1];
+      if (delimiter === ')') attrs.markup = ')';
       return Object.keys(attrs).length > 0
         ? { type: 'orderedList', attrs, content }
         : { type: 'orderedList', content };
@@ -630,7 +604,7 @@ export const listRules: Record<string, MarkdownRule> = {
           type: 'list',
           ordered: true,
           start: items[0]?.number || 1,
-          typeMarker: items[0]?.type,
+          delimiter: items[0]?.delimiter,
           items: listItems,
           raw: lines.slice(0, consumed).join('\n'),
         };
@@ -641,7 +615,13 @@ export const listRules: Record<string, MarkdownRule> = {
 
   taskList: {
     name: 'taskList',
-    parse: (token, h) => h.createNode('taskList', {}, h.parseChildren(token.items || [])),
+    // the bullet is the first item's, which the tokenizer (or `parseList`, parser.ts) put on it
+    parse: (token, h) =>
+      h.createNode(
+        'taskList',
+        withMarkup({}, bulletMarkup(token.items?.[0]?.bullet)),
+        h.parseChildren(token.items || []),
+      ),
     render: (node, h) => (node.content ? h.renderChildren(node.content, '\n') : ''),
     tokenizer: {
       name: 'taskList',
@@ -663,18 +643,25 @@ export const listRules: Record<string, MarkdownRule> = {
       if (token.tokens && token.tokens.length > 0) {
         content.push(h.createNode('paragraph', {}, h.parseInline(token.tokens)));
       } else if (token.text) {
-        content.push(h.createNode('paragraph', {}, [h.createNode('text', { text: token.text })]));
+        content.push(h.createNode('paragraph', {}, [h.createTextNode(token.text)]));
       } else {
         content.push(h.createNode('paragraph', {}, []));
       }
       if (token.nestedTokens && token.nestedTokens.length > 0) {
         content.push(...h.parseChildren(token.nestedTokens));
       }
-      return h.createNode('taskItem', { checked: token.checked || false }, content);
+      // `[X]`, kept for as long as the item is checked
+      const markup = token.checked && token.checkedMark === 'X' ? 'X' : null;
+      return h.createNode(
+        'taskItem',
+        withMarkup({ checked: token.checked || false }, markup),
+        content,
+      );
     },
-    render: (node, h) => {
-      const prefix = `- [${node.attrs?.checked ? 'x' : ' '}] `;
-      return renderNestedContent(node, h, prefix, { indentMainContent: true });
+    render: (node, h, context) => {
+      const checked = markupOf(node.attrs) === 'X' ? 'X' : 'x';
+      const prefix = `${bulletOf(context)} [${node.attrs?.checked ? checked : ' '}] `;
+      return renderNestedContent(node, h, prefix);
     },
   },
 };
