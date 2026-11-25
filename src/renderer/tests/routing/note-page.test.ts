@@ -165,7 +165,9 @@ describe('the note page', () => {
     editor.chain().focus('end').insertContent(' one').run();
     window.dispatchEvent(new Event('blur'));
     await eventually(() => expect(savedTexts(main)).toEqual(['Draft one']));
-    // the read answers "Draft", older than the save: the save cancelled it
+    // once the page has drawn the save's text, the read answers "Draft", older than the save: the
+    // save cancelled it
+    await new Promise((resolve) => setTimeout(resolve, 20));
     answer();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(editor.getMarkdown()).toBe('Draft one');

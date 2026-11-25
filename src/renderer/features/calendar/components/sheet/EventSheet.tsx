@@ -1,6 +1,6 @@
 import { useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   CalendarDays,
@@ -40,7 +40,7 @@ import {
 import { trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
+import { writeSaveToCache, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { dayText, useEventActions } from '../../hooks/use-event-actions';
 import { seriesOccurrenceOf, type EventPatch, type EventTarget } from '../../lib/occurrence';
 import { meetingUrlOf } from '../create/CreateEventDialog';
@@ -543,11 +543,19 @@ function EventDescription({
   const pending = useRef<string | null>(null);
   const createTask = useCreateTask();
   const toDescription = (markdown: string) => (markdown.trim() === '' ? '' : markdown);
+  const queryClient = useQueryClient();
+  // a one-off's saves; a series' description is saved on leaving the editor (`onBlur`), not as
+  // it is typed, and reaches the editor as any change from outside does
   const { initialValue, editor, onChange } = useEditorAutosave(
     event.description ?? '',
-    // a series' description is saved on leaving the editor, not as it is typed
-    (markdown) => (series ? undefined : onSave(toDescription(markdown))),
-    { stored: toDescription },
+    (markdown) => {
+      const description = toDescription(markdown);
+      writeSaveToCache(queryClient, trpc.events.get.queryKey({ id: event.id }), (cached) => ({
+        ...cached,
+        description,
+      }));
+      void onSave(description);
+    },
   );
   if (!editable && !event.description) return null;
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
