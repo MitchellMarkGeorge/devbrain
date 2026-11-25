@@ -16,8 +16,9 @@ import {
 } from '@common/types';
 import type { IndexEntity, RebuildResult, SearchOptions } from './types';
 import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
-import { and, count, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
+import { and, count, inArray, isNotNull, isNull, not, sql, SQL } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
+import { externalLinks } from '@main/db/schema/integrations';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
@@ -28,9 +29,11 @@ import { withNoteListDetails } from '../notes/details';
 import { withProjectListDetails } from '../projects/details';
 import { withEventDetails } from '../events/service';
 
-// rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
+// rows per INSERT when writing many entries at once: five bound values each, well under SQLite's
 // limit on variables in one statement
 const INSERT_CHUNK = 1000;
+// task ids per lookup of their keys, under the same limit
+const KEY_LOOKUP_CHUNK = 5000;
 
 // The note files read for one call, and the notes whose content a write indexed while they were
 // being read: those writes are newer than the files read, so their entries are kept.
@@ -56,9 +59,9 @@ export class SearchService {
 
   /**
    * The entries matching `query`, best first, each with the entity it found as that entity's list
-   * returns it (a `TaskListItem`, `NoteListItem`, `ProjectListItem` or `Event`). `title` and `body`
-   * are HTML: the indexed text escaped, with each match in <b>…</b> and nothing else (see
-   * highlightToHtml). Titles and bodies hold user and provider text, so they are never handed out
+   * returns it (a `TaskListItem`, `NoteListItem`, `ProjectListItem` or `Event`). `title`, `body`
+   * and `key` (a task's provider key, null for none) are HTML: the indexed text escaped, with each match in <b>…</b> and nothing else (see
+   * highlightToHtml). Titles, bodies and keys hold user and provider text, so they are never handed out
    * with unescaped markup.
    *
    * The matches are ranked and cut to `limit` first, then the entities are read: one query per
@@ -75,9 +78,12 @@ export class SearchService {
       .select({
         title: sql<string>`highlight(${searchIndex}, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END})`,
         body: sql<string>`snippet(${searchIndex}, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15)`,
+        // '' for an entry with no key; null for one inserted without the column at all
+        key: sql<string | null>`highlight(${searchIndex}, 2, ${HIGHLIGHT_START}, ${HIGHLIGHT_END})`,
         entityId: searchIndex.entityId,
         entityType: searchIndex.entityType,
-        rank: sql<number>`bm25(${searchIndex}, 10.0, 1.0)`.as('match_rank'),
+        // a key match ranks with a title match: a key is how its task is named elsewhere
+        rank: sql<number>`bm25(${searchIndex}, 10.0, 1.0, 10.0)`.as('match_rank'),
       })
       .from(searchIndex)
       .where(
@@ -102,6 +108,7 @@ export class SearchService {
           entity,
           title: highlightToHtml(match.title),
           body: highlightToHtml(match.body),
+          key: match.key ? highlightToHtml(match.key) : null,
           rank: match.rank,
         } as SearchResult,
       ];
@@ -198,7 +205,7 @@ export class SearchService {
    * it for every row of an import made the import quadratic.
    */
   indexCreatedTask(task: Task): void {
-    this.db.run(insertQuery([taskEntity(task)]));
+    this.db.run(insertQuery(this.taskEntities([task])));
   }
 
   async indexNote(note: Note) {
@@ -212,6 +219,7 @@ export class SearchService {
         {
           title: note.title,
           body: stripMarkdown(content.trim()),
+          key: '',
           entityId: note.id,
           entityType: 'note',
         },
@@ -226,6 +234,7 @@ export class SearchService {
       {
         title: note.title,
         body: stripMarkdown(content.trim()),
+        key: '',
         entityId: note.id,
         entityType: 'note',
       },
@@ -261,12 +270,7 @@ export class SearchService {
   async rebuild(): Promise<RebuildResult> {
     return this.withNoteFiles(undefined, ({ bodies, unreadable, written }) => {
       const entities: IndexEntity[] = [
-        ...this.db
-          .select()
-          .from(tasks)
-          .where(isNull(tasks.archivedAt))
-          .all()
-          .map((task) => taskEntity(task)),
+        ...this.allTaskEntities(),
         ...this.db
           .select()
           .from(projects)
@@ -312,7 +316,7 @@ export class SearchService {
   // you're indexing more than a handful of rows at a time (e.g. a bulk
   // (re)index or a seed script).
   indexTasks(tasks: Task[]): void {
-    this.upsertIndexBatch(tasks.map((task) => taskEntity(task)));
+    this.upsertIndexBatch(this.taskEntities(tasks));
   }
 
   indexNotes(notes: Note[]): Promise<void> {
@@ -327,6 +331,7 @@ export class SearchService {
           return {
             title: note.title,
             body: stripMarkdown(content.trim()),
+            key: '',
             entityId: note.id,
             entityType: 'note' as const,
           };
@@ -369,6 +374,50 @@ export class SearchService {
   // changes an entry's title and keeps its body; an entity with no entry is ignored
   updateIndexedTitle(entityId: IndexEntity['entityId'], title: string): void {
     this.db.run(sql`UPDATE search_index SET title = ${title} WHERE entity_id = ${entityId}`);
+  }
+
+  /**
+   * The entries of these tasks, each with its provider key (ENG-123) when it has a link with one, in
+   * any state: a detached task still shows its key, so it is still found by it. The key lives on
+   * the link, so one query reads the keys of the whole batch.
+   */
+  private taskEntities(rows: Pick<Task, 'id' | 'title' | 'description'>[]): IndexEntity[] {
+    if (rows.length === 0) return [];
+    const keys = new Map<string, string>();
+    const ids = rows.map(({ id }) => id);
+    for (let i = 0; i < ids.length; i += KEY_LOOKUP_CHUNK) {
+      for (const { taskId, key } of this.db
+        .select({ taskId: externalLinks.taskId, key: externalLinks.externalKey })
+        .from(externalLinks)
+        .where(
+          and(
+            inArray(externalLinks.taskId, ids.slice(i, i + KEY_LOOKUP_CHUNK)),
+            isNotNull(externalLinks.externalKey),
+          ),
+        )
+        .all()) {
+        keys.set(taskId!, key!);
+      }
+    }
+    return rows.map((task) => taskEntity(task, keys.get(task.id) ?? ''));
+  }
+
+  // every active task's entry, for a rebuild: the keys of every task link read at once
+  private allTaskEntities(): IndexEntity[] {
+    const keys = new Map(
+      this.db
+        .select({ taskId: externalLinks.taskId, key: externalLinks.externalKey })
+        .from(externalLinks)
+        .where(and(isNotNull(externalLinks.taskId), isNotNull(externalLinks.externalKey)))
+        .all()
+        .map(({ taskId, key }) => [taskId!, key!]),
+    );
+    return this.db
+      .select()
+      .from(tasks)
+      .where(isNull(tasks.archivedAt))
+      .all()
+      .map((task) => taskEntity(task, keys.get(task.id) ?? ''));
   }
 
   private noteFilePath(id: NoteId): string {
@@ -467,23 +516,30 @@ export class SearchService {
 function insertQuery(entities: IndexEntity[]): SQL {
   const valueRows = sql.join(
     entities.map(
-      ({ title, body, entityId, entityType }) =>
-        sql`(${title}, ${body}, ${entityId}, ${entityType})`,
+      ({ title, body, key, entityId, entityType }) =>
+        sql`(${title}, ${body}, ${key}, ${entityId}, ${entityType})`,
     ),
     sql.raw(', '),
   );
-  return sql`INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ${valueRows}`;
+  return sql`INSERT INTO search_index (title, body, key, entity_id, entity_type) VALUES ${valueRows}`;
 }
 
 // what each entity type puts in the index; tables' rows and the services' types both fit
-function taskEntity(task: Pick<Task, 'id' | 'title' | 'description'>): IndexEntity {
-  return { title: task.title, body: task.description ?? '', entityId: task.id, entityType: 'task' };
+function taskEntity(task: Pick<Task, 'id' | 'title' | 'description'>, key: string): IndexEntity {
+  return {
+    title: task.title,
+    body: task.description ?? '',
+    key,
+    entityId: task.id,
+    entityType: 'task',
+  };
 }
 
 function projectEntity(project: Pick<Project, 'id' | 'title' | 'description'>): IndexEntity {
   return {
     title: project.title,
     body: project.description ?? '',
+    key: '',
     entityId: project.id,
     entityType: 'project',
   };
@@ -493,6 +549,7 @@ function eventEntity(event: Pick<Event, 'id' | 'title' | 'description'>): IndexE
   return {
     title: event.title,
     body: event.description ?? '',
+    key: '',
     entityId: event.id,
     entityType: 'event',
   };
@@ -500,5 +557,11 @@ function eventEntity(event: Pick<Event, 'id' | 'title' | 'description'>): IndexE
 
 // a note read by withNoteFiles: its title as it is now, its body from its file
 function noteEntity(note: Pick<Note, 'id' | 'title'>, bodies: Map<NoteId, string>): IndexEntity {
-  return { title: note.title, body: bodies.get(note.id)!, entityId: note.id, entityType: 'note' };
+  return {
+    title: note.title,
+    body: bodies.get(note.id)!,
+    key: '',
+    entityId: note.id,
+    entityType: 'note',
+  };
 }

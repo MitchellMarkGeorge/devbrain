@@ -67,6 +67,7 @@ function result(
     entityType?: SearchResult['entityType'];
     title?: string;
     body?: string;
+    key?: string;
     entity?: Record<string, unknown>;
   } = {},
 ): SearchResult {
@@ -82,6 +83,7 @@ function result(
     },
     title: fields.title ?? '',
     body: fields.body ?? '',
+    key: fields.key ?? null,
     rank: -1,
   } as unknown as SearchResult;
 }
@@ -220,6 +222,30 @@ describe('⌘K search', () => {
     expect(note.textContent).toContain('<img src=x onerror=alert(1)> PKCE notes');
     expect(note.querySelector('img')).toBeNull();
     expect([...note.querySelectorAll('b')].map((b) => b.textContent)).toEqual(['PKCE', 'PKCE']);
+  });
+
+  it("draws the part of a task's key the query matched in bold, in its source pill", async () => {
+    await openSearch([
+      result('tsk_9', {
+        title: 'Fix login',
+        key: '<b>ENG-124</b>',
+        entity: { external: linear },
+      }),
+    ]);
+    type('ENG-12');
+    await eventually(() => expect(optionTexts()).toHaveLength(1));
+    expect(options()[0].textContent).toContain('ENG-124');
+    expect([...options()[0].querySelectorAll('b')].map((b) => b.textContent)).toEqual(['ENG-124']);
+  });
+
+  it("draws the task's own key, unbolded, when the highlighted one is another", async () => {
+    await openSearch([
+      result('tsk_9', { title: 'Fix login', key: '<b>OPS</b>-9', entity: { external: linear } }),
+    ]);
+    type('OPS');
+    await eventually(() => expect(optionTexts()).toHaveLength(1));
+    expect(options()[0].textContent).toContain('ENG-124');
+    expect(options()[0].querySelector('b')).toBeNull();
   });
 
   it('draws a title with other markup as text', async () => {

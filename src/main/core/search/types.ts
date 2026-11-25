@@ -5,6 +5,8 @@ import type { SearchEntityType } from '@common/types';
 export interface IndexEntity {
   title: string;
   body: string;
+  // a synced task's provider key, such as ENG-123; empty for every other entry
+  key: string;
   entityId: NoteId | TaskId | ProjectId | EventId;
   entityType: SearchEntityType;
 }

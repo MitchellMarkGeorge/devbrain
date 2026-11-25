@@ -60,6 +60,7 @@ import type { ModalProps } from '@renderer/app/modals';
 import type { EntityRef } from '@renderer/shared/lib/entities';
 import { useDebouncedValue } from '@renderer/shared/hooks/use-debounced-value';
 import { GROUP_LABELS, groupResults, nextFilter, withAll, type SearchFilter } from '../lib/results';
+import { highlightToText } from '@renderer/editor/highlight';
 import { SearchHighlight } from './SearchHighlight';
 import { useAtRest, type EntityItem } from '../hooks/use-at-rest';
 import styles from './SearchDialog.module.css';
@@ -423,7 +424,7 @@ function SearchRow({
                 ? (result.entity.color ?? calendarColor(result.entity.calendarId))
                 : null,
           )}
-          trailing={'external' in entity ? sourcePill(entity.external) : undefined}
+          trailing={'external' in entity ? sourcePill(entity.external, result.key) : undefined}
           description={result.body ? <SearchHighlight html={result.body} /> : undefined}
         >
           <SearchHighlight html={result.title} />
@@ -509,12 +510,20 @@ function entityIcon(
   }
 }
 
-// a synced item's key ("ENG-124") as its source pill; none for a local one or one with no key
-function sourcePill(external: ExternalRef | null | undefined): ReactNode {
+/**
+ * A synced item's key ("ENG-124") as its source pill; none for a local one or one with no key. A
+ * search result's `keyHtml` is that key with what the query matched in bold, drawn in its place
+ * when it is the same key: the index follows every write, so it differs only for a moment.
+ */
+function sourcePill(external: ExternalRef | null | undefined, keyHtml?: string | null): ReactNode {
   if (!external?.key) return undefined;
   return (
     <SourcePill provider={providerOf(external)} detached={isDetached({ external })}>
-      {external.key}
+      {keyHtml && highlightToText(keyHtml) === external.key ? (
+        <SearchHighlight html={keyHtml} />
+      ) : (
+        external.key
+      )}
     </SourcePill>
   );
 }

@@ -8,7 +8,7 @@ import { NoteService } from '../../notes/service';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { generateId } from '@common/ids';
+import { type ExternalSourceId, generateId } from '@common/ids';
 import { AuthType, LinkState, Provider, SourceType, TaskStatus } from '@common/types';
 import { eq } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
@@ -118,6 +118,121 @@ describe('SearchService — indexTask', () => {
     const updated = searchService.search({ query: 'Updated', entityType: [] });
     expect(updated).toHaveLength(1);
     expect(updated[0].entity.id).toBe(task.id);
+  });
+});
+
+describe('SearchService — task keys', () => {
+  let sourceId: ExternalSourceId;
+  beforeEach(() => {
+    const integrationId = db
+      .insert(integrations)
+      .values({
+        provider: Provider.LINEAR,
+        authType: AuthType.API_KEY,
+        accountId: 'org:user',
+        accountLabel: 'Ada',
+        credentials: Buffer.from('ciphertext'),
+      })
+      .returning()
+      .get().id;
+    sourceId = db
+      .insert(externalSources)
+      .values({ integrationId, sourceType: SourceType.TASKS })
+      .returning()
+      .get().id;
+  });
+
+  // a task linked to a Linear issue with this key, as sync leaves it
+  function linkedTask(title: string, key: string, state = LinkState.SYNCED) {
+    const task = taskService.createTask({ title, dueDate: TOMORROW });
+    db.insert(externalLinks)
+      .values({
+        sourceId,
+        provider: Provider.LINEAR,
+        externalId: `issue-${key}`,
+        externalKey: key,
+        externalUrl: `https://linear.app/acme/issue/${key}`,
+        externalUpdatedAt: TOMORROW,
+        lastSyncedAt: TOMORROW,
+        state,
+        taskId: task.id,
+      })
+      .run();
+    return task;
+  }
+
+  const ids = (query: string) =>
+    searchService.search({ query, entityType: [] }).map(({ entity }) => entity.id);
+
+  it('finds a synced task by its key, a prefix of it, or its number, in any case', () => {
+    const task = linkedTask('Fix the login flow', 'ENG-123');
+    const other = linkedTask('Tidy the docs', 'OPS-45');
+    searchService.indexTasks([task, other]);
+
+    expect(ids('ENG-123')).toEqual([task.id]);
+    expect(ids('ENG-12')).toEqual([task.id]);
+    expect(ids('eng-123')).toEqual([task.id]);
+    expect(ids('123')).toEqual([task.id]);
+    expect(ids('ENG-124')).toEqual([]);
+    expect(ids('ENG-123 login')).toEqual([task.id]);
+    expect(searchService.counts('ENG-12').task).toBe(1);
+  });
+
+  it('highlights what matched in the key, and leaves the title alone when only the key did', () => {
+    searchService.indexTask(linkedTask('Fix the login flow', 'ENG-123'));
+
+    expect(searchService.search({ query: 'ENG-12', entityType: [] })[0]).toMatchObject({
+      title: 'Fix the login flow',
+      key: '<b>ENG-123</b>',
+      entity: { external: { key: 'ENG-123' } },
+    });
+    expect(searchService.search({ query: 'login', entityType: [] })[0]).toMatchObject({
+      title: 'Fix the <b>login</b> flow',
+      key: 'ENG-123',
+    });
+  });
+
+  it('gives a null key for an entry with none', () => {
+    const task = taskService.createTask({ title: 'Local work', dueDate: TOMORROW });
+    searchService.indexTask(task);
+    searchService.indexProject(projectService.createProject({ title: 'Local plan' }));
+
+    expect(searchService.search({ query: 'local', entityType: [] }).map(({ key }) => key)).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it('finds a detached task by the key it still shows, and no local task by one', () => {
+    const detached = linkedTask('Detached work', 'ENG-7', LinkState.DETACHED);
+    const local = taskService.createTask({ title: 'ENG work', dueDate: TOMORROW });
+    searchService.indexTasks([detached, local]);
+
+    expect(ids('ENG-7')).toEqual([detached.id]);
+  });
+
+  it('follows a key that changed when the task is indexed again', () => {
+    const task = linkedTask('Moved issue', 'ENG-123');
+    searchService.indexTask(task);
+    db.update(externalLinks)
+      .set({ externalKey: 'OPS-9' })
+      .where(eq(externalLinks.taskId, task.id))
+      .run();
+    searchService.indexTask(task);
+
+    expect(ids('ENG-123')).toEqual([]);
+    expect(ids('OPS-9')).toEqual([task.id]);
+  });
+
+  it('indexes the key of a created task and of every task in a rebuild', async () => {
+    const created = linkedTask('Created', 'ENG-1');
+    searchService.indexCreatedTask(created);
+    expect(ids('ENG-1')).toEqual([created.id]);
+
+    const rebuilt = linkedTask('Rebuilt', 'OPS-2');
+    await searchService.rebuild();
+    expect(ids('OPS-2')).toEqual([rebuilt.id]);
+    expect(ids('ENG-1')).toEqual([created.id]);
   });
 });
 

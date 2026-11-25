@@ -12,6 +12,7 @@ const result = (
     entity: { id: `${entityType}_1`, title: 'A note', ...entity },
     title: 'A <b>note</b>',
     body: '',
+    key: null,
     rank: -1,
   }) as SearchResult;
 
