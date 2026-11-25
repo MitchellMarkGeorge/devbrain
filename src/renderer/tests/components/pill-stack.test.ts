@@ -11,8 +11,9 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// A stacked side keeps every pill whole (icon and label). Pointing at the row spreads it back out,
-// which is CSS alone (TaskRow.module.css): happy-dom draws no hover, so the browser checks that.
+// A stacked side keeps every pill whole (icon and label). Pointing at a pill marks the row spread
+// (`data-spread`) until the pointer leaves the row; drawing it spread is CSS (TaskRow.module.css),
+// which happy-dom does not draw, so the browser checks that.
 
 let container: HTMLDivElement;
 let root: Root;
@@ -54,8 +55,42 @@ describe('a stack of pills', () => {
       rightStack().dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
       rightStack().dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     });
+    // spread, but still stacked: the level comes from full widths, not from the spread pills
+    expect(container.querySelector('[role="row"]')!.hasAttribute('data-spread')).toBe(true);
     expect(rightStack().hasAttribute('data-stacked')).toBe(true);
-    expect(container.querySelector('[data-spread]')).toBeNull();
+  });
+
+  it('spreads once a pill is pointed at, not the rest of the row, until the row is left', () => {
+    render({ stack: 'right' });
+    const row = container.querySelector<HTMLElement>('[role="row"]')!;
+    const over = (element: Element) =>
+      act(() => {
+        element.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+      });
+
+    over(container.querySelector('[data-name]')!);
+    expect(row.hasAttribute('data-spread')).toBe(false);
+
+    over(rightStack().firstElementChild!);
+    expect(row.hasAttribute('data-spread')).toBe(true);
+    // the pills move as they spread: back on the title, the row stays spread
+    over(container.querySelector('[data-name]')!);
+    expect(row.hasAttribute('data-spread')).toBe(true);
+
+    act(() => {
+      row.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false }));
+    });
+    expect(row.hasAttribute('data-spread')).toBe(false);
+  });
+
+  it('spreads while a pill has focus', () => {
+    render({ stack: 'right' });
+    const row = container.querySelector<HTMLElement>('[role="row"]')!;
+    const pill = rightStack().querySelector<HTMLElement>('button')!;
+    act(() => pill.focus());
+    expect(row.hasAttribute('data-spread')).toBe(true);
+    act(() => row.focus());
+    expect(row.hasAttribute('data-spread')).toBe(false);
   });
 
   it('never stacks a side with one pill', () => {

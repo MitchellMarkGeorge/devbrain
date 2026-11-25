@@ -79,7 +79,7 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   compact?: boolean;
   /**
    * How the pills stack (overlapping, labels shortened) when the row runs out of room; pointing at
-   * the row spreads them back out over the end of the title. `auto` (the
+   * a pill spreads them back out over the end of the title. `auto` (the
    * default) measures the row: first the pills after the title stack, then the key with the subtask or parent pill, and the
    * title shortens only after that. `none`, `right` and `both` pin a level, for pictures of the
    * row. A side with one pill never stacks.
@@ -139,7 +139,7 @@ const SPREAD_NAME_MIN = 40;
 /**
  * The pills on one side of the title. Stacked, when the row runs out of room, they overlap a
  * little, each pill over the one before, and each is capped at 140px with its label shortened.
- * Pointing at the row (or focusing it) spreads every stack in it back out, full labels and all,
+ * Pointing at a pill (or focusing one) spreads every stack in the row back out, full labels and all,
  * over the end of the title, which gives way down to a word or two (TaskRow.module.css).
  */
 function PillStack({ stacked, children }: { stacked: boolean; children: ReactNode }) {
@@ -272,6 +272,47 @@ function useAutoStack(
 }
 
 /**
+ * Spreads the row's stacks (`data-spread`, which TaskRow.module.css draws) once the pointer reaches
+ * a pill, or focus does, and keeps them spread until the pointer leaves the row and focus leaves its
+ * pills. Pointing at the rest of the row only tints it. Kept till the row is left rather than the
+ * stack: spread, the pills move as the title gives way, and a pointer left just outside them would
+ * fold them back under it, and spread them again. Set on the element, not by a render: nothing
+ * React draws changes.
+ */
+function useSpreadOnPills(rowRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const onPill = (target: EventTarget | null) =>
+      target instanceof Element && target.closest('[data-stack]') != null;
+    const spread = () => row.setAttribute('data-spread', '');
+    const fold = () => row.removeAttribute('data-spread');
+    const pointerOver = (event: PointerEvent) => {
+      if (onPill(event.target)) spread();
+    };
+    const pointerLeave = () => {
+      if (!row.querySelector('[data-stack] :focus-visible')) fold();
+    };
+    const focusIn = (event: FocusEvent) => {
+      if (onPill(event.target)) spread();
+    };
+    const focusOut = (event: FocusEvent) => {
+      if (!onPill(event.relatedTarget) && !row.matches(':hover')) fold();
+    };
+    row.addEventListener('pointerover', pointerOver);
+    row.addEventListener('pointerleave', pointerLeave);
+    row.addEventListener('focusin', focusIn);
+    row.addEventListener('focusout', focusOut);
+    return () => {
+      row.removeEventListener('pointerover', pointerOver);
+      row.removeEventListener('pointerleave', pointerLeave);
+      row.removeEventListener('focusin', focusIn);
+      row.removeEventListener('focusout', focusOut);
+    };
+  }, [rowRef]);
+}
+
+/**
  * The lines joining a nested row to its parents: one per cell of its prefix (`tree.cells`), at that
  * level's line (the centre of the status icon of the ancestor at that level), and a stem down from
  * its own status icon when its subtasks are drawn under it. The lines never overlap: the border
@@ -368,6 +409,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     right: rightPills > 1,
   });
   const level = stack === undefined || stack === 'auto' ? autoLevel : LEVELS[stack];
+  useSpreadOnPills(rowRef);
   // The row draws its first level without motion; changes after that animate. The flag is set on
   // the element after the first frame and never by a render, so React leaves it alone.
   useEffect(() => {

@@ -238,8 +238,8 @@
  * still, stacked pills shorten their labels further, down to their icon (34px), once the title is
  * down to --name-min: a stack gives way far sooner than the title's last 120px.
  *
- * Pointing at the row (or focusing it, or a pill's hover card being open) spreads its stacks back
- * out: 6px apart, up to 240px each, their labels in full. They grow leftwards over the end of the
+ * Pointing at a pill (or focusing one, or a pill's hover card being open) spreads the row's stacks
+ * back out, both of them, until the pointer leaves the row (TaskRow's `data-spread`): 6px apart, up to 240px each, their labels in full. They grow leftwards over the end of the
  * title, which gives way down to 40px while spread, and the date and priority stay where they are.
  * If even that is too little room, the two stacks share it in proportion to their full widths
  * (TaskRow sets --spread-title-min) and their pills shorten, except the one pointed at.
@@ -291,36 +291,16 @@
   z-index: 1;
 }
 
-/* spread: the row pointed at or focused, or a pill's hover card open */
-:is(
-  .row:hover,
-  .row:focus-visible,
-  .row[data-state],
-  .row:has(:focus-visible),
-  .row:has(.stack [data-popup-open])
-) {
+/* spread: TaskRow's `data-spread` (a pill pointed at or focused), or a pill's hover card open */
+:is(.row[data-spread], .row:has(.stack [data-popup-open])) {
   /* set on the row by TaskRow, which measures the pills: see useAutoStack */
   --name-min: var(--spread-name-min, 40px);
   --title-min: var(--spread-title-min, 120px);
 }
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
-  .stack[data-stacked]
-  > * {
+:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked] > * {
   max-width: 240px;
 }
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
+:is(.row[data-spread], .row:has(.stack [data-popup-open]))
   .stack[data-stacked]
   > :not(:last-child) {
   margin-right: var(--space-1-5);
@@ -333,57 +313,22 @@
  * nothing to spare, stay whole (TaskRow gives the stack room for them: its `floor`). Pointing at a
  * pill lets them shorten too. The stack's own floor is every pill at its 34px icon, 6px apart.
  */
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
-  .stack[data-stacked] {
+:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked] {
   min-width: calc(var(--pills) * 40px - var(--space-1-5));
 }
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
-  .stack[data-stacked]
-  > * {
+:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked] > * {
   flex-shrink: 1000;
 }
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
+:is(.row[data-spread], .row:has(.stack [data-popup-open]))
   .stack[data-stacked]:not(:has(> :hover))
   > [data-keep] {
   /* not even a fraction of a pixel, which would end its label in an ellipsis */
   min-width: max-content;
 }
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
-  .stack[data-stacked]:has(> :hover)
-  > * {
+:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked]:has(> :hover) > * {
   flex-shrink: 1000;
 }
-:is(
-    .row:hover,
-    .row:focus-visible,
-    .row[data-state],
-    .row:has(:focus-visible),
-    .row:has(.stack [data-popup-open])
-  )
+:is(.row[data-spread], .row:has(.stack [data-popup-open]))
   .stack[data-stacked]:has(> :hover)
   > :hover {
   /*
