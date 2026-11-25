@@ -345,6 +345,145 @@ describe('the task page', () => {
     expect(editor.getMarkdown()).toBe('Replace the implicit flow. one two');
   });
 
+  // the task page on `parent`, its reads answered with a copy, as IPC sends one
+  async function descriptionPage() {
+    const tasks = store();
+    const main = mainWith(tasks);
+    main.routes.set('tasks.get', (args) => [
+      structuredClone(tasks.tasks.find((t) => t.id === args.id)),
+      [],
+    ]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    const description = () =>
+      app.container.querySelector<HTMLElement>('[role="textbox"][aria-label="Description"]');
+    await eventually(() => expect(description()?.textContent).toBe('Replace the implicit flow.'));
+    const editor = (description() as unknown as { editor: Editor }).editor;
+    const stored = () => tasks.tasks.find((t) => t.id === parent.id)?.description;
+    return { tasks, main, app, editor, stored };
+  }
+
+  it('keeps the caret where it is when its own save comes back, and reads the task again', async () => {
+    const { main, editor, stored } = await descriptionPage();
+    const reads = main.callsTo('tasks.get').length;
+    editor.chain().focus(8).insertContent('X').run();
+    const caret = editor.state.selection.from;
+    const document = editor.state.doc;
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(stored()).toBe('ReplaceX the implicit flow.'));
+    // the save reports the task, which is read again for everything else it shows
+    await eventually(() => expect(main.callsTo('tasks.get').length).toBeGreaterThan(reads));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // nothing was loaded into the editor: the same document, the caret where it was
+    expect(editor.state.doc).toBe(document);
+    expect(editor.state.selection.from).toBe(caret);
+  });
+
+  it('keeps what was typed when a read sent before a save answers after it', async () => {
+    const { tasks, main, editor, stored } = await descriptionPage();
+    // a change elsewhere has the task read again, and the answer is held back
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    let hold = true;
+    main.routes.set('tasks.get', async (args) => {
+      const read = structuredClone(tasks.tasks.find((t) => t.id === args.id));
+      if (hold) await answered;
+      return [read, []];
+    });
+    const reads = main.callsTo('tasks.get').length;
+    main.push('db.changes', { entities: ['task'] });
+    await eventually(() => expect(main.callsTo('tasks.get').length).toBeGreaterThan(reads));
+    hold = false;
+
+    // the save is still on its way when the read answers
+    const release = main.hold('tasks.update');
+    editor.chain().focus('end').insertContent(' one').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(1));
+    // once the page has drawn the save's text, with the text from before it: the save cancelled it
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    answer();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one');
+    release();
+    await eventually(() => expect(stored()).toBe('Replace the implicit flow. one'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one');
+  });
+
+  it('takes a change from outside while the page is open', async () => {
+    const { tasks, main, editor } = await descriptionPage();
+    editor.chain().focus('end').insertContent(' one').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(1));
+
+    tasks.patch(parent.id, { description: 'Rewritten elsewhere.' });
+    main.push('db.changes', { entities: ['task'] });
+    await eventually(() => expect(editor.getMarkdown()).toBe('Rewritten elsewhere.'));
+    // and back to the very text the editor saved before
+    tasks.patch(parent.id, { description: 'Replace the implicit flow. one' });
+    main.push('db.changes', { entities: ['task'] });
+    await eventually(() => expect(editor.getMarkdown()).toBe('Replace the implicit flow. one'));
+    expect(main.callsTo('tasks.update')).toHaveLength(1);
+  });
+
+  it('writes a change still waiting for its save over one from outside', async () => {
+    const { tasks, main, editor, stored } = await descriptionPage();
+    editor.chain().focus('end').insertContent(' one').run();
+    const reads = main.callsTo('tasks.get').length;
+    tasks.patch(parent.id, { description: 'Rewritten elsewhere.' });
+    main.push('db.changes', { entities: ['task'] });
+    await eventually(() => expect(main.callsTo('tasks.get').length).toBeGreaterThan(reads));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one');
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(stored()).toBe('Replace the implicit flow. one'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one');
+  });
+
+  it('keeps what was typed when its save fails, and saves again on the next edit', async () => {
+    const { tasks, main, editor, stored } = await descriptionPage();
+    let fail = true;
+    main.routes.set('tasks.update', (args) => {
+      if (fail) throw FakeMain.error('internal', 'Something went wrong');
+      const { id, ...fields } = args;
+      return [tasks.patch(id, fields as never), ['task']];
+    });
+    editor.chain().focus('end').insertContent(' one').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() =>
+      expect(document.body.textContent).toContain('Couldn’t save the description'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.getMarkdown()).toBe('Replace the implicit flow. one');
+    expect(stored()).toBe('Replace the implicit flow.');
+
+    fail = false;
+    editor.chain().focus('end').insertContent(' two').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(stored()).toBe('Replace the implicit flow. one two'));
+  });
+
+  it('saves nothing for a text typed and undone', async () => {
+    const { main, editor } = await descriptionPage();
+    editor.chain().focus('end').insertContent(' one').run();
+    editor.commands.undo();
+    window.dispatchEvent(new Event('blur'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(main.callsTo('tasks.update')).toHaveLength(0);
+  });
+
+  it('saves an emptied description as none, and leaves the editor alone', async () => {
+    const { main, editor, stored } = await descriptionPage();
+    editor.commands.clearContent(true);
+    const document = editor.state.doc;
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() => expect(stored()).toBeNull());
+    expect(main.callsTo('tasks.update')[0].input).toEqual({ id: parent.id, description: null });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(editor.state.doc).toBe(document);
+  });
+
   it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {
     const linked = fakeTask('tsk_linked', 'Write the guide', {
       linkedNoteId: 'nte_guide' as never,

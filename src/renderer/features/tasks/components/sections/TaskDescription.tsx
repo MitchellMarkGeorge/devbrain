@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import type { Task } from '@common/types';
-import { ipc } from '@renderer/ipc';
+import { ipc, trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
-import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
+import { writeSaveToCache, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { isSynced } from '../../api/queries';
 import { useCreateTask } from '../../hooks/use-create-task';
@@ -16,13 +17,20 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
   const showError = useMutationErrorToast();
   const createTask = useCreateTask();
   const synced = isSynced(task);
+  const queryClient = useQueryClient();
   const { initialValue, editor, onChange } = useEditorAutosave(
     task.description ?? '',
-    (markdown) =>
+    (markdown) => {
+      // a blank description is stored as none
+      const description = markdown.trim() === '' ? null : markdown;
+      writeSaveToCache(queryClient, trpc.tasks.get.queryKey({ id: task.id }), (cached) => ({
+        ...cached,
+        description,
+      }));
       ipc.tasks.update
-        .mutate({ id: task.id, description: storedDescription(markdown) || null })
-        .catch((error: unknown) => showError(error, 'Couldn’t save the description')),
-    { stored: storedDescription },
+        .mutate({ id: task.id, description })
+        .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
+    },
   );
   if (synced && !task.description) return null;
   return (
@@ -38,9 +46,4 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
       openNewTaskDialog={createTask}
     />
   );
-}
-
-// a blank description is stored as none, and comes back as ''
-function storedDescription(markdown: string): string {
-  return markdown.trim() === '' ? '' : markdown;
 }

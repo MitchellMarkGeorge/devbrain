@@ -3,7 +3,7 @@ import type { Editor } from '@tiptap/react';
 import type { NoteId } from '@common/ids';
 import { ipc, trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
-import { useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
+import { writeSaveToCache, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { noteContentQuery } from '../../api/queries';
@@ -55,12 +55,8 @@ function NoteEditorLoaded({
   const projectId = useQuery(trpc.notes.get.queryOptions({ id: noteId })).data?.projectId;
   const queryClient = useQueryClient();
   const { initialValue, editor, onChange } = useEditorAutosave(content, (markdown) => {
-    const { queryKey } = noteContentQuery(noteId);
-    queryClient.setQueryData(queryKey, markdown);
-    // a read already on its way would answer with the text before this save; cancelled, the query
-    // keeps the state of its last write, this one
-    void queryClient.cancelQueries({ queryKey, exact: true });
-    return ipc.notes.updateContent
+    writeSaveToCache(queryClient, noteContentQuery(noteId).queryKey, () => markdown);
+    ipc.notes.updateContent
       .mutate({ id: noteId, content: markdown })
       .catch((error: unknown) => showError(error, 'Couldn’t save the note'));
   });

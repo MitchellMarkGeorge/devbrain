@@ -112,38 +112,64 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
 The editor reads its text from the query the page already has (a task's `tasks.get`, an event's
 `events.get`, a note's `notes.readContent`) and passes it to `useEditorAutosave` as `remote`. That
 text changes for two reasons: a change from outside the editor (a sync, a reattach), which the
-editor must show, and the editor's own saves coming back. A save makes core report its entity
-changed, so `tasks.get` is refetched, and by the time the answer arrives more may have been
-typed: loading it would put older text back.
+editor must show, and the editor's own saves. A save makes core report its entity changed, so
+`tasks.get` is refetched, and by the time an answer arrives more may have been typed: loading an
+older text would put it back.
 
-- **The hook follows `remote` only while no save is waiting or on its way**, and looks once
-  more when the last one lands. The IPC link settles a mutation only once the refetches it caused
-  have landed, so by then the cache holds the latest save, or a change made from outside since.
-  A refetch of an older save always arrives while a newer one is still on its way, and is never
-  taken.
-- **It holds one text:** its latest save (as stored: a blank description as `''`), or the last
-  text it followed. A `remote` that differs from it changed from outside, and is loaded through the
-  editor's handle (`load`), unless the editor already shows it (`markdown()`). Reattaching a task
-  after an edit restores Linear's description, though it is the very text the editor opened with.
-- **It looks on a zero-delay timer once a save settles:** React Query tells components of a change
-  on one (its `notifyManager`), so a look made at once could compare the save with the text from
-  before it.
-- **A change from outside while you type loses to your next save**, which is written over it.
+So the editor's own save never reaches the hook as a text it has to recognise:
+
+- **A save writes its text into the cache before it is sent** (`writeSaveToCache`): into the cached
+  task, project or event as its `description`, as it will be stored (a blank one as none), or as
+  the note's markdown. `remote` becomes the text the editor holds, and the entity opened again
+  shows it at once.
+- **The same call cancels a read of that query on its way,** whose answer would be older than the
+  save. Main answers calls in the order they were sent and writes rows synchronously, so every
+  read that does land was sent after the latest save: it holds that save's text, or a change made
+  from outside since. The save's own refetch still runs, for the entity's other fields, the lists,
+  previews and search; its `description` is the string the cache already has, so the editor sees
+  no change.
+- **The hook loads `remote` when it changes to a text the editor would not save itself**
+  (`markdown()`), through the editor's handle (`load`). Reattaching a task after an edit restores
+  Linear's description, though it is the very text the editor opened with. Two blank texts are the
+  same text, however each is stored.
+- **A change from outside while a change is waiting for its save loses to that save**, which is
+  written over it: nothing is loaded while the autosave is pending.
+- **A save whose text the cache already holds is skipped:** a change typed and undone, or an edit
+  the markdown writes no differently.
+- **A failed save leaves the editor as typed**, under the toast that says so, and the cache with
+  it. Nothing retries by itself: the next edit saves again. The entity's next read (the page
+  opened again, or anything else changing it) shows what is stored. Before, a description's
+  failed save put the stored text back over what was typed at once, and a note's did not.
 - **A note's markdown is never refetched by a save.** `notes.readContent` reads no entity
   ([`ENTITIES_READ_BY_ROUTE`](../src/renderer/ipc/query-invalidator.ts)): the note's editor is the
   only thing that rewrites an existing note's markdown (sync and reattach write tasks, projects
   and events; a rename only rewrites the file's front matter; imports and duplicates make new
-  notes). So the editor writes each save into the query's cache itself (`noteContentQuery`,
-  never stale), and the note opened again shows it, a save never reads the file back, and a save
-  cancels a read of the file already on its way, whose answer would be older than it.
-  Anything that comes to rewrite a note's markdown from outside (a file watcher) must make that
-  query refetch.
-- A description is refetched with its entity anyway (for its title and the rest), so it costs no
-  extra read. Opening a task again while its save is on its way shows the text before it for a
-  moment, until the save's refetch lands.
-- A recurring event's description is saved on leaving the editor, through the question of which
-  occurrences; it is followed like any other change once saved.
+  notes), so a save never reads the file back (`noteContentQuery`, never stale). Anything that
+  comes to rewrite a note's markdown from outside (a file watcher) must make that query refetch.
+- **A recurring event's description is saved on leaving the editor**, through the question of
+  which occurrences, and never by the hook. Saved to the series, it comes back as the text the
+  editor holds; saved to one occurrence or the following ones, the sheet moves to that row.
 - A note file edited on disk by another app is not followed: nothing watches the files.
+
+The hook holds no state of its own beyond the autosave's pending change. What it needs from a
+caller is that `save` goes through `writeSaveToCache` on the query `remote` is read from; a `remote`
+taken from another query (a list's row) would bring the editor's saves back as changes from outside.
+
+### Why not through IPC
+
+Three other ways to keep a save from resetting the editor were weighed
+([ipc/design.md](ipc/design.md)):
+
+- **The change tracker saying which window or call made a change.** The renderer already knows:
+  a call's own changes come back in its response. Skipping the editor's query for them would
+  leave the entity's other fields (`updatedAt`) stale, and a read caused by anything else could
+  still land with an older text, so the hook would keep its guard.
+- **A query of its own for the description.** A sync changes the description with the task, so
+  that query would read the `task` entity and be refetched by the editor's saves all the same.
+- **Not refetching the entity on a save.** Lists, previews and search must still follow it.
+
+Writing the cache and cancelling the read needs none of them, and is what a note's editor already
+did.
 
 ## The markdown layer
 

@@ -1404,8 +1404,8 @@ linkedTaskId } })`), separate from the task's event or note link.
      an event or a task.
    - Saving: `useEditorAutosave` (`shared/hooks/use-autosave.ts`, shared with the task description)
      saves 500ms after typing, flushes on unmount, window blur and the start of a workspace
-     switch, and hands the editor only text it didn't save itself, so its own save's refetch
-     never overwrites newer typing.
+     switch, and loads into the editor only text it would not save itself: each save is written
+     into the query's cache first ([editor.md](../editor.md#saves-and-changes-from-outside)).
    - Editors take `useEditorHost()` (`shared/hooks/use-editor-host.ts`): search, links,
      `useEntityResolver` and `useOpenEntity`. Pills subscribe through a new `EditorHost.watchEntity`;
      `resolveEntity` returns null for an entity known to be gone.
