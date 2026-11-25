@@ -204,6 +204,13 @@
       "when": 1795577500260,
       "tag": "0028_search_index_task_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1795629065841,
+      "tag": "0029_add_mentions",
+      "breakpoints": true
     }
   ]
 }
