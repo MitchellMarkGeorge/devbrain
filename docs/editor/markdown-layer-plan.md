@@ -13,7 +13,8 @@ needs to be production ready.
 > of real files and end to end. What is left is optional (milestone 5, "Left for later"). The
 > reference for the layer as built is `docs/editor.md` ("The markdown layer", "The source map",
 > "What a save changes", "When reading or writing fails", "Checking it on real files"); this
-> plan is kept for the reasoning and the steps.
+> plan is kept for the reasoning and the steps. To change the layer, read
+> [`markdown-layer-maintenance.md`](markdown-layer-maintenance.md).
 
 ## Goals
 

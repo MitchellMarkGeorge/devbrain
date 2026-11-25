@@ -142,11 +142,9 @@ reads and writes every note exactly as that package did (checked against it on t
 extension and command APIs (`getSchema`, `setContent`, an extension's storage and commands) and
 `marked`'s public API, and nothing else. A document is loaded as JSON through `setContent`.
 
-What it still needs to be production ready:
-[editor/markdown-layer-plan.md](editor/markdown-layer-plan.md). Its first three steps are built:
-reading a text gives its source map ("The source map", below), a save writes the document keeping
-the text of every block that didn't change, and a block that did change keeps the markers it was
-written with ("What a save changes").
+How to change it safely, find out why a save did what it did, and what to run before a pull
+request: [editor/markdown-layer-maintenance.md](editor/markdown-layer-maintenance.md). How it came
+to be built this way: [editor/markdown-layer-plan.md](editor/markdown-layer-plan.md).
 
 - `codec.ts`: `MarkdownCodec`, a parser and a serializer for one schema. `read(markdown)` gives
   the document an editor loads and the text's source map; `parseDocument` is that document alone,
