@@ -1,6 +1,6 @@
 import { test, expect } from '../support/fixtures';
 import { workspaceIdOf } from '../support/app';
-import { createTask, createWorkspace, goTo, taskRow } from '../support/ui';
+import { createTask, createWorkspace, goTo } from '../support/ui';
 
 test('notes: create, type, leave and come back, link a task', async ({ devbrain }) => {
   const { window } = await devbrain.launch();
@@ -38,8 +38,14 @@ test('notes: create, type, leave and come back, link a task', async ({ devbrain 
   await window.getByRole('menuitem', { name: 'Link existing task' }).click();
   await window.getByRole('searchbox', { name: 'Search tasks' }).fill('release');
   await window.getByRole('menuitem', { name: /Write release notes/ }).click();
-  const linked = main.getByRole('region', { name: 'Tasks' });
-  await expect(taskRow(linked, 'Write release notes')).toBeVisible();
+  // the tasks pill counts it, and opens the note's tasks in a popover
+  const tasksPill = main.getByRole('button', { name: '1 task', exact: true });
+  await expect(tasksPill).toBeVisible();
+  await tasksPill.click();
+  const linked = window.getByRole('dialog', { name: 'Tasks' });
+  await expect(
+    linked.getByRole('button').filter({ hasText: 'Write release notes' }).first(),
+  ).toBeVisible();
 
   // the note's file and row hold it
   const workspaceId = workspaceIdOf(window)!;
