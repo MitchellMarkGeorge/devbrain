@@ -21,7 +21,7 @@ export function noteContentQuery(id: NoteId) {
   return trpc.notes.readContent.queryOptions({ id }, { staleTime: Infinity });
 }
 
-/** The tasks made from a note (`linkedNoteId`): its Tasks section and its "3 tasks" pill. */
+/** The tasks made from a note (`linkedNoteId`): its "3 tasks" pill and the popover it opens. */
 export function noteTasksQuery(id: NoteId) {
   return trpc.tasks.list.infiniteQueryOptions(
     { filter: { noteId: id }, sort: { sortBy: 'createdAt', direction: 'asc' }, limit: 100 },

@@ -1,3 +1,4 @@
+import type { MentionSourceId } from '@common/types';
 import { forwardRef, useCallback } from 'react';
 import {
   RichTextEditor,
@@ -17,6 +18,9 @@ export interface WorkspaceRichTextEditorProps extends Omit<
   RichTextEditorProps,
   keyof EditorHost | 'entityPill'
 > {
+  // the task, project, note or event whose text this is: "@" leaves it out, as nothing mentions
+  // itself
+  ownerId: MentionSourceId;
   // where a task made from the editor goes (Turn into task, "/task"): the page's project, its note
   newTaskOptions?: NewTaskOptions;
   // opens New task for "/task": the tasks feature's useCreateTask(); without it there is no "/task"
@@ -35,8 +39,8 @@ export interface WorkspaceRichTextEditorProps extends Omit<
 export const WorkspaceRichTextEditor = forwardRef<
   RichTextEditorHandle,
   WorkspaceRichTextEditorProps
->(function WorkspaceRichTextEditor({ newTaskOptions, openNewTaskDialog, ...props }, ref) {
-  const workspace = useWorkspaceEditorHost(newTaskOptions, openNewTaskDialog);
+>(function WorkspaceRichTextEditor({ ownerId, newTaskOptions, openNewTaskDialog, ...props }, ref) {
+  const workspace = useWorkspaceEditorHost({ ownerId, newTaskOptions, openNewTaskDialog });
   const openEntity = useOpenEntity();
   const onOpenEntity = useCallback<NonNullable<EditorHost['onOpenEntity']>>(
     (_type, id, entity) => openEntity({ id, startAt: entity?.startAt }),

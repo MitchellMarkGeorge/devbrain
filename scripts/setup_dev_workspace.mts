@@ -1,7 +1,8 @@
 /**
  * Seeds a local dev workspace with a moderately/realistically sized dataset —
  * projects, tasks (with subtasks), notes, and events — all linked together
- * the same way the app itself would link them, so real use cases (project
+ * the same way the app itself would link them (and mentioning each other in
+ * their text, as `devbrain://` links), so real use cases (project
  * views, calendars, search, archiving, filtering/sorting) can be explored
  * against non-trivial data, and query performance can be meaningfully
  * measured.
@@ -44,6 +45,7 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
+import { entityUrl, escapeLinkLabel, type EntityLinkType } from '@common/entity-links';
 import { openDevBrain } from '@main/core';
 import { openElectronSettingsStore } from '@main/runtime/settings-store';
 import { devCipher } from '@main/runtime/dev-cipher';
@@ -572,11 +574,45 @@ const FILLER_SENTENCES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Mentions
+// ---------------------------------------------------------------------------
+
+// What notes mention, as the editor writes a mention (src/common/entity-links.ts): filled as
+// projects, events, tasks and notes are made, so each mention names a real row, and the items
+// mentioned show it in their Mentioned in
+const linkTargets: string[] = [];
+
+function mention(type: EntityLinkType, row: { id: string; title: string }): string {
+  return `[${escapeLinkLabel(row.title || 'Untitled')}](${entityUrl(type, row.id)})`;
+}
+
+function addLinkTargets(rows: Array<{ id: string; title: string }>, type: EntityLinkType) {
+  for (const row of rows) linkTargets.push(mention(type, row));
+}
+
+// "Related: [A](devbrain://…), [B](devbrain://…)", with `probability`, as lines to add to a note
+function relatedLines(probability: number): string[] {
+  if (linkTargets.length === 0 || !chance(probability)) return [];
+  return ['', `Related: ${pickMany(linkTargets, randomInt(1, 3)).join(', ')}`];
+}
+
+// ---------------------------------------------------------------------------
 // Note content builders
 // ---------------------------------------------------------------------------
 
 function bulletList(items: string[]): string {
   return items.map((item) => `- ${capitalize(item)}`).join('\n');
+}
+
+// action items, some of them mentioning the task they turned into
+function actionItems(items: string[]): string {
+  return items
+    .map((item) =>
+      linkTargets.length > 0 && chance(0.3)
+        ? `- ${capitalize(item)}: ${pick(linkTargets)}`
+        : `- ${capitalize(item)}`,
+    )
+    .join('\n');
 }
 
 function meetingNoteContent(event: Event): string {
@@ -588,7 +624,8 @@ function meetingNoteContent(event: Event): string {
     bulletList(pickMany(DISCUSSION_POINTS, randomInt(2, 4))),
     '',
     '### Action items',
-    bulletList(pickMany(ACTION_ITEM_PHRASES, randomInt(1, 3))),
+    actionItems(pickMany(ACTION_ITEM_PHRASES, randomInt(1, 3))),
+    ...relatedLines(0.5),
   ];
   return lines.filter((line) => line !== null).join('\n');
 }
@@ -606,6 +643,7 @@ function projectNoteContent(project: Project): string {
     '',
     '### Open questions',
     bulletList(pickMany(FILLER_SENTENCES, randomInt(1, 2))),
+    ...relatedLines(0.7),
   ].join('\n');
 }
 
@@ -616,24 +654,18 @@ function taskNoteContent(task: Task): string {
     capitalize(pick(FILLER_SENTENCES)),
     '',
     steps.map((step, i) => `- [${i === 0 ? 'x' : ' '}] ${step}`).join('\n'),
+    ...relatedLines(0.4),
   ].join('\n');
 }
 
 function freeformNoteContent(topic: string): string {
   const paragraph = pickMany(FILLER_SENTENCES, randomInt(3, 5)).join(' ');
-  return [`# ${topic}`, '', paragraph].join('\n');
+  return [`# ${topic}`, '', paragraph, ...relatedLines(0.3)].join('\n');
 }
 
 // ---------------------------------------------------------------------------
 // Long notes (large workspace only)
 // ---------------------------------------------------------------------------
-
-// Entity links a long note points at, as the editor writes them (docs/editor.md): filled as tasks
-// and projects are made, so a note's pills name real rows
-const linkTargets: string[] = [];
-function addLinkTargets(rows: Array<Task | Project>, type: 'task' | 'project') {
-  for (const row of rows) linkTargets.push(`[${row.title}](devbrain://${type}/${row.id})`);
-}
 
 const CODE_SNIPPETS = [
   [
@@ -968,6 +1000,7 @@ async function seedEventFollowups(
     });
     await workspace.notes.updateNoteContent(note.id, sized(meetingNoteContent(event)));
     notes.push(note);
+    addLinkTargets([note], 'note');
   }
 
   const tasks: Task[] = [];
@@ -1003,6 +1036,7 @@ async function seedFreeformNotes(workspace: Workspace, projects: Project[]): Pro
       });
       await workspace.notes.updateNoteContent(note.id, sized(projectNoteContent(project)));
       notes.push(note);
+      addLinkTargets([note], 'note');
     }
   }
 
@@ -1015,6 +1049,7 @@ async function seedFreeformNotes(workspace: Workspace, projects: Project[]): Pro
       await workspace.notes.updateNoteContent(note.id, sized(freeformNoteContent(topic)));
     }
     notes.push(note);
+    addLinkTargets([note], 'note');
   }
 
   return notes;
@@ -1054,6 +1089,7 @@ async function seedTaskNotes(workspace: Workspace, tasks: Task[]): Promise<Note[
     });
     await workspace.notes.updateNoteContent(note.id, sized(taskNoteContent(task)));
     notes.push(note);
+    addLinkTargets([note], 'note');
   }
 
   return notes;
@@ -1282,10 +1318,10 @@ async function main() {
 
     console.log('Creating regular tasks...');
     const regularTasks = await seedRegularTasks(workspace, projects);
-    if (LARGE) {
-      addLinkTargets(projects, 'project');
-      addLinkTargets(regularTasks, 'task');
-    }
+    // what the notes made from here on mention
+    addLinkTargets(projects, 'project');
+    addLinkTargets(events, 'event');
+    addLinkTargets(regularTasks, 'task');
 
     console.log('Creating meeting notes and event follow-up tasks...');
     const eventFollowups = await seedEventFollowups(workspace, events, projects);
@@ -1307,8 +1343,10 @@ async function main() {
     const allNotes = [...eventFollowups.notes, ...freeformNotes, ...taskNotes];
     const allTasks = [...topLevelTasks, ...subtasks];
 
-    // the services index each row for search as it is made (Workspace's change listeners)
+    // the services index each row for search and mentions as it is made (Workspace's change
+    // listeners)
     await workspace.search.whenIdle();
+    await workspace.mentions.whenIdle();
 
     let extras: Awaited<ReturnType<typeof seedLargeExtras>> | null = null;
     if (LARGE) {

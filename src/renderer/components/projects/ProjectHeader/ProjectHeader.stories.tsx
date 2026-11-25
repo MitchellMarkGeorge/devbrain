@@ -6,6 +6,8 @@ import { Folder } from 'lucide-react';
 import { EditorTitle } from '../../editor/EditorContent';
 import { Icon } from '../../ui/Icon';
 import { DatePicker } from '../../ui/DatePicker';
+import { MentionsPill } from '../../detail/MentionsSection';
+import { SAMPLE_MENTIONS } from '../../lists/MentionRow/fixtures';
 import { ProjectHeader } from './ProjectHeader';
 
 const meta = {
@@ -108,4 +110,9 @@ export const Synced: Story = {
       },
     },
   },
+};
+
+/** What mentions the project, as a pill after its dates, opening the list in a popover */
+export const Mentioned: Story = {
+  args: { links: <MentionsPill mentions={SAMPLE_MENTIONS.slice(0, 4)} /> },
 };

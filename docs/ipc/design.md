@@ -142,7 +142,7 @@ There is no sender check: the window is sandboxed, denies new windows and cancel
 [`router.ts`](../../src/main/ipc/router.ts) merges one router per feature, in
 [`src/main/ipc/routers`](../../src/main/ipc/routers): `app`, `workspaces`, `workspace`, `settings`,
 `tasks`, `archive`, `calendars`, `integrations`, `sources`, `sync`, `notes`, `projects`, `events`,
-`favorites`, `recents`, `search` and `transfer`. Each file's comments say what its procedures do. A few points that are
+`favorites`, `recents`, `search`, `mentions` and `transfer`. Each file's comments say what its procedures do. A few points that are
 not obvious from one file:
 
 - **`setFavorite`** (tasks, projects, notes, events) takes the state wanted, not a toggle, so a
@@ -152,6 +152,11 @@ not obvious from one file:
   its own router's `get` would, narrowed by `entityType`: what a row draws (a task's status, a
   project's colour, an event's colour and calendar) is all there. Core picks the page in one query
   and reads each entity type on it in one batched lookup, so a longer page costs no more queries.
+- **`mentions.list`** takes any task, project, note or event id (`targetId`) and returns what
+  mentions it, as core's `MentionService.list` does: each source with the fields its row draws, most
+  recently changed first, trashed ones left out. A save that adds or removes a link reports
+  `mention`; a source renamed, re-statused or trashed reports its own kind, which the route reads
+  too.
 - **`recents.recordView`** takes any task, project, note or event id and stamps it as viewed now;
   the renderer calls it when a page for one opens. It reports `changed: ['recent']`, never the
   entity's own kind, so a view refetches the recents list and not every list of that entity.
@@ -257,6 +262,7 @@ The rules that shape it:
 | `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty; for `emptied`, also those of the rows that lost a link                                 |
 | `FavoriteChange`                            | the favorited entity's type                                                                                                                          |
 | `RecentChange` (a view recorded)            | `recent`                                                                                                                                             |
+| `MentionChange` (what links to items)       | `mention`, when its `targetIds` is not empty                                                                                                         |
 | `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`                                                                                                                            |
 | `IntegrationChange`                         | `integration`, `externalSource`, plus `changed` on `disconnected`                                                                                    |
 | `SyncProgress` (a committed page)           | its `summary.changed`                                                                                                                                |

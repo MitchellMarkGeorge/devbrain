@@ -7,6 +7,7 @@ import type { ArchiveChange } from '@main/core/archive/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
+import type { MentionChange } from '@main/core/mentions/service';
 import type { NoteChange } from '@main/core/notes/service';
 import type { ProjectChange } from '@main/core/projects/service';
 import type { TaskChange } from '@main/core/tasks/service';
@@ -175,6 +176,9 @@ export class ChangeTracker {
       workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
       workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
       workspace.recents.onChange(() => this.recordChange('recent')),
+      workspace.mentions.onChange((change) =>
+        this.recordChange(...entitiesOfMentionChange(change)),
+      ),
       workspace.detach.onChange((change) => this.recordChange(...entitiesOfTaskLinkChange(change))),
       workspace.integrations.onChange((change) => {
         this.recordChange(...entitiesOfIntegrationChange(change));
@@ -253,6 +257,11 @@ export function entitiesOfArchiveChange(change: ArchiveChange): ChangedEntity[] 
   if (projectIds.length > 0) entities.push('project');
   if (notesChanged) entities.push('note');
   return entities;
+}
+
+// what links to the targets changed; their rows themselves didn't
+export function entitiesOfMentionChange(change: MentionChange): ChangedEntity[] {
+  return change.targetIds.length > 0 ? ['mention'] : [];
 }
 
 const FAVORITE_ENTITIES = {

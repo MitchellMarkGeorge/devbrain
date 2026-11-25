@@ -42,6 +42,7 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
       editable={!synced}
       placeholder="Add a description…"
       onChange={onChange}
+      ownerId={task.id}
       newTaskOptions={{ projectId: task.projectId }}
       openNewTaskDialog={createTask}
     />

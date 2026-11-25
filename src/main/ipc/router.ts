@@ -5,6 +5,7 @@ import { calendarsRouter as calendars } from './routers/calendars';
 import { eventsRouter as events } from './routers/events';
 import { favoritesRouter as favorites } from './routers/favorites';
 import { integrationsRouter as integrations } from './routers/integrations';
+import { mentionsRouter as mentions } from './routers/mentions';
 import { notesRouter as notes } from './routers/notes';
 import { projectsRouter as projects } from './routers/projects';
 import { recentsRouter as recents } from './routers/recents';
@@ -36,6 +37,7 @@ export const appRouter = t.router({
   favorites,
   recents,
   search,
+  mentions,
   transfer,
 });
 

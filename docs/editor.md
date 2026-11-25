@@ -91,7 +91,8 @@ const { initialValue, editor, onChange } = useEditorAutosave(task.description ??
   (`WorkspaceRichTextEditor`'s `openNewTaskDialog`, the tasks feature's `useCreateTask()`, which
   `shared` doesn't import); without it the menu has no Task. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
-  as a pill).
+  as a pill), leaving out the item whose text it is (`WorkspaceRichTextEditor`'s `ownerId`):
+  nothing mentions itself, and core ignores such a link if one is pasted in.
 - A table has controls around it while you work in it (`TableControls.tsx`, drawn on a layer
   over the editor, so they scroll with it): a `TableHandle` on the edge of the column and row
   under the pointer or the caret (click for its `TableMenu`, drag to move it), a

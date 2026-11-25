@@ -4,5 +4,7 @@ export * from './CreateDialog';
 export * from './DateRange';
 export * from './DetailRow';
 export * from './DetailSection';
+export * from './MentionsSection';
+export * from './PillPopover';
 export * from './PropertyRow';
 export * from './TaskNoteCard';

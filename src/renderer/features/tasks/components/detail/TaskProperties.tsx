@@ -39,6 +39,7 @@ import {
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
+import { ItemMentionsPill } from '@renderer/shared/components/ItemMentions';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
 import { isSynced, listedEvent, listedNote, patchTaskInCaches } from '../../api/queries';
@@ -302,9 +303,10 @@ export type AddingProperty = 'parent' | 'event' | 'pull-request' | null;
 /**
  * The pill rows under a task's title (`PropertyRow`): status, priority, the dates and the project,
  * then "+ Add" for what is unset (a parent, an event or note, a pull request); and on the second
- * line where it comes from (the synced badge), what it links to, its parent and its pull
- * request. A synced task shows its provider's values and its pull request read-only and has no
- * "+ Add"; its links stay editable. A local subtask takes its parent's links, so it offers none.
+ * line where it comes from (the synced badge), what it links to, its parent, its pull request
+ * and what mentions it ("7 mentions", opening the list). A synced task shows its provider's
+ * values and its pull request read-only and has no "+ Add"; its links stay editable. A local
+ * subtask takes its parent's links, so it offers none.
  */
 export function TaskProperties({
   task,
@@ -441,6 +443,7 @@ export function TaskProperties({
           onEditingChange={(editing) => setAdding(editing ? 'pull-request' : null)}
         />
       )}
+      <ItemMentionsPill targetId={task.id} />
     </>
   );
 

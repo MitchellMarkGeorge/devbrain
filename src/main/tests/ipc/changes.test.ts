@@ -11,6 +11,7 @@ import {
   entityOfFavoriteChange,
   entitiesOfArchiveChange,
   entitiesOfIntegrationChange,
+  entitiesOfMentionChange,
   entitiesOfNoteChange,
   entitiesOfProjectChange,
   entitiesOfTaskChange,
@@ -398,6 +399,13 @@ describe('the entities of each change', () => {
         unlinkedTaskIds: [],
       }),
     ).toEqual(['note']);
+  });
+
+  it('maps mentions: what links to the targets changed, and nothing for no targets', () => {
+    expect(entitiesOfMentionChange({ type: 'changed', targetIds: ['tsk_1' as never] })).toEqual([
+      'mention',
+    ]);
+    expect(entitiesOfMentionChange({ type: 'changed', targetIds: [] })).toEqual([]);
   });
 
   it('maps favorites, task links and integrations', () => {

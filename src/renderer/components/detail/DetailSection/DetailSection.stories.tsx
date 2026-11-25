@@ -66,7 +66,7 @@ export const Empty: Story = {
   args: { title: 'Event note', children: <AddSlot>Add a note</AddSlot> },
 };
 
-/** A note's Tasks panel: the chevron folds it away */
+/** Collapsible, on a page: the chevron folds it away */
 export const Collapsible: Story = {
   decorators: [
     (Story) => (

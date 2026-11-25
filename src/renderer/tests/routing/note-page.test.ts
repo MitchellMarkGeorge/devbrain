@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
-import { TaskStatus, type NoteListItem } from '@common/types';
+import { TaskStatus, type NoteListItem, type SearchResult } from '@common/types';
 import { queryClient } from '@renderer/ipc';
 import { noteContentQuery } from '@renderer/features/notes/api/queries';
 import { FakeMain, workspace } from './fake-main';
@@ -59,6 +59,17 @@ const editorOf = (container: HTMLElement) =>
     }
   ).editor;
 
+// opens the Tasks popover from its pill; resolves to the list of its rows
+async function openTasks(): Promise<HTMLElement> {
+  const pill = () => document.querySelector('[data-testid="note-tasks-pill"]');
+  await eventually(() => expect(pill()).not.toBeNull());
+  click(pill());
+  const list = () =>
+    document.querySelector<HTMLElement>('[data-testid="note-tasks"] [data-task-id]');
+  await eventually(() => expect(list()).not.toBeNull());
+  return list()!.closest<HTMLElement>('[data-testid="note-tasks"]')!;
+}
+
 // whether `text` was on the page in the frame `testId` first appeared in
 function firstFrameHas(container: HTMLElement, testId: string, text: string) {
   let seen: boolean | undefined;
@@ -81,9 +92,9 @@ describe('the note page', () => {
     expect(page.querySelector('[aria-label="Title"]')!.textContent).toBe('Architecture ADR #4');
     expect(page.textContent).toContain('Edited');
     await eventually(() => expect(page.textContent).toContain('1 task · 1 in progress'));
-    expect(page.querySelector('[data-testid="note-tasks"]')!.textContent).toContain(
-      'Implement PKCE flow',
-    );
+    // its tasks are in the pill's popover, not under the editor
+    expect(page.querySelector('[data-testid="note-tasks"]')).toBeNull();
+    expect((await openTasks()).textContent).toContain('Implement PKCE flow');
     expect(main.callsTo('recents.recordView').map((call) => call.input)).toEqual([{ id: NOTE }]);
     expect(main.callsTo('tasks.list').at(-1)!.input).toMatchObject({ filter: { noteId: NOTE } });
   });
@@ -231,6 +242,29 @@ describe('the note page', () => {
     await eventually(() => expect(main.callsTo('notes.updateContent')).toHaveLength(1));
   });
 
+  it('never offers the note itself on "@", as nothing mentions itself', async () => {
+    const { app } = notePage(undefined, NOTE, {}, (main) => {
+      const found = (id: string, title: string) =>
+        ({
+          entityType: 'note',
+          entity: { id, title, color: null },
+          title,
+          body: '',
+          key: null,
+          rank: -1,
+        }) as unknown as SearchResult;
+      main.searchResults = [found(NOTE, 'Architecture ADR #4'), found('nte_other', 'ADR #5')];
+    });
+    await eventually(() => expect(app.text()).toContain('The implicit flow leaks tokens.'));
+    editorOf(app.container).chain().focus('end').insertContent(' @adr').run();
+    let menu: Element | null = null;
+    await eventually(() => {
+      menu = document.querySelector('[aria-label="Mention"]');
+      expect(menu?.textContent ?? '').toContain('ADR #5');
+    });
+    expect(menu!.textContent).not.toContain('Architecture ADR #4');
+  });
+
   it('opens New task on "/task", connected to the note and its project', async () => {
     const { main, app } = notePage('Draft');
     await eventually(() => expect(app.text()).toContain('Draft'));
@@ -320,10 +354,12 @@ describe('the note page', () => {
     expect(main.callsTo('archive.archiveNote').map((call) => call.input)).toEqual([{ id: NOTE }]);
   });
 
-  it('links an existing task from Link Task', async () => {
-    const { main, app } = notePage();
-    await eventually(() => expect(byText(app.container, 'button', 'Link Task')).not.toBeNull());
-    click(byText(app.container, 'button', 'Link Task'));
+  it('links an existing task from the Tasks popover’s Link', async () => {
+    const { main } = notePage();
+    const list = await openTasks();
+    const popup = list.closest('[role="dialog"]')!;
+    expect(popup.textContent).toContain('Tasks');
+    click(byText(popup, 'button', 'Link'));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', 'Audit token storage')).not.toBeNull(),
     );
@@ -353,7 +389,7 @@ describe('the note page', () => {
     expect(seen()).toBe(true);
   });
 
-  it('loads the tasks made from it before it draws, so their pill and section are on the first frame', async () => {
+  it('loads the tasks made from it before it draws, so their pill is on the first frame', async () => {
     let release = () => {};
     const { main, app } = notePage(undefined, NOTE, {}, (fake) => {
       release = fake.hold('tasks.list');
@@ -362,26 +398,21 @@ describe('the note page', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(app.container.querySelector('[data-testid="note-page"]')).toBeNull();
     const pill = firstFrameHas(app.container, 'note-page', '1 task · 1 in progress');
-    const section = firstFrameHas(app.container, 'note-page', 'Implement PKCE flow');
     release();
     await eventually(() =>
       expect(app.container.querySelector('[data-testid="note-page"]')).not.toBeNull(),
     );
     expect(pill()).toBe(true);
-    expect(section()).toBe(true);
   });
 
   it('opens a task’s menu on a right-click of its row, the list itself being the right-click area', async () => {
-    const { main, app } = notePage();
-    const selector = '[data-testid="note-tasks"] [data-task-id="tsk_pkce"]';
-    await eventually(() => expect(app.container.querySelector(selector)).not.toBeNull());
-    const row = app.container.querySelector(selector)!;
+    const { main } = notePage();
+    const list = await openTasks();
+    const row = list.querySelector('[data-task-id="tsk_pkce"]')!;
     rightClick(row);
     const favorite = await menuItem('Favorite');
-    // the trigger is the list's key scope, not a wrapper of its own around it
-    expect(document.querySelector('[data-popup-open]')).toBe(
-      row.closest('[data-key-scope="list"]'),
-    );
+    // the trigger is the popover's list, not a wrapper of its own around it
+    expect(list.hasAttribute('data-popup-open')).toBe(true);
     click(favorite);
     await eventually(() =>
       expect(main.callsTo('tasks.setFavorite').map((call) => call.input)).toEqual([
@@ -390,14 +421,27 @@ describe('the note page', () => {
     );
   });
 
-  it('opens a task made from it in the sheet beside the page, and Back closes it', async () => {
-    const { app } = notePage();
+  it('changes a task’s status from its row in the popover', async () => {
+    const { main } = notePage();
+    const list = await openTasks();
+    click(list.querySelector('[data-task-id="tsk_pkce"] button[aria-label^="Status"]'));
+    let completed: HTMLElement | null = null;
+    await eventually(() => {
+      completed = byText(document.body, '[role="menuitemradio"]', 'Completed');
+      expect(completed).not.toBeNull();
+    });
+    click(completed);
     await eventually(() =>
-      expect(
-        app.container.querySelector('[data-testid="note-tasks"] [data-task-id]'),
-      ).not.toBeNull(),
+      expect(main.callsTo('tasks.updateStatus').map((call) => call.input)).toEqual([
+        { id: 'tsk_pkce', status: TaskStatus.COMPLETED },
+      ]),
     );
-    click(app.container.querySelector('[data-testid="note-tasks"] [data-task-id="tsk_pkce"]'));
+  });
+
+  it('opens a task made from it in the sheet beside the page, closing the popover, and Back closes it', async () => {
+    const { app } = notePage();
+    const list = await openTasks();
+    click(list.querySelector('[data-task-id="tsk_pkce"]'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}?open=tsk_pkce`));
     await eventually(() =>
       expect(
@@ -405,6 +449,11 @@ describe('the note page', () => {
           '[data-testid="task-sheet"] input[aria-label="Title"]',
         )?.value,
       ).toBe('Implement PKCE flow'),
+    );
+    await eventually(() =>
+      expect(
+        document.querySelector('[data-testid="note-tasks-pill"]')?.hasAttribute('data-popup-open'),
+      ).toBe(false),
     );
     // still on the note
     expect(app.container.querySelector('[data-testid="note-page"]')).not.toBeNull();

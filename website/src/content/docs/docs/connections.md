@@ -52,9 +52,14 @@ In any note or description, type <kbd>@</kbd> to link a task, a note or an event
 A mention is a link, not a relationship: it doesn't change which project or note anything belongs
 to, so you can mention as freely as you like.
 
+Each item keeps track of what mentions it: a task, note, project or event shows **Mentioned in**,
+the notes and tasks that link to it, so you can go back from it to where it was discussed (see
+[Mentioned in](/docs/notes/#mentioned-in)).
+
 ## Where the links show
 
-- **On the item:** its links are pills under the title. Click one to open what it links to.
+- **On the item:** its links are pills under the title. Click one to open what it links to. The
+  last pill says how many items mention it.
 - **On Home:** what's due today and the meetings coming up, from your dates and links.
 - **In search:** every task, note, project and event, in one search.
 - **When you export:** tasks keep their project and subtasks, and notes their project. Links to

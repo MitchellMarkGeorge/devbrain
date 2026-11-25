@@ -10,6 +10,7 @@ import type {
 } from '@common/ipc/types';
 import {
   LinkState,
+  type Mention,
   type AppSettings,
   type SearchCounts,
   type SearchResult,
@@ -110,6 +111,8 @@ export class FakeMain {
   readonly taskStores = new Map<WorkspaceId, FakeTasks>();
   // what search.search finds, whatever the query: those of the types asked for
   searchResults: SearchResult[] = [];
+  // what mentions.list answers, by the item mentioned; nothing mentions an item not here
+  mentions = new Map<string, Mention[]>();
   // what search.counts answers; counted from searchResults when null
   searchCounts: SearchCounts | null = null;
   // the events of a workspace with no calendar store of its own (its one calendar, cal_work), and
@@ -628,6 +631,8 @@ export class FakeMain {
         );
         return [found, []];
       }
+      case 'mentions.list':
+        return [this.mentions.get(args.targetId as string) ?? [], []];
       case 'search.counts': {
         const counts = { task: 0, note: 0, project: 0, event: 0 };
         for (const { entityType } of this.searchResults) counts[entityType] += 1;

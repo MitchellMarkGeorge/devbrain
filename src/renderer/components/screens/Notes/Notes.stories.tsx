@@ -1,17 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { TaskPriority, TaskStatus } from '@common/types';
+import { TaskStatus } from '@common/types';
 import { CircleCheck, Link, Plus } from 'lucide-react';
-import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { DetailSection } from '../../detail/DetailSection';
+import { MentionsPill } from '../../detail/MentionsSection';
+import { PillPopover } from '../../detail/PillPopover';
 import { EditorContent } from '../../editor/EditorContent';
 import { EntityPill } from '../../entities/EntityPill';
-import { SheetDivider } from '../../ui/Sheet';
-import { TaskList } from '../../lists/TaskList';
+import { LinkedTaskRow, type LinkedTaskRowData } from '../../lists/LinkedTaskRow';
+import { SAMPLE_MENTIONS } from '../../lists/MentionRow/fixtures';
+import { sampleLinear } from '../../lists/TaskRow/fixtures';
 import { NotePage } from './notePage';
-import { sampleLinear, sampleTask } from '../../lists/TaskRow/fixtures';
 import { storyDate } from '../../lib/story-dates';
-import type { TaskId } from '@common/ids';
 
 const meta = {
   title: 'Screens/Notes',
@@ -21,7 +20,32 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Note editor (linked tasks) (7158:16863): the note, then its Tasks panel */
+// the tasks made from the note, from Linear
+const NOTE_TASKS: LinkedTaskRowData[] = [
+  {
+    title: 'Implement OAuth2 PKCE flow',
+    status: TaskStatus.IN_PROGRESS,
+    dueDate: storyDate(2),
+    external: sampleLinear('ENG-124'),
+  },
+  {
+    title: 'Refactor token refresh logic',
+    status: TaskStatus.IN_PROGRESS,
+    dueDate: storyDate(-4),
+    external: sampleLinear('ENG-131'),
+  },
+  {
+    title: 'Audit token storage',
+    status: TaskStatus.NOT_STARTED,
+    dueDate: storyDate(-3),
+    external: sampleLinear('ENG-118'),
+  },
+];
+
+/**
+ * Note editor (linked tasks) (7158:16863, as built): the note, its tasks and what mentions it as
+ * pills under the title, the tasks open in their popover
+ */
 export const NoteEditorLinkedTasks: Story = {
   name: 'Note editor (linked tasks)',
   render: () => (
@@ -31,7 +55,29 @@ export const NoteEditorLinkedTasks: Story = {
       pills={
         <>
           <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
-          <EntityPill glyph={CircleCheck}>3 tasks · 2 in progress</EntityPill>
+          <PillPopover
+            glyph={CircleCheck}
+            label="3 tasks · 2 in progress"
+            heading="Tasks"
+            defaultOpen
+            action={
+              <>
+                <Button size="xs" variant="ghost" icon={Link}>
+                  Link
+                </Button>
+                <Button size="xs" variant="ghost" icon={Plus}>
+                  New
+                </Button>
+              </>
+            }
+          >
+            <div>
+              {NOTE_TASKS.map((task) => (
+                <LinkedTaskRow key={task.title} task={task} onOpen={() => {}} />
+              ))}
+            </div>
+          </PillPopover>
+          <MentionsPill mentions={SAMPLE_MENTIONS.slice(2, 6)} />
         </>
       }
     >
@@ -49,53 +95,6 @@ export const NoteEditorLinkedTasks: Story = {
         </ul>
         <p>The implicit flow stays behind a feature flag for one release, then is removed.</p>
       </EditorContent>
-      <SheetDivider style={{ margin: '4px 0 16px' }} />
-      <DetailSection
-        collapsible
-        spacing="page"
-        title="Tasks"
-        count={<Badge variant="secondary">3</Badge>}
-        action={
-          <>
-            <Button size="xs" variant="ghost" icon={Link}>
-              Link Task
-            </Button>
-            <Button size="xs" icon={Plus}>
-              New Task
-            </Button>
-          </>
-        }
-      >
-        <TaskList
-          selectionBar={false}
-          tasks={[
-            sampleTask({
-              id: 'tsk_124' as TaskId,
-              title: 'Implement OAuth2 PKCE flow',
-              status: TaskStatus.IN_PROGRESS,
-              priority: TaskPriority.HIGH,
-              dueDate: storyDate(2),
-              external: sampleLinear('ENG-124'),
-              subtaskProgress: { completed: 3, total: 4 },
-            }),
-            sampleTask({
-              id: 'tsk_131' as TaskId,
-              title: 'Refactor token refresh logic',
-              status: TaskStatus.IN_PROGRESS,
-              priority: TaskPriority.HIGH,
-              dueDate: storyDate(-4),
-              external: sampleLinear('ENG-131'),
-            }),
-            sampleTask({
-              id: 'tsk_118' as TaskId,
-              title: 'Audit token storage',
-              priority: TaskPriority.HIGH,
-              dueDate: storyDate(-3),
-              external: sampleLinear('ENG-118'),
-            }),
-          ]}
-        />
-      </DetailSection>
     </NotePage>
   ),
 };

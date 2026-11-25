@@ -15,8 +15,20 @@
 .body {
   margin-top: var(--space-8);
 }
-.divider {
-  margin: var(--space-6) 0 var(--space-4);
+/* the tasks popover's "Show more", past its first hundred */
+.more {
+  align-self: flex-start;
+  height: var(--control-sm);
+  margin-top: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+}
+.more:hover {
+  color: var(--foreground);
 }
 /* a trashed note's notice over the page, as far above the title as the task page's */
 .trashed {

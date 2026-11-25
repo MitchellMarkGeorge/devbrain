@@ -31,6 +31,7 @@ import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
+import { ItemMentionsPill } from '@renderer/shared/components/ItemMentions';
 import { projectRoute } from '../api/route-api';
 import type { ProjectTab } from '../api/search';
 import { ColourItems } from '../components/colour';
@@ -248,6 +249,7 @@ function ProjectPageHeader({ project }: { project: Project }) {
           />
         )
       }
+      links={<ItemMentionsPill targetId={project.id} />}
       meta={<TimeLeft project={project} />}
       description={<ProjectDescription project={project} />}
     />

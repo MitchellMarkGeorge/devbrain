@@ -1,0 +1,23 @@
+/* A page's pill opening its list. See docs/design-system/components/PillPopover.md */
+.popover {
+  width: 340px;
+  padding: var(--space-1);
+}
+/* the list's heading: its name, then the actions on the right */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-1) 0 var(--space-2);
+}
+.title {
+  flex: 1;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+/* a long list scrolls inside the popover, under its heading */
+.body {
+  max-height: 360px;
+  overflow-y: auto;
+}

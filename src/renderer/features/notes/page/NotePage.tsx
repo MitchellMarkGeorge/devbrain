@@ -28,14 +28,14 @@ import { useNoteActions } from '../hooks/use-note-actions';
 import { NoteDetailMenu } from '../components/detail/NoteDetailMenu';
 import { NoteEditor } from '../components/detail/NoteEditor';
 import { NotePills } from '../components/detail/NotePills';
-import { NoteTasksSection } from '../components/detail/NoteTasksSection';
 import styles from '../components/detail/NotePage.module.css';
 
 /**
  * A note's page (`/app/$workspaceId/notes/$noteId`, Figma `7158:16387`, `7158:16863`): the title
- * (renamed as it's left), "Edited …", the pills (project, link, tasks), the body in the rich text
- * editor (saved as you type), then the Tasks made from it (each opening in the task sheet beside
- * the page, `?open=tsk_…`); the star and the "…" menu in the header. A note in the trash (opened
+ * (renamed as it's left), "Edited …", the pills (project, link, the tasks made from it and what
+ * mentions it, each list in a popover), then the body in the rich text editor (saved as you type).
+ * A task opens in the task sheet beside the page (`?open=tsk_…`). The star and the "…" menu are
+ * in the header. A note in the trash (opened
  * from Trash) is shown read-only under a "This note is in the trash" bar until it is restored. The
  * route's loader has the note and its markdown before the first frame; a note deleted while it is
  * open shows not-found.
@@ -167,7 +167,13 @@ function NotePageContent({ note }: { note: NoteListItem }) {
               Edited {lowerFirst(formatRelative(note.updatedAt))}
             </Text>
             <div className={styles.pills}>
-              <NotePills note={note} actions={actions} onNewTask={newTask} onLinkTask={linkTask} />
+              <NotePills
+                note={note}
+                actions={actions}
+                onNewTask={newTask}
+                onLinkTask={linkTask}
+                onOpenTask={openTask}
+              />
             </div>
           </div>
           <div className={styles.body}>
@@ -180,12 +186,6 @@ function NotePageContent({ note }: { note: NoteListItem }) {
               }}
             />
           </div>
-          <NoteTasksSection
-            noteId={note.id}
-            onNewTask={newTask}
-            onLinkTask={linkTask}
-            onOpenTask={openTask}
-          />
         </Inert>
       </PageContent>
       {sheetTask && (

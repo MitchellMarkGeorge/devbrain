@@ -31,6 +31,8 @@ import {
 import { StatusIcon } from '../../entities/StatusIcon';
 import { SyncedBadge } from '../../entities/SyncedBadge';
 import { TaskNoteCard } from '../../detail/TaskNoteCard';
+import { MentionsSection } from '../../detail/MentionsSection';
+import { SAMPLE_MENTIONS } from '../../lists/MentionRow/fixtures';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { storyDate } from '../../lib/story-dates';
 
@@ -94,7 +96,10 @@ function Subtasks({ canAdd = true }: { canAdd?: boolean }) {
   );
 }
 
-/** Tasks board – task sheet (7175:31599), the sheet alone: a local task, every value a pill */
+/**
+ * Tasks board – task sheet (7175:31599), the sheet alone: a local task, every value a pill, and
+ * what mentions it folded at the end
+ */
 export const TaskSheet: Story = {
   name: 'Tasks board – task sheet',
   render: () => (
@@ -135,6 +140,7 @@ export const TaskSheet: Story = {
           layout="stacked"
         />
       </DetailSection>
+      <MentionsSection mentions={SAMPLE_MENTIONS} />
     </SheetColumn>
   ),
 };
