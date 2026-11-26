@@ -53,8 +53,8 @@ describe('ListFilters', () => {
       'Priority filter',
       'Source filter',
     ]);
-    // each chip is its value and its ×; the menu's button names no filter
-    expect(buttons()).toEqual(['PriorityAlpha', '', 'SourceBeta', '', 'Filter']);
+    // each chip is its value and its ×; the menu's button names no filter; then Clear
+    expect(buttons()).toEqual(['PriorityAlpha', '', 'SourceBeta', '', 'Filter', 'Clear']);
   });
 
   it('removes a filter from its chip’s ×', () => {
@@ -74,7 +74,20 @@ describe('ListFilters', () => {
   it('folds the chips into the Filter button’s count in a compact window', () => {
     render({ fields: [field('Priority', 'a'), field('Due', 'b')], compact: true });
     expect(chips()).toEqual([]);
-    expect(buttons()).toEqual(['Filter2']);
+    expect(buttons()).toEqual(['Filter2', 'Clear']);
+  });
+
+  it('offers Clear at the row’s end from two filters, and it removes them all', () => {
+    const onClear = vi.fn();
+    const clear = () => container.querySelector<HTMLElement>('[aria-label="Clear filters"]');
+    // one filter: its chip's × is the same thing
+    render({ fields: [field('Priority', 'a'), field('Due')], onClear });
+    expect(clear()).toBeNull();
+    render({ fields: [field('Priority', 'a'), field('Due', 'b')], onClear });
+    // the last control of the row
+    expect(clear()).toBe([...container.querySelectorAll('button')].at(-1));
+    act(() => clear()!.click());
+    expect(onClear).toHaveBeenCalledTimes(1);
   });
 });
 

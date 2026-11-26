@@ -244,7 +244,10 @@ export interface ListFiltersProps {
   compact?: boolean;
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
-  /** "Clear filters", at the menu's end while a filter is set */
+  /**
+   * removes every filter: "Clear" at the row's end once two are set, and "Clear filters" at the
+   * menu's end while any is
+   */
   onClear: () => void;
 }
 
@@ -269,14 +272,18 @@ export function chipsThatFit(widths: number[], available: number, plainWidth: nu
   return fit;
 }
 
-/** `chipsThatFit` for the chips in `row`. A row that has not been laid out shows them all. */
+/**
+ * `chipsThatFit` for the chips in `row`, in the room its "Clear" (if it is drawn) leaves. A row
+ * that has not been laid out shows them all.
+ */
 function measure(row: HTMLElement, plainWidth: number): number {
   const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
   if (row.clientWidth === 0) return chips.length;
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+  const clear = row.querySelector<HTMLElement>('[data-clear]');
   return chipsThatFit(
     chips.map((chip) => chip.offsetWidth + gap),
-    row.clientWidth,
+    row.clientWidth - (clear ? clear.offsetWidth + gap : 0),
     plainWidth,
   );
 }
@@ -288,6 +295,9 @@ function measure(row: HTMLElement, plainWidth: number): number {
  * has an item for each field, showing the value it is filtered to (so a folded filter is still
  * one click away) and opening its values in a submenu, with a search row for a field that asks for
  * one. A field holds one value.
+ *
+ * From two filters, "Clear" sits at the row's end (before the toolbar's end group), where it
+ * stays put as chips come and go; with one filter, its chip's × is the same thing.
  */
 export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => field.value !== undefined);
@@ -361,6 +371,17 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      {set.length >= 2 && (
+        <Button
+          variant="ghost"
+          data-clear=""
+          aria-label="Clear filters"
+          className={styles.clear}
+          onClick={onClear}
+        >
+          Clear
+        </Button>
+      )}
     </div>
   );
 }

@@ -51,7 +51,10 @@ const FILTERED = { priority: String(TaskPriority.HIGH), source: 'external' };
 /** Nothing filtered: the Status chip, a quiet "+ Filter", and Display at the end. */
 export const Tasks: Story = { render: () => <Toolbar start={{ list: 'tasks' }} /> };
 
-/** Two filters set: each is a chip, its value opening the field's values and its × removing it. */
+/**
+ * Two filters set: each is a chip, its value opening the field's values and its × removing it.
+ * "Clear", at the row's end before Display, removes both.
+ */
 export const Filtered: Story = {
   render: () => <Toolbar start={{ list: 'tasks', filters: FILTERED }} />,
 };

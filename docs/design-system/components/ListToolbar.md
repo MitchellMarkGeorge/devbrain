@@ -24,12 +24,17 @@ Rules:
 
 - The toolbar has no "New …" button: the title bar's New creates. The exception is a project's
   Tasks tab, which keeps New Task after Display because it files the task in that project.
-- Order at the start: Status, the chips in the fields' order, "+ Filter". Nothing else goes there.
+- Order at the start: Status, the chips in the fields' order, "+ Filter", then "Clear" at the
+  row's end. Nothing else goes there.
 - The toolbar is always one row. `ListFilters` takes the room left after Status and measures it:
   the chips that fit are drawn, and the rest fold into the trailing button, which becomes an
   outlined "Filter +2" (two more filters than the chips shown). A folded filter is still in the
   menu, beside its field's name, and comes back as a chip when there is room (the window widens, or
   a chip before it is removed). Chips fold from the end, in the fields' order.
+- From two filters, a quiet "Clear" sits at the end of the filters' row, just before Display, and
+  removes them all. It is at the row's end, not after "+ Filter", so it stays in one place as chips
+  come and go; it also clears the folded ones. With one filter it is left out: that chip's × is the
+  same thing. It leaves Status alone, as "Clear filters" in the menu does.
 - A chip is not a `ButtonGroup`: its two halves square their own inner corners, because an open
   menu mounts parts beside its trigger and a rule by sibling position would round them again.
 - In a compact window (`compact`) Status and Display keep their names and drop their values
