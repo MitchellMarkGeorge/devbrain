@@ -141,10 +141,10 @@ export const StatusMenuOpen: Story = {
 };
 
 /**
- * A row short of room: the title shortens first, down to 120px; then the pills with a name (the
- * parent, the link, the project) shorten their labels, down to their icons; the key, the subtask
- * count, the priority and the date stay whole. Nothing overlaps, and nothing moves when the row is
- * pointed at: a pill's hover card says what a shortened label left out.
+ * A row short of room: the pills give way first. They stack, each sliding under the one after it
+ * down to its icon; then the last pill of each group shortens its label; only then does the title
+ * shorten, and never below 48px. Point at a group of pills to spread that group back out: the title
+ * gives way to it.
  */
 export const NarrowRows: Story = {
   name: 'Narrow rows',
@@ -167,7 +167,7 @@ export const NarrowRows: Story = {
   ),
 };
 
-/** Drag the handle at the bottom right to resize the rows and watch the title and the pills give way. */
+/** Drag the handle at the bottom right to resize the rows and watch the pills stack; point at a group to spread it. */
 export const Resizable: Story = {
   render: () => (
     <div

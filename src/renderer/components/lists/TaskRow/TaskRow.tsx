@@ -105,16 +105,21 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
 }
 
 /**
- * The pills on one side of the title. They never overlap and never move: when the row runs out of
- * room the title shortens first, then the pills with a name (the parent, the link, the project)
- * shorten their labels, down to their icons, while the key and the subtask count (`data-keep`)
- * stay whole. All of it is the row's flex layout (TaskRow.module.css); nothing is measured.
+ * The pills on one side of the title, each in a slot. Short of room, the slots narrow and the pills
+ * keep their width, so each pill slides under the one after it: a stack, the last pill on top.
+ * Pointing at the group (or focusing a pill in it) spreads it back out, and the title gives way.
+ * All of it is the row's flex layout (TaskRow.module.css); nothing is measured.
  */
 function Pills({ children }: { children: ReactNode }) {
-  if (Children.toArray(children).length === 0) return null;
+  const pills = Children.toArray(children);
+  if (pills.length === 0) return null;
   return (
     <span className={styles.pills} data-pills="">
-      {children}
+      {pills.map((pill, index) => (
+        <span key={index} className={styles.slot}>
+          {pill}
+        </span>
+      ))}
     </span>
   );
 }

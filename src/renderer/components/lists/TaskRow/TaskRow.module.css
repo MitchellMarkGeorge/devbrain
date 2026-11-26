@@ -11,8 +11,10 @@
   --check-slot: 16px;
   --row-gap: var(--space-2);
   --status-size: 24px;
-  /* the title keeps this much (if it is that long) before any pill shortens */
-  --name-min: 120px;
+  /* the least the title is ever given: it is never hidden */
+  --name-min: 48px;
+  /* what shows of a pill under the next one in a stack: its border, padding and icon */
+  --pill-edge: 28px;
   /* where the status icon starts (32px): the tree's guides are drawn from it */
   --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
   position: relative;
@@ -198,17 +200,22 @@
 }
 
 /*
- * The title, its pills and the side are all items of the row's one flex line (their wrappers draw
- * no box), so the row shares its room out among them in one pass:
+ * The title, each pill's slot and the side's parts are all items of the row's one flex line (their
+ * wrappers draw no box), so the row shares its room out among them in one pass. Short of room, the
+ * pills give way first and the title last:
  *
- * 1. With room to spare, the title and every pill are whole.
- * 2. Short of room, the title shortens first, down to --name-min.
- * 3. Then the pills with a name shorten their labels, down to their icons.
- * 4. Then the title gives up what it has left.
+ * 1. The pills stack. A slot narrows while its pill keeps its width, so the pill slides under the
+ *    one after it, down to its --pill-edge (its icon). The last pill of a group is on top, whole.
+ * 2. The last pill of each group shortens its label, down to its icon (a key or a subtask count,
+ *    `data-keep`, stays whole).
+ * 3. The title shortens, down to --name-min and no further: it is never hidden.
  *
- * The key and the subtask count (`data-keep`), the priority and the date never give way. Nothing
- * overlaps and nothing moves when the row is pointed at: a pill's hover card says what a shortened
- * label left out.
+ * Pointing at a group of pills (or focusing one of them, or one's hover card being open) spreads
+ * that group back out, and the title gives way to it instead, down to --name-min. The slots tile
+ * the group with no gaps, and a spread group covers all of where it was stacked, so the pointer
+ * that spread it is still on it.
+ *
+ * The priority and the date never give way.
  */
 .title,
 .side,
@@ -216,10 +223,8 @@
   display: contents;
 }
 .name {
-  /* from --name-min up to its full text; below --name-min only once the pills are at their icons */
-  flex: 1 1 var(--name-min);
-  max-width: max-content;
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: var(--name-min);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -228,29 +233,71 @@
   color: var(--muted-foreground);
 }
 
-.pills > * {
-  flex: none;
+/* a slot is its pill and the 6px after it; the first to give way, long before the title */
+.slot {
+  display: flex;
+  /* each stage gives way a million times sooner than the next, so the next loses nothing meanwhile */
+  flex: 0 1000000000000 auto;
+  min-width: var(--pill-edge);
+  /* every slot paints as one layer, in order: each pill over the one before */
+  isolation: isolate;
+  /*
+   * its pill shows 12px past the slot, enough to reach under the next pill's rounded end, and no
+   * further: a long pill never comes out the far side of a short one. (4px elsewhere, for a focus ring.)
+   */
+  clip-path: inset(-4px -12px -4px -4px);
 }
-/* pills are 6px apart, not the row's 8px */
-.pills > * + * {
-  margin-left: calc(var(--space-1-5) - var(--row-gap));
+.slot:not(:last-child) {
+  padding-right: var(--space-1-5);
+}
+/* slots touch: the gap between pills is the slot's own padding, so pointing at it is pointing at the group */
+.slot + .slot {
+  margin-left: calc(-1 * var(--row-gap));
+}
+/* the parent's pill has two icons (the corner arrow and the status); an event's, a 3px colour bar */
+.slot:has(> * > svg ~ svg) {
+  min-width: calc(var(--pill-edge) + 18px);
+}
+.slot:has(> [data-slot='badge'] > [data-slot='colour-bar']) {
+  min-width: calc(var(--pill-edge) - 14px);
 }
 /*
- * a pill with a name (the parent, the link, the project): up to Badge's 240px, and the first to
- * give way once the title is down to --name-min
+ * A pill keeps its width in a narrowed slot and runs on under the next pill. Each is opaque, so the
+ * one underneath is hidden: its own fill (none in dark) over the row's tint over the page, the
+ * ground it would show anyway.
  */
-.pills > :not([data-keep]) {
-  flex-shrink: 1000;
-  /* its icon alone: the border, the padding and a 12px icon */
+.slot > * {
+  flex: none;
+  background:
+    linear-gradient(var(--pill-fill), var(--pill-fill)),
+    linear-gradient(var(--row-tint), var(--row-tint)), var(--background);
+}
+.slot > :is(button, a, [role='button']):is(:hover, [data-popup-open]) {
+  background:
+    linear-gradient(var(--pill-fill-hover), var(--pill-fill-hover)),
+    linear-gradient(var(--row-tint), var(--row-tint)), var(--background);
+}
+/* the last pill of a group is on top: it gives way after the stack, by shortening its label */
+.slot:last-child {
+  flex-shrink: 1000000;
   min-width: 34px;
+  clip-path: none;
 }
-/* the parent's pill has two icons (the corner arrow and the status) */
-.pills > :not([data-keep]):has(> svg ~ svg) {
-  min-width: 52px;
+.slot:last-child > * {
+  flex: 0 1 auto;
+  min-width: 0;
 }
-/* an event's has a 3px colour bar for an icon */
-.pills > :not([data-keep]):has(> [data-slot='colour-bar']) {
-  min-width: 25px;
+.slot:last-child:has(> [data-keep]) {
+  flex-shrink: 0;
+}
+
+/* spread: the group pointed at takes its room back, from the title */
+.row:has(.pills:is(:hover, :has(:focus-visible, [data-popup-open]))) .name {
+  flex-shrink: 1000000;
+}
+.pills:is(:hover, :has(:focus-visible, [data-popup-open]))
+  > .slot:not(:has(> [data-keep]):last-child) {
+  flex-shrink: 1;
 }
 
 /* the side starts at its first part, which takes the room left over: its pills, else the priority */
@@ -258,6 +305,7 @@
 .side > .priority:first-child {
   margin-left: auto;
 }
+
 /* the priority and the date never give way */
 .priority {
   flex: none;

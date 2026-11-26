@@ -1,6 +1,6 @@
 /*
  * An icon keeps its size: the reset's `svg { max-width: 100% }` would squeeze it in a box narrower
- * than itself (a task row's pill shortened to its icon)
+ * than itself (a task row's pill stacked or shortened to its icon)
  */
 .icon {
   flex: none;
