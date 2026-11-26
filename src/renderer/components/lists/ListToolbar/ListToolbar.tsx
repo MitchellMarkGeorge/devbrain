@@ -281,7 +281,14 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
   // Only the chips that fit are in the DOM. To know which do, each set of chips is drawn whole
   // once and measured before the browser paints (a layout effect), and the widths are kept: a
   // resize then needs no chip drawn to count again.
-  const chipsKey = set.map((field) => `${field.id}:${field.value}`).join('|');
+  // The key names what each chip says, not only what it is set to: a value's label can arrive
+  // after its chip (a project's name, once the projects load), and the chip is wider for it.
+  const chipsKey = set
+    .map((field) => {
+      const label = field.options.find((option) => option.value === field.value)?.label ?? '';
+      return `${field.id}:${field.value}:${label}`;
+    })
+    .join('|');
   // what was measured for the chips of `key`: each chip's width and "Clear"'s (with the gap after
   // it), and "+ Filter"'s
   const [measured, setMeasured] = useState({ key: '', chips: [] as number[], clear: 0, plain: 0 });
