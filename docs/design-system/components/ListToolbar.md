@@ -22,15 +22,20 @@ the start, how they are drawn at the end. Three pieces, all `outline` 32px butto
 
 A field holds one value or several (`ListFilterField`):
 
-- **One value** (the default: Due, Source). Its values are a choice of one (radio items); picking
-  one closes the menu. `value` is the value or `undefined`.
+- **One value** (the default: Due, Source). Its values are a choice of one: radio items, each
+  drawing a radio button. `value` is the value or `undefined`.
 - **Several values** (`multiple: true`: Priority, Project, a note's Linked to), meaning "any of
-  these". Its values tick on their own (checkbox items) and the menu stays open for the next one;
-  "Any" in the submenu unticks them all and closes it. `value` is a list, empty when the filter is
+  these". Its values tick on their own: checkbox items, each drawing a checkbox. "Any" in the
+  submenu unticks them all. `value` is a list, empty when the filter is
   not set, and `onChange` gets the new list in the options' order. Unticking the last value removes
   the chip. The chip and the menu's item show the same summary: one value's label ("High"), two
   side by side ("High, Medium"), and from three the first and how many more ("High +2"). The text
   is cut with "…" when it is long; "+2" never is.
+
+A value's control comes before its icon (`DropdownMenu`'s `indicator="control"`), so the kind of
+choice shows before anything is picked. Picking a value never closes the menu, in either kind of
+field: several values, and then other fields, are set in one visit, and the list behind the menu
+updates as they are. The menu closes on Escape or a click outside it.
 
 A field is one filter however many values it holds: one chip, and one in the counts "Filter 2" and
 "Filter +2".

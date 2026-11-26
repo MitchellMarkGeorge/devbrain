@@ -195,17 +195,19 @@ function toggled(field: ListMultiFilterField, value: string, checked: boolean): 
 
 /**
  * A field's values, under a search row for a field that asks for one (the menu or submenu around
- * them must then be in a `DropdownMenuFilter`): a choice of one, or for a `multiple` field items
- * that tick on their own, the menu staying open. `any` puts "Any" first, which removes the filter.
+ * them must then be in a `DropdownMenuFilter`): radio buttons for a choice of one, checkboxes for
+ * a `multiple` field. Each value draws its control, and neither kind closes the menu, so several
+ * values, and then other fields, can be set in one visit. `any` puts "Any" first, which removes
+ * the filter.
  */
 function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) {
   const values = field.multiple ? (
     <DropdownMenuGroup>
       {any && (
         <DropdownMenuCheckboxItem
+          indicator="control"
           icon={CircleSlash}
           checked={field.value.length === 0}
-          closeOnClick
           onCheckedChange={() => field.onChange([])}
         >
           Any
@@ -214,6 +216,7 @@ function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) 
       {field.options.map((option) => (
         <DropdownMenuCheckboxItem
           key={option.value}
+          indicator="control"
           icon={option.icon}
           checked={field.value.includes(option.value)}
           onCheckedChange={(checked) => field.onChange(toggled(field, option.value, checked))}
@@ -228,11 +231,21 @@ function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) 
       onValueChange={(next: string) => field.onChange(next === '' ? undefined : next)}
     >
       {any && (
-        <DropdownMenuRadioItem value="" icon={CircleSlash}>
+        <DropdownMenuRadioItem value="" icon={CircleSlash} indicator="control" closeOnClick={false}>
           Any
         </DropdownMenuRadioItem>
       )}
-      <RadioItems options={field.options} />
+      {field.options.map((option) => (
+        <DropdownMenuRadioItem
+          key={option.value}
+          value={option.value}
+          icon={option.icon}
+          indicator="control"
+          closeOnClick={false}
+        >
+          {option.label}
+        </DropdownMenuRadioItem>
+      ))}
     </DropdownMenuRadioGroup>
   );
   if (field.search === undefined) return values;
@@ -377,9 +390,9 @@ function measure(row: HTMLElement, plainWidth: number): number {
  * fit is counted from the page as it is, with nothing remembered. The menu
  * has an item for each field, showing what it is filtered to (so a folded filter is still one
  * click away) and opening its values in a submenu, with a search row for a field that asks for
- * one. A field holds one value, or with `multiple` several, meaning "any of these": its values
- * tick on their own, its chip names up to two ("High, Medium") and then counts ("High +2"), and
- * unticking the last one removes the chip.
+ * one. A field holds one value (radio buttons), or with `multiple` several, meaning "any of these"
+ * (checkboxes); picking a value never closes the menu. A `multiple` field's chip names up to two
+ * ("High, Medium") and then counts ("High +2"), and unticking the last one removes the chip.
  *
  * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group), where it
  * stays put as chips come and go. It is there with one filter too: beside the chip's × in a wide

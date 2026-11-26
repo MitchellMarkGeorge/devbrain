@@ -79,7 +79,8 @@ export const SeveralValues: Story = {
 
 /**
  * The Filter menu over fields that hold several values: each field's item shows the same summary
- * as its chip. In a field's submenu the values tick on their own and the menu stays open; "Any"
+ * as its chip. In a field's submenu the values are checkboxes (radio buttons for a field that
+ * holds one value) and picking one leaves the menu open; "Any"
  * unticks them all.
  */
 export const SeveralValuesMenu: Story = {

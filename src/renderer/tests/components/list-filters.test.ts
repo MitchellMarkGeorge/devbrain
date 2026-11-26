@@ -192,6 +192,8 @@ describe('a filter that holds several values', () => {
     expect(items('menuitemcheckbox')).toEqual([]);
     press(item('menuitemradio', 'Beta'));
     expect(due.onChange).toHaveBeenCalledWith('b');
+    // picking leaves the menu open here too
+    expect(items('menuitemradio')).toHaveLength(3);
   });
 });
 

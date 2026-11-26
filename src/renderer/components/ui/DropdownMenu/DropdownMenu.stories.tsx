@@ -141,3 +141,51 @@ export const SortOptions: Story = {
   args: { defaultOpen: true },
   render: (args) => <SortMenu defaultOpen={args.defaultOpen} />,
 };
+
+function ControlsMenu({ defaultOpen }: { defaultOpen?: boolean }) {
+  const [due, setDue] = useState('today');
+  const [priorities, setPriorities] = useState(['high', 'medium']);
+  const toggle = (value: string, checked: boolean) =>
+    setPriorities((all) => (checked ? [...all, value] : all.filter((other) => other !== value)));
+  return (
+    <DropdownMenu defaultOpen={defaultOpen}>
+      <DropdownMenuTrigger render={<Button variant="outline">Filter</Button>} />
+      <DropdownMenuContent width="sm" align="start">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Priority</DropdownMenuLabel>
+          {['high', 'medium', 'low'].map((value) => (
+            <DropdownMenuCheckboxItem
+              key={value}
+              indicator="control"
+              checked={priorities.includes(value)}
+              onCheckedChange={(checked) => toggle(value, checked)}
+            >
+              {value[0]!.toUpperCase() + value.slice(1)}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Due</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={due} onValueChange={setDue}>
+            <DropdownMenuRadioItem value="today" indicator="control" closeOnClick={false}>
+              Today
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="week" indicator="control" closeOnClick={false}>
+              This week
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * `indicator="control"`: checkboxes and radio buttons before the labels, drawn chosen or not, for
+ * a menu that stays open while several things are set in it (a list's filters).
+ */
+export const Controls: Story = {
+  args: { defaultOpen: true },
+  render: (args) => <ControlsMenu defaultOpen={args.defaultOpen} />,
+};
