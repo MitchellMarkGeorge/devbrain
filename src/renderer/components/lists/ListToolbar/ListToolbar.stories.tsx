@@ -71,32 +71,25 @@ export const FilterMenu: Story = {
   ),
 };
 
-const EVERY_FILTER = {
-  priority: String(TaskPriority.NONE),
-  due: 'overdue',
-  source: 'external',
-  project: 'User Interface Revamp',
-};
-
 /**
- * Every filter set, in a wide window's page (880px with the sidebar open): two chips are drawn,
- * and the other two fold into the button ("Filter +2"); they are still in its menu, each beside its
- * field's name.
+ * Every filter set in a page too narrow for them: the row stays one line. The chips that fit are
+ * drawn, and the rest fold into the button, which counts them ("Filter +3"); they are still in its
+ * menu, each beside its field's name.
  */
 export const ManyFilters: Story = {
   render: () => (
-    <Toolbar width={880} height={120} start={{ list: 'tasks', filters: EVERY_FILTER }} />
-  ),
-};
-
-/** The same in a medium window's page (680px): one chip, and "Filter +3". */
-export const ManyFiltersMedium: Story = {
-  name: 'Many filters — medium window',
-  render: () => (
     <Toolbar
-      width={680}
+      width={760}
       height={120}
-      start={{ list: 'tasks', filters: EVERY_FILTER, size: 'medium' }}
+      start={{
+        list: 'tasks',
+        filters: {
+          priority: String(TaskPriority.NONE),
+          due: 'overdue',
+          source: 'external',
+          project: 'User Interface Revamp',
+        },
+      }}
     />
   ),
 };

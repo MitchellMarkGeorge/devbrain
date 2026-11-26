@@ -1,7 +1,12 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
-/* The filters' row: the room the toolbar leaves after Status, on one line. */
+/*
+ * The filters' row: the room the toolbar leaves after Status, on one line. Its width is the room
+ * there is, not what its chips need (it grows from nothing), so the chips that fit can be counted.
+ * It is the containing block of its folded chips.
+ */
 .filters {
+  position: relative;
   display: flex;
   flex: 1 1 0;
   align-items: center;
@@ -9,37 +14,26 @@
   min-width: 0;
 }
 
-/*
- * A filter chip: a ButtonGroup of its value and its ×. How many are drawn is a fixed count for the
- * window's size, so a row can still be tight (a long project name): a chip then gives way by
- * cutting its value with "…", and never runs under the toolbar's end. Its name and its × stay whole.
- */
+/* a filter chip: a ButtonGroup of its value and its ×, at its own width */
 .chip {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-/* squeezed, the value half keeps its icon and name at its start and cuts what is past its edge */
-.chipValue {
-  flex-shrink: 1;
-  justify-content: flex-start;
-  min-width: 0;
-  overflow: hidden;
-}
-.chipValue > span {
   flex: none;
 }
-/* the value gives way first, down to a few characters */
-.chipValue > span:last-of-type {
-  flex: 0 1 auto;
-  min-width: 3ch;
+/*
+ * A chip folded into "Filter +N": still in the row at its own width, so it can be measured when
+ * the row changes, but unseen (which also takes it out of the tab order) and out of the flow
+ * (`absolute`), so it takes no room beside the chips that are shown.
+ */
+.folded {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
 }
 /* the ×: narrower than a square button, and quiet until pointed at */
 .chipRemove {
-  flex: none;
   width: 28px;
   color: var(--muted-foreground);
 }
-/* a chip's value: a long project name is cut with "…" at 160px, sooner in a tight row */
+/* a chip's value: a long project name is cut with "…" */
 .value {
   display: block;
   max-width: 160px;

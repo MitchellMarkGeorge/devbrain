@@ -81,8 +81,7 @@ export function ProjectsToolbarStart({
   resolved: ResolvedProjectsSearch;
   setSearch: SetSearch;
 }) {
-  const { size } = useWorkspaceShell();
-  const compact = size === 'compact';
+  const compact = useWorkspaceShell().size === 'compact';
   return (
     <>
       <ListStatusChip
@@ -96,7 +95,7 @@ export function ProjectsToolbarStart({
         onChange={(status) => setSearch({ status: status === 'active' ? undefined : status })}
       />
       <ListFilters
-        size={size}
+        compact={compact}
         fields={[
           {
             id: 'source',

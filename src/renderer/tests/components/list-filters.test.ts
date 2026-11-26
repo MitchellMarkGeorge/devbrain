@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
+import { chipsThatFit } from '../../components/lists/ListToolbar/ListToolbar';
 import {
   ListFilters,
   type ListFilterField,
@@ -10,9 +11,9 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// A list's filters in its toolbar: a chip for each of the first ones that are set, with its own ×,
-// then "+ Filter". A window draws as many chips as its size allows (two when wide, one when medium,
-// none when compact); the rest fold into the button's count.
+// A list's filters in its toolbar: a chip for each one that is set, with its own ×, then
+// "+ Filter"; the chips that don't fit the row fold into the button's count, and in a compact
+// window they all do. (jsdom lays nothing out, so here every chip fits.)
 
 let container: HTMLDivElement;
 let root: Root;
@@ -46,7 +47,7 @@ const chips = () => [...container.querySelectorAll('[role="group"]')];
 const buttons = () => [...container.querySelectorAll('button')].map((b) => b.textContent);
 
 describe('ListFilters', () => {
-  it('draws a chip for each filter that is set, then "+ Filter" and Clear', () => {
+  it('draws a chip for each filter that is set, then "+ Filter"', () => {
     render({ fields: [field('Priority', 'a'), field('Due'), field('Source', 'b')] });
     expect(chips().map((chip) => chip.getAttribute('aria-label'))).toEqual([
       'Priority filter',
@@ -70,39 +71,10 @@ describe('ListFilters', () => {
     expect(buttons()).toEqual(['Filter']);
   });
 
-  const three = () => [field('Priority', 'a'), field('Due', 'b'), field('Source', 'a')];
-  const labels = () => chips().map((chip) => chip.getAttribute('aria-label'));
-
-  it('draws two chips in a wide window, the rest folded into "Filter +N"', () => {
-    render({ fields: three(), size: 'wide' });
-    expect(labels()).toEqual(['Priority filter', 'Due filter']);
-    expect(buttons().slice(-2)).toEqual(['Filter+1', 'Clear']);
-  });
-
-  it('is a wide window’s toolbar when no size is given', () => {
-    render({ fields: three() });
-    expect(labels()).toEqual(['Priority filter', 'Due filter']);
-  });
-
-  it('draws one chip in a medium window', () => {
-    render({ fields: three(), size: 'medium' });
-    expect(labels()).toEqual(['Priority filter']);
-    expect(buttons().slice(-2)).toEqual(['Filter+2', 'Clear']);
-  });
-
-  it('folds every chip in a compact window, the button counting the filters', () => {
-    render({ fields: three(), size: 'compact' });
+  it('folds the chips into the Filter button’s count in a compact window', () => {
+    render({ fields: [field('Priority', 'a'), field('Due', 'b')], compact: true });
     expect(chips()).toEqual([]);
-    expect(buttons()).toEqual(['Filter3', 'Clear']);
-  });
-
-  it('shows the first chips in the fields’ order, and the next one when one is removed', () => {
-    const fields = three();
-    render({ fields, size: 'medium' });
-    expect(labels()).toEqual(['Priority filter']);
-    render({ fields: [field('Priority'), ...fields.slice(1)], size: 'medium' });
-    expect(labels()).toEqual(['Due filter']);
-    expect(buttons().slice(-2)).toEqual(['Filter+1', 'Clear']);
+    expect(buttons()).toEqual(['Filter2', 'Clear']);
   });
 
   it('offers Clear at the row’s end while any filter is set, and it removes them all', () => {
@@ -121,7 +93,31 @@ describe('ListFilters', () => {
   });
 
   it('keeps Clear in a compact window with one filter, where its chip is folded', () => {
-    render({ fields: [field('Priority', 'a'), field('Due')], size: 'compact' });
+    render({ fields: [field('Priority', 'a'), field('Due')], compact: true });
     expect(buttons()).toEqual(['Filter1', 'Clear']);
+  });
+});
+
+describe('chipsThatFit', () => {
+  // three chips of 150px (gap included), "+ Filter" 84px wide; "Filter +N" keeps 112px
+  const chips = [150, 150, 150];
+
+  it('shows every chip while they fit with "+ Filter" after them', () => {
+    expect(chipsThatFit(chips, 534, 84)).toBe(3);
+  });
+
+  it('folds from the end, leaving room for "Filter +N"', () => {
+    // one pixel short of all three: the third folds, though it would fit without the button
+    expect(chipsThatFit(chips, 533, 84)).toBe(2);
+    expect(chipsThatFit(chips, 412, 84)).toBe(2);
+    expect(chipsThatFit(chips, 411, 84)).toBe(1);
+  });
+
+  it('folds them all when not one fits', () => {
+    expect(chipsThatFit(chips, 200, 84)).toBe(0);
+  });
+
+  it('stops at the first chip that does not fit, so the chips shown stay in order', () => {
+    expect(chipsThatFit([300, 100], 250, 84)).toBe(0);
   });
 });
