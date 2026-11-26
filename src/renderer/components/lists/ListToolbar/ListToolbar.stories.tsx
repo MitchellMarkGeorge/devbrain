@@ -140,11 +140,13 @@ function ChipRowToolbar({
   filters,
   open,
   shape,
+  surface,
   width = 1100,
   height = 120,
 }: {
   filters?: Record<string, string | string[]>;
   shape?: 'chip' | 'pill';
+  surface?: 'none' | 'card';
   open?: boolean;
   width?: number;
   height?: number;
@@ -157,7 +159,7 @@ function ChipRowToolbar({
           start={<DemoToolbarStart list="tasks" state={state} open={open ? 'filter' : undefined} />}
           end={<DemoToolbarEnd list="tasks" />}
         />
-        <DemoFilterChips state={state} shape={shape} />
+        <DemoFilterChips state={state} shape={shape} surface={surface} />
       </div>
     </TooltipProvider>
   );
@@ -194,6 +196,15 @@ const PILL_FILTERS = {
 export const ChipRowPills: Story = {
   name: 'Alternative — filters as pills',
   render: () => <ChipRowToolbar shape="pill" filters={PILL_FILTERS} />,
+};
+
+/**
+ * The pills on a card of their own: a muted band with a line around it, as wide as the list, which
+ * sets the filters apart from the rows under them. Not used by the app.
+ */
+export const ChipRowCard: Story = {
+  name: 'Alternative — filters as pills, on a card',
+  render: () => <ChipRowToolbar shape="pill" surface="card" filters={PILL_FILTERS} />,
 };
 
 /** The pills in a narrow page: one line, the rest in "+2". */

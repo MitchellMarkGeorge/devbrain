@@ -503,6 +503,11 @@ export interface ListFilterChipsProps extends Pick<ListFiltersProps, 'fields'> {
    * `pill`: the app's pill shape, 24px and fully round, like the pills on a task's row.
    */
   shape?: 'chip' | 'pill';
+  /**
+   * `card`: the row sits on a card of its own (a `muted` band with a `border` line, as wide as
+   * the list), which sets the filters apart from the rows under them. None by default.
+   */
+  surface?: 'none' | 'card';
   className?: string;
 }
 
@@ -525,7 +530,12 @@ function chipsKeyOf(set: ListFilterField[]): string {
  * don't fit fold into a "+2" at the row's end, whose menu holds their fields. With no filter set
  * the row is not drawn, so it takes no room. "Clear" stays in the toolbar.
  */
-export function ListFilterChips({ fields, shape = 'chip', className }: ListFilterChipsProps) {
+export function ListFilterChips({
+  fields,
+  shape = 'chip',
+  surface = 'none',
+  className,
+}: ListFilterChipsProps) {
   const pill = shape === 'pill';
   const set = fields.filter((field) => valuesOf(field).length > 0);
   const line = useRef<HTMLDivElement>(null);
@@ -550,31 +560,33 @@ export function ListFilterChips({ fields, shape = 'chip', className }: ListFilte
   const folded = set.slice(shown);
   return (
     <div role="group" aria-label="Filters" className={cn(styles.chipRow, className)}>
-      <div ref={line} className={styles.chipLine}>
-        {set.map((field, index) => (
-          <FilterChip key={field.id} field={field} small pill={pill} folded={index >= shown} />
-        ))}
-        {folded.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size={pill ? 'xs' : 'sm'}
-                  aria-label={`${folded.length} more filters`}
-                  className={cn(styles.rowMore, pill && styles.pillMore)}
-                >
-                  +{folded.length}
-                </Button>
-              }
-            />
-            <DropdownMenuContent width="sm" align="start" aria-label="More filters">
-              {folded.map((field) => (
-                <FieldSubmenu key={field.id} field={field} />
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+      <div className={surface === 'card' ? styles.chipCard : undefined}>
+        <div ref={line} className={styles.chipLine}>
+          {set.map((field, index) => (
+            <FilterChip key={field.id} field={field} small pill={pill} folded={index >= shown} />
+          ))}
+          {folded.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size={pill ? 'xs' : 'sm'}
+                    aria-label={`${folded.length} more filters`}
+                    className={cn(styles.rowMore, pill && styles.pillMore)}
+                  >
+                    +{folded.length}
+                  </Button>
+                }
+              />
+              <DropdownMenuContent width="sm" align="start" aria-label="More filters">
+                {folded.map((field) => (
+                  <FieldSubmenu key={field.id} field={field} />
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -77,6 +77,13 @@
   gap: var(--space-1-5);
   min-width: 0;
 }
+/* `surface="card"`: the line on a card of its own, as wide as the list under it */
+.chipCard {
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
 .chipRemoveSmall {
   width: 24px;
   color: var(--muted-foreground);
