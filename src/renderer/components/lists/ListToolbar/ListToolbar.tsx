@@ -380,27 +380,23 @@ function FilterChip({
 
 // the room kept after the chips for the marker of those that are hidden: "+2"
 const MORE_WIDTH = 52;
-// a cut smaller than this is moved to another chip where it can be: about the width of an "…"
-const SMALL_CUT = 12;
-// the least of a chip's value that is worth showing, cut with "…": about four letters
-const MIN_VALUE_WIDTH = 40;
+// the least of a second value that is worth showing after the first: ", Me…"
+const MIN_SECOND_WIDTH = 36;
+// the least of a chip's value that is shown, cut with "…": room for "High +1"
+const MIN_VALUE_WIDTH = 64;
 
-/** A chip as the fit sees it: its own width, and the least it can be cut to (gap included in both). */
+/** A chip as the fit sees it: its own width, and the least it can shrink to (gap included in both). */
 export interface ChipSize {
   width: number;
   min: number;
 }
 
 /**
- * How many chips, from the start, are shown in `available`. All of them while they fit whole.
- * Otherwise the chips are cut before any is hidden: each one shown can give up its value's text,
- * down to its `min`, so as many are shown as fit at their least, with room kept for the "+N"
- * marker whenever one is hidden. `chipCuts` then says how much each one shown gives up.
+ * How many chips, from the start, are shown in `available`. All of them while they fit, shrunk if
+ * need be: a chip can give up its value's text, down to its `min`. When they don't fit even at
+ * their least, chips are hidden from the end, with room kept for the "+N" marker.
  */
 export function fitChips(chips: ChipSize[], available: number): number {
-  const all = chips.reduce((sum, chip) => sum + chip.width, 0);
-  if (all <= available) return chips.length;
-  // every chip at its least, with no marker to keep room for
   if (chips.reduce((sum, chip) => sum + chip.min, 0) <= available) return chips.length;
   let used = MORE_WIDTH;
   let fit = 0;
@@ -413,106 +409,60 @@ export function fitChips(chips: ChipSize[], available: number): number {
 }
 
 /**
- * How much each of these chips gives up for the row to be `deficit` narrower. The chip with the
- * most text to spare gives way first, then it and the next together, and so on: long values are
- * cut down towards the short ones, which stay whole for as long as they can. No chip goes below
- * its `min`, so a deficit greater than all they can spare is not met in full. A chip is not cut by
- * just a few pixels where another can take them.
- */
-export function chipCuts(chips: ChipSize[], deficit: number): number[] {
-  const spare = chips.map((chip) => chip.width - chip.min);
-  if (deficit <= 0) return spare.map(() => 0);
-  // the level every chip's spare is brought down to: the cuts above it add up to the deficit
-  const sorted = [...spare].sort((a, b) => b - a);
-  let level = 0;
-  let above = 0;
-  for (let count = 1; count <= sorted.length; count += 1) {
-    above += sorted[count - 1]!;
-    const next = sorted[count] ?? 0;
-    // with the `count` longest brought down to `next`, is the deficit met?
-    if (above - count * next >= deficit) {
-      level = (above - deficit) / count;
-      break;
-    }
-  }
-  const cuts = spare.map((room) => Math.max(0, room - level));
-  // A cut costs a chip its last letters and an "…" whatever its size, so a small one is not worth
-  // making: it moves to a chip that is cut already and has that much more to spare.
-  cuts.forEach((cut, index) => {
-    if (cut <= 0 || cut >= SMALL_CUT) return;
-    const taker = cuts.findIndex(
-      (other, at) => at !== index && other >= SMALL_CUT && spare[at]! - other >= cut,
-    );
-    if (taker === -1) return;
-    cuts[taker]! += cut;
-    cuts[index] = 0;
-  });
-  return cuts;
-}
-
-/**
  * Lays the chips of `row` out in the room its "Clear" leaves, and returns how many are shown
- * (`fitChips`). The chips shown give way as far as the row is short (`chipCuts`), the longest
- * values first. `keep` holds the count where it is (a menu of the row is open:
- * a chip must not hide under it). A row that has not been laid out shows them all.
+ * (`fitChips`). Three rules: a chip is as wide as its text; when the row is short the chips shown
+ * shrink, their text cut with "…" (the row's flex layout shares the room out, none going below its
+ * least); and the chips that don't fit even so are hidden, from the end. `keep` holds the count
+ * where it is (a menu of the row is open: a chip must not hide under it). A row that has not been
+ * laid out shows them all.
  */
 function layOut(row: HTMLElement, keep?: number): number {
   const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
-  // each chip at its own width again, to be read
+  // each chip whole and at its own width, to be read
   for (const chip of chips) {
-    chip.style.maxWidth = '';
+    chip.style.flex = 'none';
+    chip.style.minWidth = '';
     delete chip.dataset.compact;
   }
   if (row.clientWidth === 0) return chips.length;
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
   const clear = row.querySelector<HTMLElement>('[data-clear]');
   const available = row.clientWidth - (clear ? clear.offsetWidth + gap : 0);
-  const sizeOf = (chip: HTMLElement): ChipSize => {
+  const sizes = chips.map((chip): ChipSize => {
     const width = chip.offsetWidth + gap;
     const text = chip.querySelector<HTMLElement>('[data-summary-text]');
     const spare = Math.max(0, (text?.offsetWidth ?? 0) - MIN_VALUE_WIDTH);
     return { width, min: width - spare };
-  };
-  const whole = chips.map(sizeOf);
-  // A chip of two values has a shorter form, "High +1", read by drawing it for a moment. Where
-  // that form is narrower, the chip takes it before any of its text is cut.
-  const compact = chips.map((chip, index): ChipSize | null => {
-    if (!chip.querySelector('[data-two]')) return null;
-    chip.dataset.compact = '';
-    const size = sizeOf(chip);
-    delete chip.dataset.compact;
-    return size.width < whole[index]!.width ? size : null;
   });
-  // whole, a chip with a shorter form gives way only as far as that form does
-  const sizes = whole.map(
-    (size, index): ChipSize => ({ width: size.width, min: compact[index]?.min ?? size.min }),
-  );
   const shown = keep === undefined ? fitChips(sizes, available) : Math.min(keep, chips.length);
-  const marker = shown < chips.length ? MORE_WIDTH : 0;
-  // The chips that take their shorter form: each one that would otherwise be cut. Shortening one
-  // changes what the others must give up, so the cuts are worked out again until none is added.
-  const shortened = new Set<number>();
-  let seen: ChipSize[] = [];
-  let cuts: number[] = [];
-  for (;;) {
-    seen = sizes
-      .slice(0, shown)
-      .map((size, index) => (shortened.has(index) ? compact[index]! : size));
-    const deficit = seen.reduce((sum, size) => sum + size.width, 0) + marker - available;
-    cuts = chipCuts(seen, deficit);
-    // less than a pixel is rounding, and would cost the chip a letter for nothing
-    const next = cuts.findIndex(
-      (cut, index) => cut >= 1 && compact[index] != null && !shortened.has(index),
-    );
-    if (next === -1) break;
-    shortened.add(next);
-  }
-  cuts.forEach((cut, index) => {
-    const chip = chips[index]!;
-    if (shortened.has(index)) chip.dataset.compact = '';
-    if (cut >= 1) chip.style.maxWidth = `${seen[index]!.width - gap - cut}px`;
+  chips.forEach((chip, index) => {
+    // A chip that is shown may shrink, as far as its least, in proportion to the text it has to
+    // give (flex weighs a shrink factor by the width, hence the division): a long value gives
+    // way more than a short one. A hidden chip keeps its own width.
+    const { width, min } = sizes[index]!;
+    // (scaled up: factors that add up to less than 1 would leave part of the overflow in place)
+    chip.style.flex = index < shown ? `0 ${((width - min) / width) * 1000} auto` : 'none';
+    chip.style.minWidth = index < shown ? `${min - gap}px` : '';
   });
   return shown;
+}
+
+/**
+ * Marks the chips of `row` whose two values are cut so short that the second no longer shows:
+ * "High…" reads as one value, so such a chip says "High +1" instead (`[data-compact]`). Read with
+ * the row as it is drawn, so after `layOut`'s count is on the page; from the end, each chip read
+ * after the one before it has made room.
+ */
+function markCompact(row: HTMLElement) {
+  const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]:not([aria-hidden])')];
+  for (const chip of chips) delete chip.dataset.compact;
+  for (const chip of chips.reverse()) {
+    const text = chip.querySelector<HTMLElement>('[data-two] [data-summary-text]');
+    const second = text?.querySelector<HTMLElement>('span');
+    if (!text || !second) continue;
+    const first = text.scrollWidth - second.offsetWidth;
+    if (text.clientWidth < first + MIN_SECOND_WIDTH) chip.dataset.compact = '';
+  }
 }
 
 /** "+2": how many chips are hidden, after the last one shown; its menu has their fields. */
@@ -557,9 +507,8 @@ export interface ListFiltersProps {
  * opening its own field's values. Filters are added from the `ListFilterButton` at the toolbar's
  * end, beside Display, which is why nothing here moves when one is.
  *
- * The row is one line. Chips that do not fit whole are cut first: each gives up some of its
- * value's text, with "…", down to a few letters. The chips that still don't fit are hidden, from
- * the end, and a "+2" after the last one shown says how many: its menu has those fields, each opening its values, so a hidden
+ * The row is one line. A chip is as wide as its text; when the row is short the chips shrink, their
+ * text cut with "…"; and the chips that don't fit even so are hidden, from the end, and a "+2" after the last one shown says how many: its menu has those fields, each opening its values, so a hidden
  * filter is still two clicks away. A hidden chip stays in the row, unseen and out of its flow, so
  * its width can always be read: how many fit is counted from the page as it is, with nothing
  * remembered.
@@ -599,6 +548,11 @@ export function ListFilters({ fields, onClear }: ListFiltersProps) {
     shownNow.current = next;
     setShown(next);
   }, [chipsKey, rowWidth, menuOpen]);
+
+  // after the count above is drawn: the hidden chips out of the row, the marker in it
+  useLayoutEffect(() => {
+    if (row.current) markCompact(row.current);
+  }, [shown, chipsKey, rowWidth, menuOpen]);
 
   const hidden = set.slice(shown);
   return (

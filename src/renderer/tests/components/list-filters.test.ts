@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
-import { chipCuts, fitChips, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
+import { fitChips, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
 import { TooltipProvider } from '../../components/ui/Tooltip';
 import {
   ListFilterButton,
@@ -326,45 +326,5 @@ describe('fitChips', () => {
     // a long first chip beside a short one: whole, only the first fits with the marker
     const sizes = [{ width: 225, min: 135 }, { width: 194, min: 159 }, whole(169)];
     expect(fitChips(sizes, 370)).toBe(2);
-  });
-});
-
-describe('chipCuts', () => {
-  // what each chip can spare: 90px, nothing, 30px
-  const chips = [
-    { width: 200, min: 110 },
-    { width: 100, min: 100 },
-    { width: 150, min: 120 },
-  ];
-
-  it('cuts nothing when the row is not short', () => {
-    expect(chipCuts(chips, 0)).toEqual([0, 0, 0]);
-    expect(chipCuts(chips, -20)).toEqual([0, 0, 0]);
-  });
-
-  it('takes a small cut from the chip with the most to spare, the others whole', () => {
-    expect(chipCuts(chips, 12)).toEqual([12, 0, 0]);
-    expect(chipCuts(chips, 60)).toEqual([60, 0, 0]);
-  });
-
-  it('then cuts the long ones down together', () => {
-    // the first is down to the second-longest's spare (30) after 60; the next 40 is shared
-    expect(chipCuts(chips, 100)).toEqual([80, 0, 20]);
-  });
-
-  it('does not cut a chip by a few pixels when another can take them', () => {
-    // level, the first would give 15 and the second 1: the first takes it all
-    const close = [
-      { width: 200, min: 131 },
-      { width: 200, min: 145 },
-    ];
-    expect(chipCuts(close, 16)).toEqual([16, 0]);
-    // but a small cut stays where no other chip has the room for it
-    expect(chipCuts([{ width: 100, min: 92 }], 5)).toEqual([5]);
-  });
-
-  it('never cuts a chip below its least', () => {
-    expect(chipCuts(chips, 120)).toEqual([90, 0, 30]);
-    expect(chipCuts(chips, 500)).toEqual([90, 0, 30]);
   });
 });

@@ -14,12 +14,12 @@
   min-width: 0;
 }
 /*
- * A chip: a ButtonGroup of its value and its ×, at its own width. When the row is short of room
- * the chips shown are cut (a max-width set as the row is laid out, the longest values first): a
- * chip's value text gives way, with "…".
+ * A chip: a ButtonGroup of its value and its ×, as wide as its text. When the row is short of room
+ * the chips shown shrink, none below its least (a min-width set as the row is laid out): a chip's
+ * value text gives way, with "…".
  */
 .chip {
-  flex: none;
+  flex: 0 1 auto;
   min-width: 0;
 }
 .chipButton {
@@ -41,9 +41,9 @@
   visibility: hidden;
   pointer-events: none;
 }
-/* a chip's value: a long project name is cut with "…" */
+/* a chip's value: it gives way, with "…", when its chip shrinks */
 .chipValue {
-  max-width: 200px;
+  min-width: 0;
 }
 /* the ×: narrower than a square button, and quiet until pointed at */
 .chipRemove {
