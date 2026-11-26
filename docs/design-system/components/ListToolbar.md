@@ -35,7 +35,9 @@ A field holds one value or several (`ListFilterField`):
 A value's control comes before its icon (`DropdownMenu`'s `indicator="control"`), so the kind of
 choice shows before anything is picked. Picking a value never closes the menu, in either kind of
 field: several values, and then other fields, are set in one visit, and the list behind the menu
-updates as they are. The menu closes on Escape or a click outside it.
+updates as they are. The menu closes on Escape or a click outside it. While it is open the
+"+ Filter" menu stays where it opened: a field's first value draws its chip before the button, which
+moves along the row, and a menu that followed it would slide out from under the pointer.
 
 A field is one filter however many values it holds: one chip, and one in the counts "Filter 2" and
 "Filter +2".
