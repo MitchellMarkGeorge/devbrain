@@ -11,8 +11,8 @@
   flex: 1;
   min-height: 0;
 }
-/* the ScrollArea's viewport, which scrolls the page; its scrollbar is drawn over the edge */
-.scrollViewport {
+/* the ScrollArea's content, which the page's scroller scrolls; its scrollbar is drawn over the edge */
+.scrollContent {
   display: flex;
   flex-direction: column;
 }
@@ -78,12 +78,14 @@
 /*
  * Lists and grids fill the height under the toolbar and pass it on, so the TaskList, Board or
  * CardGrid inside fills it and scrolls itself: the header and toolbar stay put and the page
- * itself never scrolls.
+ * itself never scrolls. They start from no height (a basis of 0, not `auto`) and grow into the
+ * page's: the scroller's content is as tall as what is in it, and would otherwise grow to the
+ * whole list and scroll the page instead.
  */
 .list,
 .grid {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
 }

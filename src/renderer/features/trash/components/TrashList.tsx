@@ -72,7 +72,7 @@ export function TrashList({
           <ScrollArea
             className={styles.list}
             viewportRef={scroller}
-            viewportClassName={styles.viewport}
+            contentClassName={styles.viewport}
             viewportProps={{ role: 'grid', 'aria-label': 'Trash', 'aria-rowcount': items.length }}
           />
         }

@@ -144,15 +144,19 @@ export const SheetDescription = Drawer.Description;
  * The panel's content under the header: 16px in from the sides, its blocks 16px apart. It scrolls
  * on its own under the header, with the thin `ScrollArea` scrollbar.
  */
-export interface SheetBodyProps extends Omit<ScrollAreaProps, 'className' | 'viewportClassName'> {
+export interface SheetBodyProps extends Omit<ScrollAreaProps, 'className' | 'contentClassName'> {
   /** joins the content's class (its padding and gaps) */
   className?: string;
 }
 
 export function SheetBody({ className, children, ...props }: SheetBodyProps) {
   return (
-    <ScrollArea className={styles.bodyArea} {...props}>
-      <div className={cn(styles.body, className)}>{children}</div>
+    <ScrollArea
+      className={styles.bodyArea}
+      contentClassName={cn(styles.body, className)}
+      {...props}
+    >
+      {children}
     </ScrollArea>
   );
 }

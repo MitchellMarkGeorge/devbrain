@@ -137,7 +137,7 @@ export function CalendarSidePanel({
     <ScrollArea
       render={<aside />}
       className={styles.panel}
-      viewportClassName={styles.content}
+      contentClassName={styles.content}
       aria-label="Agenda"
       data-testid="calendar-panel"
     >

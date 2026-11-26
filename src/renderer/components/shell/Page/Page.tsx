@@ -23,7 +23,7 @@ export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'
    * Toolbars (status, filters, Display) go in a `PageToolbar` in the page instead.
    */
   actions?: ReactNode;
-  /** classes for the scrolling element (the ScrollArea's viewport) */
+  /** classes for the scroller's content (the ScrollArea's `contentClassName`) */
   scrollClassName?: string;
 }
 
@@ -63,7 +63,7 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
        */}
       <ScrollArea
         className={styles.scroll}
-        viewportClassName={cn(styles.scrollViewport, scrollClassName)}
+        contentClassName={cn(styles.scrollContent, scrollClassName)}
         viewportProps={{ 'data-slot': 'page-scroll' } as object}
       >
         {children}

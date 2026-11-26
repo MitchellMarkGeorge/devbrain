@@ -60,3 +60,41 @@ describe('the scroll area’s focus', () => {
     expect(scroll.dataset.pointerFocus).toBeUndefined();
   });
 });
+
+// The children go in one content element inside the scrolling one: Base UI watches its size, so
+// the scrollbar follows what is in the area, and it carries the content's layout.
+describe('the scroll area’s content', () => {
+  it('holds the children in a content element with the content’s class', () => {
+    act(() =>
+      root.render(
+        createElement(
+          ScrollArea,
+          { viewportProps: { tabIndex: 0 }, contentClassName: 'layout' },
+          createElement('div', { id: 'child' }),
+        ),
+      ),
+    );
+    const scroll = container.querySelector<HTMLElement>('[tabindex="0"]')!;
+    const content = container.querySelector<HTMLElement>('#child')!.parentElement!;
+    expect(content.parentElement).toBe(scroll);
+    expect(scroll.children).toHaveLength(1);
+    expect(content.classList.contains('layout')).toBe(true);
+    // scrolled down, it keeps to the area's width, so a long line is cut, not scrolled
+    expect(content.style.minWidth).toMatch(/^0(px)?$/);
+  });
+
+  it('is as wide as its children when it scrolls sideways', () => {
+    act(() =>
+      root.render(
+        createElement(
+          ScrollArea,
+          { orientation: 'horizontal' },
+          createElement('div', { id: 'child' }),
+        ),
+      ),
+    );
+    const content = container.querySelector<HTMLElement>('#child')!.parentElement!;
+    expect(content.dataset.orientation).toBe('horizontal');
+    expect(content.style.minWidth).toBe('fit-content');
+  });
+});

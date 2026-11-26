@@ -47,7 +47,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       {...props}
     >
       {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
-      <ScrollArea className={styles.area} viewportClassName={styles.scroller}>
+      <ScrollArea className={styles.area} contentClassName={styles.scroller}>
         {header && <div className={styles.top}>{header}</div>}
         <div className={styles.body}>{children}</div>
       </ScrollArea>
