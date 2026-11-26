@@ -56,13 +56,13 @@ button.tile:focus-visible {
 }
 
 /*
- * The Overview fills the page under the tabs and scrolls itself, as the Tasks and Notes tabs do
- * (a basis of 0: see PageContent's list), so the tabs stay put. In it, two columns that scroll
+ * The Overview fills the page under the tabs and scrolls itself, as the Tasks and Notes tabs do,
+ * so the tabs stay put. In it, two columns that scroll
  * together: the project as a document, at most 720px, and a 272px rail of cards, 48px apart and
  * centred. Below 1180px of window the rail goes under the work.
  */
 .overview {
-  flex: 1 1 0;
+  flex: 1;
   min-height: 0;
 }
 .overviewContent {

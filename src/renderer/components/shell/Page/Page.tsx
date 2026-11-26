@@ -23,20 +23,18 @@ export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'
    * Toolbars (status, filters, Display) go in a `PageToolbar` in the page instead.
    */
   actions?: ReactNode;
-  /** classes for the scroller's content (the ScrollArea's `contentClassName`) */
-  scrollClassName?: string;
 }
 
 /**
  * A page in a `WorkspaceShell`: its title, in the title bar's search field; its actions, at the
  * title bar's end; and everything else (a `PageToolbar` and a `PageContent`, or a layout of the
- * page's own) in the page's scroller. Every page renders one. The actions are still the page's own
- * JSX, so they can use the page's state; the shell only gives them a place. A list or grid page's
- * content fills the scroller and scrolls itself; a Home or document page keeps its height, and the
- * scroller scrolls it whole.
+ * page's own) in a flex column as tall as the page, which never scrolls itself. Every page renders
+ * one. The actions are still the page's own JSX, so they can use the page's state; the shell only
+ * gives them a place. What scrolls is the page's to say: a list or grid page's content fills the
+ * height and scrolls itself, and a Home or document page's `PageContent` is the page's scroller.
  */
 export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
-  { title, actions, scrollClassName, className, children, ...props },
+  { title, actions, className, children, ...props },
   ref,
 ) {
   const { titleBarContainer, locationContainer } = useWorkspaceShell();
@@ -56,18 +54,7 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
     >
       {inShell && bar ? createPortal(bar, titleBarContainer) : bar}
       {title && locationContainer && createPortal(<span>{title}</span>, locationContainer)}
-      {/*
-       * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
-       * on its scrolling element: the app's router restores it, and scrolls it to the top on a
-       * new page
-       */}
-      <ScrollArea
-        className={styles.scroll}
-        contentClassName={cn(styles.scrollContent, scrollClassName)}
-        viewportProps={{ 'data-slot': 'page-scroll' } as object}
-      >
-        {children}
-      </ScrollArea>
+      {children}
     </div>
   );
 });
@@ -142,10 +129,10 @@ export const pageContentVariants = cva(styles.content, {
   variants: {
     /**
      * `list`: rows 16px in from the sides (Tasks, Trash). `grid`: cards 24px in (Notes cards,
-     * Projects). `home`: Home's 800px column (`home-max-width`), centred across the page and,
-     * where it fits, down it. `document`:
-     * a note, a task, Settings and Integrations: a 720px column (`content-max-width`) centred
-     * 48px under the header.
+     * Projects). Both fill the height and scroll nothing themselves: the list or grid in them does.
+     * `home`: Home's 800px column (`home-max-width`), centred across the page and, where it fits,
+     * down it. `document`: a note, a task, Settings and Integrations: a 720px column
+     * (`content-max-width`) centred 48px under the header. Both are the page's scroller.
      */
     layout: {
       list: styles.list,
@@ -160,18 +147,38 @@ export const pageContentVariants = cva(styles.content, {
 export interface PageContentProps
   extends ComponentPropsWithoutRef<'div'>, VariantProps<typeof pageContentVariants> {}
 
+/** The selector of the page's scroller (a Home or document `PageContent`'s scrolling element). */
+export const PAGE_SCROLL_SELECTOR = '[data-slot="page-scroll"]';
+
 /**
- * The page under its header and toolbar. Workspace pages use the full width; document pages cap
- * their column and centre it (README "Page widths"), so on a wide window the margins grow.
+ * The page under its header and toolbar, filling the height left. Workspace pages use the full
+ * width; document pages cap their column and centre it (README "Page widths"), so on a wide window
+ * the margins grow. `list` and `grid` pass the height on to the list or grid in them, which
+ * scrolls itself. `home` and `document` keep their own height and are the page's scroller: a
+ * `ScrollArea` whose scrollbar is drawn over the page's right edge, its scrolling element carrying
+ * `data-slot="page-scroll"` (`PAGE_SCROLL_SELECTOR`), which the app's router scrolls to the top on
+ * a new page. The class and props go on the area; its padding and column are inside it.
  */
 export const PageContent = forwardRef<HTMLDivElement, PageContentProps>(function PageContent(
   { layout, className, children, ...props },
   ref,
 ) {
-  const capped = layout === 'document' || layout === 'home';
+  if (layout === 'document' || layout === 'home') {
+    return (
+      <ScrollArea
+        ref={ref}
+        className={cn(styles.scroll, className)}
+        contentClassName={pageContentVariants({ layout })}
+        viewportProps={{ 'data-slot': 'page-scroll' } as object}
+        {...props}
+      >
+        <div className={styles.column}>{children}</div>
+      </ScrollArea>
+    );
+  }
   return (
     <div ref={ref} className={cn(pageContentVariants({ layout }), className)} {...props}>
-      {capped ? <div className={styles.column}>{children}</div> : children}
+      {children}
     </div>
   );
 });

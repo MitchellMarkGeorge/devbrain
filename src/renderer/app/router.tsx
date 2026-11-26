@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { workspaceIdOfPage } from '@common/types';
 import type { events as appEvents, ipc as appIpc, trpc as appTrpc } from '@renderer/ipc';
 import { routeTree } from '@renderer/routeTree.gen';
+import { PAGE_SCROLL_SELECTOR } from '@renderer/components';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { PagePending } from './PagePending';
 import { RouteErrorPage } from './RouteErrorPage';
@@ -19,9 +20,6 @@ export interface RouterContext {
   /** how long an open shows the splash at least, 600ms by default (tests set 0) */
   splashMinimumMs?: number;
 }
-
-/** The selector `WorkspaceShell` gives the element pages scroll in, scrolled to the top on navigation. */
-export const PAGE_SCROLL_SELECTOR = '[data-slot="page-scroll"]';
 
 /** How long an open shows the splash at least, so a quick switch doesn't flicker. */
 export const SPLASH_MINIMUM_MS = 600;
@@ -48,8 +46,9 @@ export function createAppRouter({
     defaultPendingComponent: PagePending,
     defaultNotFoundComponent: NotFoundPage,
     defaultErrorComponent: RouteErrorPage,
-    // pages scroll inside WorkspaceShell, not the window: the router restores what scrolled, and
-    // scrolls the page's scroller to the top on a new page
+    // pages scroll inside WorkspaceShell, not the window: the router restores every element that
+    // scrolled (a document page's scroller, a list, the project Overview), and scrolls a Home or
+    // document page's scroller (PageContent's) to the top on a new page
     scrollRestoration: true,
     scrollToTopSelectors: [PAGE_SCROLL_SELECTOR],
   });

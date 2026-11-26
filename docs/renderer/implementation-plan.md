@@ -201,7 +201,7 @@ routes` regenerates it without a build.
 Options: `defaultPreload: 'intent'`, `defaultPreloadStaleTime: 0`, `defaultPendingMs: 150` with
 `PagePending`, `NotFoundPage`, `RouteErrorPage`, `scrollRestoration: true` and
 `scrollToTopSelectors: ['[data-slot="page-scroll"]']` (pages scroll inside `WorkspaceShell`, not the
-window). `followOutsideChanges` moves the window on changes to the open workspace that come from
+window: a Home or document page in its `PageContent`, a list page in its list). `followOutsideChanges` moves the window on changes to the open workspace that come from
 no navigation (a delete or close → `/onboarding`; another workspace opened elsewhere → its link).
 `refetchOnWindowFocus` is off on the query client.
 

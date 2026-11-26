@@ -1,20 +1,15 @@
 /* The page's frame, its actions, toolbar and content. See docs/design-system/components/Page.md */
 
-/* ---------- page: its actions (outside a shell), then the scroller under them ---------- */
+/*
+ * ---------- page: its actions (outside a shell), then what is under them ----------
+ * A flex column as tall as the page that never scrolls: its content fills the rest of the height
+ * and scrolls itself (a list), or is the page's scroller (Home, a document)
+ */
 .page {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-}
-.scroll {
-  flex: 1;
-  min-height: 0;
-}
-/* the ScrollArea's content, which the page's scroller scrolls; its scrollbar is drawn over the edge */
-.scrollContent {
-  display: flex;
-  flex-direction: column;
 }
 
 /*
@@ -78,14 +73,12 @@
 /*
  * Lists and grids fill the height under the toolbar and pass it on, so the TaskList, Board or
  * CardGrid inside fills it and scrolls itself: the header and toolbar stay put and the page
- * itself never scrolls. They start from no height (a basis of 0, not `auto`) and grow into the
- * page's: the scroller's content is as tall as what is in it, and would otherwise grow to the
- * whole list and scroll the page instead.
+ * itself never scrolls.
  */
 .list,
 .grid {
   display: flex;
-  flex: 1 1 0;
+  flex: 1;
   flex-direction: column;
   min-height: 0;
 }
@@ -95,11 +88,17 @@
 .grid {
   padding: 0 var(--space-6) var(--space-6);
 }
+/*
+ * Home and document pages are the page's scroller: a ScrollArea filling the height under the
+ * toolbar (`.scroll`), its scrollbar over the page's right edge, which scrolls them whole. `.home`
+ * and `.document` are its content, which is at least as tall as the area and holds the column.
+ */
+.scroll {
+  flex: 1;
+}
 /* Home: the column centred down the page while it fits (auto margins never cut its top) */
-/* Home and document pages keep their height, so the shell's page scroller scrolls them whole */
 .home {
   display: flex;
-  flex: 1 0 auto;
   flex-direction: column;
   padding: var(--space-12) var(--space-6);
 }
@@ -108,7 +107,6 @@
   margin: auto;
 }
 .document {
-  flex: none;
   padding: var(--space-12) var(--space-6);
 }
 .column {

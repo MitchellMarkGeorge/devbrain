@@ -1,4 +1,5 @@
 export {
+  PAGE_SCROLL_SELECTOR,
   Page,
   PageContent,
   PageFavoriteButton,
