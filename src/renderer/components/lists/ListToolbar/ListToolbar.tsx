@@ -4,10 +4,12 @@ import {
   CircleSlash,
   ListFilter,
   SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
+import { ButtonGroup } from '../../ui/ButtonGroup';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -298,8 +300,57 @@ function FilterTooltip({ set }: { set: ListFilterField[] }) {
   );
 }
 
+/**
+ * MOCK-UP: a filter that is set, as a flat chip after the Filter button: "Priority High, Medium".
+ * Its value opens the field's values straight away, with no trip through the Filter menu; its ×
+ * removes the filter.
+ */
+function FilterChip({ field }: { field: ListFilterField }) {
+  return (
+    <ButtonGroup aria-label={`${field.label} filter`} data-chip="" className={styles.chip}>
+      <Searchable field={field}>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={field.icon}
+                value={<FieldSummary field={field} className={styles.chipValue} />}
+              >
+                {field.label}
+              </Button>
+            }
+          />
+          <DropdownMenuContent
+            width={field.search === undefined ? 'sm' : 'lg'}
+            align="start"
+            aria-label={field.label}
+          >
+            <FieldValues field={field} />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Searchable>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        icon={X}
+        aria-label={`Remove ${field.label} filter`}
+        className={styles.chipRemove}
+        onClick={() => (field.multiple ? field.onChange([]) : field.onChange(undefined))}
+      />
+    </ButtonGroup>
+  );
+}
+
 export interface ListFiltersProps {
   fields: ListFilterField[];
+  /**
+   * MOCK-UP, off in the app: also draws the filters that are set as flat chips after the Filter
+   * button, in the fields' order, while there is room. A chip that does not fit the row is not
+   * drawn; the badge, the tooltip and the menu still account for it.
+   */
+  chips?: boolean;
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
   /**
@@ -319,7 +370,7 @@ export interface ListFiltersProps {
  *
  * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group).
  */
-export function ListFilters({ fields, defaultOpen, onClear }: ListFiltersProps) {
+export function ListFilters({ fields, chips, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => valuesOf(field).length > 0);
   const count = set.length;
   return (
@@ -359,6 +410,13 @@ export function ListFilters({ fields, defaultOpen, onClear }: ListFiltersProps) 
           </span>
         )}
       </span>
+      {chips && count > 0 && (
+        <div className={styles.chips}>
+          {set.map((field) => (
+            <FilterChip key={field.id} field={field} />
+          ))}
+        </div>
+      )}
       {count > 0 && (
         <Button
           variant="ghost"

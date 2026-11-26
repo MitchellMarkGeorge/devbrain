@@ -35,6 +35,36 @@
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+/*
+ * MOCK-UP (`chips`): the filters that are set, as flat chips after the Filter button. The row is
+ * one chip tall and wraps, with what wraps cut off: a chip that does not fit is simply not seen.
+ */
+.chips {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--space-4) var(--space-1-5);
+  min-width: 0;
+  height: var(--control-sm);
+  overflow: hidden;
+}
+/* flat: a faint fill and no line, so it is neither a toolbar button nor a row's pill */
+.chip {
+  flex: none;
+}
+.chip > [data-slot] {
+  border: 0;
+  background: var(--accent);
+}
+.chipValue {
+  max-width: 200px;
+}
+.chipRemove {
+  width: 24px;
+  color: var(--muted-foreground);
+}
+
 /* the tooltip while filters are set: one to a line */
 .tooltip {
   display: grid;

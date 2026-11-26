@@ -82,6 +82,35 @@ export const SeveralValuesMenu: Story = {
   ),
 };
 
+const CHIP_FILTERS = {
+  priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+  due: 'week',
+  project: ['Auth Overhaul', 'API Gateway v2'],
+};
+
+/**
+ * MOCK-UP, not used by the app: the filters that are set as flat chips after the Filter button.
+ * A chip's value opens its field's values straight away; its × removes the filter. The Filter
+ * button comes first, so it never moves.
+ */
+export const MockChips: Story = {
+  name: 'Mock-up — chips after the Filter button',
+  render: () => (
+    <Toolbar height={320} start={{ list: 'tasks', filters: CHIP_FILTERS, chips: true }} />
+  ),
+};
+
+/** The mock-up in a narrow page: the chips that don't fit are not drawn; the badge still counts them. */
+export const MockChipsNarrow: Story = {
+  name: 'Mock-up — chips after the Filter button, narrow',
+  render: () => (
+    <Toolbar
+      width={640}
+      start={{ list: 'tasks', filters: { ...CHIP_FILTERS, source: 'external' }, chips: true }}
+    />
+  ),
+};
+
 /** The Status chip's menu: the scopes, then each status alone. */
 export const StatusMenu: Story = {
   render: () => <Toolbar height={360} start={{ list: 'tasks', open: 'status' }} />,

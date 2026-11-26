@@ -178,6 +178,8 @@ export interface DemoToolbarStartProps {
   open?: 'status' | 'filter';
   /** a project's Tasks tab: no Project filter */
   fixedProject?: boolean;
+  /** the mock-up: flat chips after the Filter button */
+  chips?: boolean;
 }
 
 /** The start of a list page's toolbar: its Status chip, its filter chips and the Filter button. */
@@ -188,6 +190,7 @@ export function DemoToolbarStart({
   filters = {},
   open,
   fixedProject,
+  chips,
 }: DemoToolbarStartProps) {
   const statuses = STATUSES[list];
   const [scope, setScope] = useState(status ?? statuses?.scopes[0]?.value ?? '');
@@ -207,6 +210,7 @@ export function DemoToolbarStart({
         />
       )}
       <ListFilters
+        chips={chips}
         defaultOpen={open === 'filter'}
         fields={FIELDS[list]
           .filter((field) => !fixedProject || field.id !== 'project')
