@@ -73,7 +73,7 @@ const LAYOUTS: ListToolbarOption<ProjectView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
-/** Which projects are shown: the Status chip (Active by default), the Filter button (source). */
+/** Which projects are shown: the Status chip (Active by default), the Filter button, the Source chip. */
 export function ProjectsToolbarStart({
   resolved,
   setSearch,

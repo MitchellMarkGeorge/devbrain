@@ -52,8 +52,8 @@ const FILTERED = { priority: [String(TaskPriority.HIGH)], source: 'external' };
 export const Tasks: Story = { render: () => <Toolbar start={{ list: 'tasks' }} /> };
 
 /**
- * Two filters set: the Filter button's badge counts them, and its tooltip names them. "Clear", at
- * the row's end before Display, removes both.
+ * Two filters set: the Filter button's badge counts them and its tooltip names them, and each is
+ * a chip after it. "Clear", at the row's end before Display, removes both.
  */
 export const Filtered: Story = {
   render: () => <Toolbar start={{ list: 'tasks', filters: FILTERED }} />,
@@ -82,39 +82,22 @@ export const SeveralValuesMenu: Story = {
   ),
 };
 
-const CHIP_FILTERS = {
-  priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
-  due: 'week',
-  project: ['Auth Overhaul', 'API Gateway v2'],
-};
-
 /**
- * MOCK-UP, not used by the app: the filters that are set as flat chips after the Filter button.
- * A chip's value opens its field's values straight away; its × removes the filter. The Filter
- * button comes first, so it never moves.
+ * Three filters set, one holding two values: a chip each after the Filter button, in the fields'
+ * order. A chip's value opens its field's values straight away; its × removes the filter.
  */
-export const MockChips: Story = {
-  name: 'Mock-up — chips after the Filter button',
-  render: () => (
-    <Toolbar height={320} start={{ list: 'tasks', filters: CHIP_FILTERS, chips: true }} />
-  ),
-};
-
-/** MOCK-UP, not used by the app: the same chips as the toolbar's own outline buttons, 32px. */
-export const MockOutlineChips: Story = {
-  name: 'Mock-up — outline chips after the Filter button',
-  render: () => (
-    <Toolbar height={320} start={{ list: 'tasks', filters: CHIP_FILTERS, chips: 'outline' }} />
-  ),
-};
-
-/** The mock-up in a narrow page: the chips that don't fit are not drawn; the badge still counts them. */
-export const MockChipsNarrow: Story = {
-  name: 'Mock-up — chips after the Filter button, narrow',
+export const Chips: Story = {
   render: () => (
     <Toolbar
-      width={640}
-      start={{ list: 'tasks', filters: { ...CHIP_FILTERS, source: 'external' }, chips: true }}
+      height={320}
+      start={{
+        list: 'tasks',
+        filters: {
+          priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+          due: 'week',
+          project: ['Auth Overhaul', 'API Gateway v2'],
+        },
+      }}
     />
   ),
 };
@@ -131,7 +114,10 @@ export const FilterMenu: Story = {
   ),
 };
 
-/** Every filter set, in a narrow page: the button is the same size whatever is set. */
+/**
+ * Every filter set, in a page too narrow for them: the row stays one line, and a chip that does
+ * not fit is not drawn. The badge still counts all four, and the tooltip and the menu name them.
+ */
 export const ManyFilters: Story = {
   render: () => (
     <Toolbar
@@ -166,7 +152,7 @@ export const Board: Story = {
   ),
 };
 
-/** A narrow window: Status and Display drop their values; the Filter button is as it always is. */
+/** A narrow window: Status and Display drop their values, which leaves the chips more room. */
 export const Compact: Story = {
   render: () => <Toolbar width={640} start={{ list: 'tasks', filters: FILTERED, compact: true }} />,
 };

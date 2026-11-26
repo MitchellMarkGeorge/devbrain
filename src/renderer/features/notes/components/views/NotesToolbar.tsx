@@ -68,7 +68,7 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
 ];
 
 /**
- * Which notes are shown: the Filter button, counting the filters that are set (what a note links
+ * Which notes are shown: the Filter button and a chip per filter that is set (what a note links
  * to, its project). Both filters hold several values.
  */
 export function NotesToolbarStart({

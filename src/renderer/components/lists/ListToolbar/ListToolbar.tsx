@@ -6,7 +6,7 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { ButtonGroup } from '../../ui/ButtonGroup';
@@ -301,24 +301,25 @@ function FilterTooltip({ set }: { set: ListFilterField[] }) {
 }
 
 /**
- * MOCK-UP: a filter that is set, as a flat chip after the Filter button: "Priority High, Medium".
- * Its value opens the field's values straight away, with no trip through the Filter menu; its ×
- * removes the filter.
+ * A filter that is set, as a chip after the Filter button: "Priority High, Medium" joined to its
+ * ×. Its value opens the field's values straight away, with no trip through the Filter menu; its ×
+ * removes the filter. `hidden`: it does not fit the row, so it is not seen (see `ListFilters`).
  */
-function FilterChip({ field, outline }: { field: ListFilterField; outline?: boolean }) {
+function FilterChip({ field, hidden }: { field: ListFilterField; hidden: boolean }) {
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
       data-chip=""
-      className={outline ? styles.outlineChip : styles.chip}
+      // a chip that is not seen is out of the accessibility tree and the tab order too
+      aria-hidden={hidden || undefined}
+      className={cn(styles.chip, hidden && styles.hidden)}
     >
       <Searchable field={field}>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
-                variant={outline ? 'outline' : 'ghost'}
-                size={outline ? undefined : 'sm'}
+                variant="outline"
                 icon={field.icon}
                 value={<FieldSummary field={field} className={styles.chipValue} />}
               >
@@ -336,26 +337,30 @@ function FilterChip({ field, outline }: { field: ListFilterField; outline?: bool
         </DropdownMenu>
       </Searchable>
       <Button
-        variant={outline ? 'outline' : 'ghost'}
-        size={outline ? 'icon' : 'icon-sm'}
+        variant="outline"
+        size="icon"
         icon={X}
         aria-label={`Remove ${field.label} filter`}
-        className={outline ? styles.outlineRemove : styles.chipRemove}
+        className={styles.chipRemove}
         onClick={() => (field.multiple ? field.onChange([]) : field.onChange(undefined))}
       />
     </ButtonGroup>
   );
 }
 
+/**
+ * How many of a row's chips are on its first line. The row wraps and is one chip tall, so a chip
+ * that does not fit drops to a line that is cut off; those are the ones to hide. A row that has
+ * not been laid out shows them all.
+ */
+export function chipsOnFirstLine(tops: number[]): number {
+  const first = tops[0];
+  const wrapped = tops.findIndex((top) => top !== first);
+  return wrapped === -1 ? tops.length : wrapped;
+}
+
 export interface ListFiltersProps {
   fields: ListFilterField[];
-  /**
-   * MOCK-UP, off in the app: also draws the filters that are set as flat chips after the Filter
-   * button, in the fields' order, while there is room. A chip that does not fit the row is not
-   * drawn; the badge, the tooltip and the menu still account for it. `outline` draws them as the
-   * toolbar's own outline buttons, 32px, in place of the flat 28px chips.
-   */
-  chips?: boolean | 'outline';
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
   /**
@@ -366,18 +371,52 @@ export interface ListFiltersProps {
 }
 
 /**
- * A list's filters: one outline icon button, with a badge counting the filters that are set. Its
- * menu has an item for each field, showing what it is filtered to and opening its values in a
- * submenu, with a search row for a field that asks for one. A field holds one value (radio
- * buttons), or with `multiple` several, meaning "any of these" (checkboxes); picking a value never
- * closes the menu. The button never moves or changes size, so its menu stays under the pointer
- * while values are ticked. Its tooltip names the filters that are set.
+ * A list's filters, on one row: the Filter button, then a chip for each filter that is set.
+ *
+ * The Filter button is an outline icon button with a badge counting the filters that are set, and
+ * a tooltip naming them. It comes before the chips, so it never moves: its menu stays under the
+ * pointer while values are ticked. The menu has an item for each field, showing what it is
+ * filtered to and opening its values in a submenu, with a search row for a field that asks for
+ * one. A field holds one value (radio buttons), or with `multiple` several, meaning "any of these"
+ * (checkboxes); picking a value never closes a menu.
+ *
+ * The chips are in the fields' order, each opening its own field's values. A chip that does not
+ * fit the row is not drawn (nothing folds into a "+2"); the badge still counts it, and the tooltip
+ * and the menu still name it. The chips' row wraps and is cut to one line, so which fit is read
+ * from the layout itself, with no widths to keep.
  *
  * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group).
  */
-export function ListFilters({ fields, chips, defaultOpen, onClear }: ListFiltersProps) {
+export function ListFilters({ fields, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => valuesOf(field).length > 0);
   const count = set.length;
+  const row = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(count);
+  const [rowWidth, setRowWidth] = useState(0);
+  // what the fit depends on, besides the row's width: which chips there are and what they say
+  const chipsKey = set
+    .map((field) => {
+      const { text, more } = filterSummary(field);
+      return `${field.id}:${text}:${more}`;
+    })
+    .join('|');
+  const drawn = count > 0;
+
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setRowWidth(element.clientWidth));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [drawn]);
+
+  // hiding a chip does not move it, so this reads the same layout whatever it last set
+  useLayoutEffect(() => {
+    if (!row.current) return;
+    const chips = [...row.current.querySelectorAll<HTMLElement>('[data-chip]')];
+    setShown(chipsOnFirstLine(chips.map((chip) => chip.offsetTop)));
+  }, [chipsKey, rowWidth]);
+
   return (
     <div className={styles.filters}>
       <span className={styles.filterButton}>
@@ -415,10 +454,10 @@ export function ListFilters({ fields, chips, defaultOpen, onClear }: ListFilters
           </span>
         )}
       </span>
-      {chips && count > 0 && (
-        <div className={cn(styles.chips, chips === 'outline' && styles.outlineChips)}>
-          {set.map((field) => (
-            <FilterChip key={field.id} field={field} outline={chips === 'outline'} />
+      {drawn && (
+        <div ref={row} className={styles.chips}>
+          {set.map((field, index) => (
+            <FilterChip key={field.id} field={field} hidden={index >= shown} />
           ))}
         </div>
       )}

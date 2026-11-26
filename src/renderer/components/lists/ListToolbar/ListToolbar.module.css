@@ -1,8 +1,8 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
 /*
- * The filters: the Filter button, and "Clear" at the end of the room the toolbar leaves after
- * Status.
+ * The filters: the Filter button, the chips, and "Clear" at the end of the room the toolbar leaves
+ * after Status.
  */
 .filters {
   display: flex;
@@ -36,45 +36,36 @@
   pointer-events: none;
 }
 /*
- * MOCK-UP (`chips`): the filters that are set, as flat chips after the Filter button. The row is
- * one chip tall and wraps, with what wraps cut off: a chip that does not fit is simply not seen.
+ * The chips: the filters that are set, after the Filter button, in the room the row has left. The
+ * row wraps and is one chip tall, with what wraps cut off, so a chip that does not fit is on a
+ * line that is never seen. A few pixels clear of the Filter button's badge.
  */
 .chips {
   display: flex;
   flex: 1 1 0;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: var(--space-4) var(--space-1-5);
-  min-width: 0;
-  height: var(--control-sm);
-  overflow: hidden;
-}
-/* `chips="outline"`: the toolbar's own outline buttons, a little clear of the badge */
-.outlineChips {
   gap: var(--space-4) var(--space-2);
+  min-width: 0;
   height: var(--control-md);
   margin-left: var(--space-1);
+  overflow: hidden;
 }
-.outlineChip {
-  flex: none;
-}
-.outlineRemove {
-  width: 28px;
-  color: var(--muted-foreground);
-}
-/* flat: a faint fill and no line, so it is neither a toolbar button nor a row's pill */
+/* a chip: a ButtonGroup of its value and its ×, at its own width */
 .chip {
   flex: none;
 }
-.chip > [data-slot] {
-  border: 0;
-  background: var(--accent);
+/* a chip on a cut-off line: unseen for the tab order too, in the place it wrapped to */
+.hidden {
+  visibility: hidden;
 }
+/* a chip's value: a long project name is cut with "…" */
 .chipValue {
   max-width: 200px;
 }
+/* the ×: narrower than a square button, and quiet until pointed at */
 .chipRemove {
-  width: 24px;
+  width: 28px;
   color: var(--muted-foreground);
 }
 
@@ -86,7 +77,7 @@
 }
 
 /*
- * What a field is filtered to, in the Filter menu: its text, cut with "…" when it is long (a
+ * What a field is filtered to, in a chip or the Filter menu: its text, cut with "…" when it is long (a
  * project's name, two values side by side), then "+2", which is never cut.
  */
 .summary {

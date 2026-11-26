@@ -190,6 +190,18 @@ describe('the list view', () => {
     });
   });
 
+  it('draws a chip for a filter that is set, and removes the filter from its ×', async () => {
+    const { app } = tasksPage(`?priority=${list('high', 'medium')}&source=local`);
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    const chips = () =>
+      [...app.container.querySelectorAll('[data-chip]')].map((chip) => chip.textContent);
+    expect(chips()).toEqual(['PriorityHigh, Medium', 'SourceLocal']);
+    expect(filterCount(app.container)).toBe(2);
+    click(app.container.querySelector('[aria-label="Remove Priority filter"]'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?source=local`));
+    await eventually(() => expect(chips()).toEqual(['SourceLocal']));
+  });
+
   it('keeps a filter that holds one value a choice of one', async () => {
     const { app } = tasksPage();
     await eventually(() => expect(row('Plan the launch')).toBeDefined());

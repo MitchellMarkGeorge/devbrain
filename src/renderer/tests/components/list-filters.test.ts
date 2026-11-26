@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
-import { filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
+import { chipsOnFirstLine, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
 import { TooltipProvider } from '../../components/ui/Tooltip';
 import {
   ListFilters,
@@ -13,8 +13,9 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// A list's filters in its toolbar: one Filter icon button with a badge counting the filters that
-// are set, and Clear at the row's end; the fields and their values are in the button's menu.
+// A list's filters in its toolbar: the Filter icon button, with a badge counting the filters that
+// are set, then a chip for each of them, and Clear at the row's end. (jsdom lays nothing out, so
+// here every chip fits.)
 
 let container: HTMLDivElement;
 let root: Root;
@@ -68,6 +69,7 @@ const render = (props: Partial<ListFiltersProps> & Pick<ListFiltersProps, 'field
   );
 const button = () => container.querySelector<HTMLElement>('button[aria-label^="Filter"]');
 const badge = () => container.querySelector('[data-filter-count]')?.textContent ?? null;
+const chips = () => [...container.querySelectorAll('[data-chip]')];
 const clear = () => container.querySelector<HTMLElement>('[aria-label="Clear filters"]');
 
 const pointer = (target: Element | null, type: string) =>
@@ -103,8 +105,53 @@ describe('ListFilters', () => {
     expect(badge()).toBe('2');
     // the count is in the button's name too: the badge itself is hidden from a screen reader
     expect(button()!.getAttribute('aria-label')).toBe('Filter, 2 set');
-    // still one button for the filters, then Clear
-    expect(container.querySelectorAll('button')).toHaveLength(2);
+  });
+
+  it('draws a chip for each filter that is set, after the Filter button, in the fields’ order', () => {
+    render({
+      fields: [multi('Priority', ['a', 'b']), field('Due'), multi('Link', ['c', 'b', 'a'])],
+    });
+    expect(chips().map((chip) => chip.getAttribute('aria-label'))).toEqual([
+      'Priority filter',
+      'Link filter',
+    ]);
+    // the Filter button, each chip's value and its ×, then Clear
+    expect([...container.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      '',
+      'PriorityAlpha, Beta',
+      '',
+      'LinkAlpha +2',
+      '',
+      'Clear',
+    ]);
+    expect(container.querySelector('button')).toBe(button());
+  });
+
+  it('removes a filter from its chip’s ×', () => {
+    const priority = multi('Priority', ['a', 'b']);
+    const due = field('Due', 'a');
+    render({ fields: [priority, due] });
+    act(() =>
+      container.querySelector<HTMLElement>('[aria-label="Remove Priority filter"]')!.click(),
+    );
+    expect(priority.onChange).toHaveBeenCalledWith([]);
+    act(() => container.querySelector<HTMLElement>('[aria-label="Remove Due filter"]')!.click());
+    expect(due.onChange).toHaveBeenCalledWith(undefined);
+  });
+
+  it('opens a field’s values from its chip, with no "Any": the × removes the filter', () => {
+    const priority = multi('Priority', ['c', 'a']);
+    render({ fields: [priority, field('Due', 'a')] });
+    press(chips()[0]!.querySelector('button'));
+    expect(items('menuitemcheckbox').map((element) => element.textContent)).toEqual([
+      'Alpha',
+      'Beta',
+      'Gamma',
+    ]);
+    press(item('menuitemcheckbox', 'Beta'));
+    expect(priority.onChange).toHaveBeenLastCalledWith(['a', 'b', 'c']);
+    // ticking leaves the chip's menu open
+    expect(items('menuitemcheckbox')).toHaveLength(3);
   });
 
   it('offers Clear at the row’s end while any filter is set, and it removes them all', () => {
@@ -182,5 +229,17 @@ describe('a filter that holds one value', () => {
     expect(items('menuitemradio')).toHaveLength(4);
     press(item('menuitemradio', 'Any'));
     expect(due.onChange).toHaveBeenLastCalledWith(undefined);
+  });
+});
+
+describe('chipsOnFirstLine', () => {
+  it('shows every chip while they are on one line', () => {
+    expect(chipsOnFirstLine([0, 0, 0])).toBe(3);
+    expect(chipsOnFirstLine([])).toBe(0);
+  });
+
+  it('hides the chips from the first one that wrapped, so those shown stay in order', () => {
+    expect(chipsOnFirstLine([0, 0, 48])).toBe(2);
+    expect(chipsOnFirstLine([0, 48, 48, 96])).toBe(1);
   });
 });
