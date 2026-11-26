@@ -143,8 +143,8 @@ export const StatusMenuOpen: Story = {
 /**
  * A row short of room: the pills give way first. They stack, each sliding under the one after it
  * down to its icon; then the last pill of each group shortens its label; only then does the title
- * shorten, and never below 48px. Point at a group of pills to spread that group back out: the title
- * gives way to it.
+ * shorten, and never below 48px. Point at a group of pills to spread that group back out: the pills
+ * slide apart as the title draws back.
  */
 export const NarrowRows: Story = {
   name: 'Narrow rows',

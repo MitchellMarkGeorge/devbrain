@@ -1,11 +1,16 @@
 import {
   Children,
   forwardRef,
+  useCallback,
+  useEffect,
+  useRef,
   useState,
   type ComponentProps,
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
+  type Ref,
+  type RefObject,
 } from 'react';
 import { cva } from 'class-variance-authority';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -107,8 +112,7 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
 /**
  * The pills on one side of the title, each in a slot. Short of room, the slots narrow and the pills
  * keep their width, so each pill slides under the one after it: a stack, the last pill on top.
- * Pointing at the group (or focusing a pill in it) spreads it back out, and the title gives way.
- * All of it is the row's flex layout (TaskRow.module.css); nothing is measured.
+ * Stacking is the row's flex layout alone (TaskRow.module.css); nothing is measured for it.
  */
 function Pills({ children }: { children: ReactNode }) {
   const pills = Children.toArray(children);
@@ -122,6 +126,77 @@ function Pills({ children }: { children: ReactNode }) {
       ))}
     </span>
   );
+}
+
+// the group of pills that is spread: pointed at, holding keyboard focus, or with its hover card open
+const SPREAD_GROUP = '[data-pills]:is(:hover, :has(:focus-visible, [data-popup-open]))';
+
+/**
+ * Spreads a group of stacked pills while it is pointed at (or a pill in it has keyboard focus, or
+ * its hover card is open): marks the row `data-spread` with the group's side (`title` or `side`),
+ * which TaskRow.module.css lays out, and animates the title and every pill from the widths they
+ * had to the ones they get. The widths in between are a mix of two layouts that both fit the row,
+ * so they fit it too, and the group grows steadily over where it was: the pointer stays on it.
+ *
+ * The attribute is set on the element, not by a render: nothing React draws changes. The duration
+ * and easing are the surface motion tokens (0 under reduced motion, which skips the animation).
+ */
+function useSpreadPills(rowRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    let running: Animation[] = [];
+
+    const sync = () => {
+      const group = row.querySelector(SPREAD_GROUP);
+      const next = group ? (group.closest('[data-side]') ? 'side' : 'title') : undefined;
+      if (next === row.dataset.spread) return;
+
+      // the title and each pill's slot: every part of the row whose width the spread changes
+      const parts = Array.from(row.querySelectorAll<HTMLElement>('[data-name], [data-pills] > *'));
+      const widths = () => parts.map((part) => part.getBoundingClientRect().width);
+      // as drawn now, mid-animation included, so a change of mind carries on from where it is
+      const from = widths();
+      for (const animation of running) animation.cancel();
+      if (next) row.dataset.spread = next;
+      else delete row.dataset.spread;
+
+      const style = getComputedStyle(row);
+      const duration = parseFloat(style.getPropertyValue('--duration-slow')) || 0;
+      if (duration === 0 || typeof row.animate !== 'function') return;
+      const to = widths();
+      const easing = style.getPropertyValue('--ease-surface').trim() || 'ease-out';
+      // held at a width, a part neither grows nor gives way: the row is exactly the mix of the two
+      const held = { flexGrow: 0, flexShrink: 0, minWidth: 0, maxWidth: 'none' };
+      running = parts.flatMap((part, index) =>
+        Math.abs(from[index] - to[index]) < 0.5
+          ? []
+          : part.animate(
+              [
+                { ...held, flexBasis: `${from[index]}px` },
+                { ...held, flexBasis: `${to[index]}px` },
+              ],
+              { duration, easing },
+            ),
+      );
+    };
+
+    const events = ['pointerover', 'pointerout', 'focusin', 'focusout'] as const;
+    for (const event of events) row.addEventListener(event, sync);
+    // a hover card closing (the pointer was on the card, outside the row) is no event on the row
+    const cards = new MutationObserver(sync);
+    cards.observe(row, { subtree: true, attributeFilter: ['data-popup-open'] });
+    return () => {
+      for (const event of events) row.removeEventListener(event, sync);
+      cards.disconnect();
+      for (const animation of running) animation.cancel();
+    };
+  }, [rowRef]);
+}
+
+function assignRef<T>(ref: Ref<T> | undefined, value: T) {
+  if (typeof ref === 'function') ref(value);
+  else if (ref) (ref as { current: T }).current = value;
 }
 
 /**
@@ -192,6 +267,15 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   },
   ref,
 ) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const setRowRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      rowRef.current = node;
+      assignRef(ref, node);
+    },
+    [ref],
+  );
+  useSpreadPills(rowRef);
   const { now, formatListDate } = useFormat();
   const synced = isSynced(task);
   const key = task.external?.key;
@@ -251,7 +335,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
 
   return (
     <div
-      ref={ref}
+      ref={setRowRef}
       role="row"
       tabIndex={0}
       aria-selected={selected}
