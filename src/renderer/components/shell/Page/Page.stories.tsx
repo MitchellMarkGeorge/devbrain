@@ -86,12 +86,49 @@ export const CompactToolbar: Story = {
   ),
 };
 
-/** `document` content: a 720px column centred in the page, whatever the width. */
+/**
+ * `document` content: a 720px column centred in the page, whatever the width. The dashed outline
+ * is the `PageContent`: the page's scroller, filling the page's height.
+ */
 export const DocumentContent: Story = {
   render: () => (
     <Page style={outline}>
       <PageContent layout="document" style={{ outline: '1px dashed var(--border)' }}>
         <Text tone="muted">A note, a task, Settings or Integrations: 720px, centred.</Text>
+      </PageContent>
+    </Page>
+  ),
+};
+
+const PARAGRAPHS = Array.from(
+  { length: 12 },
+  (_, index) =>
+    `Paragraph ${index + 1}. A document taller than the page scrolls whole inside its PageContent, its scrollbar over the page's right edge, while the actions above it stay put.`,
+);
+
+/** A document taller than the page: the `PageContent` scrolls it, and the actions bar stays put. */
+export const LongDocument: Story = {
+  render: () => (
+    <Page style={outline} actions={<PageFavoriteButton favorite={false} />}>
+      <PageContent layout="document">
+        {PARAGRAPHS.map((text) => (
+          <Text key={text} render={<p />} tone="muted">
+            {text}
+          </Text>
+        ))}
+      </PageContent>
+    </Page>
+  ),
+};
+
+/** `home` content: Home's 800px column, centred down the page while it fits. */
+export const HomeContent: Story = {
+  render: () => (
+    <Page style={outline}>
+      <PageContent layout="home">
+        <Text tone="muted" align="center">
+          Home’s column, centred across the page and down it.
+        </Text>
       </PageContent>
     </Page>
   ),

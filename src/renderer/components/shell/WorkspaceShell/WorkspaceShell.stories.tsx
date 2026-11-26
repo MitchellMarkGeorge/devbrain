@@ -76,8 +76,9 @@ const LONG_LIST = manyTasks(1000);
 
 /**
  * A list page: the header and toolbar stay put while the 1,000-row `TaskList` in the `PageContent`
- * fills the rest of the height and scrolls itself, drawing only the rows in view. The page scroller
- * never scrolls on a list page; a Home or document page, which keeps its height, scrolls in it.
+ * fills the rest of the height and scrolls itself, drawing only the rows in view: the list is the
+ * page's one scroller. A Home or document page, which keeps its height, scrolls in its `PageContent`
+ * instead.
  */
 export const ListPage: Story = {
   render: () => (
