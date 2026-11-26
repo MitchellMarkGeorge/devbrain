@@ -1,7 +1,7 @@
 import type { CSSProperties, FocusEvent, KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import { CircleCheck, FileText, Folder, LayoutDashboard, type LucideIcon } from 'lucide-react';
 import { ProjectStatus, type Project } from '@common/types';
 import {
@@ -33,7 +33,7 @@ import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import { ItemMentionsPill } from '@renderer/shared/components/ItemMentions';
 import { projectRoute } from '../api/route-api';
-import type { ProjectTab } from '../api/search';
+import { nextTabStep, type ProjectTab } from '../api/search';
 import { ColourItems } from '../components/colour';
 import { ProjectStatusPill } from '../components/ProjectStatusPill';
 import { useProjectActions } from '../hooks/use-project-actions';
@@ -58,7 +58,7 @@ const TAB_LABELS: Record<ProjectTab, string> = {
 
 /**
  * A project's page (`/app/$workspaceId/projects/$projectId`, Figma `7159:12540`, `7159:13218`,
- * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, as quiet pills at
+ * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab` (each an entry in the history), as quiet pills at
  * the card's top left:
  * Overview (the project as a document, its tasks under it, and a rail of its progress and notes),
  * Tasks (the tasks views with the project fixed) and Notes (its notes as cards). A synced project's
@@ -85,7 +85,9 @@ function ProjectPageContent({ project }: { project: Project }) {
   const navigate = projectRoute.useNavigate();
   const appNavigate = useNavigate();
   const router = useRouter();
-  const { canGoBack } = useHistoryPosition();
+  // the tabs opened before this one are entries of this page: leaving it goes back past them
+  const tabSteps = useRouterState({ select: (state) => state.location.state.tabSteps ?? 0 });
+  const { canGoBack } = useHistoryPosition({ back: tabSteps + 1 });
   const actions = useProjectActions();
   const tab = search.tab ?? 'overview';
   const showError = useMutationErrorToast();
@@ -93,13 +95,14 @@ function ProjectPageContent({ project }: { project: Project }) {
   // opened from Trash: shown as it is, read-only, until it's restored
   const trashed = project.archivedAt !== null;
 
-  // a tab is a section of the page: switching replaces the entry, and leaves the other tab's params
+  // a tab has an entry of its own, so Back and Forward step through the tabs opened; switching
+  // leaves the other tab's params
   const setTab = (next: ProjectTab) =>
-    navigate({ search: { tab: next === 'overview' ? undefined : next }, replace: true });
+    navigate({ search: { tab: next === 'overview' ? undefined : next }, state: nextTabStep });
 
   async function trash() {
     if (!(await actions.trash(project))) return;
-    if (canGoBack) router.history.back();
+    if (canGoBack) router.history.go(-(tabSteps + 1));
     else
       appNavigate({
         to: '/app/$workspaceId/projects',

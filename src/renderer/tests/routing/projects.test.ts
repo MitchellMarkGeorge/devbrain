@@ -295,14 +295,36 @@ describe('a project’s page', () => {
     );
   });
 
-  it('switches tabs in the URL, replacing the entry', async () => {
+  it('gives each tab an entry, so Back and Forward step through them', async () => {
     const { app } = open(`/projects/${auth.id}`);
     await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
     const length = app.router.history.length;
     click(byText(app.container, '[role="tab"]', 'Notes'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=notes`));
-    expect(app.router.history.length).toBe(length);
+    expect(app.router.history.length).toBe(length + 1);
     await eventually(() => expect(app.text()).toContain('PKCE design notes'));
+    click(byText(app.container, '[role="tab"]', 'Tasks'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks`));
+    app.router.history.back();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=notes`));
+    app.router.history.back();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}`));
+    app.router.history.forward();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=notes`));
+  });
+
+  it('goes back past its tabs to the page before it once moved to the trash', async () => {
+    const { app } = open('/projects');
+    await eventually(() => expect(app.text()).toContain('Auth Overhaul'));
+    app.router.history.push(`/app/${WORK}/projects/${auth.id}`);
+    await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
+    click(byText(app.container, '[role="tab"]', 'Notes'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=notes`));
+    click(byText(app.container, '[role="tab"]', 'Tasks'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks`));
+    click(document.querySelector('[aria-label="More actions"]'));
+    click(await menuItem('Move to trash'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects`));
   });
 
   it('lists only the project’s tasks on its Tasks tab, with no project filter', async () => {
