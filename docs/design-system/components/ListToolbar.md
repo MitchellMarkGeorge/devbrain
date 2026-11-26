@@ -60,6 +60,8 @@ Rules:
   four letters, so as many chips show as fit at their shortest. The longest values give way
   first, so short ones stay whole as long as they can, and a chip is not cut by just a few
   pixels where another can take them.
+  A chip of two values ("High, Medium") is never cut mid-text: it first takes its shorter form,
+  "High +1", so it still says there is another value.
 - While a menu of the row is open (a chip's, or the "+2" marker's), the number of chips shown is
   held: ticking a value there changes what a chip says, and a chip that hid then would take its
   open menu with it. The chips are cut as far as they go meanwhile, and the row is laid out

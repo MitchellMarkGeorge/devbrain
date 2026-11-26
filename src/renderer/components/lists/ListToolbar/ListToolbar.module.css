@@ -76,6 +76,18 @@
   flex: none;
   white-space: pre;
 }
+/*
+ * Two values, in a chip short of room (`data-compact`, set as the row is laid out): the second
+ * gives way to "+1", so the chip says there is another before any of its text is cut.
+ */
+[data-compact] .rest {
+  display: none;
+}
+[data-compact] .summary[data-two]::after {
+  content: ' +1';
+  flex: none;
+  white-space: pre;
+}
 /* cut before it squeezes the field's name */
 .menuValue {
   max-width: 80px;

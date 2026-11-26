@@ -246,6 +246,24 @@ describe('a filter that holds one value', () => {
   });
 });
 
+describe('a chip of two values', () => {
+  it('marks its second value, so a row short of room can show "+1" in its place', () => {
+    render({ fields: [multi('Priority', ['a', 'b'])] });
+    const summary = container.querySelector('[data-chip] [data-two]');
+    expect(summary).not.toBeNull();
+    // read whole, it says both
+    expect(summary!.textContent).toBe('Alpha, Beta');
+    expect(summary!.querySelector('[data-summary-text] > span')!.textContent).toBe(', Beta');
+  });
+
+  it('marks nothing for one value, or for three', () => {
+    render({
+      fields: [multi('Priority', ['a']), multi('Project', ['a', 'b', 'c'])],
+    });
+    expect(container.querySelector('[data-chip] [data-two]')).toBeNull();
+  });
+});
+
 describe('fitChips', () => {
   // three chips of 150px (gap included) that cannot be cut; the "+N" marker keeps 52px
   const whole = (width: number) => ({ width, min: width });

@@ -168,13 +168,27 @@ export function filterSummary(field: ListFilterField): { text: string; more: num
   return { text: labels[0] ?? '', more: values.length - 1 };
 }
 
-/** A field's summary, in a chip or a menu: the text is cut with "…" before "+2" is. */
+/**
+ * A field's summary, in a chip or a menu: the text is cut with "…" before "+2" is. Two values are
+ * marked (`data-two`), the second apart from the first: a chip short of room drops the second for
+ * "+1" before any of its text is cut (`[data-compact]`, set as the row is laid out).
+ */
 function FieldSummary({ field, className }: { field: ListFilterField; className?: string }) {
   const { text, more } = filterSummary(field);
+  const two = valuesOf(field).length === 2;
+  // "High, Medium" as "High" and ", Medium"
+  const comma = two ? text.indexOf(', ') : -1;
   return (
-    <span className={cn(styles.summary, className)}>
+    <span className={cn(styles.summary, className)} data-two={comma > 0 ? '' : undefined}>
       <span data-summary-text="" className={styles.summaryText}>
-        {text}
+        {comma > 0 ? (
+          <>
+            {text.slice(0, comma)}
+            <span className={styles.rest}>{text.slice(comma)}</span>
+          </>
+        ) : (
+          text
+        )}
       </span>
       {more > 0 && <span className={styles.more}> +{more}</span>}
     </span>
@@ -433,24 +447,58 @@ export function chipCuts(chips: ChipSize[], deficit: number): number[] {
 function layOut(row: HTMLElement, keep?: number): number {
   const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
   // each chip at its own width again, to be read
-  for (const chip of chips) chip.style.maxWidth = '';
+  for (const chip of chips) {
+    chip.style.maxWidth = '';
+    delete chip.dataset.compact;
+  }
   if (row.clientWidth === 0) return chips.length;
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
   const clear = row.querySelector<HTMLElement>('[data-clear]');
   const available = row.clientWidth - (clear ? clear.offsetWidth + gap : 0);
-  const sizes = chips.map((chip): ChipSize => {
+  const sizeOf = (chip: HTMLElement): ChipSize => {
     const width = chip.offsetWidth + gap;
     const text = chip.querySelector<HTMLElement>('[data-summary-text]');
     const spare = Math.max(0, (text?.offsetWidth ?? 0) - MIN_VALUE_WIDTH);
     return { width, min: width - spare };
+  };
+  const whole = chips.map(sizeOf);
+  // A chip of two values has a shorter form, "High +1", read by drawing it for a moment. Where
+  // that form is narrower, the chip takes it before any of its text is cut.
+  const compact = chips.map((chip, index): ChipSize | null => {
+    if (!chip.querySelector('[data-two]')) return null;
+    chip.dataset.compact = '';
+    const size = sizeOf(chip);
+    delete chip.dataset.compact;
+    return size.width < whole[index]!.width ? size : null;
   });
+  // whole, a chip with a shorter form gives way only as far as that form does
+  const sizes = whole.map(
+    (size, index): ChipSize => ({ width: size.width, min: compact[index]?.min ?? size.min }),
+  );
   const shown = keep === undefined ? fitChips(sizes, available) : Math.min(keep, chips.length);
-  const seen = sizes.slice(0, shown);
   const marker = shown < chips.length ? MORE_WIDTH : 0;
-  const deficit = seen.reduce((sum, size) => sum + size.width, 0) + marker - available;
-  chipCuts(seen, deficit).forEach((cut, index) => {
+  // The chips that take their shorter form: each one that would otherwise be cut. Shortening one
+  // changes what the others must give up, so the cuts are worked out again until none is added.
+  const shortened = new Set<number>();
+  let seen: ChipSize[] = [];
+  let cuts: number[] = [];
+  for (;;) {
+    seen = sizes
+      .slice(0, shown)
+      .map((size, index) => (shortened.has(index) ? compact[index]! : size));
+    const deficit = seen.reduce((sum, size) => sum + size.width, 0) + marker - available;
+    cuts = chipCuts(seen, deficit);
     // less than a pixel is rounding, and would cost the chip a letter for nothing
-    if (cut >= 1) chips[index]!.style.maxWidth = `${sizes[index]!.width - gap - cut}px`;
+    const next = cuts.findIndex(
+      (cut, index) => cut >= 1 && compact[index] != null && !shortened.has(index),
+    );
+    if (next === -1) break;
+    shortened.add(next);
+  }
+  cuts.forEach((cut, index) => {
+    const chip = chips[index]!;
+    if (shortened.has(index)) chip.dataset.compact = '';
+    if (cut >= 1) chip.style.maxWidth = `${seen[index]!.width - gap - cut}px`;
   });
   return shown;
 }
