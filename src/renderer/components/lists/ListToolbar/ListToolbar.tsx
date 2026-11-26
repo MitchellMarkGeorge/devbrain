@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { ButtonGroup } from '../../ui/ButtonGroup';
@@ -432,20 +432,6 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chipsKey, rowWidth, compact]);
 
-  // The menu stays where it opened. Ticking a field's first value draws its chip before the
-  // button, which moves along the row; a menu that followed it would slide out from under the
-  // pointer, and the submenu being ticked in would close. So while it is open the menu is anchored
-  // to where the button was when it opened.
-  const [open, setOpen] = useState(defaultOpen ?? false);
-  const [openedAt, setOpenedAt] = useState<DOMRect | null>(null);
-  useLayoutEffect(() => {
-    setOpenedAt(open && trigger.current ? trigger.current.getBoundingClientRect() : null);
-  }, [open]);
-  const anchor = useMemo(
-    () => (openedAt ? { getBoundingClientRect: () => openedAt } : undefined),
-    [openedAt],
-  );
-
   const folded = compact ? set.length : Math.max(0, set.length - shown);
   return (
     <div ref={row} className={styles.filters}>
@@ -453,7 +439,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
         set.map((field, index) => (
           <FilterChip key={field.id} field={field} folded={index >= shown} />
         ))}
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu defaultOpen={defaultOpen}>
         <DropdownMenuTrigger
           render={
             folded > 0 ? (
@@ -474,7 +460,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
             )
           }
         />
-        <DropdownMenuContent width="sm" align="start" aria-label="Filter" anchor={anchor}>
+        <DropdownMenuContent width="sm" align="start" aria-label="Filter">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Filter by</DropdownMenuLabel>
             {fields.map((field) => (
