@@ -17,7 +17,6 @@
  * sideways it is the area's height, and as wide as its children.
  */
 .content {
-  box-sizing: border-box;
   min-height: 100%;
 }
 .content[data-orientation='horizontal'] {
