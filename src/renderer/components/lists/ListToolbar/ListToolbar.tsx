@@ -149,12 +149,12 @@ export interface ListMultiFilterField extends ListFilterFieldBase {
 export type ListFilterField = ListSingleFilterField | ListMultiFilterField;
 
 /** The values a field is filtered to: none, one, or for a `multiple` field several. */
-function valuesOf(field: ListFilterField): readonly string[] {
+export function valuesOf(field: ListFilterField): readonly string[] {
   if (field.multiple) return field.value;
   return field.value === undefined ? [] : [field.value];
 }
 
-function removeFilter(field: ListFilterField) {
+export function removeFilter(field: ListFilterField) {
   if (field.multiple) field.onChange([]);
   else field.onChange(undefined);
 }
@@ -174,7 +174,7 @@ export function filterSummary(field: ListFilterField): { text: string; more: num
 }
 
 /** A field's summary, in a chip or a menu: the text is cut with "…" before "+2" is. */
-function FieldSummary({ field, className }: { field: ListFilterField; className?: string }) {
+export function FieldSummary({ field, className }: { field: ListFilterField; className?: string }) {
   const { text, more } = filterSummary(field);
   return (
     <span className={cn(styles.summary, className)}>
@@ -200,7 +200,7 @@ function toggled(field: ListMultiFilterField, value: string, checked: boolean): 
  * values, and then other fields, can be set in one visit. `any` puts "Any" first, which removes
  * the filter.
  */
-function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) {
+export function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) {
   const values = field.multiple ? (
     <DropdownMenuGroup>
       {any && (
@@ -259,7 +259,7 @@ function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) 
 }
 
 /** Makes the menu or submenu inside it searchable, for a field with a search row. */
-function Searchable({ field, children }: { field: ListFilterField; children: ReactNode }) {
+export function Searchable({ field, children }: { field: ListFilterField; children: ReactNode }) {
   // typing in the search row filters this field's values only
   if (field.search === undefined) return children;
   return <DropdownMenuFilter autoHighlight>{children}</DropdownMenuFilter>;
@@ -435,7 +435,7 @@ export function ListFilters({ fields, compact, defaultOpen, chips, onClear }: Li
 }
 
 /** The Filter menu's items: a submenu per field, then "Clear filters" while one is set. */
-function FilterMenuItems({ fields, onClear }: Pick<ListFiltersProps, 'fields' | 'onClear'>) {
+export function FilterMenuItems({ fields, onClear }: Pick<ListFiltersProps, 'fields' | 'onClear'>) {
   const anySet = fields.some((field) => valuesOf(field).length > 0);
   return (
     <DropdownMenuContent width="sm" align="start" aria-label="Filter">

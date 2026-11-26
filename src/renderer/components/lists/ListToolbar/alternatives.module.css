@@ -1,0 +1,32 @@
+/* Mock-ups of other ways to draw a list's filters (alternatives.tsx). Not used by the app. */
+
+/* `fields`: a field that is not set is a quiet name */
+.unset {
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-normal);
+}
+
+/* a flat token: no line around it, a faint fill, its two parts joined */
+.token > [data-slot] {
+  border: 0;
+  background: var(--accent);
+}
+.tokenRemove {
+  width: 24px;
+  color: var(--muted-foreground);
+}
+
+/* `tokens-row`: the tokens under the toolbar, in line with its controls */
+.tokenRow {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: 0 var(--space-6) var(--space-3);
+  overflow: hidden;
+}
+.clearSmall {
+  flex: none;
+  color: var(--muted-foreground);
+}

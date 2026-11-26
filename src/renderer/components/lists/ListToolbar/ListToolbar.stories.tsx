@@ -2,6 +2,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority } from '@common/types';
 import { PageToolbar } from '../../shell/Page';
 import { TooltipProvider } from '../../ui/Tooltip';
+import { MockFilterRow, MockFilters, type FilterMock } from './alternatives';
+import { ListStatusChip } from './ListToolbar';
+import { CircleDashed } from 'lucide-react';
 import {
   DemoFilterChips,
   DemoToolbarEnd,
@@ -244,6 +247,63 @@ export const ChipRowNarrow: Story = {
       }}
     />
   ),
+};
+
+function MockToolbar({ variant, filtered }: { variant: FilterMock; filtered?: boolean }) {
+  const state = useDemoFilters('tasks', filtered ? PILL_FILTERS : undefined);
+  const mock = { variant, fields: state.fields, onClear: state.clear };
+  return (
+    <TooltipProvider>
+      <div style={{ width: 1100, minHeight: 320, paddingTop: 16, background: 'var(--background)' }}>
+        <PageToolbar
+          start={
+            <>
+              <ListStatusChip
+                icon={CircleDashed}
+                options={[
+                  { value: 'open', label: 'Open' },
+                  { value: 'all', label: 'All' },
+                ]}
+                value="open"
+                onChange={() => {}}
+              />
+              <MockFilters {...mock} />
+            </>
+          }
+          end={<DemoToolbarEnd list="tasks" />}
+        />
+        <MockFilterRow {...mock} />
+      </div>
+    </TooltipProvider>
+  );
+}
+
+/** Mock-up: every field always in the toolbar, as Status is. No Filter button, no submenus. */
+export const MockFields: Story = {
+  name: 'Mock-up 1 — every field in the toolbar',
+  render: () => <MockToolbar variant="fields" filtered />,
+};
+export const MockFieldsEmpty: Story = {
+  name: 'Mock-up 1 — every field in the toolbar, none set',
+  render: () => <MockToolbar variant="fields" />,
+};
+
+/** Mock-up: flat tokens ("Priority is High ×") in a row of their own, Clear after them. */
+export const MockTokensRow: Story = {
+  name: 'Mock-up 2a — flat tokens in their own row',
+  render: () => <MockToolbar variant="tokens-row" filtered />,
+};
+
+/** Mock-up: one row, the Filter button first so it never moves, flat tokens after it. */
+export const MockTokensInline: Story = {
+  name: 'Mock-up 2b — flat tokens after the Filter button',
+  render: () => <MockToolbar variant="tokens-inline" filtered />,
+};
+
+/** Mock-up: one "Filter 3" button and its menu; no filter is drawn in the row. */
+export const MockPanel: Story = {
+  name: 'Mock-up 3 — one Filter button with a count',
+  render: () => <MockToolbar variant="panel" filtered />,
 };
 
 /** Display: the layout, the grouping, and the sort with its direction. */
