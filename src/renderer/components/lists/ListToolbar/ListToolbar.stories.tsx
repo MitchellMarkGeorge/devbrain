@@ -2,14 +2,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority } from '@common/types';
 import { PageToolbar } from '../../shell/Page';
 import { TooltipProvider } from '../../ui/Tooltip';
-import { MockFilterRow, MockFilters, type FilterMock } from './alternatives';
-import { ListStatusChip } from './ListToolbar';
-import { CircleDashed } from 'lucide-react';
 import {
-  DemoFilterChips,
   DemoToolbarEnd,
   DemoToolbarStart,
-  useDemoFilters,
   type DemoToolbarEndProps,
   type DemoToolbarStartProps,
 } from './fixtures';
@@ -57,36 +52,19 @@ const FILTERED = { priority: [String(TaskPriority.HIGH)], source: 'external' };
 export const Tasks: Story = { render: () => <Toolbar start={{ list: 'tasks' }} /> };
 
 /**
- * Two filters set: each is a chip, its value opening the field's values and its × removing it.
- * "Clear", at the row's end before Display, removes both.
+ * Two filters set: the Filter button's badge counts them, and its tooltip names them. "Clear", at
+ * the row's end before Display, removes both.
  */
 export const Filtered: Story = {
   render: () => <Toolbar start={{ list: 'tasks', filters: FILTERED }} />,
 };
 
 /**
- * A filter holding several values, "any of these": a chip names two ("High, Medium") and from
- * three counts the rest ("Auth Overhaul +2"). Due and Source hold one value.
- */
-export const SeveralValues: Story = {
-  render: () => (
-    <Toolbar
-      start={{
-        list: 'tasks',
-        filters: {
-          priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
-          project: ['Auth Overhaul', 'API Gateway v2', 'none'],
-        },
-      }}
-    />
-  ),
-};
-
-/**
- * The Filter menu over fields that hold several values: each field's item shows the same summary
- * as its chip. In a field's submenu the values are checkboxes (radio buttons for a field that
- * holds one value) and picking one leaves the menu open; "Any"
- * unticks them all.
+ * The Filter menu over fields that hold several values, "any of these": a field's item names two
+ * ("High, Medium") and from three counts the rest ("Auth Overhaul +2"). In a field's submenu the
+ * values are checkboxes (radio buttons for a field that holds one value, as Due and Source do)
+ * and picking one leaves the menu open; "Any" unticks them all. A field counts once in the badge,
+ * however many values it holds.
  */
 export const SeveralValuesMenu: Story = {
   render: () => (
@@ -116,11 +94,7 @@ export const FilterMenu: Story = {
   ),
 };
 
-/**
- * Every filter set in a page too narrow for them: the row stays one line. The chips that fit are
- * drawn, and the rest fold into the button, which counts them ("Filter +3"); they are still in its
- * menu, each beside its field's name.
- */
+/** Every filter set, in a narrow page: the button is the same size whatever is set. */
 export const ManyFilters: Story = {
   render: () => (
     <Toolbar
@@ -139,173 +113,6 @@ export const ManyFilters: Story = {
   ),
 };
 
-function ChipRowToolbar({
-  filters,
-  open,
-  shape,
-  surface,
-  width = 1100,
-  height = 120,
-}: {
-  filters?: Record<string, string | string[]>;
-  shape?: 'chip' | 'pill';
-  surface?: 'none' | 'card';
-  open?: boolean;
-  width?: number;
-  height?: number;
-}) {
-  const state = useDemoFilters('tasks', filters);
-  return (
-    <TooltipProvider>
-      <div style={{ width, minHeight: height, paddingTop: 16, background: 'var(--background)' }}>
-        <PageToolbar
-          start={<DemoToolbarStart list="tasks" state={state} open={open ? 'filter' : undefined} />}
-          end={<DemoToolbarEnd list="tasks" />}
-        />
-        <DemoFilterChips state={state} shape={shape} surface={surface} />
-      </div>
-    </TooltipProvider>
-  );
-}
-
-/**
- * An alternative being tried: the chips in a row of their own under the toolbar, smaller (28px).
- * "Clear" keeps its place at the toolbar's end, before Display. The Filter button never moves, so its menu stays under the pointer
- * while values are ticked; it is drawn pressed while a filter is set. Not used by the app.
- */
-export const ChipRow: Story = {
-  name: 'Alternative — chips in their own row',
-  render: () => (
-    <ChipRowToolbar
-      filters={{
-        priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
-        due: 'today',
-        project: ['Auth Overhaul', 'API Gateway v2', 'none'],
-      }}
-    />
-  ),
-};
-
-const PILL_FILTERS = {
-  priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
-  due: 'today',
-  project: ['Auth Overhaul', 'API Gateway v2', 'none'],
-};
-
-/**
- * The alternative's chips as pills: 24px, fully round, 12px text, like the pills on a task's row.
- * Not used by the app.
- */
-export const ChipRowPills: Story = {
-  name: 'Alternative — filters as pills',
-  render: () => <ChipRowToolbar shape="pill" filters={PILL_FILTERS} />,
-};
-
-/**
- * The pills on a card of their own: a muted band with a line around it, as wide as the list, which
- * sets the filters apart from the rows under them. Not used by the app.
- */
-export const ChipRowCard: Story = {
-  name: 'Alternative — filters as pills, on a card',
-  render: () => <ChipRowToolbar shape="pill" surface="card" filters={PILL_FILTERS} />,
-};
-
-/** The pills in a narrow page: one line, the rest in "+2". */
-export const ChipRowPillsNarrow: Story = {
-  name: 'Alternative — filters as pills, narrow',
-  render: () => (
-    <ChipRowToolbar
-      shape="pill"
-      width={520}
-      height={160}
-      filters={{ ...PILL_FILTERS, source: 'external' }}
-    />
-  ),
-};
-
-/** The alternative with nothing set: one row, as there is no chip to draw. Tick a value to try it. */
-export const ChipRowEmpty: Story = {
-  name: 'Alternative — chips in their own row, none set',
-  render: () => <ChipRowToolbar open height={420} />,
-};
-
-/**
- * The alternative in a narrow page: the chips stay on one line, and those that don't fit fold into
- * a "+2" at the row's end, whose menu holds their fields.
- */
-export const ChipRowNarrow: Story = {
-  name: 'Alternative — chips in their own row, narrow',
-  render: () => (
-    <ChipRowToolbar
-      width={520}
-      height={160}
-      filters={{
-        priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
-        due: 'overdue',
-        source: 'external',
-        project: ['User Interface Revamp'],
-      }}
-    />
-  ),
-};
-
-function MockToolbar({ variant, filtered }: { variant: FilterMock; filtered?: boolean }) {
-  const state = useDemoFilters('tasks', filtered ? PILL_FILTERS : undefined);
-  const mock = { variant, fields: state.fields, onClear: state.clear };
-  return (
-    <TooltipProvider>
-      <div style={{ width: 1100, minHeight: 320, paddingTop: 16, background: 'var(--background)' }}>
-        <PageToolbar
-          start={
-            <>
-              <ListStatusChip
-                icon={CircleDashed}
-                options={[
-                  { value: 'open', label: 'Open' },
-                  { value: 'all', label: 'All' },
-                ]}
-                value="open"
-                onChange={() => {}}
-              />
-              <MockFilters {...mock} />
-            </>
-          }
-          end={<DemoToolbarEnd list="tasks" />}
-        />
-        <MockFilterRow {...mock} />
-      </div>
-    </TooltipProvider>
-  );
-}
-
-/** Mock-up: every field always in the toolbar, as Status is. No Filter button, no submenus. */
-export const MockFields: Story = {
-  name: 'Mock-up 1 — every field in the toolbar',
-  render: () => <MockToolbar variant="fields" filtered />,
-};
-export const MockFieldsEmpty: Story = {
-  name: 'Mock-up 1 — every field in the toolbar, none set',
-  render: () => <MockToolbar variant="fields" />,
-};
-
-/** Mock-up: flat tokens ("Priority is High ×") in a row of their own, Clear after them. */
-export const MockTokensRow: Story = {
-  name: 'Mock-up 2a — flat tokens in their own row',
-  render: () => <MockToolbar variant="tokens-row" filtered />,
-};
-
-/** Mock-up: one row, the Filter button first so it never moves, flat tokens after it. */
-export const MockTokensInline: Story = {
-  name: 'Mock-up 2b — flat tokens after the Filter button',
-  render: () => <MockToolbar variant="tokens-inline" filtered />,
-};
-
-/** Mock-up: one "Filter 3" button and its menu; no filter is drawn in the row. */
-export const MockPanel: Story = {
-  name: 'Mock-up 3 — one Filter button with a count',
-  render: () => <MockToolbar variant="panel" filtered />,
-};
-
 /** Display: the layout, the grouping, and the sort with its direction. */
 export const Display: Story = {
   render: () => <Toolbar height={260} start={{ list: 'tasks' }} end={{ open: true }} />,
@@ -322,7 +129,7 @@ export const Board: Story = {
   ),
 };
 
-/** A narrow window: Status and Display drop their values, and the chips fold into "Filter 2". */
+/** A narrow window: Status and Display drop their values; the Filter button is as it always is. */
 export const Compact: Story = {
   render: () => <Toolbar width={640} start={{ list: 'tasks', filters: FILTERED, compact: true }} />,
 };
@@ -332,7 +139,7 @@ export const Projects: Story = {
   render: () => <Toolbar start={{ list: 'projects' }} end={{ layout: 'cards' }} />,
 };
 
-/** Notes have no status, so the row starts with the filters. One is set: Clear is there too. */
+/** Notes have no status, so the row starts with the Filter button. One filter is set: Clear is there too. */
 export const Notes: Story = {
   render: () => <Toolbar start={{ list: 'notes', filters: { project: ['Auth Overhaul'] } }} />,
 };

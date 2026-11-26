@@ -1,41 +1,50 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
 /*
- * The filters' row: the room the toolbar leaves after Status, on one line. Its width is the room
- * there is, not what its chips need (it grows from nothing), so the chips that fit can be counted.
- * It is the containing block of its folded chips.
+ * The filters: the Filter button, and "Clear" at the end of the room the toolbar leaves after
+ * Status.
  */
 .filters {
-  position: relative;
   display: flex;
   flex: 1 1 0;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
-
-/* a filter chip: a ButtonGroup of its value and its ×, at its own width */
-.chip {
+/* the Filter button and, over its top right corner, how many filters are set */
+.filterButton {
+  position: relative;
+  display: inline-flex;
   flex: none;
 }
-/*
- * A chip folded into "Filter +N": still in the row at its own width, so it can be measured when
- * the row changes, but unseen (which also takes it out of the tab order) and out of the flow
- * (`absolute`), so it takes no room beside the chips that are shown.
- */
-.folded {
+.badge {
   position: absolute;
-  visibility: hidden;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  /* a ring in the page's colour lifts it off the button's line */
+  box-shadow: 0 0 0 2px var(--background);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: var(--font-weight-medium) 10px / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-/* the ×: narrower than a square button, and quiet until pointed at */
-.chipRemove {
-  width: 28px;
-  color: var(--muted-foreground);
+/* the tooltip while filters are set: one to a line */
+.tooltip {
+  display: grid;
+  gap: 2px;
+  text-align: left;
 }
+
 /*
- * What a field is filtered to, in a chip or the Filter menu: its text, cut with "…" when it is
- * long (a project's name, two values side by side), then "+2", which is never cut.
+ * What a field is filtered to, in the Filter menu: its text, cut with "…" when it is long (a
+ * project's name, two values side by side), then "+2", which is never cut.
  */
 .summary {
   display: flex;
@@ -51,64 +60,12 @@
   flex: none;
   white-space: pre;
 }
-/* in a chip */
-.value {
-  max-width: 160px;
-}
-/* in the Filter menu: cut before it squeezes the field's name */
+/* cut before it squeezes the field's name */
 .menuValue {
   max-width: 80px;
 }
 
-/*
- * An alternative being tried (`ListFilterChips`): the chips in a row of their own under the
- * toolbar, in line with its controls. One line: the chips that don't fit fold into its "+2", by
- * the same measuring as the toolbar's own chips (the line is the containing block of the folded).
- */
-.chipRow {
-  flex: none;
-  min-width: 0;
-  padding: 0 var(--space-6) var(--space-3);
-}
-.chipLine {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  min-width: 0;
-}
-/* `surface="card"`: the line on a card of its own, as wide as the list under it */
-.chipCard {
-  padding: var(--space-1-5) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--muted);
-}
-.chipRemoveSmall {
-  width: 24px;
-  color: var(--muted-foreground);
-}
-.rowMore {
-  flex: none;
-}
-/*
- * `shape="pill"`: the chip as one of the app's pills, fully round on `pill-fill`. ButtonGroup
- * still squares the corners where the value meets the ×.
- */
-.pill > [data-slot],
-.pillMore {
-  border-radius: var(--radius-full);
-  background: var(--pill-fill);
-}
-.pill > [data-slot]:first-of-type {
-  padding-left: 10px;
-}
-.pill .chipRemoveSmall {
-  width: 26px;
-  padding-right: 2px;
-}
-
-/* "Clear": a quiet word at the row's end, in the same place however many chips there are */
+/* "Clear": a quiet word at the row's end */
 .clear {
   flex: none;
   margin-left: auto;

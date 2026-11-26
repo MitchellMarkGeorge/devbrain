@@ -229,13 +229,12 @@ export function byText(root: ParentNode, selector: string, text: string): HTMLEl
   );
 }
 
-/**
- * A list toolbar's Filter button: an icon button named "Filter", or with chips folded into it (as
- * in the tests' compact window once a filter is set) a button reading "Filter 2".
- */
+/** A list toolbar's Filter button: an icon button named "Filter", or "Filter, 2 set". */
 export function filterButton(root: ParentNode): HTMLElement | null {
-  return (
-    root.querySelector<HTMLElement>('button[aria-label="Filter"]') ??
-    byText(root, 'button', 'Filter')
-  );
+  return root.querySelector<HTMLElement>('button[aria-label^="Filter"]');
+}
+
+/** How many filters a list toolbar's Filter button counts in its badge; 0 with no badge. */
+export function filterCount(root: ParentNode): number {
+  return Number(root.querySelector('[data-filter-count]')?.textContent ?? 0);
 }

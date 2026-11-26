@@ -68,8 +68,8 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
 ];
 
 /**
- * Which notes are shown: a chip per filter that is set (what it links to, its project), the Filter button.
- * Both filters hold several values.
+ * Which notes are shown: the Filter button, counting the filters that are set (what a note links
+ * to, its project). Both filters hold several values.
  */
 export function NotesToolbarStart({
   resolved,
@@ -78,11 +78,9 @@ export function NotesToolbarStart({
   resolved: ResolvedNotesSearch;
   setSearch: SetSearch;
 }) {
-  const compact = useWorkspaceShell().size === 'compact';
   const projects = useProjectOptions();
   return (
     <ListFilters
-      compact={compact}
       fields={[
         {
           id: 'link',

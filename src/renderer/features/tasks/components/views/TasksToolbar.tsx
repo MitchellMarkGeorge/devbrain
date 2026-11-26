@@ -130,8 +130,9 @@ const LAYOUTS: ListToolbarOption<'list' | 'board'>[] = [
 
 /**
  * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
- * completed tasks"), a chip per filter that is set (priority, due, source, project) and
- * the Filter button. Priority and project hold several values, due and source one. A project's Tasks tab has its project fixed: no Project filter.
+ * completed tasks") and the Filter button, counting the filters that are set (priority, due,
+ * source, project). Priority and project hold several values, due and source one. A project's
+ * Tasks tab has its project fixed: no Project filter.
  */
 export function TasksToolbarStart({
   resolved,
@@ -219,7 +220,6 @@ export function TasksToolbarStart({
       />
       <ListFilters
         fields={fields}
-        compact={compact}
         // the Status chip is not one of the filters: it keeps what the URL says
         onClear={() => setSearch({ ...CLEAR_FILTERS, status: search.status })}
       />

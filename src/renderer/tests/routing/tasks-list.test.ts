@@ -3,7 +3,15 @@ import type { WorkspaceId } from '@common/ids';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, filterButton, startApp, stopApps } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  filterButton,
+  filterCount,
+  startApp,
+  stopApps,
+} from './harness';
 
 // The tasks page's list and group views: rows from tasks.list, the toolbar in the URL, the list
 // keys, the selection bar, the states, and Create task.
@@ -121,8 +129,8 @@ describe('the list view', () => {
         filter: { priority: [TaskPriority.HIGH] },
       }),
     );
-    // the test window is compact: the filter's chip folds into the Filter button's count
-    await eventually(() => expect(app.text()).toContain('Filter1'));
+    // the Filter button's badge counts the filter
+    await eventually(() => expect(filterCount(app.container)).toBe(1));
     await openPriority();
     click(value('Any'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
@@ -157,8 +165,8 @@ describe('the list view', () => {
     await eventually(() => expect(row('Build the page')).toBeUndefined());
     expect(row('Plan the launch')).toBeDefined();
     expect(row('Test the page')).toBeDefined();
-    // one filter, however many values: the compact window's count
-    expect(app.text()).toContain('Filter1');
+    // one filter, however many values, in the Filter button's badge
+    expect(filterCount(app.container)).toBe(1);
     // the field's item in the menu names both
     expect(
       [...document.body.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent),

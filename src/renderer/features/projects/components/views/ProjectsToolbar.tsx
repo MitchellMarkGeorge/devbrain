@@ -73,7 +73,7 @@ const LAYOUTS: ListToolbarOption<ProjectView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
-/** Which projects are shown: the Status chip (Active by default), the Source chip, the Filter button. */
+/** Which projects are shown: the Status chip (Active by default), the Filter button (source). */
 export function ProjectsToolbarStart({
   resolved,
   setSearch,
@@ -95,7 +95,6 @@ export function ProjectsToolbarStart({
         onChange={(status) => setSearch({ status: status === 'active' ? undefined : status })}
       />
       <ListFilters
-        compact={compact}
         fields={[
           {
             id: 'source',

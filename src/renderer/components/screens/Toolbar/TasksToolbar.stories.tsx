@@ -6,8 +6,8 @@ import { TooltipProvider } from '../../ui/Tooltip';
 
 /*
  * The tasks page's toolbar at the two window widths (1184px of page, and the compact window's
- * 904px): the Status chip, a chip per filter that is set and the Filter button on the left, Display on
- * the right. A narrow window hides the buttons' values and folds the chips into "Filter 2".
+ * 904px): the Status chip and the Filter button (its badge counting the filters set) on the left, Display on
+ * the right. A narrow window hides the buttons' values.
  */
 
 function TasksToolbar({ compact = false }: { compact?: boolean }) {
@@ -37,8 +37,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** "Status Open", the Priority and Source chips, the Filter button, then "Display Priority" */
+/** "Status Open", the Filter button counting two filters, then "Display Priority" */
 export const Wide: Story = { render: () => <TasksToolbar /> };
 
-/** A compact window: Status and Display keep their names, and the chips fold into "Filter 2" */
+/** A compact window: Status and Display keep their names and drop their values */
 export const Compact: Story = { render: () => <TasksToolbar compact /> };

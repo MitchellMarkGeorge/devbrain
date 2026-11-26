@@ -8,6 +8,7 @@ import {
   click,
   eventually,
   filterButton,
+  filterCount,
   menuItem,
   rightClick,
   startApp,
@@ -99,8 +100,8 @@ describe('the notes list', () => {
       filter: { projectId: [PROJECT.id], linkedTo: ['task'] },
       sort: { sortBy: 'title', direction: 'asc' },
     });
-    // the test window is compact: the two filters' chips fold into the Filter button's count
-    expect(app.text()).toContain('Filter2');
+    // the Filter button's badge counts the two filters
+    expect(filterCount(app.container)).toBe(2);
   });
 
   it('ticks several values of a filter: the notes that are any of them', async () => {
