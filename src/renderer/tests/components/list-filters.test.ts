@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
-import { fitChips, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
+import { chipCuts, fitChips, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
 import { TooltipProvider } from '../../components/ui/Tooltip';
 import {
   ListFilterButton,
@@ -250,41 +250,80 @@ describe('fitChips', () => {
   // three chips of 150px (gap included) that cannot be cut; the "+N" marker keeps 52px
   const whole = (width: number) => ({ width, min: width });
   const chips = [whole(150), whole(150), whole(150)];
-  const shown = (sizes: typeof chips, available: number) => fitChips(sizes, available).shown;
 
   it('shows every chip while they fit', () => {
-    expect(fitChips(chips, 450)).toEqual({ shown: 3, cut: null });
-    expect(fitChips([], 0)).toEqual({ shown: 0, cut: null });
+    expect(fitChips(chips, 450)).toBe(3);
+    expect(fitChips([], 0)).toBe(0);
   });
 
   it('hides from the end, leaving room for the marker', () => {
     // one pixel short of all three: the third hides, and the marker needs its room
-    expect(shown(chips, 449)).toBe(2);
-    expect(shown(chips, 352)).toBe(2);
-    expect(shown(chips, 351)).toBe(1);
+    expect(fitChips(chips, 449)).toBe(2);
+    expect(fitChips(chips, 352)).toBe(2);
+    expect(fitChips(chips, 351)).toBe(1);
   });
 
   it('hides them all when not one fits', () => {
-    expect(shown(chips, 200)).toBe(0);
+    expect(fitChips(chips, 200)).toBe(0);
   });
 
   it('stops at the first chip that does not fit, so the chips shown stay in order', () => {
-    expect(shown([whole(300), whole(100)], 250)).toBe(0);
+    expect(fitChips([whole(300), whole(100)], 250)).toBe(0);
   });
 
-  it('cuts the last chip to the room left before hiding it', () => {
-    // the third chip's value can give up 90px: it is shown, cut, with no marker
-    const sizes = [whole(150), whole(150), { width: 200, min: 110 }];
-    expect(fitChips(sizes, 450)).toEqual({ shown: 3, cut: 150 });
-    expect(fitChips(sizes, 410)).toEqual({ shown: 3, cut: 110 });
-    // not even its least fits: it hides, and the marker takes its room
-    expect(fitChips(sizes, 409)).toEqual({ shown: 2, cut: null });
+  it('counts a chip at the least it can be cut to, before hiding it', () => {
+    // 500px whole; the first and last can each give up 90px
+    const sizes = [{ width: 200, min: 110 }, whole(100), { width: 200, min: 110 }];
+    expect(fitChips(sizes, 500)).toBe(3);
+    // short of room: all three still fit at their least, and no marker is needed
+    expect(fitChips(sizes, 320)).toBe(3);
+    // one pixel less: the third hides, and the marker takes its room
+    expect(fitChips(sizes, 319)).toBe(2);
   });
 
-  it('cuts only the last chip shown, with room kept for the marker after it', () => {
-    const sizes = [whole(150), { width: 200, min: 110 }, whole(150)];
-    // the third does not fit, so the second is the last shown: cut to what the marker leaves
-    expect(fitChips(sizes, 380)).toEqual({ shown: 2, cut: 178 });
-    expect(fitChips(sizes, 311)).toEqual({ shown: 1, cut: null });
+  it('cuts an earlier chip so a later one can be shown', () => {
+    // a long first chip beside a short one: whole, only the first fits with the marker
+    const sizes = [{ width: 225, min: 135 }, { width: 194, min: 159 }, whole(169)];
+    expect(fitChips(sizes, 370)).toBe(2);
+  });
+});
+
+describe('chipCuts', () => {
+  // what each chip can spare: 90px, nothing, 30px
+  const chips = [
+    { width: 200, min: 110 },
+    { width: 100, min: 100 },
+    { width: 150, min: 120 },
+  ];
+
+  it('cuts nothing when the row is not short', () => {
+    expect(chipCuts(chips, 0)).toEqual([0, 0, 0]);
+    expect(chipCuts(chips, -20)).toEqual([0, 0, 0]);
+  });
+
+  it('takes a small cut from the chip with the most to spare, the others whole', () => {
+    expect(chipCuts(chips, 12)).toEqual([12, 0, 0]);
+    expect(chipCuts(chips, 60)).toEqual([60, 0, 0]);
+  });
+
+  it('then cuts the long ones down together', () => {
+    // the first is down to the second-longest's spare (30) after 60; the next 40 is shared
+    expect(chipCuts(chips, 100)).toEqual([80, 0, 20]);
+  });
+
+  it('does not cut a chip by a few pixels when another can take them', () => {
+    // level, the first would give 15 and the second 1: the first takes it all
+    const close = [
+      { width: 200, min: 131 },
+      { width: 200, min: 145 },
+    ];
+    expect(chipCuts(close, 16)).toEqual([16, 0]);
+    // but a small cut stays where no other chip has the room for it
+    expect(chipCuts([{ width: 100, min: 92 }], 5)).toEqual([5]);
+  });
+
+  it('never cuts a chip below its least', () => {
+    expect(chipCuts(chips, 120)).toEqual([90, 0, 30]);
+    expect(chipCuts(chips, 500)).toEqual([90, 0, 30]);
   });
 });

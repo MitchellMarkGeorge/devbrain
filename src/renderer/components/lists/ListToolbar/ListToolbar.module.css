@@ -14,8 +14,9 @@
   min-width: 0;
 }
 /*
- * A chip: a ButtonGroup of its value and its ×, at its own width. The row's last chip can be cut to
- * the room left (a max-width set as the row is laid out): its value's text gives way, with "…".
+ * A chip: a ButtonGroup of its value and its ×, at its own width. When the row is short of room
+ * the chips shown are cut (a max-width set as the row is laid out, the longest values first): a
+ * chip's value text gives way, with "…".
  */
 .chip {
   flex: none;

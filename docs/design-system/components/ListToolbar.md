@@ -56,12 +56,13 @@ Rules:
   draws its chip at the other end of the row, so the button does not move and its menu stays under
   the pointer while values are ticked.
 - The toolbar is always one row. `ListFilters` takes the room left after Status and measures it.
-  A chip that does not fit whole is cut before it is hidden: the last chip shown gives up its
-  value's text, with "…", down to about four letters, so the room there is gets used. Only the
-  last chip shown is cut.
+  Chips are cut before any is hidden: a chip gives up its value's text, with "…", down to about
+  four letters, so as many chips show as fit at their shortest. The longest values give way
+  first, so short ones stay whole as long as they can, and a chip is not cut by just a few
+  pixels where another can take them.
 - While a menu of the row is open (a chip's, or the "+2" marker's), the number of chips shown is
   held: ticking a value there changes what a chip says, and a chip that hid then would take its
-  open menu with it. The last chip is cut as far as it goes meanwhile, and the row is laid out
+  open menu with it. The chips are cut as far as they go meanwhile, and the row is laid out
   again when the menu closes.
 - Past that, the chips that fit are drawn, and the rest are hidden, from the end, behind an outline "+2" after
   the last chip shown (how many are hidden). Its menu has the hidden fields, each opening its
