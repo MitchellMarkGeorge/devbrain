@@ -3,8 +3,10 @@ import { TaskPriority } from '@common/types';
 import { PageToolbar } from '../../shell/Page';
 import { TooltipProvider } from '../../ui/Tooltip';
 import {
+  DemoFilterChips,
   DemoToolbarEnd,
   DemoToolbarStart,
+  useDemoFilters,
   type DemoToolbarEndProps,
   type DemoToolbarStartProps,
 } from './fixtures';
@@ -129,6 +131,72 @@ export const ManyFilters: Story = {
           source: 'external',
           project: ['User Interface Revamp'],
         },
+      }}
+    />
+  ),
+};
+
+function ChipRowToolbar({
+  filters,
+  open,
+  width = 1100,
+  height = 120,
+}: {
+  filters?: Record<string, string | string[]>;
+  open?: boolean;
+  width?: number;
+  height?: number;
+}) {
+  const state = useDemoFilters('tasks', filters);
+  return (
+    <TooltipProvider>
+      <div style={{ width, minHeight: height, paddingTop: 16, background: 'var(--background)' }}>
+        <PageToolbar
+          start={<DemoToolbarStart list="tasks" state={state} open={open ? 'filter' : undefined} />}
+          end={<DemoToolbarEnd list="tasks" />}
+        />
+        <DemoFilterChips state={state} />
+      </div>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * An alternative being tried: the chips in a row of their own under the toolbar, smaller (28px),
+ * with "Clear" after them. The Filter button never moves, so its menu stays under the pointer
+ * while values are ticked; it is drawn pressed while a filter is set. Not used by the app.
+ */
+export const ChipRow: Story = {
+  name: 'Alternative — chips in their own row',
+  render: () => (
+    <ChipRowToolbar
+      filters={{
+        priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+        due: 'today',
+        project: ['Auth Overhaul', 'API Gateway v2', 'none'],
+      }}
+    />
+  ),
+};
+
+/** The alternative with nothing set: one row, as there is no chip to draw. Tick a value to try it. */
+export const ChipRowEmpty: Story = {
+  name: 'Alternative — chips in their own row, none set',
+  render: () => <ChipRowToolbar open height={420} />,
+};
+
+/** The alternative in a narrow page: the chips wrap onto another line instead of folding. */
+export const ChipRowNarrow: Story = {
+  name: 'Alternative — chips in their own row, narrow',
+  render: () => (
+    <ChipRowToolbar
+      width={520}
+      height={160}
+      filters={{
+        priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+        due: 'overdue',
+        source: 'external',
+        project: ['User Interface Revamp'],
       }}
     />
   ),

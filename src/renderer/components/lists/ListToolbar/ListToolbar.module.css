@@ -60,6 +60,27 @@
   max-width: 80px;
 }
 
+/*
+ * An alternative being tried (`ListFilterChips`): the chips in a row of their own under the
+ * toolbar, in line with its controls. They wrap; nothing folds.
+ */
+.chipRow {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: 0 var(--space-6) var(--space-3);
+}
+.chipRemoveSmall {
+  width: 24px;
+  color: var(--muted-foreground);
+}
+.rowClear {
+  color: var(--muted-foreground);
+}
+
 /* "Clear": a quiet word at the row's end, in the same place however many chips there are */
 .clear {
   flex: none;

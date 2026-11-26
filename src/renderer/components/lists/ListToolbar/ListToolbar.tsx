@@ -288,8 +288,19 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
   );
 }
 
-/** A filter that is set, as a chip: its value opens the field's values, its × removes it. */
-function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean }) {
+/**
+ * A filter that is set, as a chip: its value opens the field's values, its × removes it. `small`
+ * draws it 28px tall, for the chips' own row (`ListFilterChips`).
+ */
+function FilterChip({
+  field,
+  folded,
+  small,
+}: {
+  field: ListFilterField;
+  folded?: boolean;
+  small?: boolean;
+}) {
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
@@ -304,6 +315,7 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
             render={
               <Button
                 variant="outline"
+                size={small ? 'sm' : undefined}
                 icon={field.icon}
                 value={<FieldSummary field={field} className={styles.value} />}
               >
@@ -322,10 +334,10 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
       </Searchable>
       <Button
         variant="outline"
-        size="icon"
+        size={small ? 'icon-sm' : 'icon'}
         icon={X}
         aria-label={`Remove ${field.label} filter`}
-        className={styles.chipRemove}
+        className={small ? styles.chipRemoveSmall : styles.chipRemove}
         onClick={() => removeFilter(field)}
       />
     </ButtonGroup>
@@ -338,6 +350,12 @@ export interface ListFiltersProps {
   compact?: boolean;
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
+  /**
+   * An alternative being tried: `row` leaves the chips out of this row, for a `ListFilterChips`
+   * under the toolbar to draw. The Filter button then never moves: it stays after Status, drawn
+   * pressed while a filter is set, and its menu stays under the pointer as values are ticked.
+   */
+  chips?: 'inline' | 'row';
   /**
    * removes every filter: "Clear" at the row's end and "Clear filters" at the menu's end, while
    * any is set
@@ -398,7 +416,92 @@ function measure(row: HTMLElement, plainWidth: number): number {
  * stays put as chips come and go. It is there with one filter too: beside the chip's × in a wide
  * window, and the only one-click way out in a compact one, where the chip is folded.
  */
-export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
+export function ListFilters({ fields, compact, defaultOpen, chips, onClear }: ListFiltersProps) {
+  if (chips === 'row')
+    return <FilterMenuButton fields={fields} defaultOpen={defaultOpen} onClear={onClear} />;
+  return (
+    <InlineFilters fields={fields} compact={compact} defaultOpen={defaultOpen} onClear={onClear} />
+  );
+}
+
+/** The Filter menu's items: a submenu per field, then "Clear filters" while one is set. */
+function FilterMenuItems({ fields, onClear }: Pick<ListFiltersProps, 'fields' | 'onClear'>) {
+  const anySet = fields.some((field) => valuesOf(field).length > 0);
+  return (
+    <DropdownMenuContent width="sm" align="start" aria-label="Filter">
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+        {fields.map((field) => (
+          <FieldSubmenu key={field.id} field={field} />
+        ))}
+      </DropdownMenuGroup>
+      {anySet && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
+            Clear filters
+          </DropdownMenuItem>
+        </>
+      )}
+    </DropdownMenuContent>
+  );
+}
+
+/** The Filter button alone, its chips drawn elsewhere (`chips="row"`): it stays where it is. */
+function FilterMenuButton({
+  fields,
+  defaultOpen,
+  onClear,
+}: Pick<ListFiltersProps, 'fields' | 'defaultOpen' | 'onClear'>) {
+  const anySet = fields.some((field) => valuesOf(field).length > 0);
+  return (
+    <DropdownMenu defaultOpen={defaultOpen}>
+      <DropdownMenuTrigger
+        render={
+          <IconButton
+            variant="outline"
+            icon={ListFilter}
+            label="Filter"
+            data-pressed={anySet ? '' : undefined}
+          />
+        }
+      />
+      <FilterMenuItems fields={fields} onClear={onClear} />
+    </DropdownMenu>
+  );
+}
+
+export interface ListFilterChipsProps extends Pick<ListFiltersProps, 'fields' | 'onClear'> {
+  className?: string;
+}
+
+/**
+ * An alternative being tried, with `ListFilters chips="row"`: the filters that are set, as a row
+ * of their own under the toolbar. The chips are smaller (28px), wrap onto more lines instead of
+ * folding, and end with "Clear". With no filter set the row is not drawn, so it takes no room.
+ */
+export function ListFilterChips({ fields, onClear, className }: ListFilterChipsProps) {
+  const set = fields.filter((field) => valuesOf(field).length > 0);
+  if (set.length === 0) return null;
+  return (
+    <div role="group" aria-label="Filters" className={cn(styles.chipRow, className)}>
+      {set.map((field) => (
+        <FilterChip key={field.id} field={field} small />
+      ))}
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Clear filters"
+        className={styles.rowClear}
+        onClick={onClear}
+      >
+        Clear
+      </Button>
+    </div>
+  );
+}
+
+function InlineFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => valuesOf(field).length > 0);
   const row = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -458,22 +561,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
             )
           }
         />
-        <DropdownMenuContent width="sm" align="start" aria-label="Filter">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-            {fields.map((field) => (
-              <FieldSubmenu key={field.id} field={field} />
-            ))}
-          </DropdownMenuGroup>
-          {set.length > 0 && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
-                Clear filters
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
+        <FilterMenuItems fields={fields} onClear={onClear} />
       </DropdownMenu>
       {set.length > 0 && (
         <Button

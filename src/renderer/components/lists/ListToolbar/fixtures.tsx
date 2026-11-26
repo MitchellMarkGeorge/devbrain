@@ -36,6 +36,7 @@ import {
 } from '../../types';
 import {
   ListDisplay,
+  ListFilterChips,
   ListFilters,
   ListStatusChip,
   type ListFilterField,
@@ -178,6 +179,44 @@ export interface DemoToolbarStartProps {
   open?: 'status' | 'filter';
   /** a project's Tasks tab: no Project filter */
   fixedProject?: boolean;
+  /**
+   * the alternative being tried: the chips go in a row of their own (`DemoFilterChips`, given this
+   * same state) and the Filter button stays put
+   */
+  state?: DemoFilters;
+}
+
+type DemoValues = Record<string, string | string[] | undefined>;
+
+/** A list's filters as a story holds them, for a toolbar and a chip row that share them. */
+export interface DemoFilters {
+  fields: ListFilterField[];
+  clear: () => void;
+}
+
+/** The sample fields of `list`, holding their own state from `filters`. */
+export function useDemoFilters(
+  list: DemoList,
+  filters: DemoValues = {},
+  fixedProject?: boolean,
+): DemoFilters {
+  const [values, setValues] = useState<DemoValues>(filters);
+  const fields = FIELDS[list]
+    .filter((field) => !fixedProject || field.id !== 'project')
+    .map(({ multiple, ...field }): ListFilterField => {
+      const value = values[field.id];
+      const onChange = (next: string | string[] | undefined) =>
+        setValues((all) => ({ ...all, [field.id]: next }));
+      return multiple
+        ? { ...field, multiple: true, value: [value ?? []].flat(), onChange }
+        : { ...field, value: [value].flat()[0], onChange };
+    });
+  return { fields, clear: () => setValues({}) };
+}
+
+/** The alternative's row of chips under the toolbar, over the state its toolbar was given. */
+export function DemoFilterChips({ state }: { state: DemoFilters }) {
+  return <ListFilterChips fields={state.fields} onClear={state.clear} />;
 }
 
 /** The start of a list page's toolbar: its Status chip, its filter chips and the Filter button. */
@@ -188,10 +227,12 @@ export function DemoToolbarStart({
   filters = {},
   open,
   fixedProject,
+  state,
 }: DemoToolbarStartProps) {
   const statuses = STATUSES[list];
   const [scope, setScope] = useState(status ?? statuses?.scopes[0]?.value ?? '');
-  const [values, setValues] = useState<Record<string, string | string[] | undefined>>(filters);
+  const own = useDemoFilters(list, filters, fixedProject);
+  const { fields, clear } = state ?? own;
   return (
     <>
       {statuses && (
@@ -209,17 +250,9 @@ export function DemoToolbarStart({
       <ListFilters
         compact={compact}
         defaultOpen={open === 'filter'}
-        fields={FIELDS[list]
-          .filter((field) => !fixedProject || field.id !== 'project')
-          .map(({ multiple, ...field }): ListFilterField => {
-            const value = values[field.id];
-            const onChange = (next: string | string[] | undefined) =>
-              setValues((all) => ({ ...all, [field.id]: next }));
-            return multiple
-              ? { ...field, multiple: true, value: [value ?? []].flat(), onChange }
-              : { ...field, value: [value].flat()[0], onChange };
-          })}
-        onClear={() => setValues({})}
+        chips={state ? 'row' : 'inline'}
+        fields={fields}
+        onClear={clear}
       />
     </>
   );
