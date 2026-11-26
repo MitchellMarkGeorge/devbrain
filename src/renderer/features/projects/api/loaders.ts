@@ -21,13 +21,15 @@ import {
   type ProjectsSearch,
 } from './search';
 
+import { today } from '@renderer/features/tasks/api/loaders';
+
 // What the projects routes load before their first frame (routes/app/$workspaceId/projects/):
 // they only prime React Query's cache, which the pages read.
 
 /** The list page: the first page of projects, with their stats, for the filters in the URL. */
 export async function loadProjects({ queryClient }: RouterContext, search: ProjectsSearch) {
   await queryClient.infiniteQuery({
-    ...projectListQuery(projectListInput(resolveProjectsSearch(search))),
+    ...projectListQuery(projectListInput(resolveProjectsSearch(search), today())),
     staleTime: 'static',
   });
 }

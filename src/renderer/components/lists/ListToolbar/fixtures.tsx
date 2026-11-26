@@ -114,7 +114,20 @@ const FIELDS: Record<DemoList, Field[]> = {
     SOURCE,
     projectField(['Auth Overhaul', 'API Gateway v2', 'AI Action Items', 'User Interface Revamp']),
   ],
-  projects: [SOURCE],
+  projects: [
+    {
+      id: 'due',
+      label: 'Due',
+      icon: Calendar,
+      options: [
+        { value: 'overdue', label: 'Overdue', icon: CircleAlert },
+        { value: 'week', label: 'This week', icon: Calendar },
+        { value: 'month', label: 'This month', icon: Calendar },
+        { value: 'none', label: 'No due date', icon: CircleSlash },
+      ],
+    },
+    SOURCE,
+  ],
   notes: [
     {
       id: 'edited',

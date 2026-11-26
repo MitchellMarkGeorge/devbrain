@@ -141,6 +141,7 @@ export class ProjectService {
     if (filter.excludeCompleted) clauses.push(ne(projects.status, ProjectStatus.COMPLETED));
     if (filter.dueBefore != null) clauses.push(lt(projects.dueDate, filter.dueBefore));
     if (filter.dueAfter != null) clauses.push(gt(projects.dueDate, filter.dueAfter));
+    if (filter.noDueDate) clauses.push(isNull(projects.dueDate));
     if (filter.dueOn != null) {
       // get the start and end time the date and compare (inclusive start and exlusive end/midnight)
       const { startOfDay, endOfDay } = localDayWindow(filter.dueOn);

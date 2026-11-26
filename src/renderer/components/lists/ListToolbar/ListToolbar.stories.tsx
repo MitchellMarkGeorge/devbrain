@@ -155,7 +155,7 @@ export const Compact: Story = {
   render: () => <Toolbar width={640} start={{ list: 'tasks', filters: FILTERED, compact: true }} />,
 };
 
-/** Projects: one filter, so its menu has no search row; no grouping. */
+/** Projects: Due and Source, neither with a search row; no grouping. */
 export const Projects: Story = {
   render: () => <Toolbar start={{ list: 'projects' }} end={{ layout: 'cards' }} />,
 };

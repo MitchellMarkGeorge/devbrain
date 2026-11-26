@@ -315,7 +315,8 @@ these": a list in the URL, or one value alone as older links have it (`multiPara
 ### `/app/projects`
 
 `view` (`list` | `card`), `status` (`active` default \| `all` \| `not_started` \| `on_hold` \|
-`completed`), `sort` (`dueDate` default \| `createdAt` \| `updatedAt` \| `status`), `dir`, `source`.
+`completed`), `sort` (`dueDate` default \| `createdAt` \| `updatedAt` \| `status`), `dir`, `source`,
+`due` (`overdue` \| `week` \| `month` \| `none`, mapped to `dueBefore`/`dueAfter`/`noDueDate` at the call).
 
 ### `/app/projects/$projectId`
 

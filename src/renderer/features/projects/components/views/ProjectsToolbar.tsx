@@ -1,7 +1,9 @@
 import {
   Calendar,
   Circle,
+  CircleAlert,
   CircleDashed,
+  CircleSlash,
   Clock,
   Cloud,
   LayoutGrid,
@@ -20,7 +22,9 @@ import {
   type ListToolbarOption,
 } from '@renderer/components';
 import {
+  PROJECT_DUE_FILTERS,
   PROJECT_SORTS,
+  type ProjectDueFilter,
   PROJECT_STATUS_OF,
   type ProjectSortParam,
   type ProjectStatusFilter,
@@ -44,6 +48,18 @@ export const PROJECT_SORT_LABELS: Record<ProjectSortParam, string> = {
   status: 'Status',
   updated_at: 'Last updated',
   created_at: 'Created',
+};
+export const PROJECT_DUE_LABELS: Record<ProjectDueFilter, string> = {
+  overdue: 'Overdue',
+  week: 'This week',
+  month: 'This month',
+  none: 'No due date',
+};
+const DUE_ICONS: Record<ProjectDueFilter, LucideIcon> = {
+  overdue: CircleAlert,
+  week: Calendar,
+  month: Calendar,
+  none: CircleSlash,
 };
 const SORT_ICONS: Record<ProjectSortParam, LucideIcon> = {
   due_date: Calendar,
@@ -76,7 +92,8 @@ const LAYOUTS: ListToolbarOption<ProjectView>[] = [
 ];
 
 /**
- * The field the projects can be filtered by, with what the URL filters it to: the source. The
+ * The fields the projects can be filtered by, with what the URL filters them to: when a project is
+ * due, and its source. The
  * chip (`ProjectsToolbarStart`) and the Filter button (`ProjectsToolbarEnd`) both draw it.
  */
 function useProjectFilterFields(
@@ -84,6 +101,18 @@ function useProjectFilterFields(
   setSearch: SetSearch,
 ): { fields: ListFilterField[]; clear: () => void } {
   const fields: ListFilterField[] = [
+    {
+      id: 'due',
+      label: 'Due',
+      icon: Calendar,
+      options: PROJECT_DUE_FILTERS.map((due) => ({
+        value: due,
+        label: PROJECT_DUE_LABELS[due],
+        icon: DUE_ICONS[due],
+      })),
+      value: resolved.due,
+      onChange: (due) => setSearch({ due: due as ProjectDueFilter | undefined }),
+    },
     {
       id: 'source',
       label: 'Source',
@@ -96,7 +125,7 @@ function useProjectFilterFields(
       onChange: (source) => setSearch({ source: source as 'local' | 'external' | undefined }),
     },
   ];
-  return { fields, clear: () => setSearch({ source: undefined }) };
+  return { fields, clear: () => setSearch({ source: undefined, due: undefined }) };
 }
 
 /** Which projects are shown: the Status chip (Active by default), then the Source chip if it is set. */

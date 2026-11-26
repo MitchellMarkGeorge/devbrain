@@ -47,6 +47,7 @@ describe('resolveProjectsSearch', () => {
       sort: 'due_date',
       dir: 'asc',
       source: undefined,
+      due: undefined,
     });
   });
 
@@ -59,18 +60,37 @@ describe('resolveProjectsSearch', () => {
     expect(hasProjectFilters({ view: 'card', sort: 'status' })).toBe(false);
     expect(hasProjectFilters({ status: 'all' })).toBe(true);
     expect(hasProjectFilters({ source: 'local' })).toBe(true);
+    expect(hasProjectFilters({ due: 'overdue' })).toBe(true);
   });
 });
 
+// the day the Due filter is on, part way through it
+const TODAY = new Date(2026, 5, 22, 15, 30);
+
 describe('projectListInput', () => {
+  it('maps Due to the days it covers, today among them', () => {
+    const due = (value: 'overdue' | 'week' | 'month' | 'none') =>
+      projectListInput(resolveProjectsSearch({ status: 'all', due: value }), TODAY).filter;
+    const start = new Date(2026, 5, 22);
+    const justBefore = new Date(start.getTime() - 1);
+    // before today, and not completed
+    expect(due('overdue')).toEqual({ dueBefore: start, excludeCompleted: true });
+    expect(due('week')).toEqual({ dueAfter: justBefore, dueBefore: new Date(2026, 5, 29) });
+    expect(due('month')).toEqual({ dueAfter: justBefore, dueBefore: new Date(2026, 6, 22) });
+    expect(due('none')).toEqual({ noDueDate: true });
+  });
+
   it('maps the status filter and the sort to what projects.list takes', () => {
-    expect(projectListInput(resolveProjectsSearch({}))).toEqual({
+    expect(projectListInput(resolveProjectsSearch({}), TODAY)).toEqual({
       filter: { status: ProjectStatus.ACTIVE },
       sort: { sortBy: 'dueDate', direction: 'asc' },
       limit: 100,
     });
     expect(
-      projectListInput(resolveProjectsSearch({ status: 'all', source: 'local', sort: 'status' })),
+      projectListInput(
+        resolveProjectsSearch({ status: 'all', source: 'local', sort: 'status' }),
+        TODAY,
+      ),
     ).toEqual({
       filter: { origin: 'local' },
       sort: { sortBy: 'status', direction: 'asc' },

@@ -22,6 +22,7 @@ import { isSynced } from '@renderer/features/tasks/api/queries';
 import { projectListQuery } from '../api/queries';
 import { CLEAR_PROJECT_FILTERS, hasProjectFilters, projectListInput } from '../api/search';
 import { ProjectStatusPill } from '../components/ProjectStatusPill';
+import { today } from '@renderer/features/tasks/api/loaders';
 import { useProjectActions } from '../hooks/use-project-actions';
 import { useProjectsSearch } from '../hooks/use-projects-search';
 import {
@@ -50,7 +51,7 @@ export function ProjectsPage() {
   const { search, resolved, setSearch } = useProjectsSearch();
   const openEntity = useOpenEntity();
   const actions = useProjectActions();
-  const query = useInfiniteQuery(projectListQuery(projectListInput(resolved)));
+  const query = useInfiniteQuery(projectListQuery(projectListInput(resolved, today())));
   const projects = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],
     [query.data],

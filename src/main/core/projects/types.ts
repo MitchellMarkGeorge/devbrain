@@ -28,6 +28,8 @@ export interface ProjectFilterOptions {
   dueOn?: Date;
   dueBefore?: Date;
   dueAfter?: Date;
+  // the projects with no due date
+  noDueDate?: boolean;
   status?: ProjectStatus;
   // every status but completed: the projects a picker offers
   excludeCompleted?: boolean;

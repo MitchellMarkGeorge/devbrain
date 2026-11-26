@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DateTime } from 'luxon';
 import { ProjectStatus } from '@common/types';
 import type { ProjectId } from '@common/ids';
 import type { ipc } from '@renderer/ipc';
@@ -18,6 +19,9 @@ export const PROJECT_STATUS_FILTERS = [
   'on_hold',
   'completed',
 ] as const;
+// when a project is due: before today (and not completed), in the next 7 or 30 days (today among
+// them), or with no due date
+export const PROJECT_DUE_FILTERS = ['overdue', 'week', 'month', 'none'] as const;
 export const PROJECT_SORTS = ['due_date', 'created_at', 'updated_at', 'status'] as const;
 
 export const projectsSearchSchema = z.object({
@@ -28,12 +32,14 @@ export const projectsSearchSchema = z.object({
   dir: optional(z.enum(['asc', 'desc'])),
   /** core's `origin`: synced from an integration, or not */
   source: optional(z.enum(['local', 'external'])),
+  due: optional(z.enum(PROJECT_DUE_FILTERS)),
 });
 
 export type ProjectsSearch = z.infer<typeof projectsSearchSchema>;
 export type ProjectView = (typeof PROJECT_VIEWS)[number];
 export type ProjectStatusFilter = (typeof PROJECT_STATUS_FILTERS)[number];
 export type ProjectSortParam = (typeof PROJECT_SORTS)[number];
+export type ProjectDueFilter = (typeof PROJECT_DUE_FILTERS)[number];
 
 /** What `projects.list` takes. */
 export type ProjectListInput = NonNullable<Parameters<typeof ipc.projects.list.query>[0]>;
@@ -67,6 +73,7 @@ export interface ResolvedProjectsSearch {
   sort: ProjectSortParam;
   dir: 'asc' | 'desc';
   source: 'local' | 'external' | undefined;
+  due: ProjectDueFilter | undefined;
 }
 
 export function resolveProjectsSearch(search: ProjectsSearch): ResolvedProjectsSearch {
@@ -77,28 +84,56 @@ export function resolveProjectsSearch(search: ProjectsSearch): ResolvedProjectsS
     sort,
     dir: search.dir ?? DEFAULT_DIRECTION[sort],
     source: search.source,
+    due: search.due,
   };
 }
 
 /** Whether a filter other than the default narrows the list (the empty state offers to clear it). */
 export function hasProjectFilters(search: ProjectsSearch): boolean {
-  return search.status !== undefined || search.source !== undefined;
+  return search.status !== undefined || search.source !== undefined || search.due !== undefined;
 }
 
 /** "Clear filters": back to the default status (Active) and every source. */
 export const CLEAR_PROJECT_FILTERS: Partial<ProjectsSearch> = {
   status: undefined,
   source: undefined,
+  due: undefined,
 };
 
 /** How many projects a page of `projects.list` asks for. */
 export const PROJECTS_PAGE_SIZE = 100;
 
-/** The list's input, as `projects.list` takes it, without the cursor. */
-export function projectListInput(resolved: ResolvedProjectsSearch): ProjectListInput {
-  const filter: NonNullable<ProjectListInput['filter']> = {};
+type ProjectFilter = NonNullable<ProjectListInput['filter']>;
+
+/**
+ * The due filter for a bucket, on the day `today` falls in (local time). Core compares
+ * `dueBefore` and `dueAfter` strictly. "This week" is today and the six days after it, "This
+ * month" today and the 29 after; overdue is before today, and not completed.
+ */
+export function projectDueFilter(due: ProjectDueFilter, today: Date): ProjectFilter {
+  const start = DateTime.fromJSDate(today).startOf('day');
+  const from = start.minus({ milliseconds: 1 }).toJSDate();
+  switch (due) {
+    case 'overdue':
+      return { dueBefore: start.toJSDate(), excludeCompleted: true };
+    case 'week':
+      return { dueAfter: from, dueBefore: start.plus({ days: 7 }).toJSDate() };
+    case 'month':
+      return { dueAfter: from, dueBefore: start.plus({ days: 30 }).toJSDate() };
+    case 'none':
+      return { noDueDate: true };
+  }
+}
+
+/**
+ * The list's input, as `projects.list` takes it, without the cursor; `today` is the day the Due
+ * filter is on.
+ */
+export function projectListInput(resolved: ResolvedProjectsSearch, today: Date): ProjectListInput {
+  const filter: ProjectFilter = {};
   if (resolved.status !== 'all') filter.status = PROJECT_STATUS_OF[resolved.status];
   if (resolved.source) filter.origin = resolved.source;
+  if (resolved.due) Object.assign(filter, projectDueFilter(resolved.due, today));
   return {
     filter,
     sort: { sortBy: SORT_BY[resolved.sort], direction: resolved.dir },
