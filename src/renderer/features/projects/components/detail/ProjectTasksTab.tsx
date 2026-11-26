@@ -10,7 +10,7 @@ import {
 } from '@renderer/features/tasks/hooks/use-tasks-search';
 import { TasksView } from '@renderer/features/tasks/components/views/TasksView';
 import { projectRoute } from '../../api/route-api';
-import { keepTabSteps, nextTabStep, projectTasksSearch } from '../../api/search';
+import { projectTasksSearch } from '../../api/search';
 
 /**
  * The Tasks tab (Figma `7159:13218`): the tasks page's views (list, grouped or board, with Filter,
@@ -28,11 +28,9 @@ export function ProjectTasksTab({ project }: { project: Project }) {
       navigate({
         search: (previous) => ({ ...previous, ...rest }),
         replace: !options.push,
-        // the tab's place among the page's entries stays with it; a sheet opened is one more
-        state: (previous) =>
-          options.openedSheet
-            ? { ...previous, ...nextTabStep(previous), openedSheet: true }
-            : keepTabSteps(previous),
+        ...(options.openedSheet && {
+          state: (previous) => ({ ...previous, openedSheet: true }),
+        }),
       });
     },
     [navigate],

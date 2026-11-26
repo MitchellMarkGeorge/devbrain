@@ -24,7 +24,6 @@ import {
   overviewOpenTasksQuery,
 } from '../../api/queries';
 import { projectRoute } from '../../api/route-api';
-import { nextTabStep } from '../../api/search';
 import { OverviewTaskSection } from './OverviewTaskSection';
 import styles from './ProjectPage.module.css';
 
@@ -46,7 +45,7 @@ export function ProjectOverview({ project, header }: { project: Project; header:
   const empty = stats !== undefined && stats.totalTasks + stats.numOfCancelled === 0;
   // the Tasks tab, filtered: where a section's "N more" and the progress rows go
   const showTasks = (search: { status?: StatusFilter; due?: DueFilter; view?: 'list' }) =>
-    navigate({ search: { tab: 'tasks', ...search }, state: nextTabStep });
+    navigate({ search: { tab: 'tasks', ...search } });
 
   return (
     <ScrollArea
@@ -87,7 +86,7 @@ export function ProjectOverview({ project, header }: { project: Project; header:
           <ProgressSection stats={stats} onShow={showTasks} />
           <NotesSection
             project={project}
-            onShowAll={() => navigate({ search: { tab: 'notes' }, state: nextTabStep })}
+            onShowAll={() => navigate({ search: { tab: 'notes' } })}
           />
         </aside>
       </div>

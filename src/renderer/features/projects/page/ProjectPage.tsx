@@ -1,7 +1,7 @@
 import type { CSSProperties, FocusEvent, KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { CircleCheck, FileText, Folder, LayoutDashboard, type LucideIcon } from 'lucide-react';
 import { ProjectStatus, type Project } from '@common/types';
 import {
@@ -25,7 +25,6 @@ import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
@@ -33,7 +32,7 @@ import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import { ItemMentionsPill } from '@renderer/shared/components/ItemMentions';
 import { projectRoute } from '../api/route-api';
-import { nextTabStep, type ProjectTab } from '../api/search';
+import type { ProjectTab } from '../api/search';
 import { ColourItems } from '../components/colour';
 import { ProjectStatusPill } from '../components/ProjectStatusPill';
 import { useProjectActions } from '../hooks/use-project-actions';
@@ -84,10 +83,6 @@ function ProjectPageContent({ project }: { project: Project }) {
   const search = projectRoute.useSearch();
   const navigate = projectRoute.useNavigate();
   const appNavigate = useNavigate();
-  const router = useRouter();
-  // the tabs opened before this one are entries of this page: leaving it goes back past them
-  const tabSteps = useRouterState({ select: (state) => state.location.state.tabSteps ?? 0 });
-  const { canGoBack } = useHistoryPosition({ back: tabSteps + 1 });
   const actions = useProjectActions();
   const tab = search.tab ?? 'overview';
   const showError = useMutationErrorToast();
@@ -98,17 +93,13 @@ function ProjectPageContent({ project }: { project: Project }) {
   // a tab has an entry of its own, so Back and Forward step through the tabs opened; switching
   // leaves the other tab's params
   const setTab = (next: ProjectTab) =>
-    navigate({ search: { tab: next === 'overview' ? undefined : next }, state: nextTabStep });
+    navigate({ search: { tab: next === 'overview' ? undefined : next } });
 
+  // to the projects list, in this entry's place: the tabs opened are entries behind it, so going
+  // back would show another tab of the project just moved to the trash
   async function trash() {
     if (!(await actions.trash(project))) return;
-    if (canGoBack) router.history.go(-(tabSteps + 1));
-    else
-      appNavigate({
-        to: '/app/$workspaceId/projects',
-        params: { workspaceId },
-        replace: true,
-      });
+    appNavigate({ to: '/app/$workspaceId/projects', params: { workspaceId }, replace: true });
   }
 
   return (

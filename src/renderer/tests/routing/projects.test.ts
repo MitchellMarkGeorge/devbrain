@@ -313,7 +313,7 @@ describe('a project’s page', () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=notes`));
   });
 
-  it('goes back past its tabs to the page before it once moved to the trash', async () => {
+  it('goes to the projects list once moved to the trash, whatever tabs were opened', async () => {
     const { app } = open('/projects');
     await eventually(() => expect(app.text()).toContain('Auth Overhaul'));
     app.router.history.push(`/app/${WORK}/projects/${auth.id}`);

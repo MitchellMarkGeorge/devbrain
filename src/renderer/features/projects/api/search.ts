@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { HistoryState } from '@tanstack/history';
 import { ProjectStatus } from '@common/types';
 import type { ProjectId } from '@common/ids';
 import type { ipc } from '@renderer/ipc';
@@ -8,26 +7,6 @@ import { tasksSearchSchema, type TasksSearch } from '@renderer/features/tasks/ap
 // The projects routes' search params (docs/renderer/implementation-plan.md, "Search params"):
 // snake case names and values, each `.optional().catch(undefined)`, so a bad value drops that one
 // field back to its default rather than failing the page. No default is written into the URL.
-
-declare module '@tanstack/history' {
-  interface HistoryState {
-    /**
-     * on a project's page: how many entries before this one are the same page on another tab, so
-     * leaving the page (after moving the project to the trash) goes back past them all
-     */
-    tabSteps?: number;
-  }
-}
-
-/** The history state of a project's page: `tabSteps`, kept by a change that replaces the entry. */
-export const keepTabSteps = (previous: HistoryState): HistoryState => ({
-  tabSteps: previous.tabSteps,
-});
-
-/** The history state of a new entry for another tab of a project's page: one more step in. */
-export const nextTabStep = (previous: HistoryState): HistoryState => ({
-  tabSteps: (previous.tabSteps ?? 0) + 1,
-});
 
 const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
 

@@ -51,11 +51,9 @@ export function HistoryPositionProvider({
  * the workspace shown, so they never switch (docs/renderer/routing.md, "Back and Forward"). An
  * entry not known (from before a reload, or outside a `HistoryPositionProvider`) doesn't count
  * either. `acrossWorkspaces` counts every entry, for a Back that means to leave the workspace (a
- * failed open's "Back to ‹name›"). `back` is how many entries Back means to go (1, or more for a
- * page that leaves several of its own behind it: a project's tabs): `canGoBack` then says whether
- * the entry that far back is there.
+ * failed open's "Back to ‹name›").
  */
-export function useHistoryPosition({ acrossWorkspaces = false, back = 1 } = {}): {
+export function useHistoryPosition({ acrossWorkspaces = false } = {}): {
   canGoBack: boolean;
   canGoForward: boolean;
 } {
@@ -63,7 +61,7 @@ export function useHistoryPosition({ acrossWorkspaces = false, back = 1 } = {}):
   const workspaceOf = useContext(WorkspaceOfEntryContext);
   const index = useRouterState({ select: (state) => state.location.state.__TSR_index ?? 0 });
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const hasBefore = index - back >= 0;
+  const hasBefore = index > 0;
   const hasAfter = index < router.history.length - 1;
   const workspaceId = workspaceIdOfPage(pathname);
   if (acrossWorkspaces || workspaceId === null) {
@@ -71,7 +69,7 @@ export function useHistoryPosition({ acrossWorkspaces = false, back = 1 } = {}):
   }
   const inThisWorkspace = (at: number) => workspaceOf?.(at) === workspaceId;
   return {
-    canGoBack: hasBefore && inThisWorkspace(index - back),
+    canGoBack: hasBefore && inThisWorkspace(index - 1),
     canGoForward: hasAfter && inThisWorkspace(index + 1),
   };
 }
