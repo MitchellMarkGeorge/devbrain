@@ -173,7 +173,9 @@ function FieldSummary({ field, className }: { field: ListFilterField; className?
   const { text, more } = filterSummary(field);
   return (
     <span className={cn(styles.summary, className)}>
-      <span className={styles.summaryText}>{text}</span>
+      <span data-summary-text="" className={styles.summaryText}>
+        {text}
+      </span>
       {more > 0 && <span className={styles.more}> +{more}</span>}
     </span>
   );
@@ -288,7 +290,16 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
  * field's values straight away, with no trip through the Filter menu; its × removes the filter.
  * `hidden`: it does not fit the row (see `ListFilters`).
  */
-function FilterChip({ field, hidden }: { field: ListFilterField; hidden: boolean }) {
+function FilterChip({
+  field,
+  hidden,
+  onOpenChange,
+}: {
+  field: ListFilterField;
+  hidden: boolean;
+  /** its menu opened or closed */
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
@@ -298,12 +309,13 @@ function FilterChip({ field, hidden }: { field: ListFilterField; hidden: boolean
       className={cn(styles.chip, hidden && styles.hidden)}
     >
       <Searchable field={field}>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={onOpenChange}>
           <DropdownMenuTrigger
             render={
               <Button
                 variant="outline"
                 icon={field.icon}
+                className={styles.chipButton}
                 value={<FieldSummary field={field} className={styles.chipValue} />}
               >
                 {field.label}
@@ -333,37 +345,78 @@ function FilterChip({ field, hidden }: { field: ListFilterField; hidden: boolean
 
 // the room kept after the chips for the marker of those that are hidden: "+2"
 const MORE_WIDTH = 52;
+// the least of a chip's value that is worth showing, cut with "…": about four letters
+const MIN_VALUE_WIDTH = 40;
 
-/**
- * How many chips of these widths (each with the gap after it) fit in `available`. All of them
- * while they fit; otherwise as many as leave room for the "+N" marker. Chips hide from the end.
- */
-export function chipsThatFit(widths: number[], available: number): number {
-  const all = widths.reduce((sum, width) => sum + width, 0);
-  if (all <= available) return widths.length;
-  let used = MORE_WIDTH;
-  let fit = 0;
-  for (const width of widths) {
-    if (used + width > available) break;
-    used += width;
-    fit += 1;
-  }
-  return fit;
+/** A chip as the fit sees it: its own width, and the least it can be cut to (gap included in both). */
+export interface ChipSize {
+  width: number;
+  min: number;
 }
 
 /**
- * `chipsThatFit` for the chips in `row`, in the room its "Clear" leaves. A row that has not been
- * laid out shows them all.
+ * Which chips fit in `available`: how many are shown, from the start, and the width the last of
+ * them is cut to when it does not fit whole (null when it does). A chip is cut before it is
+ * hidden: the row's last chip gives up its value's text, down to `min`, so the room there is gets
+ * used and a chip only hides when not even that much of it fits. Only the last chip shown is ever
+ * cut, and room for the "+N" marker is kept whenever a chip is hidden.
  */
-function measure(row: HTMLElement): number {
+export function fitChips(
+  chips: ChipSize[],
+  available: number,
+): { shown: number; cut: number | null } {
+  const all = chips.reduce((sum, chip) => sum + chip.width, 0);
+  if (all <= available) return { shown: chips.length, cut: null };
+  // the widths of the chips before each one
+  const before: number[] = [];
+  chips.reduce((sum, chip) => {
+    before.push(sum);
+    return sum + chip.width;
+  }, 0);
+  for (let last = chips.length - 1; last >= 0; last -= 1) {
+    const marker = last < chips.length - 1 ? MORE_WIDTH : 0;
+    const room = available - before[last]! - marker;
+    const chip = chips[last]!;
+    if (room >= chip.min) return { shown: last + 1, cut: room < chip.width ? room : null };
+  }
+  return { shown: 0, cut: null };
+}
+
+/**
+ * Lays the chips of `row` out in the room its "Clear" leaves, and returns how many are shown: the
+ * last one cut to the room left, when it does not fit whole (`fitChips`). `keep` holds the count
+ * where it is (a menu of the row is open: a chip must not hide under it), cutting the last chip
+ * shown as far as it goes. A row that has not been laid out shows them all.
+ */
+function layOut(row: HTMLElement, keep?: number): number {
   const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
+  // each chip at its own width again, to be read
+  for (const chip of chips) chip.style.maxWidth = '';
   if (row.clientWidth === 0) return chips.length;
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
   const clear = row.querySelector<HTMLElement>('[data-clear]');
-  return chipsThatFit(
-    chips.map((chip) => chip.offsetWidth + gap),
-    row.clientWidth - (clear ? clear.offsetWidth + gap : 0),
-  );
+  const available = row.clientWidth - (clear ? clear.offsetWidth + gap : 0);
+  const sizes = chips.map((chip): ChipSize => {
+    const width = chip.offsetWidth + gap;
+    const text = chip.querySelector<HTMLElement>('[data-summary-text]');
+    const spare = Math.max(0, (text?.offsetWidth ?? 0) - MIN_VALUE_WIDTH);
+    return { width, min: width - spare };
+  });
+  let { shown, cut } = fitChips(sizes, available);
+  if (keep !== undefined && keep !== shown) {
+    // the count stays: the last chip shown takes what room there is, down to its least
+    shown = Math.min(keep, chips.length);
+    const last = shown - 1;
+    cut = null;
+    if (last >= 0) {
+      const before = sizes.slice(0, last).reduce((sum, size) => sum + size.width, 0);
+      const marker = shown < chips.length ? MORE_WIDTH : 0;
+      const room = Math.max(sizes[last]!.min, available - before - marker);
+      if (room < sizes[last]!.width) cut = room;
+    }
+  }
+  if (cut !== null && shown > 0) chips[shown - 1]!.style.maxWidth = `${cut - gap}px`;
+  return shown;
 }
 
 export interface ListFiltersProps {
@@ -377,8 +430,9 @@ export interface ListFiltersProps {
  * opening its own field's values. Filters are added from the `ListFilterButton` at the toolbar's
  * end, beside Display, which is why nothing here moves when one is.
  *
- * The row is one line. The chips that don't fit are hidden, from the end, and a "+2" after the
- * last one shown says how many: its menu has those fields, each opening its values, so a hidden
+ * The row is one line. A chip that does not fit whole is cut first: the last one shown gives up its
+ * value's text, with "…", for the room there is. The chips that still don't fit are hidden, from
+ * the end, and a "+2" after the last one shown says how many: its menu has those fields, each opening its values, so a hidden
  * filter is still two clicks away. A hidden chip stays in the row, unseen and out of its flow, so
  * its width can always be read: how many fit is counted from the page as it is, with nothing
  * remembered.
@@ -390,6 +444,11 @@ export function ListFilters({ fields, onClear }: ListFiltersProps) {
   const row = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(set.length);
   const [rowWidth, setRowWidth] = useState(0);
+  // A menu of the row is open (a chip's, or the marker's). Ticking a value in it changes what the
+  // chips say, and so which fit; a chip that hid then, or a marker that went, would take the open
+  // menu with it. So the count is held until the menu closes.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const shownNow = useRef(shown);
   // What the fit depends on, besides the row's width: which chips there are and what they say. A
   // value's label can arrive after its chip (a project's name, once the projects load).
   const chipsKey = set
@@ -408,17 +467,25 @@ export function ListFilters({ fields, onClear }: ListFiltersProps) {
   }, []);
 
   useLayoutEffect(() => {
-    if (row.current) setShown(measure(row.current));
-  }, [chipsKey, rowWidth]);
+    if (!row.current) return;
+    const next = layOut(row.current, menuOpen ? shownNow.current : undefined);
+    shownNow.current = next;
+    setShown(next);
+  }, [chipsKey, rowWidth, menuOpen]);
 
   const hidden = set.slice(shown);
   return (
     <div ref={row} className={styles.filters}>
       {set.map((field, index) => (
-        <FilterChip key={field.id} field={field} hidden={index >= shown} />
+        <FilterChip
+          key={field.id}
+          field={field}
+          hidden={index >= shown}
+          onOpenChange={setMenuOpen}
+        />
       ))}
       {hidden.length > 0 && (
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger
             render={
               <Button

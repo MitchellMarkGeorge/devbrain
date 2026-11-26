@@ -13,9 +13,22 @@
   gap: var(--space-2);
   min-width: 0;
 }
-/* a chip: a ButtonGroup of its value and its ×, at its own width */
+/*
+ * A chip: a ButtonGroup of its value and its ×, at its own width. The row's last chip can be cut to
+ * the room left (a max-width set as the row is laid out): its value's text gives way, with "…".
+ */
 .chip {
   flex: none;
+  min-width: 0;
+}
+.chipButton {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* the button's value: the part that gives way */
+.chipButton > span:last-child {
+  display: flex;
+  min-width: 0;
 }
 /*
  * A chip that does not fit: still in the row at its own width, so it can be measured when the row

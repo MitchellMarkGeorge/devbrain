@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
-import { chipsThatFit, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
+import { fitChips, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
 import { TooltipProvider } from '../../components/ui/Tooltip';
 import {
   ListFilterButton,
@@ -246,27 +246,45 @@ describe('a filter that holds one value', () => {
   });
 });
 
-describe('chipsThatFit', () => {
-  // three chips of 150px (gap included); the "+N" marker keeps 52px
-  const widths = [150, 150, 150];
+describe('fitChips', () => {
+  // three chips of 150px (gap included) that cannot be cut; the "+N" marker keeps 52px
+  const whole = (width: number) => ({ width, min: width });
+  const chips = [whole(150), whole(150), whole(150)];
+  const shown = (sizes: typeof chips, available: number) => fitChips(sizes, available).shown;
 
   it('shows every chip while they fit', () => {
-    expect(chipsThatFit(widths, 450)).toBe(3);
-    expect(chipsThatFit([], 0)).toBe(0);
+    expect(fitChips(chips, 450)).toEqual({ shown: 3, cut: null });
+    expect(fitChips([], 0)).toEqual({ shown: 0, cut: null });
   });
 
   it('hides from the end, leaving room for the marker', () => {
     // one pixel short of all three: the third hides, and the marker needs its room
-    expect(chipsThatFit(widths, 449)).toBe(2);
-    expect(chipsThatFit(widths, 352)).toBe(2);
-    expect(chipsThatFit(widths, 351)).toBe(1);
+    expect(shown(chips, 449)).toBe(2);
+    expect(shown(chips, 352)).toBe(2);
+    expect(shown(chips, 351)).toBe(1);
   });
 
   it('hides them all when not one fits', () => {
-    expect(chipsThatFit(widths, 200)).toBe(0);
+    expect(shown(chips, 200)).toBe(0);
   });
 
   it('stops at the first chip that does not fit, so the chips shown stay in order', () => {
-    expect(chipsThatFit([300, 100], 250)).toBe(0);
+    expect(shown([whole(300), whole(100)], 250)).toBe(0);
+  });
+
+  it('cuts the last chip to the room left before hiding it', () => {
+    // the third chip's value can give up 90px: it is shown, cut, with no marker
+    const sizes = [whole(150), whole(150), { width: 200, min: 110 }];
+    expect(fitChips(sizes, 450)).toEqual({ shown: 3, cut: 150 });
+    expect(fitChips(sizes, 410)).toEqual({ shown: 3, cut: 110 });
+    // not even its least fits: it hides, and the marker takes its room
+    expect(fitChips(sizes, 409)).toEqual({ shown: 2, cut: null });
+  });
+
+  it('cuts only the last chip shown, with room kept for the marker after it', () => {
+    const sizes = [whole(150), { width: 200, min: 110 }, whole(150)];
+    // the third does not fit, so the second is the last shown: cut to what the marker leaves
+    expect(fitChips(sizes, 380)).toEqual({ shown: 2, cut: 178 });
+    expect(fitChips(sizes, 311)).toEqual({ shown: 1, cut: null });
   });
 });
