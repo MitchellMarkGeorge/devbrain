@@ -1,8 +1,10 @@
 export {
   ListDisplay,
+  ListFilterButton,
   ListFilters,
   ListStatusChip,
   type ListDisplayProps,
+  type ListFilterButtonProps,
   type ListFilterField,
   type ListFiltersProps,
   type ListMultiFilterField,

@@ -283,27 +283,10 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
   );
 }
 
-/** The filters that are set, a line each, for the Filter button's tooltip. */
-function FilterTooltip({ set }: { set: ListFilterField[] }) {
-  return (
-    <span className={styles.tooltip}>
-      {set.map((field) => {
-        const { text, more } = filterSummary(field);
-        return (
-          <span key={field.id}>
-            {field.label}: {text}
-            {more > 0 && ` +${more}`}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
 /**
- * A filter that is set, as a chip after the Filter button: "Priority High, Medium" joined to its
- * ×. Its value opens the field's values straight away, with no trip through the Filter menu; its ×
- * removes the filter. `hidden`: it does not fit the row, so it is not seen (see `ListFilters`).
+ * A filter that is set, as a chip: "Priority High, Medium" joined to its ×. Its value opens the
+ * field's values straight away, with no trip through the Filter menu; its × removes the filter.
+ * `hidden`: it does not fit the row (see `ListFilters`).
  */
 function FilterChip({ field, hidden }: { field: ListFilterField; hidden: boolean }) {
   return (
@@ -348,59 +331,73 @@ function FilterChip({ field, hidden }: { field: ListFilterField; hidden: boolean
   );
 }
 
+// the room kept after the chips for the marker of those that are hidden: "+2"
+const MORE_WIDTH = 52;
+
 /**
- * How many of a row's chips are on its first line. The row wraps and is one chip tall, so a chip
- * that does not fit drops to a line that is cut off; those are the ones to hide. A row that has
- * not been laid out shows them all.
+ * How many chips of these widths (each with the gap after it) fit in `available`. All of them
+ * while they fit; otherwise as many as leave room for the "+N" marker. Chips hide from the end.
  */
-export function chipsOnFirstLine(tops: number[]): number {
-  const first = tops[0];
-  const wrapped = tops.findIndex((top) => top !== first);
-  return wrapped === -1 ? tops.length : wrapped;
+export function chipsThatFit(widths: number[], available: number): number {
+  const all = widths.reduce((sum, width) => sum + width, 0);
+  if (all <= available) return widths.length;
+  let used = MORE_WIDTH;
+  let fit = 0;
+  for (const width of widths) {
+    if (used + width > available) break;
+    used += width;
+    fit += 1;
+  }
+  return fit;
+}
+
+/**
+ * `chipsThatFit` for the chips in `row`, in the room its "Clear" leaves. A row that has not been
+ * laid out shows them all.
+ */
+function measure(row: HTMLElement): number {
+  const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
+  if (row.clientWidth === 0) return chips.length;
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+  const clear = row.querySelector<HTMLElement>('[data-clear]');
+  return chipsThatFit(
+    chips.map((chip) => chip.offsetWidth + gap),
+    row.clientWidth - (clear ? clear.offsetWidth + gap : 0),
+  );
 }
 
 export interface ListFiltersProps {
   fields: ListFilterField[];
-  /** draws the menu open at first, for a picture of it */
-  defaultOpen?: boolean;
-  /**
-   * removes every filter: "Clear" at the row's end and "Clear filters" at the menu's end, while
-   * any is set
-   */
+  /** removes every filter: "Clear" at the row's end, while any is set */
   onClear: () => void;
 }
 
 /**
- * A list's filters, on one row: the Filter button, then a chip for each filter that is set.
+ * The filters that are set, at the toolbar's start: a chip for each, in the fields' order, each
+ * opening its own field's values. Filters are added from the `ListFilterButton` at the toolbar's
+ * end, beside Display, which is why nothing here moves when one is.
  *
- * The Filter button is an outline icon button with a badge counting the filters that are set, and
- * a tooltip naming them. It comes before the chips, so it never moves: its menu stays under the
- * pointer while values are ticked. The menu has an item for each field, showing what it is
- * filtered to and opening its values in a submenu, with a search row for a field that asks for
- * one. A field holds one value (radio buttons), or with `multiple` several, meaning "any of these"
- * (checkboxes); picking a value never closes a menu.
- *
- * The chips are in the fields' order, each opening its own field's values. A chip that does not
- * fit the row is not drawn (nothing folds into a "+2"); the badge still counts it, and the tooltip
- * and the menu still name it. The chips' row wraps and is cut to one line, so which fit is read
- * from the layout itself, with no widths to keep.
+ * The row is one line. The chips that don't fit are hidden, from the end, and a "+2" after the
+ * last one shown says how many: its menu has those fields, each opening its values, so a hidden
+ * filter is still two clicks away. A hidden chip stays in the row, unseen and out of its flow, so
+ * its width can always be read: how many fit is counted from the page as it is, with nothing
+ * remembered.
  *
  * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group).
  */
-export function ListFilters({ fields, defaultOpen, onClear }: ListFiltersProps) {
+export function ListFilters({ fields, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => valuesOf(field).length > 0);
-  const count = set.length;
   const row = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(count);
+  const [shown, setShown] = useState(set.length);
   const [rowWidth, setRowWidth] = useState(0);
-  // what the fit depends on, besides the row's width: which chips there are and what they say
+  // What the fit depends on, besides the row's width: which chips there are and what they say. A
+  // value's label can arrive after its chip (a project's name, once the projects load).
   const chipsKey = set
     .map((field) => {
       const { text, more } = filterSummary(field);
       return `${field.id}:${text}:${more}`;
     })
     .join('|');
-  const drawn = count > 0;
 
   useLayoutEffect(() => {
     const element = row.current;
@@ -408,62 +405,42 @@ export function ListFilters({ fields, defaultOpen, onClear }: ListFiltersProps) 
     const observer = new ResizeObserver(() => setRowWidth(element.clientWidth));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [drawn]);
+  }, []);
 
-  // hiding a chip does not move it, so this reads the same layout whatever it last set
   useLayoutEffect(() => {
-    if (!row.current) return;
-    const chips = [...row.current.querySelectorAll<HTMLElement>('[data-chip]')];
-    setShown(chipsOnFirstLine(chips.map((chip) => chip.offsetTop)));
+    if (row.current) setShown(measure(row.current));
   }, [chipsKey, rowWidth]);
 
+  const hidden = set.slice(shown);
   return (
-    <div className={styles.filters}>
-      <span className={styles.filterButton}>
-        <DropdownMenu defaultOpen={defaultOpen}>
+    <div ref={row} className={styles.filters}>
+      {set.map((field, index) => (
+        <FilterChip key={field.id} field={field} hidden={index >= shown} />
+      ))}
+      {hidden.length > 0 && (
+        <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <IconButton
+              <Button
                 variant="outline"
-                icon={ListFilter}
-                label={count > 0 ? `Filter, ${count} set` : 'Filter'}
-                tooltip={count > 0 ? <FilterTooltip set={set} /> : true}
-              />
+                aria-label={`${hidden.length} more ${hidden.length === 1 ? 'filter' : 'filters'}`}
+                className={styles.hiddenCount}
+              >
+                +{hidden.length}
+              </Button>
             }
           />
-          <DropdownMenuContent width="sm" align="start" aria-label="Filter">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-              {fields.map((field) => (
-                <FieldSubmenu key={field.id} field={field} />
-              ))}
-            </DropdownMenuGroup>
-            {count > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
-                  Clear filters
-                </DropdownMenuItem>
-              </>
-            )}
+          <DropdownMenuContent width="sm" align="start" aria-label="More filters">
+            {hidden.map((field) => (
+              <FieldSubmenu key={field.id} field={field} />
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        {count > 0 && (
-          <span aria-hidden data-filter-count="" className={styles.badge}>
-            {count}
-          </span>
-        )}
-      </span>
-      {drawn && (
-        <div ref={row} className={styles.chips}>
-          {set.map((field, index) => (
-            <FilterChip key={field.id} field={field} hidden={index >= shown} />
-          ))}
-        </div>
       )}
-      {count > 0 && (
+      {set.length > 0 && (
         <Button
           variant="ghost"
+          data-clear=""
           aria-label="Clear filters"
           className={styles.clear}
           onClick={onClear}
@@ -472,6 +449,47 @@ export function ListFilters({ fields, defaultOpen, onClear }: ListFiltersProps) 
         </Button>
       )}
     </div>
+  );
+}
+
+export interface ListFilterButtonProps extends ListFiltersProps {
+  /** draws the menu open at first, for a picture of it */
+  defaultOpen?: boolean;
+}
+
+/**
+ * The Filter button, at the toolbar's end before Display: an outline icon button. Its menu has an
+ * item for each field, showing what it is filtered to and opening its values in a submenu, with a
+ * search row for a field that asks for one, and "Clear filters" last while any is set. A field
+ * holds one value (radio buttons), or with `multiple` several, meaning "any of these"
+ * (checkboxes); picking a value never closes the menu. The button is the same whatever is set and
+ * the chips are drawn elsewhere (`ListFilters`), so it never moves and its menu stays under the
+ * pointer while values are ticked.
+ */
+export function ListFilterButton({ fields, defaultOpen, onClear }: ListFilterButtonProps) {
+  const anySet = fields.some((field) => valuesOf(field).length > 0);
+  return (
+    <DropdownMenu defaultOpen={defaultOpen}>
+      <DropdownMenuTrigger
+        render={<IconButton variant="outline" icon={ListFilter} label="Filter" />}
+      />
+      <DropdownMenuContent width="sm" align="end" aria-label="Filter">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+          {fields.map((field) => (
+            <FieldSubmenu key={field.id} field={field} />
+          ))}
+        </DropdownMenuGroup>
+        {anySet && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
+              Clear filters
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

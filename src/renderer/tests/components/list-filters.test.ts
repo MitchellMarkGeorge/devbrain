@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
-import { chipsOnFirstLine, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
+import { chipsThatFit, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
 import { TooltipProvider } from '../../components/ui/Tooltip';
 import {
+  ListFilterButton,
   ListFilters,
   type ListFilterField,
   type ListMultiFilterField,
@@ -13,9 +14,9 @@ import {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// A list's filters in its toolbar: the Filter icon button, with a badge counting the filters that
-// are set, then a chip for each of them, and Clear at the row's end. (jsdom lays nothing out, so
-// here every chip fits.)
+// A list's filters in its toolbar: a chip for each one that is set, at the start, with a marker for
+// those that don't fit and Clear at the row's end; and the Filter button, at the end beside
+// Display, whose menu adds and changes them. (jsdom lays nothing out, so here every chip fits.)
 
 let container: HTMLDivElement;
 let root: Root;
@@ -57,18 +58,23 @@ const multi = (id: string, value: string[] = []): ListMultiFilterField => ({
   onChange: vi.fn(),
 });
 
+// the toolbar's two pieces over the same fields, as a page draws them
 const render = (props: Partial<ListFiltersProps> & Pick<ListFiltersProps, 'fields'>) =>
   act(() =>
     root.render(
       createElement(
         TooltipProvider,
         null,
-        createElement(ListFilters, { onClear: () => {}, ...props }),
+        createElement(
+          Fragment,
+          null,
+          createElement(ListFilters, { onClear: () => {}, ...props }),
+          createElement(ListFilterButton, { onClear: () => {}, ...props }),
+        ),
       ),
     ),
   );
-const button = () => container.querySelector<HTMLElement>('button[aria-label^="Filter"]');
-const badge = () => container.querySelector('[data-filter-count]')?.textContent ?? null;
+const button = () => container.querySelector<HTMLElement>('button[aria-label="Filter"]');
 const chips = () => [...container.querySelectorAll('[data-chip]')];
 const clear = () => container.querySelector<HTMLElement>('[aria-label="Clear filters"]');
 
@@ -92,22 +98,15 @@ const openField = (label: string) => {
 };
 
 describe('ListFilters', () => {
-  it('is one icon button, with no badge and no Clear while nothing is set', () => {
+  it('draws nothing while no filter is set', () => {
     render({ fields: [field('Priority'), field('Due')] });
-    expect(container.querySelectorAll('button')).toHaveLength(1);
-    expect(button()!.getAttribute('aria-label')).toBe('Filter');
-    expect(badge()).toBeNull();
+    expect(chips()).toEqual([]);
     expect(clear()).toBeNull();
+    // the Filter button is the toolbar's only control for them
+    expect(container.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('counts the filters that are set in its badge, a field once however many values it has', () => {
-    render({ fields: [multi('Priority', ['a', 'b', 'c']), field('Due'), field('Source', 'b')] });
-    expect(badge()).toBe('2');
-    // the count is in the button's name too: the badge itself is hidden from a screen reader
-    expect(button()!.getAttribute('aria-label')).toBe('Filter, 2 set');
-  });
-
-  it('draws a chip for each filter that is set, after the Filter button, in the fields’ order', () => {
+  it('draws a chip for each filter that is set, in the fields’ order, then Clear', () => {
     render({
       fields: [multi('Priority', ['a', 'b']), field('Due'), multi('Link', ['c', 'b', 'a'])],
     });
@@ -115,16 +114,16 @@ describe('ListFilters', () => {
       'Priority filter',
       'Link filter',
     ]);
-    // the Filter button, each chip's value and its ×, then Clear
+    // each chip's value and its ×, Clear, then the Filter button at the toolbar's end
     expect([...container.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
-      '',
       'PriorityAlpha, Beta',
       '',
       'LinkAlpha +2',
       '',
       'Clear',
+      '',
     ]);
-    expect(container.querySelector('button')).toBe(button());
+    expect([...container.querySelectorAll('button')].at(-1)).toBe(button());
   });
 
   it('removes a filter from its chip’s ×', () => {
@@ -154,12 +153,21 @@ describe('ListFilters', () => {
     expect(items('menuitemcheckbox')).toHaveLength(3);
   });
 
-  it('offers Clear at the row’s end while any filter is set, and it removes them all', () => {
+  it('offers Clear while any filter is set, and it removes them all', () => {
     const onClear = vi.fn();
     render({ fields: [field('Priority', 'a'), field('Due')], onClear });
-    expect(clear()).toBe([...container.querySelectorAll('button')].at(-1));
     act(() => clear()!.click());
     expect(onClear).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ListFilterButton', () => {
+  it('is one icon button, the same whatever is set', () => {
+    render({ fields: [field('Priority'), field('Due')] });
+    expect(button()!.textContent).toBe('');
+    render({ fields: [multi('Priority', ['a', 'b']), field('Due', 'a')] });
+    expect(button()!.textContent).toBe('');
+    expect(button()!.getAttribute('aria-label')).toBe('Filter');
   });
 
   it('lists every field in its menu, each with what it is filtered to', () => {
@@ -173,6 +181,12 @@ describe('ListFilters', () => {
       'LinkAlpha +2',
       'Clear filters',
     ]);
+  });
+
+  it('offers "Clear filters" only while a filter is set', () => {
+    render({ fields: [field('Priority'), field('Due')] });
+    press(button());
+    expect(items('menuitem').map((element) => element.textContent)).toEqual(['Priority', 'Due']);
   });
 });
 
@@ -232,14 +246,27 @@ describe('a filter that holds one value', () => {
   });
 });
 
-describe('chipsOnFirstLine', () => {
-  it('shows every chip while they are on one line', () => {
-    expect(chipsOnFirstLine([0, 0, 0])).toBe(3);
-    expect(chipsOnFirstLine([])).toBe(0);
+describe('chipsThatFit', () => {
+  // three chips of 150px (gap included); the "+N" marker keeps 52px
+  const widths = [150, 150, 150];
+
+  it('shows every chip while they fit', () => {
+    expect(chipsThatFit(widths, 450)).toBe(3);
+    expect(chipsThatFit([], 0)).toBe(0);
   });
 
-  it('hides the chips from the first one that wrapped, so those shown stay in order', () => {
-    expect(chipsOnFirstLine([0, 0, 48])).toBe(2);
-    expect(chipsOnFirstLine([0, 48, 48, 96])).toBe(1);
+  it('hides from the end, leaving room for the marker', () => {
+    // one pixel short of all three: the third hides, and the marker needs its room
+    expect(chipsThatFit(widths, 449)).toBe(2);
+    expect(chipsThatFit(widths, 352)).toBe(2);
+    expect(chipsThatFit(widths, 351)).toBe(1);
+  });
+
+  it('hides them all when not one fits', () => {
+    expect(chipsThatFit(widths, 200)).toBe(0);
+  });
+
+  it('stops at the first chip that does not fit, so the chips shown stay in order', () => {
+    expect(chipsThatFit([300, 100], 250)).toBe(0);
   });
 });

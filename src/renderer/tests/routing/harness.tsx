@@ -229,12 +229,12 @@ export function byText(root: ParentNode, selector: string, text: string): HTMLEl
   );
 }
 
-/** A list toolbar's Filter button: an icon button named "Filter", or "Filter, 2 set". */
+/** A list toolbar's Filter button, at its end beside Display. */
 export function filterButton(root: ParentNode): HTMLElement | null {
-  return root.querySelector<HTMLElement>('button[aria-label^="Filter"]');
+  return root.querySelector<HTMLElement>('button[aria-label="Filter"]');
 }
 
-/** How many filters a list toolbar's Filter button counts in its badge; 0 with no badge. */
+/** How many filters a list toolbar shows as set: its chips, hidden ones included. */
 export function filterCount(root: ParentNode): number {
-  return Number(root.querySelector('[data-filter-count]')?.textContent ?? 0);
+  return root.querySelectorAll('[data-chip]').length;
 }

@@ -100,7 +100,7 @@ describe('the notes list', () => {
       filter: { projectId: [PROJECT.id], linkedTo: ['task'] },
       sort: { sortBy: 'title', direction: 'asc' },
     });
-    // the Filter button's badge counts the two filters
+    // a chip for each of the two filters
     expect(filterCount(app.container)).toBe(2);
   });
 

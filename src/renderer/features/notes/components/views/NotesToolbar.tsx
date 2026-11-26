@@ -15,7 +15,9 @@ import type { ProjectId } from '@common/ids';
 import { listParam } from '@renderer/shared/lib/search-params';
 import {
   ListDisplay,
+  ListFilterButton,
   ListFilters,
+  type ListFilterField,
   ProjectGlyph,
   useWorkspaceShell,
   type ListToolbarOption,
@@ -68,9 +70,51 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
 ];
 
 /**
- * Which notes are shown: the Filter button and a chip per filter that is set (what a note links
- * to, its project). Both filters hold several values.
+ * The fields the notes can be filtered by, with what the URL filters them to: what a note links
+ * to, and its project. Both hold several values. The chips (`NotesToolbarStart`) and the Filter
+ * button (`NotesToolbarEnd`) both draw them.
  */
+function useNoteFilterFields(
+  resolved: ResolvedNotesSearch,
+  setSearch: SetSearch,
+): { fields: ListFilterField[]; clear: () => void } {
+  const projects = useProjectOptions();
+  const fields: ListFilterField[] = [
+    {
+      id: 'link',
+      label: 'Linked to',
+      icon: Link,
+      options: LINK_FILTERS.map((link) => ({
+        value: link,
+        label: LINK_LABELS[link],
+        icon: LINK_ICONS[link],
+      })),
+      multiple: true,
+      value: resolved.link,
+      onChange: (link) => setSearch({ link: listParam(link as LinkFilter[]) }),
+    },
+    {
+      id: 'project',
+      label: 'Project',
+      icon: Folder,
+      search: 'Search projects…',
+      options: [
+        ...projects.map((project) => ({
+          value: project.id,
+          label: project.name,
+          icon: <ProjectGlyph color={project.color} />,
+        })),
+        { value: 'none', label: 'No project', icon: CircleSlash },
+      ],
+      multiple: true,
+      value: resolved.project,
+      onChange: (project) => setSearch({ project: listParam(project as (ProjectId | 'none')[]) }),
+    },
+  ];
+  return { fields, clear: () => setSearch(CLEAR_FILTERS) };
+}
+
+/** Which notes are shown: a chip per filter that is set. */
 export function NotesToolbarStart({
   resolved,
   setSearch,
@@ -78,48 +122,11 @@ export function NotesToolbarStart({
   resolved: ResolvedNotesSearch;
   setSearch: SetSearch;
 }) {
-  const projects = useProjectOptions();
-  return (
-    <ListFilters
-      fields={[
-        {
-          id: 'link',
-          label: 'Linked to',
-          icon: Link,
-          options: LINK_FILTERS.map((link) => ({
-            value: link,
-            label: LINK_LABELS[link],
-            icon: LINK_ICONS[link],
-          })),
-          multiple: true,
-          value: resolved.link,
-          onChange: (link) => setSearch({ link: listParam(link as LinkFilter[]) }),
-        },
-        {
-          id: 'project',
-          label: 'Project',
-          icon: Folder,
-          search: 'Search projects…',
-          options: [
-            ...projects.map((project) => ({
-              value: project.id,
-              label: project.name,
-              icon: <ProjectGlyph color={project.color} />,
-            })),
-            { value: 'none', label: 'No project', icon: CircleSlash },
-          ],
-          multiple: true,
-          value: resolved.project,
-          onChange: (project) =>
-            setSearch({ project: listParam(project as (ProjectId | 'none')[]) }),
-        },
-      ]}
-      onClear={() => setSearch(CLEAR_FILTERS)}
-    />
-  );
+  const { fields, clear } = useNoteFilterFields(resolved, setSearch);
+  return <ListFilters fields={fields} onClear={clear} />;
 }
 
-/** How the notes are drawn: Display (List or Cards, and the sort). */
+/** The Filter button, then how the notes are drawn: Display (List or Cards, and the sort). */
 export function NotesToolbarEnd({
   resolved,
   setSearch,
@@ -128,22 +135,26 @@ export function NotesToolbarEnd({
   setSearch: SetSearch;
 }) {
   const compact = useWorkspaceShell().size === 'compact';
+  const { fields, clear } = useNoteFilterFields(resolved, setSearch);
   return (
-    <ListDisplay
-      compact={compact}
-      layout={{
-        options: LAYOUTS,
-        value: resolved.view,
-        onChange: (view) => setSearch({ view }),
-      }}
-      sort={{
-        options: SORT_OPTIONS,
-        value: resolved.sort,
-        // a new sort takes its own natural order
-        onChange: (sort) => setSearch({ sort, dir: undefined }),
-        dir: resolved.dir,
-        onDirChange: (dir) => setSearch({ dir }),
-      }}
-    />
+    <>
+      <ListFilterButton fields={fields} onClear={clear} />
+      <ListDisplay
+        compact={compact}
+        layout={{
+          options: LAYOUTS,
+          value: resolved.view,
+          onChange: (view) => setSearch({ view }),
+        }}
+        sort={{
+          options: SORT_OPTIONS,
+          value: resolved.sort,
+          // a new sort takes its own natural order
+          onChange: (sort) => setSearch({ sort, dir: undefined }),
+          dir: resolved.dir,
+          onDirChange: (dir) => setSearch({ dir }),
+        }}
+      />
+    </>
   );
 }

@@ -129,7 +129,7 @@ describe('the list view', () => {
         filter: { priority: [TaskPriority.HIGH] },
       }),
     );
-    // the Filter button's badge counts the filter
+    // the filter's chip
     await eventually(() => expect(filterCount(app.container)).toBe(1));
     await openPriority();
     click(value('Any'));
@@ -165,7 +165,7 @@ describe('the list view', () => {
     await eventually(() => expect(row('Build the page')).toBeUndefined());
     expect(row('Plan the launch')).toBeDefined();
     expect(row('Test the page')).toBeDefined();
-    // one filter, however many values, in the Filter button's badge
+    // one filter, however many values: one chip
     expect(filterCount(app.container)).toBe(1);
     // the field's item in the menu names both
     expect(

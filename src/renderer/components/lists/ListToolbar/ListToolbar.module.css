@@ -1,63 +1,31 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
 /*
- * The filters: the Filter button, the chips, and "Clear" at the end of the room the toolbar leaves
- * after Status.
+ * The filters' row: the chips, in the room the toolbar leaves after Status, on one line. Its width
+ * is the room there is, not what its chips need (it grows from nothing), so the chips that fit can
+ * be counted. It is the containing block of its hidden chips.
  */
 .filters {
+  position: relative;
   display: flex;
   flex: 1 1 0;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
-/* the Filter button and, over its top right corner, how many filters are set */
-.filterButton {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-}
-.badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  display: grid;
-  place-items: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
-  /* a ring in the page's colour lifts it off the button's line */
-  box-shadow: 0 0 0 2px var(--background);
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font: var(--font-weight-medium) 10px / 1 var(--font-sans);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-}
-/*
- * The chips: the filters that are set, after the Filter button, in the room the row has left. The
- * row wraps and is one chip tall, with what wraps cut off, so a chip that does not fit is on a
- * line that is never seen. A few pixels clear of the Filter button's badge.
- */
-.chips {
-  display: flex;
-  flex: 1 1 0;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: var(--space-4) var(--space-2);
-  min-width: 0;
-  height: var(--control-md);
-  margin-left: var(--space-1);
-  overflow: hidden;
-}
 /* a chip: a ButtonGroup of its value and its ×, at its own width */
 .chip {
   flex: none;
 }
-/* a chip on a cut-off line: unseen for the tab order too, in the place it wrapped to */
+/*
+ * A chip that does not fit: still in the row at its own width, so it can be measured when the row
+ * changes, but unseen (which also takes it out of the tab order) and out of the flow, so it takes
+ * no room beside the chips that are shown.
+ */
 .hidden {
+  position: absolute;
   visibility: hidden;
+  pointer-events: none;
 }
 /* a chip's value: a long project name is cut with "…" */
 .chipValue {
@@ -68,12 +36,12 @@
   width: 28px;
   color: var(--muted-foreground);
 }
-
-/* the tooltip while filters are set: one to a line */
-.tooltip {
-  display: grid;
-  gap: 2px;
-  text-align: left;
+/* "+2": how many chips are hidden, after the last one shown */
+.hiddenCount {
+  flex: none;
+  padding: 0 var(--space-2);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
 /*
