@@ -1,10 +1,8 @@
 /** The Figma screens' sample data, shared by the screen stories. */
-import { ArrowUpDown, Group, List, ListFilter, Plus, SquareKanban } from 'lucide-react';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { Button } from '../../ui/Button';
 import { PageToolbar } from '../../shell/Page';
 import type { TaskRowData } from '../../lists/TaskRow';
-import { ToggleGroup } from '../../ui/ToggleGroup';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import {
   sampleEventLink,
   sampleLinear,
@@ -88,33 +86,12 @@ export const FIGMA_TASKS: TaskRowData[] = [
   }),
 ];
 
-/** Filter at the left; Sort, the view switch and New Task at the right. */
+/** The tasks page's toolbar: Status and the filters at the left, Display at the right. */
 export function TasksToolbar({ compact = false }: { compact?: boolean }) {
   return (
     <PageToolbar
-      start={
-        <Button variant="outline" icon={ListFilter} value="Open" hideValue={compact}>
-          Filter
-        </Button>
-      }
-      end={
-        <>
-          <Button variant="outline" icon={ArrowUpDown} value="Priority" hideValue={compact}>
-            Sort
-          </Button>
-          <ToggleGroup
-            aria-label="View"
-            items={[
-              { value: 'list', icon: List },
-              { value: 'group', icon: Group },
-              { value: 'board', icon: SquareKanban },
-            ]}
-          />
-          <Button variant="outline" icon={Plus}>
-            New Task
-          </Button>
-        </>
-      }
+      start={<DemoToolbarStart list="tasks" compact={compact} />}
+      end={<DemoToolbarEnd list="tasks" compact={compact} />}
     />
   );
 }

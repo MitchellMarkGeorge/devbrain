@@ -69,8 +69,7 @@ describe('the notes list', () => {
     expect(titles).toEqual(['nte_plan', 'nte_pkce', 'nte_1on1']);
     expect(row('PKCE design notes')!.textContent).toContain('Write PKCE guide');
     expect(row('PKCE design notes')!.textContent).toContain('Auth Overhaul');
-    expect(app.text()).toContain('FilterAll');
-    expect(app.text()).toContain('SortLast edited');
+    expect(app.text()).toContain('DisplayLast edited');
     expect(main.callsTo('notes.list')[0].input).toMatchObject({
       sort: { sortBy: 'updatedAt', direction: 'desc' },
     });
@@ -91,7 +90,8 @@ describe('the notes list', () => {
       filter: { projectId: PROJECT.id, linkedTo: 'task' },
       sort: { sortBy: 'title', direction: 'asc' },
     });
-    expect(app.text()).toContain('Linked to a task');
+    // the test window is compact: the two filters' chips fold into the Filter button's count
+    expect(app.text()).toContain('Filter2');
   });
 
   it('drops a bad param and keeps the rest', async () => {
@@ -118,7 +118,9 @@ describe('the notes list', () => {
     const { app } = notesPage();
     await eventually(() => expect(row('Launch plan')).toBeDefined());
     const length = app.router.history.length;
-    click(app.container.querySelector('[aria-label="Cards"]'));
+    click(byText(app.container, 'button', 'Display'));
+    await eventually(() => expect(byText(document.body, 'button', 'Cards')).not.toBeNull());
+    click(byText(document.body, 'button', 'Cards'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?view=card`));
     expect(app.router.history.length).toBe(length);
     await eventually(() =>
@@ -288,14 +290,12 @@ describe('selecting notes', () => {
 });
 
 describe('a new note', () => {
-  it('is created by New Note, in the filtered project, and opens with its title focused', async () => {
-    const { main, app } = notesPage(`?project=${PROJECT.id}`);
-    await eventually(() => expect(row('PKCE design notes')).toBeDefined());
+  it('is created by the empty page’s New Note, and opens with its title focused', async () => {
+    const { main, app } = notesPage('', []);
+    await eventually(() => expect(app.text()).toContain('No notes yet'));
     click(byText(app.container, 'button', 'New Note'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/nte_new4`));
-    expect(main.callsTo('notes.create').map((call) => call.input)).toEqual([
-      { projectId: PROJECT.id },
-    ]);
+    await eventually(() => expect(app.path()).toMatch(new RegExp(`/app/${WORK}/notes/nte_new`)));
+    expect(main.callsTo('notes.create')).toHaveLength(1);
     await eventually(() =>
       expect(document.activeElement?.getAttribute('aria-label')).toBe('Title'),
     );

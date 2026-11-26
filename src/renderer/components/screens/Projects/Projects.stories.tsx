@@ -1,17 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
-import {
-  ArrowUpDown,
-  Ellipsis,
-  Folder,
-  LayoutGrid,
-  List,
-  ListFilter,
-  Plus,
-  Star,
-} from 'lucide-react';
+import { Ellipsis, Folder, LayoutGrid, Star } from 'lucide-react';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import { GroupHeading } from '../../lists/GroupHeading';
 import { ProjectCard } from '../../projects/ProjectCard';
 import { AUTH_OVERHAUL, SAMPLE_PROJECTS } from '../../projects/ProjectCard/fixtures';
@@ -59,25 +51,9 @@ export const Cards: Story = {
         }
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 24px 12px' }}>
-        <Button variant="outline" icon={ListFilter} value="Active">
-          Filter
-        </Button>
+        <DemoToolbarStart list="projects" />
         <Spacer />
-        <Button variant="outline" icon={ArrowUpDown} value="Due date">
-          Sort
-        </Button>
-        <ToggleGroup
-          aria-label="Layout"
-          defaultValue="cards"
-          style={{ alignSelf: 'center' }}
-          items={[
-            { value: 'list', icon: List, label: undefined },
-            { value: 'cards', icon: LayoutGrid, label: undefined },
-          ]}
-        />
-        <Button variant="outline" icon={Plus}>
-          New Project
-        </Button>
+        <DemoToolbarEnd list="projects" layout="cards" />
       </div>
       <div
         style={{

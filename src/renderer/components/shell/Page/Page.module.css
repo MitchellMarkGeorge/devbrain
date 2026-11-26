@@ -45,6 +45,10 @@
 }
 
 /* ---------- toolbar: 32px controls, 12px above the content ---------- */
+/*
+ * The start group takes the room the end group leaves, so a control in it (a list's filters) can
+ * size itself to that room; the end group keeps its size.
+ */
 .toolbar {
   display: flex;
   flex: none;
@@ -59,7 +63,11 @@
   gap: var(--space-2);
   min-width: 0;
 }
+.start {
+  flex: 1 1 auto;
+}
 .end {
+  flex: none;
   margin-left: auto;
 }
 

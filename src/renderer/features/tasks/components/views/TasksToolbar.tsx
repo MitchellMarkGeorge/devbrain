@@ -1,55 +1,44 @@
 import {
-  ArrowUpDown,
   Calendar,
   ChartNoAxesColumnIncreasing,
   Circle,
   CircleAlert,
+  CircleDashed,
   CircleSlash,
   Clock,
   Cloud,
   Folder,
-  Group,
   Kanban,
   List,
-  ListFilter,
   Plus,
   type LucideIcon,
-  RotateCcw,
 } from 'lucide-react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { ProjectId } from '@common/ids';
-import { TaskStatus } from '@common/types';
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuFilter,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
+  ListDisplay,
+  ListFilters,
+  ListStatusChip,
+  ProjectGlyph,
   PriorityIcon,
   StatusIcon,
-  ToggleGroup,
-  ToggleGroupItem,
   useWorkspaceShell,
-  type IconSource,
+  type ListFilterField,
+  type ListToolbarOption,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { ProjectItems } from '../menus/TaskMenus';
 import { useCreateTask } from '../../hooks/use-create-task';
 import { useProjectOptions } from '../../hooks/use-project-options';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
 import {
   CLEAR_FILTERS,
+  DUE_FILTERS,
+  GROUP_BYS,
+  PRIORITY_FILTERS,
   PRIORITY_OF,
   resolveTasksSearch,
+  SORTS,
   STATUS_OF,
   type DueFilter,
   type GroupBy,
@@ -57,18 +46,10 @@ import {
   type ResolvedTasksSearch,
   type SortParam,
   type StatusFilter,
-  type TaskView,
   type TasksSearch,
 } from '../../api/search';
 
 type SetSearch = (patch: Partial<TasksSearch>) => void;
-
-export const VIEW_LABELS: Record<TaskView, string> = {
-  list: 'List',
-  group: 'Grouped',
-  board: 'Board',
-};
-export const VIEW_ICONS: Record<TaskView, LucideIcon> = { list: List, group: Group, board: Kanban };
 
 export const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
   open: 'Open',
@@ -123,311 +104,34 @@ const GROUP_BY_ICONS: Record<GroupBy, LucideIcon> = {
   due: Calendar,
 };
 
-/** What the Filter button says: the status, and how many more filters narrow the list. */
-function filterValue(resolved: ResolvedTasksSearch, projectName: string | undefined): string {
-  const parts = [STATUS_FILTER_LABELS[resolved.status]];
-  if (resolved.priority) parts.push(PRIORITY_FILTER_LABELS[resolved.priority]);
-  if (resolved.project)
-    parts.push(resolved.project === 'none' ? 'No project' : (projectName ?? 'Project'));
-  if (resolved.due) parts.push(DUE_FILTER_LABELS[resolved.due]);
-  if (resolved.source) parts.push(resolved.source === 'external' ? 'Synced' : 'Local');
-  return parts.join(' · ');
-}
+// the scopes that span several statuses, then each status alone
+const STATUS_SCOPES: ListToolbarOption<StatusFilter>[] = (['open', 'all'] as const).map(
+  (status) => ({ value: status, label: STATUS_FILTER_LABELS[status] }),
+);
+const STATUS_OPTIONS: ListToolbarOption<StatusFilter>[] = (
+  ['not_started', 'in_progress', 'completed', 'cancelled'] as const
+).map((status) => ({
+  value: status,
+  label: STATUS_FILTER_LABELS[status],
+  icon: <StatusIcon status={STATUS_OF[status]} />,
+}));
 
-// a filter is on: the status differs from the page's default, or any other filter is set
-function filterActive(
-  resolved: ResolvedTasksSearch,
-  defaultStatus: ResolvedTasksSearch['status'],
-): boolean {
-  return (
-    resolved.status !== defaultStatus ||
-    resolved.priority !== undefined ||
-    resolved.project !== undefined ||
-    resolved.due !== undefined ||
-    resolved.source !== undefined
-  );
-}
+const SORT_OPTIONS: ListToolbarOption<SortParam>[] = SORTS.map((sort) => ({
+  value: sort,
+  label: SORT_LABELS[sort],
+  icon: SORT_ICONS[sort],
+}));
 
-// a radio submenu of a filter: "Any" clears it
-function FilterSubmenu<Value extends string>({
-  icon,
-  label,
-  value,
-  options,
-  any = 'Any',
-  anyIcon = CircleSlash,
-  onChange,
-}: {
-  icon: LucideIcon;
-  label: string;
-  /** the first item, which removes the filter from the URL; null for none */
-  any?: string | null;
-  anyIcon?: IconSource;
-  value: Value | undefined;
-  // a Lucide icon, drawn at the menu's 16px, or an icon node that sizes itself (StatusIcon)
-  options: { value: Value; label: string; icon: IconSource }[];
-  onChange: (value: Value | undefined) => void;
-}) {
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger icon={icon}>{label}</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent width="sm">
-        <DropdownMenuRadioGroup
-          value={value ?? ''}
-          onValueChange={(next: string) => onChange(next === '' ? undefined : (next as Value))}
-        >
-          {any !== null && (
-            <DropdownMenuRadioItem value="" icon={anyIcon}>
-              {any}
-            </DropdownMenuRadioItem>
-          )}
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value} icon={option.icon}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  );
-}
+const LAYOUTS: ListToolbarOption<'list' | 'board'>[] = [
+  { value: 'list', label: 'List', icon: List },
+  { value: 'board', label: 'Board', icon: Kanban },
+];
 
-/** Filter ▾ (Figma `7175:25639`): status, priority, project, due and source, one value each. */
-export function FilterMenu({
-  resolved,
-  setSearch,
-}: {
-  resolved: ResolvedTasksSearch;
-  setSearch: SetSearch;
-}) {
-  const { size } = useWorkspaceShell();
-  // a project's Tasks tab has its project fixed: no Project filter
-  const { search, project: fixedProject } = useTasksSearch();
-  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
-  // the status the page shows with none in the URL: Open, or All with completed tasks shown
-  const defaultStatus = resolveTasksSearch({}, settings).status;
-  const projects = useProjectOptions();
-  const projectName = fixedProject
-    ? undefined
-    : projects.find((project) => project.id === resolved.project)?.name;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={ListFilter}
-            value={filterValue(
-              fixedProject ? { ...resolved, project: undefined } : resolved,
-              projectName,
-            )}
-            hideValue={size === 'compact'}
-            active={filterActive(
-              fixedProject ? { ...resolved, project: undefined } : resolved,
-              defaultStatus,
-            )}
-          >
-            Filter
-          </Button>
-        }
-      />
-      <DropdownMenuContent width="sm" align="start">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Filter</DropdownMenuLabel>
-          <FilterSubmenu
-            icon={Circle}
-            label="Status"
-            // back to the settings' default, which follows "Show completed tasks"
-            any={`Default (${STATUS_FILTER_LABELS[defaultStatus]})`}
-            anyIcon={RotateCcw}
-            value={search.status}
-            options={(Object.keys(STATUS_FILTER_LABELS) as StatusFilter[]).map((status) => ({
-              value: status,
-              label: STATUS_FILTER_LABELS[status],
-              icon:
-                status === 'open' || status === 'all' ? (
-                  <StatusIcon status={TaskStatus.IN_PROGRESS} />
-                ) : (
-                  <StatusIcon status={STATUS_OF[status]} />
-                ),
-            }))}
-            onChange={(status) => setSearch({ status })}
-          />
-          <FilterSubmenu
-            icon={ChartNoAxesColumnIncreasing}
-            label="Priority"
-            value={resolved.priority}
-            options={(Object.keys(PRIORITY_FILTER_LABELS) as PriorityFilter[]).map((priority) => ({
-              value: priority,
-              label: PRIORITY_FILTER_LABELS[priority],
-              icon: <PriorityIcon priority={PRIORITY_OF[priority]} />,
-            }))}
-            onChange={(priority) => setSearch({ priority })}
-          />
-          {!fixedProject && (
-            <DropdownMenuFilter autoHighlight>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent width="lg">
-                  <ProjectItems
-                    projectId={
-                      resolved.project === 'none'
-                        ? null
-                        : (resolved.project as ProjectId | undefined)
-                    }
-                    onPick={(project) =>
-                      setSearch({ project: project === null ? 'none' : project })
-                    }
-                  />
-                  {resolved.project && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        icon={CircleSlash}
-                        onClick={() => setSearch({ project: undefined })}
-                      >
-                        Any project
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuFilter>
-          )}
-          <FilterSubmenu
-            icon={Calendar}
-            label="Due"
-            value={resolved.due}
-            options={(Object.keys(DUE_FILTER_LABELS) as DueFilter[]).map((due) => {
-              return { value: due, label: DUE_FILTER_LABELS[due], icon: DUE_ICONS[due] };
-            })}
-            onChange={(due) => setSearch({ due })}
-          />
-          <FilterSubmenu
-            icon={Cloud}
-            label="Source"
-            value={resolved.source}
-            options={[
-              { value: 'local', label: 'Local', icon: Circle },
-              { value: 'external', label: 'Synced', icon: Cloud },
-            ]}
-            onChange={(source) => setSearch({ source })}
-          />
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem icon={CircleSlash} onClick={() => setSearch(CLEAR_FILTERS)}>
-          Clear filters
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** Group by ▾, in the group view. */
-export function GroupByMenu({
-  resolved,
-  setSearch,
-}: {
-  resolved: ResolvedTasksSearch;
-  setSearch: SetSearch;
-}) {
-  const { size } = useWorkspaceShell();
-  const { project: fixedProject } = useTasksSearch();
-  // within one project, grouping by project makes one group
-  const groupBys = (Object.keys(GROUP_BY_LABELS) as GroupBy[]).filter(
-    (groupBy) => !fixedProject || groupBy !== 'project',
-  );
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={Group}
-            value={GROUP_BY_LABELS[resolved.groupBy]}
-            hideValue={size === 'compact'}
-          >
-            Group by
-          </Button>
-        }
-      />
-      <DropdownMenuContent width="sm" align="start">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Group by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.groupBy}
-            onValueChange={(group_by: string) => setSearch({ group_by: group_by as GroupBy })}
-          >
-            {groupBys.map((groupBy) => (
-              <DropdownMenuRadioItem key={groupBy} value={groupBy} icon={GROUP_BY_ICONS[groupBy]}>
-                {GROUP_BY_LABELS[groupBy]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** Sort ▾ (Figma `7175:26184`): what to sort by, then the order. */
-export function SortMenu({
-  resolved,
-  setSearch,
-}: {
-  resolved: ResolvedTasksSearch;
-  setSearch: SetSearch;
-}) {
-  const { size } = useWorkspaceShell();
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="outline"
-            icon={ArrowUpDown}
-            value={SORT_LABELS[resolved.sort]}
-            hideValue={size === 'compact'}
-          >
-            Sort
-          </Button>
-        }
-      />
-      <DropdownMenuContent width="sm" align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.sort}
-            // a new sort takes its own natural order
-            onValueChange={(sort: string) => setSearch({ sort: sort as SortParam, dir: undefined })}
-          >
-            {(Object.keys(SORT_LABELS) as SortParam[]).map((sort) => (
-              <DropdownMenuRadioItem key={sort} value={sort} icon={SORT_ICONS[sort]}>
-                {SORT_LABELS[sort]}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Order</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={resolved.dir}
-            onValueChange={(dir: string) => setSearch({ dir: dir as 'asc' | 'desc' })}
-          >
-            <DropdownMenuRadioItem value="asc" icon={ArrowUpDown}>
-              Ascending
-            </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="desc" icon={ArrowUpDown}>
-              Descending
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
+/**
+ * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
+ * completed tasks"), a chip per filter that is set (priority, due, source, project) and
+ * "+ Filter". A project's Tasks tab has its project fixed: no Project filter.
+ */
 export function TasksToolbarStart({
   resolved,
   setSearch,
@@ -435,15 +139,96 @@ export function TasksToolbarStart({
   resolved: ResolvedTasksSearch;
   setSearch: SetSearch;
 }) {
+  const compact = useWorkspaceShell().size === 'compact';
+  const { search, project: fixedProject } = useTasksSearch();
+  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
+  // the status the page shows with none in the URL: Open, or All with completed tasks shown
+  const defaultStatus = resolveTasksSearch({}, settings).status;
+  const projects = useProjectOptions();
+
+  const fields: ListFilterField[] = [
+    {
+      id: 'priority',
+      label: 'Priority',
+      icon: ChartNoAxesColumnIncreasing,
+      options: PRIORITY_FILTERS.map((priority) => ({
+        value: priority,
+        label: PRIORITY_FILTER_LABELS[priority],
+        icon: <PriorityIcon priority={PRIORITY_OF[priority]} />,
+      })),
+      value: resolved.priority,
+      onChange: (priority) => setSearch({ priority: priority as PriorityFilter | undefined }),
+    },
+    {
+      id: 'due',
+      label: 'Due',
+      icon: Calendar,
+      options: DUE_FILTERS.map((due) => ({
+        value: due,
+        label: DUE_FILTER_LABELS[due],
+        icon: DUE_ICONS[due],
+      })),
+      value: resolved.due,
+      onChange: (due) => setSearch({ due: due as DueFilter | undefined }),
+    },
+    {
+      id: 'source',
+      label: 'Source',
+      icon: Cloud,
+      options: [
+        { value: 'local', label: 'Local', icon: Circle },
+        { value: 'external', label: 'Synced', icon: Cloud },
+      ],
+      value: resolved.source,
+      onChange: (source) => setSearch({ source: source as 'local' | 'external' | undefined }),
+    },
+  ];
+  if (!fixedProject) {
+    fields.push({
+      id: 'project',
+      label: 'Project',
+      icon: Folder,
+      search: 'Search projects…',
+      options: [
+        ...projects.map((project) => ({
+          value: project.id,
+          label: project.name,
+          icon: <ProjectGlyph color={project.color} />,
+        })),
+        { value: 'none', label: 'No project', icon: CircleSlash },
+      ],
+      value: resolved.project,
+      onChange: (project) => setSearch({ project: project as ProjectId | 'none' | undefined }),
+    });
+  }
+
   return (
     <>
-      <FilterMenu resolved={resolved} setSearch={setSearch} />
-      {resolved.view === 'group' && <GroupByMenu resolved={resolved} setSearch={setSearch} />}
+      <ListStatusChip
+        icon={CircleDashed}
+        options={STATUS_SCOPES}
+        statuses={STATUS_OPTIONS}
+        value={resolved.status}
+        active={resolved.status !== defaultStatus}
+        compact={compact}
+        // the default leaves the URL, so it goes on following the setting
+        onChange={(status) => setSearch({ status: status === defaultStatus ? undefined : status })}
+      />
+      <ListFilters
+        fields={fields}
+        compact={compact}
+        // the Status chip is not one of the filters: it keeps what the URL says
+        onClear={() => setSearch({ ...CLEAR_FILTERS, status: search.status })}
+      />
     </>
   );
 }
 
-/** Sort, the list / grouped / board toggle, and New Task (with the project filter's project). */
+/**
+ * How the tasks are drawn: Display (List or Board; in the list, the grouping and the sort). On a
+ * project's Tasks tab, New Task too, which files the task in the project; elsewhere the title
+ * bar's New creates one.
+ */
 export function TasksToolbarEnd({
   resolved,
   setSearch,
@@ -451,40 +236,71 @@ export function TasksToolbarEnd({
   resolved: ResolvedTasksSearch;
   setSearch: SetSearch;
 }) {
+  const compact = useWorkspaceShell().size === 'compact';
+  const { search, project: fixedProject } = useTasksSearch();
   const createTask = useCreateTask();
+  const board = resolved.view === 'board';
+  // within one project, grouping by project makes one group
+  const groupBys = GROUP_BYS.filter((groupBy) => !fixedProject || groupBy !== 'project');
   return (
     <>
-      {resolved.view !== 'board' && <SortMenu resolved={resolved} setSearch={setSearch} />}
-      <ToggleGroup
-        value={resolved.view}
-        aria-label="View"
-        onValueChange={(view) => {
-          if (view) setSearch({ view: view as TaskView, open: undefined });
+      <ListDisplay
+        compact={compact}
+        layout={{
+          options: LAYOUTS,
+          value: board ? 'board' : 'list',
+          onChange: (layout) =>
+            setSearch({
+              // back from the board to the list as it was: grouped, if the URL still says how
+              view: layout === 'board' ? 'board' : search.group_by ? 'group' : 'list',
+              open: undefined,
+            }),
         }}
-      >
-        {(Object.keys(VIEW_LABELS) as TaskView[]).map((view) => (
-          <ToggleGroupItem
-            key={view}
-            value={view}
-            icon={VIEW_ICONS[view]}
-            aria-label={VIEW_LABELS[view]}
-          />
-        ))}
-      </ToggleGroup>
-      <Button
-        variant="outline"
-        icon={Plus}
-        onClick={() =>
-          createTask({
-            defaults: {
-              projectId:
-                resolved.project && resolved.project !== 'none' ? resolved.project : undefined,
-            },
-          })
+        groupBy={
+          board
+            ? undefined
+            : {
+                options: [
+                  { value: 'none', label: 'None', icon: CircleSlash },
+                  ...groupBys.map((groupBy) => ({
+                    value: groupBy,
+                    label: GROUP_BY_LABELS[groupBy],
+                    icon: GROUP_BY_ICONS[groupBy],
+                  })),
+                ],
+                value: resolved.view === 'group' ? resolved.groupBy : 'none',
+                // the URL's `view` stays list or group: a grouped list is the group view
+                onChange: (groupBy: GroupBy | 'none') =>
+                  setSearch(
+                    groupBy === 'none'
+                      ? { view: 'list', group_by: undefined }
+                      : { view: 'group', group_by: groupBy },
+                  ),
+              }
         }
-      >
-        New Task
-      </Button>
+        sort={
+          board
+            ? undefined
+            : {
+                options: SORT_OPTIONS,
+                value: resolved.sort,
+                // a new sort takes its own natural order
+                onChange: (sort) => setSearch({ sort, dir: undefined }),
+                dir: resolved.dir,
+                onDirChange: (dir) => setSearch({ dir }),
+              }
+        }
+        note={board ? 'The board groups tasks by status.' : undefined}
+      />
+      {fixedProject && (
+        <Button
+          variant="outline"
+          icon={Plus}
+          onClick={() => createTask({ defaults: { projectId: fixedProject } })}
+        >
+          New Task
+        </Button>
+      )}
     </>
   );
 }

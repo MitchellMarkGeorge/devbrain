@@ -1,0 +1,95 @@
+/* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
+
+/*
+ * The filters' row: the room the toolbar leaves after Status, on one line. Its width is the room
+ * there is, not what its chips need (it grows from nothing), so the chips that fit can be counted.
+ * It is the containing block of its folded chips.
+ */
+.filters {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* a filter chip: a ButtonGroup of its value and its ×, at its own width */
+.chip {
+  flex: none;
+}
+/*
+ * A chip folded into "Filter +N": still in the row at its own width, so it can be measured when
+ * the row changes, but unseen (which also takes it out of the tab order) and out of the flow
+ * (`absolute`), so it takes no room beside the chips that are shown.
+ */
+.folded {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+/* the ×: narrower than a square button, and quiet until pointed at */
+.chipRemove {
+  width: 28px;
+  color: var(--muted-foreground);
+}
+/* a chip's value: a long project name is cut with "…" */
+.value {
+  display: block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* a field's value in the Filter menu: cut before it squeezes the field's name */
+.menuValue {
+  display: block;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "+ Filter": a quiet button after the chips */
+.add {
+  color: var(--muted-foreground);
+}
+
+/* "Clear": a quiet word at the row's end, in the same place however many chips there are */
+.clear {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted-foreground);
+}
+
+/* Display's popover: the layout switch, then a row per setting */
+.display {
+  display: grid;
+  gap: 10px;
+}
+.layouts {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: 100%;
+}
+.row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rowLabel,
+.note {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) 13px / var(--text-sm-leading) var(--font-sans);
+}
+.sort {
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.select {
+  flex: 1;
+  min-width: 0;
+}

@@ -1,48 +1,31 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpDown, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
-import { Button } from '../../ui/Button';
-import { ToggleGroup } from '../../ui/ToggleGroup';
+import { TaskPriority } from '@common/types';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
+import { PageToolbar } from '../../shell/Page';
+import { TooltipProvider } from '../../ui/Tooltip';
 
 /*
- * Figma: v2 Screens › Tasks › "Tasks (list)" toolbar (7155:6011, 1184px) and its compact window
- * "1 · Tasks list — toolbar values hidden" (7608:44196, 904px). A 46px strip: 24px sides, 12px
- * below, items 8px apart; Filter on the left, then Sort, the view switcher and New Task on the
- * right. A narrow window hides the toolbar buttons' values.
+ * The tasks page's toolbar at the two window widths (1184px of page, and the compact window's
+ * 904px): the Status chip, a chip per filter that is set and "+ Filter" on the left, Display on
+ * the right. A narrow window hides the buttons' values and folds the chips into "Filter 2".
  */
 
 function TasksToolbar({ compact = false }: { compact?: boolean }) {
   return (
-    <div
-      role="toolbar"
-      aria-label="Tasks"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0 24px 12px',
-        width: compact ? 904 : 1184,
-        background: 'var(--background)',
-      }}
-    >
-      <Button variant="outline" icon={ListFilter} value="Open" hideValue={compact}>
-        Filter
-      </Button>
-      <div style={{ flex: 1 }} />
-      <Button variant="outline" icon={ArrowUpDown} value="Priority" hideValue={compact}>
-        Sort
-      </Button>
-      <ToggleGroup
-        aria-label="View"
-        items={[
-          { value: 'list', icon: List },
-          { value: 'group', icon: Group },
-          { value: 'board', icon: Kanban },
-        ]}
-      />
-      <Button variant="outline" icon={Plus}>
-        New Task
-      </Button>
-    </div>
+    <TooltipProvider>
+      <div style={{ width: compact ? 904 : 1184, background: 'var(--background)' }}>
+        <PageToolbar
+          start={
+            <DemoToolbarStart
+              list="tasks"
+              compact={compact}
+              filters={{ priority: String(TaskPriority.HIGH), source: 'external' }}
+            />
+          }
+          end={<DemoToolbarEnd list="tasks" compact={compact} />}
+        />
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -54,8 +37,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Tasks (list): "Filter Open", "Sort Priority", the List / Group / Board switcher, New Task */
+/** "Status Open", the Priority and Source chips, "+ Filter", then "Display Priority" */
 export const Wide: Story = { render: () => <TasksToolbar /> };
 
-/** A compact window: the toolbar buttons keep their labels and drop their values */
+/** A compact window: Status and Display keep their names, and the chips fold into "Filter 2" */
 export const Compact: Story = { render: () => <TasksToolbar compact /> };

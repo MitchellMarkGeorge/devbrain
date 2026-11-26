@@ -31,7 +31,7 @@ import {
 } from '../components/views/ProjectsStates';
 import { ProjectsSelectionBar } from '../components/views/ProjectsSelectionBar';
 import styles from '../components/views/ProjectsView.module.css';
-import { ProjectsFilterMenu, ProjectsToolbarEnd } from '../components/views/ProjectsToolbar';
+import { ProjectsToolbarEnd, ProjectsToolbarStart } from '../components/views/ProjectsToolbar';
 
 const stopOpen = (event: MouseEvent) => event.stopPropagation();
 
@@ -40,7 +40,7 @@ const CARD_ROW_HEIGHT = 148;
 
 /**
  * The projects page (`/app/$workspaceId/projects`, Figma `7158:15157` list, `7158:15487` cards):
- * Filter (status, Active by default; source), Sort, the list / cards toggle and New Project, over
+ * the Status chip (Active by default), the Source filter and Display (list or cards, the sort), over
  * the virtualized rows or cards of `projects.list`, each with its progress from the stats the list
  * returns. A row or card opens the project; right-click for Favorite and Move to trash. List rows
  * select as the tasks list's do (a checkbox, X), with a selection bar of Status, Favorite and Move
@@ -154,7 +154,7 @@ export function ProjectsPage() {
   return (
     <Page title="Projects">
       <PageToolbar
-        start={<ProjectsFilterMenu resolved={resolved} setSearch={setSearch} />}
+        start={<ProjectsToolbarStart resolved={resolved} setSearch={setSearch} />}
         end={<ProjectsToolbarEnd resolved={resolved} setSearch={setSearch} />}
       />
       <ContextMenu>

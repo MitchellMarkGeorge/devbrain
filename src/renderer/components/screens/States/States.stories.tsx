@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpDown, CircleCheck, LayoutGrid, List, ListFilter, Plus } from 'lucide-react';
+import { CircleCheck, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { CardGrid } from '../../shell/CardGrid';
 import { EmptyState } from '../../ui/EmptyState';
 import { PageContent, PageToolbar } from '../../shell/Page';
 import { NoteCardSkeleton, Skeleton } from '../../ui/Skeleton';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import { TaskRow } from '../../lists/TaskRow';
-import { ToggleGroup } from '../../ui/ToggleGroup';
 import { ScreenFrame } from '../Shell/AppFrame';
 import { FIGMA_TASKS, TasksToolbar } from '../Shell/fixtures';
 
@@ -44,28 +44,11 @@ export const NotesLoading: Story = {
   render: () => (
     <ScreenFrame page="Notes" title="Notes">
       <PageToolbar
-        start={
-          <Button variant="outline" icon={ListFilter} value="All">
-            Filter
-          </Button>
-        }
+        start={<DemoToolbarStart list="notes" />}
         end={
           <>
             <Skeleton shape="circle" width={44} height={12} />
-            <Button variant="outline" icon={ArrowUpDown} value="Last edited">
-              Sort
-            </Button>
-            <ToggleGroup
-              aria-label="View"
-              defaultValue="cards"
-              items={[
-                { value: 'list', icon: List },
-                { value: 'cards', icon: LayoutGrid },
-              ]}
-            />
-            <Button variant="outline" icon={Plus}>
-              New Note
-            </Button>
+            <DemoToolbarEnd list="notes" layout="cards" />
           </>
         }
       />

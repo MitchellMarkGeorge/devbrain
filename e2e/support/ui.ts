@@ -12,6 +12,16 @@ export async function goTo(window: Page, name: SidebarPage): Promise<void> {
     .click();
 }
 
+/** Picks an item of the title bar's New menu ("+"): what creates a task, note or project. */
+export async function chooseNew(
+  window: Page,
+  item: 'New task' | 'New note' | 'New project',
+): Promise<void> {
+  await window.getByRole('button', { name: 'New', exact: true }).click();
+  // an item's name may end with its key ("New task C")
+  await window.getByRole('menuitem', { name: new RegExp(`^${item}`) }).click();
+}
+
 /** The toasts region; a toast is a dialog in it named by its heading. */
 export function toasts(window: Page): Locator {
   return window.getByRole('region', { name: 'Notifications' });
@@ -40,10 +50,10 @@ export async function switchWorkspace(window: Page, name: string): Promise<void>
   await expect(workspaceButton(window)).toHaveAccessibleName(`Workspace: ${name}`);
 }
 
-/** Creates a project from the Projects page; ends on the project's page. */
+/** Creates a project from the title bar's New menu; ends on the project's page. */
 export async function createProject(window: Page, name: string): Promise<void> {
   await goTo(window, 'Projects');
-  await window.getByRole('main').getByRole('button', { name: 'New Project' }).first().click();
+  await chooseNew(window, 'New project');
   const dialog = window.getByRole('dialog', { name: 'New project' });
   await dialog.getByRole('textbox', { name: 'Name' }).fill(name);
   await dialog.getByRole('button', { name: 'Create Project' }).click();
@@ -57,10 +67,10 @@ export interface NewTask {
   project?: string;
 }
 
-/** Creates a task from the Tasks page's New Task dialog; ends on the Tasks page. */
+/** Creates a task on the Tasks page, from the title bar's New menu; ends on the Tasks page. */
 export async function createTask(window: Page, task: NewTask): Promise<void> {
   await goTo(window, 'Tasks');
-  await window.getByRole('main').getByRole('button', { name: 'New Task' }).first().click();
+  await chooseNew(window, 'New task');
   const dialog = window.getByRole('dialog', { name: 'New task' });
   await dialog.getByRole('textbox', { name: 'Title' }).fill(task.title);
   if (task.due !== undefined) {

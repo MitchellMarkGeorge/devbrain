@@ -18,7 +18,7 @@ export interface TasksViewProps {
 }
 
 /**
- * The tasks views as a page draws them: the toolbar (Filter, Sort, the view, New Task) over the
+ * The tasks views as a page draws them: the toolbar (Status, the filters, Display) over the
  * list, the group view or the board, and the board's task sheet, each reading its state from the
  * `TasksSearchProvider` around it. The tasks page, and a project's Tasks tab with its project
  * fixed (`showProjectPill={false}`).

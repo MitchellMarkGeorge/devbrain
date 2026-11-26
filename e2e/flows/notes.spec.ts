@@ -1,6 +1,6 @@
 import { test, expect } from '../support/fixtures';
 import { workspaceIdOf } from '../support/app';
-import { createTask, createWorkspace, goTo } from '../support/ui';
+import { chooseNew, createTask, createWorkspace, goTo } from '../support/ui';
 
 test('notes: create, type, leave and come back, link a task', async ({ devbrain }) => {
   const { window } = await devbrain.launch();
@@ -10,7 +10,7 @@ test('notes: create, type, leave and come back, link a task', async ({ devbrain 
   // create a note, and give it a title
   await goTo(window, 'Notes');
   const main = window.getByRole('main');
-  await main.getByRole('button', { name: 'New Note' }).first().click();
+  await chooseNew(window, 'New note');
   await expect(window).toHaveURL(/\/notes\/nte_/);
   const noteId = /\/notes\/(nte_[^/?]+)/.exec(window.url())![1];
   const title = main.getByRole('heading', { name: 'Title' });

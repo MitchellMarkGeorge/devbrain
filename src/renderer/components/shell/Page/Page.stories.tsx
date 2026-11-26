@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpDown, CircleCheck, Copy, ListFilter, Plus, Trash2, List } from 'lucide-react';
+import { Copy, Trash2 } from 'lucide-react';
 import { Text } from '../../layout/Text';
-import { Button } from '../../ui/Button';
+import { DemoToolbarEnd, DemoToolbarStart } from '../../lists/ListToolbar/fixtures';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
-import { ToggleGroup } from '../../ui/ToggleGroup';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { Page, PageContent, PageFavoriteButton, PageMenuButton, PageToolbar } from './Page';
 
@@ -35,28 +34,8 @@ export const ListPage: Story = {
   render: () => (
     <Page title="Tasks" style={outline}>
       <PageToolbar
-        start={
-          <Button variant="outline" icon={ListFilter} value="Open">
-            Filter
-          </Button>
-        }
-        end={
-          <>
-            <Button variant="outline" icon={ArrowUpDown} value="Priority">
-              Sort
-            </Button>
-            <ToggleGroup
-              aria-label="View"
-              items={[
-                { value: 'list', icon: List },
-                { value: 'board', icon: CircleCheck },
-              ]}
-            />
-            <Button variant="outline" icon={Plus}>
-              New Task
-            </Button>
-          </>
-        }
+        start={<DemoToolbarStart list="tasks" />}
+        end={<DemoToolbarEnd list="tasks" />}
       />
     </Page>
   ),
@@ -100,16 +79,8 @@ export const CompactToolbar: Story = {
   render: () => (
     <Page style={outline}>
       <PageToolbar
-        start={
-          <Button variant="outline" icon={ListFilter} value="Open" hideValue>
-            Filter
-          </Button>
-        }
-        end={
-          <Button variant="outline" icon={ArrowUpDown} value="Priority" hideValue>
-            Sort
-          </Button>
-        }
+        start={<DemoToolbarStart list="tasks" compact />}
+        end={<DemoToolbarEnd list="tasks" compact />}
       />
     </Page>
   ),

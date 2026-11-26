@@ -51,7 +51,7 @@ describe('the projects page', () => {
     expect(app.text()).not.toContain('Billing Revamp');
     // 1 of 3 done (the completed task)
     expect(app.text()).toContain('33%');
-    expect(app.text()).toContain('FilterActive');
+    expect(app.text()).toContain('StatusActive');
     expect(main.callsTo('projects.stats')).toEqual([]);
   });
 
@@ -100,7 +100,13 @@ describe('the projects page', () => {
   it('creates a project with its first tasks in one call, then opens it', async () => {
     const { app, main } = open('/projects');
     await eventually(() => expect(app.text()).toContain('Auth Overhaul'));
-    click(byText(app.container, 'button', 'New Project'));
+    // the toolbar has no New Project: the title bar's New creates one
+    expect(byText(app.container, 'button', 'New Project')).toBeNull();
+    click(document.querySelector('[aria-label="New"]'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'New project')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'New project'));
     const name = () => document.querySelector<HTMLInputElement>('input[aria-label="Name"]');
     await eventually(() => expect(name()).not.toBeNull());
     typeInto(name()!, 'Passkey Support');
@@ -306,7 +312,7 @@ describe('a project’s page', () => {
     expect(app.text()).not.toContain('Unfiled task');
     click(byText(app.container, 'button', 'Filter'));
     await eventually(() =>
-      expect(byText(document.body, '[role="menuitem"]', 'Status')).not.toBeNull(),
+      expect(byText(document.body, '[role="menuitem"]', 'Priority')).not.toBeNull(),
     );
     expect(byText(document.body, '[role="menuitem"]', 'Project')).toBeNull();
   });

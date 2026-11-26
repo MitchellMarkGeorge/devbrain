@@ -1,5 +1,5 @@
 import { test, expect } from '../support/fixtures';
-import { createTask, createWorkspace, goTo, search } from '../support/ui';
+import { chooseNew, createTask, createWorkspace, goTo, search } from '../support/ui';
 
 test('⌘K search finds the task and the note', async ({ devbrain }) => {
   const { window } = await devbrain.launch();
@@ -7,7 +7,7 @@ test('⌘K search finds the task and the note', async ({ devbrain }) => {
   await createTask(window, { title: 'Write release notes' });
   await goTo(window, 'Notes');
   const main = window.getByRole('main');
-  await main.getByRole('button', { name: 'New Note' }).first().click();
+  await chooseNew(window, 'New note');
   await main.getByRole('heading', { name: 'Title' }).click();
   await window.keyboard.type('Release retro');
   await main.getByRole('textbox', { name: 'Note' }).click();

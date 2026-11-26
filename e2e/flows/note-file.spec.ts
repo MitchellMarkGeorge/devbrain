@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { test, expect } from '../support/fixtures';
 import { workspaceIdOf } from '../support/app';
-import { createWorkspace, goTo } from '../support/ui';
+import { chooseNew, createWorkspace, goTo } from '../support/ui';
 
 // A note is the user's file: opening it changes nothing on disk, and an edit rewrites only the
 // block that changed (docs/editor.md, "What a save changes").
@@ -14,7 +14,7 @@ test('note file: opening leaves it as it is, an edit rewrites only its block', a
   // a note, with a first line to find in its file
   await goTo(window, 'Notes');
   let main = window.getByRole('main');
-  await main.getByRole('button', { name: 'New Note' }).first().click();
+  await chooseNew(window, 'New note');
   await expect(window).toHaveURL(/\/notes\/nte_/);
   const noteId = /\/notes\/(nte_[^/?]+)/.exec(window.url())![1];
   await main.getByRole('textbox', { name: 'Note' }).click();

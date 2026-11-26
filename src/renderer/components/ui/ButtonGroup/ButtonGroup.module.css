@@ -1,19 +1,30 @@
-/* shadcn's ButtonGroup: inner corners squared, borders overlapping. See docs/design-system/components/ButtonGroup.md */
+/* shadcn's ButtonGroup: inner corners squared, one line between neighbours. See docs/design-system/components/ButtonGroup.md */
 .group {
   display: inline-flex;
+  align-items: stretch;
   width: fit-content;
   isolation: isolate;
 }
-.group > *:not(:first-child) {
-  margin-left: -1px;
+/*
+ * The group's controls are its children with a `data-slot` (Button, Input), picked by that and
+ * not by their place among their siblings: a menu or popover trigger mounts unslotted parts
+ * (focus guards) beside itself while it is open, and `:first-child` would then stop matching it.
+ *
+ * A control after another loses its left corners and its left border, so the line between two is
+ * the first one's right border alone (two overlapping borders would darken a translucent one).
+ */
+.group > [data-slot] ~ [data-slot] {
+  border-left-width: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 }
-.group > *:not(:last-child) {
+/* a control with another after it loses its right corners */
+.group > [data-slot]:has(~ [data-slot]) {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
-/* the focused button's ring sits above its neighbours */
-.group > *:focus-visible {
+/* the focused control's ring sits above its neighbours */
+.group > :focus-visible {
+  position: relative;
   z-index: 1;
 }
