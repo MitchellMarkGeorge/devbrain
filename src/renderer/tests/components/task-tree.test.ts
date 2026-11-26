@@ -90,7 +90,6 @@ describe('TaskRow in a tree', () => {
       root.render(
         createElement(TaskRow, {
           task: subtask,
-          stack: 'none',
           tree: { depth: 1, cells: ['elbow'], open: false },
         }),
       ),
@@ -106,7 +105,6 @@ describe('TaskRow in a tree', () => {
       root.render(
         createElement(TaskRow, {
           task: subtask,
-          stack: 'none',
           tree: { depth: 0, cells: [], open: false },
         }),
       ),
@@ -123,7 +121,6 @@ describe('TaskRow in a tree', () => {
         root.render(
           createElement(TaskRow, {
             task: parent,
-            stack: 'none',
             subtasksShown: shown,
             onSubtasksShownChange: (next) => changes.push(next),
             onOpen: () => opened++,
@@ -145,7 +142,7 @@ describe('TaskRow in a tree', () => {
 
   it('keeps the count a plain pill without a way to toggle', () => {
     const parent = sampleTask({ title: 'Ship it', subtaskProgress: { completed: 1, total: 3 } });
-    act(() => root.render(createElement(TaskRow, { task: parent, stack: 'none' })));
+    act(() => root.render(createElement(TaskRow, { task: parent })));
     expect(container.querySelector('[data-subtasks-toggle]')).toBeNull();
   });
 
@@ -168,7 +165,6 @@ describe('TaskRow in a tree', () => {
             } as PillHoverCardsProviderProps,
             createElement(TaskRow, {
               task: parent,
-              stack: 'none',
               ...(toggles ? { subtasksShown: true, onSubtasksShownChange: () => {} } : {}),
             }),
           ),
@@ -202,7 +198,6 @@ describe('TaskRow in a tree', () => {
         root.render(
           createElement(TaskRow, {
             task: busy,
-            stack: 'none',
             showParent: !hide,
             showLink: !hide,
             showProject: !hide,
@@ -222,7 +217,7 @@ describe('TaskRow in a tree', () => {
   it('takes a subtask with no parent field, as a task’s own Subtasks list gives it', () => {
     const { parentTask, ...own } = sampleTask({ title: 'Own subtask' });
     void parentTask;
-    act(() => root.render(createElement(TaskRow, { task: own, stack: 'none' })));
+    act(() => root.render(createElement(TaskRow, { task: own })));
     expect(container.textContent).toContain('Own subtask');
   });
 });

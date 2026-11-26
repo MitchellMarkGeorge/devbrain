@@ -193,7 +193,7 @@ export const SAMPLE_TREE: TaskRowData[] = [
   }),
 ];
 
-/** A task with every pill, for stacking. */
+/** A task with every pill, for a row short of room. */
 export const BUSY_TASK: TaskRowData = sampleTask({
   title: 'Move the sync engine onto change listeners and drop the old callbacks',
   status: TaskStatus.IN_PROGRESS,

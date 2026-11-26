@@ -2,32 +2,23 @@
  * One task in a strokeless list. See docs/design-system/components/TaskRow.md and the README's
  * "Lists".
  *
- * A grid of named areas: the selection checkbox, the status icon, the title with its pills, and the
- * right side, 8px apart. With the 8px padding before the 16px checkbox, the status icon starts
- * 32px from the row's edge.
+ * One flex line: the selection checkbox, the status icon, the title, its pills, then (pushed to the
+ * right) the side's pills, the priority and the date, 8px apart. With the 8px padding before the
+ * 16px checkbox, the status icon starts 32px from the row's edge.
  */
 .row {
   --check-inset: 8px;
   --check-slot: 16px;
   --row-gap: var(--space-2);
   --status-size: 24px;
-  /*
-   * the title gives way to the pills down to --name-min; past that the stacked pills shorten, to
-   * their icons, and the title's cell never narrows past --title-min (the name and the pills before
-   * it at their icons): the side's pills give way first
-   */
-  --name-min: 120px;
-  --title-min: 220px;
+  /* the least the title is ever given: it is never hidden */
+  --name-min: 48px;
+  /* what shows of a pill under the next one in a stack: its border, padding and icon */
+  --pill-edge: 28px;
   /* where the status icon starts (32px): the tree's guides are drawn from it */
   --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
   position: relative;
-  display: grid;
-  grid-template-areas: 'check status title side';
-  /*
-   * the status column fits the icon and, in a tree, its indent; the side takes what it needs, and
-   * gives way (its stacked pills shorten) before the title's cell narrows past --title-min
-   */
-  grid-template-columns: var(--check-slot) auto minmax(var(--title-min), 1fr) minmax(0, auto);
+  display: flex;
   align-items: center;
   column-gap: var(--row-gap);
   min-height: var(--row-height);
@@ -124,8 +115,6 @@
 
 /* Home: 44px with no checkbox, the status icon 12px in (as Figma's Home draws TaskRow) */
 .compact {
-  grid-template-areas: 'status title side';
-  grid-template-columns: auto minmax(var(--title-min), 1fr) minmax(0, auto);
   min-height: 44px;
   padding: 0 var(--space-4) 0 var(--space-3);
 }
@@ -172,8 +161,7 @@
  * accessibility tree), so showing it moves nothing.
  */
 .check {
-  grid-area: check;
-  justify-self: start;
+  flex: none;
   visibility: hidden;
 }
 .row:hover .check,
@@ -187,7 +175,7 @@
 
 /* the status icon is a button that opens the status menu */
 .status {
-  grid-area: status;
+  flex: none;
   display: grid;
   place-items: center;
   width: var(--status-size);
@@ -211,19 +199,31 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
-/* the title first, then its pills */
-.title {
-  grid-area: title;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--row-gap);
+/*
+ * The title, each pill's slot and the side's parts are all items of the row's one flex line (their
+ * wrappers draw no box), so the row shares its room out among them in one pass. Short of room, the
+ * pills give way first and the title last:
+ *
+ * 1. The pills stack. A slot narrows while its pill keeps its width, so the pill slides under the
+ *    one after it, down to its --pill-edge (its icon). The last pill of a group is on top, whole.
+ * 2. The last pill of each group shortens its label, down to its icon (a key or a subtask count,
+ *    `data-keep`, stays whole).
+ * 3. The title shortens, down to --name-min and no further: it is never hidden.
+ *
+ * Pointing at a group of pills spreads that group back out, and the title gives way to it instead,
+ * down to --name-min (`data-spread`, below). The slots tile the group with no gaps, and a spread
+ * group covers all of where it was stacked, so the pointer that spread it is still on it.
+ *
+ * The priority and the date never give way.
+ */
+.title,
+.side,
+.pills {
+  display: contents;
 }
 .name {
-  /* from --name-min up to its full text, which it gives up before any pill shortens */
-  flex: 1 1 var(--name-min);
-  max-width: max-content;
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: var(--name-min);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -232,132 +232,117 @@
   color: var(--muted-foreground);
 }
 
-/*
- * The pills on one side of the title, 6px apart. Stacked, they overlap by 4px, each pill over the
- * one before (they are drawn in order), and each is capped at 140px, its label shortened. Narrower
- * still, stacked pills shorten their labels further, down to their icon (34px), once the title is
- * down to --name-min: a stack gives way far sooner than the title's last 120px.
- *
- * Pointing at a pill (or focusing one, or a pill's hover card being open) spreads the row's stacks
- * back out, both of them, until the pointer leaves the row (TaskRow's `data-spread`): 6px apart, up to 240px each, their labels in full. They grow leftwards over the end of the
- * title, which gives way down to 40px while spread, and the date and priority stay where they are.
- * If even that is too little room, the two stacks share it in proportion to their full widths
- * (TaskRow sets --spread-title-min) and their pills shorten, except the one pointed at.
- *
- * Stacking, spreading and stacking again animate the gaps and the caps. Rows draw their first
- * level still (`data-settled` comes after it). Durations come from the motion tokens, which are 0
- * under reduced motion.
- */
-.stack {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
+/* a slot is its pill and the 6px after it; the first to give way, long before the title */
+.slot {
+  display: flex;
+  /* each stage gives way a million times sooner than the next, so the next loses nothing meanwhile */
+  flex: 0 1000000000000 auto;
+  min-width: var(--pill-edge);
+  /* every slot paints as one layer, in order: each pill over the one before */
+  isolation: isolate;
+  /*
+   * its pill shows 12px past the slot, enough to reach under the next pill's rounded end, and no
+   * further: a long pill never comes out the far side of a short one. (4px elsewhere, for a focus ring.)
+   */
+  clip-path: inset(-4px -12px -4px -4px);
 }
-.stack > * {
-  flex: none;
-  max-width: 240px;
+.slot:not(:last-child) {
+  padding-right: var(--space-1-5);
 }
-.stack > :not(:last-child) {
-  margin-right: var(--space-1-5);
+/* slots touch: the gap between pills is the slot's own padding, so pointing at it is pointing at the group */
+.slot + .slot {
+  margin-left: calc(-1 * var(--row-gap));
 }
-.stack[data-stacked] {
-  flex-shrink: 1000;
-  /* every pill at its 34px icon, less the overlaps */
-  min-width: calc(var(--pills) * 30px + var(--space-1));
+/* the parent's pill has two icons (the corner arrow and the status); an event's, a 3px colour bar */
+.slot:has(> * > svg ~ svg) {
+  min-width: calc(var(--pill-edge) + 18px);
+}
+.slot:has(> [data-slot='badge'] > [data-slot='colour-bar']) {
+  min-width: calc(var(--pill-edge) - 14px);
 }
 /*
- * Stacked pills overlap, so each is opaque: its own fill (none in dark) over the row's tint over
- * the page, the ground it would show anyway. The pill underneath then hides behind the next one.
+ * A pill keeps its width in a narrowed slot and runs on under the next pill. Each is opaque, so the
+ * one underneath is hidden: its own fill (none in dark) over the row's tint over the page, the
+ * ground it would show anyway.
  */
-.stack[data-stacked] > * {
-  flex-shrink: 1;
-  min-width: 34px;
-  max-width: 140px;
+.slot > * {
+  flex: none;
   background:
     linear-gradient(var(--pill-fill), var(--pill-fill)),
     linear-gradient(var(--row-tint), var(--row-tint)), var(--background);
 }
-.stack[data-stacked] > :not(:last-child) {
-  margin-right: calc(-1 * var(--space-1));
-}
-.stack[data-stacked] > :is(button, a, [role='button']):is(:hover, [data-popup-open]) {
+.slot > :is(button, a, [role='button']):is(:hover, [data-popup-open]) {
   background:
     linear-gradient(var(--pill-fill-hover), var(--pill-fill-hover)),
     linear-gradient(var(--row-tint), var(--row-tint)), var(--background);
 }
-/* a pill pointed at or focused comes to the front, so its whole outline shows */
-.stack[data-stacked] > :is(:hover, :focus-visible, [data-popup-open]) {
-  position: relative;
-  z-index: 1;
+/* the last pill of a group is on top: it gives way after the stack, by shortening its label */
+.slot:last-child {
+  flex-shrink: 1000000;
+  min-width: 34px;
+  clip-path: none;
 }
-
-/* spread: TaskRow's `data-spread` (a pill pointed at or focused), or a pill's hover card open */
-:is(.row[data-spread], .row:has(.stack [data-popup-open])) {
-  /* set on the row by TaskRow, which measures the pills: see useAutoStack */
-  --name-min: var(--spread-name-min, 40px);
-  --title-min: var(--spread-title-min, 120px);
-}
-:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked] > * {
-  max-width: 240px;
-}
-:is(.row[data-spread], .row:has(.stack [data-popup-open]))
-  .stack[data-stacked]
-  > :not(:last-child) {
-  margin-right: var(--space-1-5);
-}
-/*
- * While spread, a stack keeps every pill to its own width, so no pill ever covers another, and
- * shares out any shortening by priority: the pill pointed at stays whole and the others give way,
- * down to their icons; with none pointed at, the pills with a name (the parent,
- * the link, the project) give way and the key and the subtask count (`data-keep`), short with
- * nothing to spare, stay whole (TaskRow gives the stack room for them: its `floor`). Pointing at a
- * pill lets them shorten too. The stack's own floor is every pill at its 34px icon, 6px apart.
- */
-:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked] {
-  min-width: calc(var(--pills) * 40px - var(--space-1-5));
-}
-:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked] > * {
-  flex-shrink: 1000;
-}
-:is(.row[data-spread], .row:has(.stack [data-popup-open]))
-  .stack[data-stacked]:not(:has(> :hover))
-  > [data-keep] {
-  /* not even a fraction of a pixel, which would end its label in an ellipsis */
-  min-width: max-content;
-}
-:is(.row[data-spread], .row:has(.stack [data-popup-open])) .stack[data-stacked]:has(> :hover) > * {
-  flex-shrink: 1000;
-}
-:is(.row[data-spread], .row:has(.stack [data-popup-open]))
-  .stack[data-stacked]:has(> :hover)
-  > :hover {
-  /*
-   * whole, unless the stack is too narrow even with the others at their icons (34px, 6px apart):
-   * then as wide as that leaves, so it never covers them
-   */
-  flex-shrink: 0;
-  max-width: min(240px, calc(100% - (var(--pills) - 1) * 40px));
-}
-
-.row[data-settled] .stack > * {
-  transition:
-    margin-right var(--duration-normal) var(--ease-out),
-    max-width var(--duration-normal) var(--ease-out),
-    background-color var(--duration-fast),
-    border-color var(--duration-fast),
-    color var(--duration-fast);
-}
-
-/* entity pills, priority and the date on the right; these never give way */
-.side {
-  grid-area: side;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
+.slot:last-child > * {
+  flex: 0 1 auto;
   min-width: 0;
 }
+.slot:last-child:has(> [data-keep]) {
+  flex-shrink: 0;
+}
+
+/*
+ * Spread (`data-spread`, set by TaskRow while a group of pills is pointed at, has focus or has its
+ * hover card open): that group takes its room back, from the title, which now gives way a
+ * million times sooner than it. The other group gives way sooner still, so the title drawing back
+ * never lets it out: a spread group only ever grows over where it was stacked.
+ *
+ * These rules are only the two layouts; the change between them is animated below.
+ */
+.row[data-spread] .name {
+  flex-shrink: 1000000000000;
+}
+.row[data-spread='title'] .title .slot:not(:has(> [data-keep]):last-child),
+.row[data-spread='side'] .side .slot:not(:has(> [data-keep]):last-child) {
+  flex-shrink: 1;
+}
+.row[data-spread='side'] .title .slot:not(:has(> [data-keep]):last-child),
+.row[data-spread='title'] .side .slot:not(:has(> [data-keep]):last-child) {
+  flex-shrink: 1000000000000000000;
+}
+
+/*
+ * Spreading, or stacking again: the title and each pill's slot go from the width they had to the
+ * one they get. TaskRow measures the two (--spread-from, --spread-to) and marks the part
+ * `data-spreading` until the animation ends. Held at a width, a part neither grows nor gives way;
+ * that is in the keyframes because an animation overrides every rule above, whatever its
+ * specificity, and so a mark left behind with no animation running changes nothing. The duration
+ * is 0 under reduced motion.
+ */
+@keyframes spread {
+  from {
+    flex: 0 0 var(--spread-from);
+    min-width: 0;
+    max-width: none;
+  }
+  to {
+    flex: 0 0 var(--spread-to);
+    min-width: 0;
+    max-width: none;
+  }
+}
+:is(.name, .slot)[data-spreading] {
+  animation: spread var(--duration-slow) var(--ease-surface);
+}
+
+/* the side starts at its first part, which takes the room left over: its pills, else the priority */
+.side > .pills:first-child > :first-child,
+.side > .priority:first-child {
+  margin-left: auto;
+}
+
+/* the priority and the date never give way */
 .priority {
+  flex: none;
   display: grid;
   place-items: center;
   width: 20px;
@@ -365,6 +350,7 @@
 /* 60px: the widest date, "May 2027", so every row's date, priority and pills line up */
 .date {
   position: relative;
+  flex: none;
   min-width: 60px;
   color: var(--subtle-foreground);
   font-size: var(--text-xs);
