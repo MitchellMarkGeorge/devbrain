@@ -296,7 +296,7 @@
  * million times sooner than it. The other group gives way sooner still, so the title drawing back
  * never lets it out: a spread group only ever grows over where it was stacked.
  *
- * TaskRow animates the change between the two layouts; these rules are only the layouts.
+ * These rules are only the two layouts; the change between them is animated below.
  */
 .row[data-spread] .name {
   flex-shrink: 1000000000000;
@@ -308,6 +308,30 @@
 .row[data-spread='side'] .title .slot:not(:has(> [data-keep]):last-child),
 .row[data-spread='title'] .side .slot:not(:has(> [data-keep]):last-child) {
   flex-shrink: 1000000000000000000;
+}
+
+/*
+ * Spreading, or stacking again: the title and each pill's slot go from the width they had to the
+ * one they get. TaskRow measures the two (--spread-from, --spread-to) and marks the part
+ * `data-spreading` until the animation ends. Held at a width, a part neither grows nor gives way;
+ * that is in the keyframes because an animation overrides every rule above, whatever its
+ * specificity, and so a mark left behind with no animation running changes nothing. The duration
+ * is 0 under reduced motion.
+ */
+@keyframes spread {
+  from {
+    flex: 0 0 var(--spread-from);
+    min-width: 0;
+    max-width: none;
+  }
+  to {
+    flex: 0 0 var(--spread-to);
+    min-width: 0;
+    max-width: none;
+  }
+}
+:is(.name, .slot)[data-spreading] {
+  animation: spread var(--duration-slow) var(--ease-surface);
 }
 
 /* the side starts at its first part, which takes the room left over: its pills, else the priority */

@@ -134,18 +134,19 @@ const SPREAD_GROUP = '[data-pills]:is(:hover, :has(:focus-visible, [data-popup-o
 /**
  * Spreads a group of stacked pills while it is pointed at (or a pill in it has keyboard focus, or
  * its hover card is open): marks the row `data-spread` with the group's side (`title` or `side`),
- * which TaskRow.module.css lays out, and animates the title and every pill from the widths they
- * had to the ones they get. The widths in between are a mix of two layouts that both fit the row,
- * so they fit it too, and the group grows steadily over where it was: the pointer stays on it.
+ * which TaskRow.module.css lays out, and measures the title and every pill before and after, so
+ * the stylesheet can animate each from the width it had (`--spread-from`) to the one it gets
+ * (`--spread-to`) while it is marked `data-spreading`. The widths in between are a mix of two
+ * layouts that both fit the row, so they fit it too, and the group grows steadily over where it
+ * was: the pointer stays on it.
  *
- * The attribute is set on the element, not by a render: nothing React draws changes. The duration
- * and easing are the surface motion tokens (0 under reduced motion, which skips the animation).
+ * All of it is set on the elements, not by a render: nothing React draws changes. The motion
+ * itself (keyframes, duration, easing, none under reduced motion) is the stylesheet's.
  */
 function useSpreadPills(rowRef: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const row = rowRef.current;
     if (!row) return;
-    let running: Animation[] = [];
 
     const sync = () => {
       const group = row.querySelector(SPREAD_GROUP);
@@ -157,39 +158,34 @@ function useSpreadPills(rowRef: RefObject<HTMLDivElement | null>) {
       const widths = () => parts.map((part) => part.getBoundingClientRect().width);
       // as drawn now, mid-animation included, so a change of mind carries on from where it is
       const from = widths();
-      for (const animation of running) animation.cancel();
       if (next) row.dataset.spread = next;
       else delete row.dataset.spread;
-
-      const style = getComputedStyle(row);
-      const duration = parseFloat(style.getPropertyValue('--duration-slow')) || 0;
-      if (duration === 0 || typeof row.animate !== 'function') return;
+      // drop any animation still running, so the new layout is measured settled; marking a part
+      // again after this measurement starts its animation afresh
+      for (const part of parts) part.removeAttribute('data-spreading');
       const to = widths();
-      const easing = style.getPropertyValue('--ease-surface').trim() || 'ease-out';
-      // held at a width, a part neither grows nor gives way: the row is exactly the mix of the two
-      const held = { flexGrow: 0, flexShrink: 0, minWidth: 0, maxWidth: 'none' };
-      running = parts.flatMap((part, index) =>
-        Math.abs(from[index] - to[index]) < 0.5
-          ? []
-          : part.animate(
-              [
-                { ...held, flexBasis: `${from[index]}px` },
-                { ...held, flexBasis: `${to[index]}px` },
-              ],
-              { duration, easing },
-            ),
-      );
+      parts.forEach((part, index) => {
+        if (Math.abs(from[index] - to[index]) < 0.5) return;
+        part.style.setProperty('--spread-from', `${from[index]}px`);
+        part.style.setProperty('--spread-to', `${to[index]}px`);
+        part.setAttribute('data-spreading', '');
+      });
+    };
+    // an animation over (or dropped): the part is the layout's again
+    const settle = (event: AnimationEvent) => {
+      if (event.target instanceof Element) event.target.removeAttribute('data-spreading');
     };
 
     const events = ['pointerover', 'pointerout', 'focusin', 'focusout'] as const;
     for (const event of events) row.addEventListener(event, sync);
+    row.addEventListener('animationend', settle);
     // a hover card closing (the pointer was on the card, outside the row) is no event on the row
     const cards = new MutationObserver(sync);
     cards.observe(row, { subtree: true, attributeFilter: ['data-popup-open'] });
     return () => {
       for (const event of events) row.removeEventListener(event, sync);
+      row.removeEventListener('animationend', settle);
       cards.disconnect();
-      for (const animation of running) animation.cancel();
     };
   }, [rowRef]);
 }
