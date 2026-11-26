@@ -6,7 +6,7 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { ButtonGroup } from '../../ui/ButtonGroup';
@@ -286,6 +286,14 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
 }
 
 /**
+ * Tells `onOpenChange` a menu is closed when the component that draws it goes: a chip whose last
+ * value is unticked in its own menu leaves with the menu still open, and nothing else reports it.
+ */
+function useClosedOnUnmount(onOpenChange: (open: boolean) => void) {
+  useEffect(() => () => onOpenChange(false), [onOpenChange]);
+}
+
+/**
  * A filter that is set, as a chip: "Priority High, Medium" joined to its ×. Its value opens the
  * field's values straight away, with no trip through the Filter menu; its × removes the filter.
  * `hidden`: it does not fit the row (see `ListFilters`).
@@ -300,6 +308,7 @@ function FilterChip({
   /** its menu opened or closed */
   onOpenChange: (open: boolean) => void;
 }) {
+  useClosedOnUnmount(onOpenChange);
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
@@ -419,6 +428,37 @@ function layOut(row: HTMLElement, keep?: number): number {
   return shown;
 }
 
+/** "+2": how many chips are hidden, after the last one shown; its menu has their fields. */
+function HiddenChips({
+  fields,
+  onOpenChange,
+}: {
+  fields: ListFilterField[];
+  onOpenChange: (open: boolean) => void;
+}) {
+  useClosedOnUnmount(onOpenChange);
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            aria-label={`${fields.length} more ${fields.length === 1 ? 'filter' : 'filters'}`}
+            className={styles.hiddenCount}
+          >
+            +{fields.length}
+          </Button>
+        }
+      />
+      <DropdownMenuContent width="sm" align="start" aria-label="More filters">
+        {fields.map((field) => (
+          <FieldSubmenu key={field.id} field={field} />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export interface ListFiltersProps {
   fields: ListFilterField[];
   /** removes every filter: "Clear" at the row's end, while any is set */
@@ -484,26 +524,7 @@ export function ListFilters({ fields, onClear }: ListFiltersProps) {
           onOpenChange={setMenuOpen}
         />
       ))}
-      {hidden.length > 0 && (
-        <DropdownMenu onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="outline"
-                aria-label={`${hidden.length} more ${hidden.length === 1 ? 'filter' : 'filters'}`}
-                className={styles.hiddenCount}
-              >
-                +{hidden.length}
-              </Button>
-            }
-          />
-          <DropdownMenuContent width="sm" align="start" aria-label="More filters">
-            {hidden.map((field) => (
-              <FieldSubmenu key={field.id} field={field} />
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+      {hidden.length > 0 && <HiddenChips fields={hidden} onOpenChange={setMenuOpen} />}
       {set.length > 0 && (
         <Button
           variant="ghost"
