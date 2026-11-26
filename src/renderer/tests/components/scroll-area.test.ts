@@ -60,3 +60,42 @@ describe('the scroll area’s focus', () => {
     expect(scroll.dataset.pointerFocus).toBeUndefined();
   });
 });
+
+// Base UI measures the overflow again on a scroll event; the area sends one when its content
+// changes. A `display: contents` child has no box, so its children are watched in its place.
+describe('the scroll area’s content', () => {
+  it('measures again when a display: contents child swaps its content', async () => {
+    const observed: Element[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe(element: Element) {
+          observed.push(element);
+        }
+        disconnect() {
+          observed.length = 0;
+        }
+      },
+    );
+    const page = (tab: string) =>
+      createElement(
+        ScrollArea,
+        { viewportProps: { tabIndex: 0 } },
+        createElement('div', { id: 'tabs' }),
+        createElement(
+          'div',
+          { style: { display: 'contents' } },
+          createElement('div', { key: tab, id: tab }),
+        ),
+      );
+    act(() => root.render(page('overview')));
+    expect(observed.map((element) => element.id)).toEqual(['tabs', 'overview']);
+
+    const onScroll = vi.fn();
+    container.querySelector('[tabindex="0"]')!.addEventListener('scroll', onScroll);
+    act(() => root.render(page('tasks')));
+    await vi.waitFor(() => expect(onScroll).toHaveBeenCalled());
+    expect(observed.map((element) => element.id)).toEqual(['tabs', 'tasks']);
+    vi.unstubAllGlobals();
+  });
+});

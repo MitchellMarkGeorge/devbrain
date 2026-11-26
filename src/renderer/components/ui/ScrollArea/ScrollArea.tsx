@@ -112,6 +112,9 @@ function markPointerFocus(event: FocusEvent<HTMLDivElement>) {
  * watches the viewport's children and, when one resizes or they change, sends the viewport a
  * scroll event: Base UI measures again, and as the scroll position hasn't moved, the scrollbar
  * doesn't flash.
+ *
+ * A `display: contents` child (an `Inert`) has no box of its own, so it never resizes: its
+ * children are the viewport's content, and are watched in its place.
  */
 function useContentResize(viewportRef: { current: HTMLDivElement | null }) {
   useLayoutEffect(() => {
@@ -123,16 +126,23 @@ function useContentResize(viewportRef: { current: HTMLDivElement | null }) {
       frame = requestAnimationFrame(() => viewport.dispatchEvent(new Event('scroll')));
     };
     const resize = new ResizeObserver(measure);
-    const observeChildren = () => {
-      resize.disconnect();
-      for (const child of viewport.children) resize.observe(child);
-    };
-    observeChildren();
     const mutation = new MutationObserver(() => {
-      observeChildren();
+      observeContent();
       measure();
     });
-    mutation.observe(viewport, { childList: true });
+    const observe = (parent: Element) => {
+      mutation.observe(parent, { childList: true });
+      for (const child of parent.children) {
+        if (getComputedStyle(child).display === 'contents') observe(child);
+        else resize.observe(child);
+      }
+    };
+    const observeContent = () => {
+      resize.disconnect();
+      mutation.disconnect();
+      observe(viewport);
+    };
+    observeContent();
     return () => {
       cancelAnimationFrame(frame);
       resize.disconnect();
