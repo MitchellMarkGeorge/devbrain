@@ -37,8 +37,10 @@ Rules:
   chip's × in a wide window, but it is the convention, it doesn't pop in at the second filter, and
   in a compact window (where the chip is folded) it is the only one-click way out. It leaves Status
   alone, as "Clear filters" in the menu does.
-- A chip is not a `ButtonGroup`: its two halves square their own inner corners, because an open
-  menu mounts parts beside its trigger and a rule by sibling position would round them again.
+- A chip is a `ButtonGroup` of two outline buttons. (`ButtonGroup` squares corners by `data-slot`,
+  not by position, so the chip keeps its shape while its menu is open.)
+- Only the chips that fit are in the DOM. Each set of chips is drawn whole once and measured before
+  the browser paints; the widths are kept, so a resize counts again without drawing any chip.
 - In a compact window (`compact`) Status and Display keep their names and drop their values
   (`Button`'s `hideValue`; Status draws pressed while it is off its default), and every chip folds:
   the button reads "Filter 2", how many filters are set.

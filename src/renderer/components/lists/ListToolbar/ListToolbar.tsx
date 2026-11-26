@@ -8,8 +8,8 @@ import {
   X,
 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
+import { ButtonGroup } from '../../ui/ButtonGroup';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -190,19 +190,10 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
 }
 
 /** A filter that is set, as a chip: its value opens the field's values, its × removes it. */
-function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean }) {
+function FilterChip({ field }: { field: ListFilterField }) {
   const current = field.options.find((option) => option.value === field.value);
   return (
-    // Not a ButtonGroup: that squares corners by a button's place among its siblings, and the
-    // trigger stops being the first child while its menu is open. Each half squares its own.
-    <div
-      role="group"
-      aria-label={`${field.label} filter`}
-      data-chip=""
-      // a folded chip stays in the row, unseen, so its width is still there to measure
-      aria-hidden={folded || undefined}
-      className={cn(styles.chip, folded && styles.folded)}
-    >
+    <ButtonGroup aria-label={`${field.label} filter`} data-chip="" className={styles.chip}>
       <Searchable field={field}>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -211,7 +202,6 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
                 variant="outline"
                 icon={field.icon}
                 value={<span className={styles.value}>{current?.label}</span>}
-                className={styles.chipValue}
               >
                 {field.label}
               </Button>
@@ -234,7 +224,7 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
         className={styles.chipRemove}
         onClick={() => field.onChange(undefined)}
       />
-    </div>
+    </ButtonGroup>
   );
 }
 
@@ -273,22 +263,6 @@ export function chipsThatFit(widths: number[], available: number, plainWidth: nu
 }
 
 /**
- * `chipsThatFit` for the chips in `row`, in the room its "Clear" (if it is drawn) leaves. A row
- * that has not been laid out shows them all.
- */
-function measure(row: HTMLElement, plainWidth: number): number {
-  const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
-  if (row.clientWidth === 0) return chips.length;
-  const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
-  const clear = row.querySelector<HTMLElement>('[data-clear]');
-  return chipsThatFit(
-    chips.map((chip) => chip.offsetWidth + gap),
-    row.clientWidth - (clear ? clear.offsetWidth + gap : 0),
-    plainWidth,
-  );
-}
-
-/**
  * A list's filters, on one row: a chip for each one that is set (its value opens the field's
  * values, its × removes it), then "+ Filter". The chips that don't fit the row fold into the
  * button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). The menu
@@ -304,11 +278,15 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
   const set = fields.filter((field) => field.value !== undefined);
   const row = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  // "+ Filter"'s width, as last drawn with no chip folded
-  const plainWidth = useRef(84);
-  const [shown, setShown] = useState(set.length);
-  // what the fit depends on: which chips there are and what they say, and the row's width
+  // Only the chips that fit are in the DOM. To know which do, each set of chips is drawn whole
+  // once and measured before the browser paints (a layout effect), and the widths are kept: a
+  // resize then needs no chip drawn to count again.
   const chipsKey = set.map((field) => `${field.id}:${field.value}`).join('|');
+  // what was measured for the chips of `key`: each chip's width and "Clear"'s (with the gap after
+  // it), and "+ Filter"'s
+  const [measured, setMeasured] = useState({ key: '', chips: [] as number[], clear: 0, plain: 0 });
+  const measuring = !compact && measured.key !== chipsKey;
+  // the row's width, as the browser last laid it out; none before that
   const [rowWidth, setRowWidth] = useState(0);
 
   useLayoutEffect(() => {
@@ -320,20 +298,31 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
   }, []);
 
   useLayoutEffect(() => {
-    if (!row.current) return;
-    if (shown >= set.length && trigger.current) plainWidth.current = trigger.current.offsetWidth;
-    setShown(measure(row.current, plainWidth.current));
-    // `shown` is this effect's own result: measured again only when the chips or the row change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chipsKey, rowWidth, compact]);
+    const element = row.current;
+    if (!element || !measuring) return;
+    const gap = parseFloat(getComputedStyle(element).columnGap) || 0;
+    const widthOf = (selector: string) =>
+      [...element.querySelectorAll<HTMLElement>(selector)].map((item) => item.offsetWidth + gap);
+    setMeasured({
+      key: chipsKey,
+      chips: widthOf('[data-chip]'),
+      clear: widthOf('[data-clear]')[0] ?? 0,
+      plain: trigger.current?.offsetWidth ?? 0,
+    });
+  }, [chipsKey, measuring]);
 
-  const folded = compact ? set.length : Math.max(0, set.length - shown);
+  // a row that has not been laid out (no width) shows every chip
+  const fit =
+    measuring || rowWidth === 0
+      ? set.length
+      : chipsThatFit(measured.chips, rowWidth - measured.clear, measured.plain);
+  const shown = compact ? [] : set.slice(0, fit);
+  const folded = set.length - shown.length;
   return (
     <div ref={row} className={styles.filters}>
-      {!compact &&
-        set.map((field, index) => (
-          <FilterChip key={field.id} field={field} folded={index >= shown} />
-        ))}
+      {shown.map((field) => (
+        <FilterChip key={field.id} field={field} />
+      ))}
       <DropdownMenu defaultOpen={defaultOpen}>
         <DropdownMenuTrigger
           render={
