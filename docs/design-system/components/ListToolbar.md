@@ -31,10 +31,12 @@ Rules:
   outlined "Filter +2" (two more filters than the chips shown). A folded filter is still in the
   menu, beside its field's name, and comes back as a chip when there is room (the window widens, or
   a chip before it is removed). Chips fold from the end, in the fields' order.
-- From two filters, a quiet "Clear" sits at the end of the filters' row, just before Display, and
-  removes them all. It is at the row's end, not after "+ Filter", so it stays in one place as chips
-  come and go; it also clears the folded ones. With one filter it is left out: that chip's × is the
-  same thing. It leaves Status alone, as "Clear filters" in the menu does.
+- While a filter is set, a quiet "Clear" sits at the end of the filters' row, just before Display,
+  and removes them all. It is at the row's end, not after "+ Filter", so it stays in one place as
+  chips come and go; it also clears the folded ones. It shows with one filter too: that repeats the
+  chip's × in a wide window, but it is the convention, it doesn't pop in at the second filter, and
+  in a compact window (where the chip is folded) it is the only one-click way out. It leaves Status
+  alone, as "Clear filters" in the menu does.
 - A chip is not a `ButtonGroup`: its two halves square their own inner corners, because an open
   menu mounts parts beside its trigger and a rule by sibling position would round them again.
 - In a compact window (`compact`) Status and Display keep their names and drop their values

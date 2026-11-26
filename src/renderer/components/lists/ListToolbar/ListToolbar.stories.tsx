@@ -120,7 +120,7 @@ export const Projects: Story = {
   render: () => <Toolbar start={{ list: 'projects' }} end={{ layout: 'cards' }} />,
 };
 
-/** Notes have no status, so the row starts with the filters. */
+/** Notes have no status, so the row starts with the filters. One is set: Clear is there too. */
 export const Notes: Story = {
   render: () => <Toolbar start={{ list: 'notes', filters: { project: 'Auth Overhaul' } }} />,
 };

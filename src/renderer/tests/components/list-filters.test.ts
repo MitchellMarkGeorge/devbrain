@@ -77,17 +77,24 @@ describe('ListFilters', () => {
     expect(buttons()).toEqual(['Filter2', 'Clear']);
   });
 
-  it('offers Clear at the row’s end from two filters, and it removes them all', () => {
+  it('offers Clear at the row’s end while any filter is set, and it removes them all', () => {
     const onClear = vi.fn();
     const clear = () => container.querySelector<HTMLElement>('[aria-label="Clear filters"]');
-    // one filter: its chip's × is the same thing
-    render({ fields: [field('Priority', 'a'), field('Due')], onClear });
+    render({ fields: [field('Priority'), field('Due')], onClear });
     expect(clear()).toBeNull();
+    // with one filter too, beside its chip's ×
+    render({ fields: [field('Priority', 'a'), field('Due')], onClear });
+    expect(clear()).not.toBeNull();
     render({ fields: [field('Priority', 'a'), field('Due', 'b')], onClear });
     // the last control of the row
     expect(clear()).toBe([...container.querySelectorAll('button')].at(-1));
     act(() => clear()!.click());
     expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Clear in a compact window with one filter, where its chip is folded', () => {
+    render({ fields: [field('Priority', 'a'), field('Due')], compact: true });
+    expect(buttons()).toEqual(['Filter1', 'Clear']);
   });
 });
 

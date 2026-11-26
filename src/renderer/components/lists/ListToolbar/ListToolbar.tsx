@@ -245,8 +245,8 @@ export interface ListFiltersProps {
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
   /**
-   * removes every filter: "Clear" at the row's end once two are set, and "Clear filters" at the
-   * menu's end while any is
+   * removes every filter: "Clear" at the row's end and "Clear filters" at the menu's end, while
+   * any is set
    */
   onClear: () => void;
 }
@@ -296,8 +296,9 @@ function measure(row: HTMLElement, plainWidth: number): number {
  * one click away) and opening its values in a submenu, with a search row for a field that asks for
  * one. A field holds one value.
  *
- * From two filters, "Clear" sits at the row's end (before the toolbar's end group), where it
- * stays put as chips come and go; with one filter, its chip's × is the same thing.
+ * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group), where it
+ * stays put as chips come and go. It is there with one filter too: beside the chip's × in a wide
+ * window, and the only one-click way out in a compact one, where the chip is folded.
  */
 export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => field.value !== undefined);
@@ -371,7 +372,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {set.length >= 2 && (
+      {set.length > 0 && (
         <Button
           variant="ghost"
           data-clear=""
