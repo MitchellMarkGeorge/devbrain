@@ -8,6 +8,7 @@ import {
   Card,
   Icon,
   percentOf,
+  ScrollArea,
   statusVar,
   StatusIcon,
   useFormat,
@@ -31,7 +32,8 @@ import styles from './ProjectPage.module.css';
  * header, then its open tasks with an "Add task…" row, and the recently completed ones), and a
  * rail of cards on the right: Progress (the percent, a bar split by
  * status, and a row per status and for the overdue tasks, each opening the Tasks tab on them) and
- * the latest notes. The two scroll together; in a narrow window the rail goes under.
+ * the latest notes. The two scroll together, in the tab's own scroller under the tabs (which stay
+ * put, as they do over Tasks and Notes); in a narrow window the rail goes under.
  */
 export function ProjectOverview({ project, header }: { project: Project; header: ReactNode }) {
   const navigate = projectRoute.useNavigate();
@@ -46,7 +48,11 @@ export function ProjectOverview({ project, header }: { project: Project; header:
     navigate({ search: { tab: 'tasks', ...search }, replace: true });
 
   return (
-    <div className={styles.overview} data-testid="project-overview">
+    <ScrollArea
+      className={styles.overview}
+      contentClassName={styles.overviewContent}
+      data-testid="project-overview"
+    >
       <div className={styles.layout}>
         <div className={styles.main}>
           {header}
@@ -84,7 +90,7 @@ export function ProjectOverview({ project, header }: { project: Project; header:
           />
         </aside>
       </div>
-    </div>
+    </ScrollArea>
   );
 }
 
