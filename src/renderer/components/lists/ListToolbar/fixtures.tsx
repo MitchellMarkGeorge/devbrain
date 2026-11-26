@@ -19,6 +19,8 @@ import {
   Folder,
   Kanban,
   LayoutGrid,
+  ListChecks,
+  PencilLine,
   Shapes,
   type LucideIcon,
   List,
@@ -113,7 +115,29 @@ const FIELDS: Record<DemoList, Field[]> = {
     projectField(['Auth Overhaul', 'API Gateway v2', 'AI Action Items', 'User Interface Revamp']),
   ],
   projects: [SOURCE],
-  notes: [projectField(['Auth Overhaul', 'API Gateway v2'])],
+  notes: [
+    {
+      id: 'edited',
+      label: 'Edited',
+      icon: PencilLine,
+      options: [
+        { value: 'today', label: 'Today', icon: Calendar },
+        { value: 'week', label: 'Past 7 days', icon: Calendar },
+        { value: 'month', label: 'Past 30 days', icon: Calendar },
+        { value: 'older', label: 'Older', icon: Calendar },
+      ],
+    },
+    {
+      id: 'tasks',
+      label: 'Has tasks',
+      icon: ListChecks,
+      options: [
+        { value: 'with', label: 'Yes', icon: CircleCheck },
+        { value: 'without', label: 'No', icon: CircleSlash },
+      ],
+    },
+    projectField(['Auth Overhaul', 'API Gateway v2']),
+  ],
 };
 
 interface Statuses {

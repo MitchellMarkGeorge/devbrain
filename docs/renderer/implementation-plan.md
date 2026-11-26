@@ -325,7 +325,8 @@ these": a list in the URL, or one value alone as older links have it (`multiPara
 
 `view` (`list` default \| `card`), `sort` (`updatedAt` default, "Last edited" \| `createdAt` \|
 `title`), `dir`, `project` (`prj_…` \| `none`), `link` (`event` \| `task` \| `none`: the Type
-chip, one value, every type when missing).
+chip, one value, every type when missing), `edited` (`today` \| `week` \| `month` \| `older`, mapped to
+`editedFrom`/`editedBefore` at the call), `tasks` (`with` \| `without`, core's `hasTasks`).
 
 ### `/app/calendar`
 

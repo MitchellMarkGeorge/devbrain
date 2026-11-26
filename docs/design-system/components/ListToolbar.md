@@ -29,7 +29,7 @@ the start, the controls that change that and how they are drawn at the end. Four
 
 A field holds one value or several (`ListFilterField`):
 
-- **One value** (the default: Due, Source). Its values are a choice of one: radio items, each
+- **One value** (the default: Due, Source; a note's Edited and Has tasks). Its values are a choice of one: radio items, each
   drawing a radio button. `value` is the value or `undefined`.
 - **Several values** (`multiple: true`: Priority, Project), meaning "any of
   these". Its values tick on their own: checkbox items, each drawing a checkbox. "Any" in the

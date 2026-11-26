@@ -1,10 +1,13 @@
 import {
+  Calendar,
   CalendarDays,
   CircleCheck,
   CircleSlash,
   Clock,
   Folder,
   LayoutGrid,
+  ListChecks,
+  PencilLine,
   List,
   Shapes,
   Plus,
@@ -25,7 +28,11 @@ import {
 } from '@renderer/components';
 import { useProjectOptions } from '@renderer/features/tasks/hooks/use-project-options';
 import {
+  CLEAR_FILTERS,
+  EDITED_FILTERS,
   NOTE_SORTS,
+  type EditedFilter,
+  type TasksFilter,
   type LinkFilter,
   type NoteSortParam,
   type NoteView,
@@ -69,6 +76,13 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
+export const EDITED_LABELS: Record<EditedFilter, string> = {
+  today: 'Today',
+  week: 'Past 7 days',
+  month: 'Past 30 days',
+  older: 'Older',
+};
+
 type TypeFilter = LinkFilter | 'all';
 
 const TYPE_SCOPES: ListToolbarOption<TypeFilter>[] = [{ value: 'all', label: 'All' }];
@@ -78,9 +92,11 @@ const TYPE_OPTIONS: ListToolbarOption<TypeFilter>[] = (['none', 'task', 'event']
 );
 
 /**
- * The field the notes can be filtered by, with what the URL filters it to: the project, which
- * holds several values. The chip (`NotesToolbarStart`) and the Filter button (`NotesToolbarEnd`)
- * both draw it. A note's type is not one of the filters: the Type chip sets it.
+ * The fields the notes can be filtered by, with what the URL filters them to: when the note was
+ * last edited, whether tasks were made from it, and its project. The project holds several
+ * values, the others one. The chips (`NotesToolbarStart`) and the Filter button
+ * (`NotesToolbarEnd`) both draw them. A note's type is not one of the filters: the Type chip
+ * sets it.
  */
 function useNoteFilterFields(
   resolved: ResolvedNotesSearch,
@@ -88,6 +104,29 @@ function useNoteFilterFields(
 ): { fields: ListFilterField[]; clear: () => void } {
   const projects = useProjectOptions();
   const fields: ListFilterField[] = [
+    {
+      id: 'edited',
+      label: 'Edited',
+      icon: PencilLine,
+      options: EDITED_FILTERS.map((edited) => ({
+        value: edited,
+        label: EDITED_LABELS[edited],
+        icon: Calendar,
+      })),
+      value: resolved.edited,
+      onChange: (edited) => setSearch({ edited: edited as EditedFilter | undefined }),
+    },
+    {
+      id: 'tasks',
+      label: 'Has tasks',
+      icon: ListChecks,
+      options: [
+        { value: 'with', label: 'Yes', icon: CircleCheck },
+        { value: 'without', label: 'No', icon: CircleSlash },
+      ],
+      value: resolved.tasks,
+      onChange: (tasks) => setSearch({ tasks: tasks as TasksFilter | undefined }),
+    },
     {
       id: 'project',
       label: 'Project',
@@ -107,7 +146,7 @@ function useNoteFilterFields(
     },
   ];
   // the Type chip is not one of the filters: it keeps what the URL says
-  return { fields, clear: () => setSearch({ project: undefined }) };
+  return { fields, clear: () => setSearch({ ...CLEAR_FILTERS, link: resolved.link }) };
 }
 
 /**

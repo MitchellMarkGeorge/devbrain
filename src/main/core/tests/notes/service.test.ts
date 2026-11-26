@@ -297,6 +297,40 @@ describe('NoteService — listNotes', () => {
     expect(idsFor([])).toEqual([]);
   });
 
+  it('filter.editedFrom and editedBefore bound when the note was last edited', async () => {
+    const old = await notesService.createNote({ title: 'Old' });
+    const recent = await notesService.createNote({ title: 'Recent' });
+    const cut = new Date(2026, 0, 10);
+    db.update(notesTable)
+      .set({ updatedAt: new Date(2026, 0, 9, 23, 59) })
+      .where(eq(notesTable.id, old.id))
+      .run();
+    // the bound itself is from, not before
+    db.update(notesTable).set({ updatedAt: cut }).where(eq(notesTable.id, recent.id)).run();
+    const ids = (filter: Parameters<NoteService['listNotes']>[0]) =>
+      notesService.listNotes(filter).items.map((n) => n.id);
+    expect(ids({ editedFrom: cut })).toEqual([recent.id]);
+    expect(ids({ editedBefore: cut })).toEqual([old.id]);
+    expect(ids({ editedFrom: new Date(2026, 0, 9), editedBefore: cut })).toEqual([old.id]);
+  });
+
+  it('filter.hasTasks is the notes tasks were made from, one in the trash not counting', async () => {
+    const taskService = new TaskService(db);
+    const made = await notesService.createNote({ title: 'Made into a task' });
+    const trashed = await notesService.createNote({ title: 'Its task is in the trash' });
+    const plain = await notesService.createNote({ title: 'Plain' });
+    taskService.createTask({ title: 'From the note', linkedNoteId: made.id });
+    const gone = taskService.createTask({ title: 'Trashed', linkedNoteId: trashed.id });
+    archive.archiveTask(gone.id);
+    const ids = (hasTasks: boolean) =>
+      notesService
+        .listNotes({ hasTasks })
+        .items.map((n) => n.id)
+        .sort();
+    expect(ids(true)).toEqual([made.id]);
+    expect(ids(false)).toEqual([trashed.id, plain.id].sort());
+  });
+
   it('filter.projectId takes a list, null among them being the notes in no project', async () => {
     const inProject = await notesService.createNote({ title: 'In', projectId: FAKE_PROJECT_ID });
     const noProject = await notesService.createNote({ title: 'None' });

@@ -7,6 +7,7 @@ import {
   byText,
   click,
   eventually,
+  filterButton,
   filterCount,
   menuItem,
   rightClick,
@@ -128,6 +129,42 @@ describe('the notes list', () => {
     expect(filterCount(app.container)).toBe(0);
     await pick('All');
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
+  });
+
+  it('filters by Has tasks from the Filter menu, the Type kept by Clear', async () => {
+    const { main, app } = notesPage('?link=task');
+    await eventually(() => expect(row('PKCE design notes')).toBeDefined());
+    click(filterButton(app.container));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Has tasks')).not.toBeNull(),
+    );
+    // the menu has the three fields, and not the type
+    expect(byText(document.body, '[role="menuitem"]', 'Edited')).not.toBeNull();
+    expect(byText(document.body, '[role="menuitem"]', 'Project')).not.toBeNull();
+    click(byText(document.body, '[role="menuitem"]', 'Has tasks'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitemradio"]', 'No')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitemradio"]', 'No'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=task&tasks=without`));
+    await eventually(() =>
+      expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
+        filter: { linkedTo: 'task', hasTasks: false },
+      }),
+    );
+    expect(filterCount(app.container)).toBe(1);
+    click(byText(app.container, 'button', 'Clear'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=task`));
+  });
+
+  it('asks core for the notes edited in the URL’s days', async () => {
+    const { main } = notesPage('?edited=older');
+    await eventually(() => expect(main.callsTo('notes.list').length).toBeGreaterThan(0));
+    const { filter } = main.callsTo('notes.list').at(-1)!.input as {
+      filter: { editedBefore?: Date; editedFrom?: Date };
+    };
+    expect(filter.editedBefore).toBeInstanceOf(Date);
+    expect(filter.editedFrom).toBeUndefined();
   });
 
   it('lists the notes of any of several projects, "No project" among them', async () => {

@@ -20,6 +20,13 @@ export interface NoteFilterOptions {
   // the notes linked to any event, to any task, or to neither (the Notes page's "Linked to"
   // filter); a list: the notes that are any of these
   linkedTo?: OneOrMany<NoteLinkKind>;
+  // when the note was last edited: from this instant on (inclusive), and before this one
+  // (exclusive). The caller works out the days; either may be given alone.
+  editedFrom?: Date;
+  editedBefore?: Date;
+  // true: the notes that tasks were made from (a task not in the trash names the note);
+  // false: the notes with no such task
+  hasTasks?: boolean;
 }
 
 export interface NoteSortOptions {

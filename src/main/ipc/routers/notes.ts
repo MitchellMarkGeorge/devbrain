@@ -39,6 +39,11 @@ export const notesRouter = t.router({
             ...links,
             projectId: zOneOrMany(zId('project').nullable()).optional(),
             linkedTo: zOneOrMany(z.enum(NOTE_LINK_KINDS)).optional(),
+            // last edited from this instant on, and before this one
+            editedFrom: z.date().optional(),
+            editedBefore: z.date().optional(),
+            // made into tasks, or not
+            hasTasks: z.boolean().optional(),
           })
           .optional(),
         sort: z

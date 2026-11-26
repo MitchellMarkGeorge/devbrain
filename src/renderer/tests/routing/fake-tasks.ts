@@ -120,6 +120,9 @@ type NoteFilter = {
   linkedEventId?: string | null;
   linkedTaskId?: string | null;
   linkedTo?: OneOrMany<NoteLinkKind>;
+  editedFrom?: Date;
+  editedBefore?: Date;
+  hasTasks?: boolean;
 };
 
 // a filter that takes one value or a list, as core's does: any of them
@@ -253,7 +256,11 @@ export class FakeTasks {
           isOneOf(note.projectId, filter.projectId) &&
           (filter.linkedEventId === undefined || note.linkedEventId === filter.linkedEventId) &&
           (filter.linkedTaskId === undefined || note.linkedTaskId === filter.linkedTaskId) &&
-          linkedToAny(note, filter.linkedTo),
+          linkedToAny(note, filter.linkedTo) &&
+          (filter.editedFrom === undefined || note.updatedAt >= filter.editedFrom) &&
+          (filter.editedBefore === undefined || note.updatedAt < filter.editedBefore) &&
+          (filter.hasTasks === undefined ||
+            this.tasks.some((task) => task.linkedNoteId === note.id) === filter.hasTasks),
       )
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
