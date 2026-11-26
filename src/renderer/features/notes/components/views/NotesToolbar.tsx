@@ -5,8 +5,8 @@ import {
   Clock,
   Folder,
   LayoutGrid,
-  Link,
   List,
+  Shapes,
   Plus,
   Type,
   type LucideIcon,
@@ -17,6 +17,7 @@ import {
   ListDisplay,
   ListFilterButton,
   ListFilters,
+  ListStatusChip,
   type ListFilterField,
   ProjectGlyph,
   useWorkspaceShell,
@@ -24,8 +25,6 @@ import {
 } from '@renderer/components';
 import { useProjectOptions } from '@renderer/features/tasks/hooks/use-project-options';
 import {
-  CLEAR_FILTERS,
-  LINK_FILTERS,
   NOTE_SORTS,
   type LinkFilter,
   type NoteSortParam,
@@ -47,10 +46,11 @@ const SORT_ICONS: Record<NoteSortParam, LucideIcon> = {
   title: Type,
 };
 
+/** A note's type, by what it is linked to: nothing, a task, or an event. */
 export const LINK_LABELS: Record<LinkFilter, string> = {
-  event: 'An event',
-  task: 'A task',
-  none: 'Nothing',
+  none: 'Standalone',
+  task: 'Task notes',
+  event: 'Event notes',
 };
 const LINK_ICONS: Record<LinkFilter, LucideIcon> = {
   event: CalendarDays,
@@ -69,10 +69,18 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
+type TypeFilter = LinkFilter | 'all';
+
+const TYPE_SCOPES: ListToolbarOption<TypeFilter>[] = [{ value: 'all', label: 'All' }];
+// standalone first: the notes that are no task's or event's
+const TYPE_OPTIONS: ListToolbarOption<TypeFilter>[] = (['none', 'task', 'event'] as const).map(
+  (link) => ({ value: link, label: LINK_LABELS[link], icon: LINK_ICONS[link] }),
+);
+
 /**
- * The fields the notes can be filtered by, with what the URL filters them to: what a note links
- * to, and its project. Both hold several values. The chips (`NotesToolbarStart`) and the Filter
- * button (`NotesToolbarEnd`) both draw them.
+ * The field the notes can be filtered by, with what the URL filters it to: the project, which
+ * holds several values. The chip (`NotesToolbarStart`) and the Filter button (`NotesToolbarEnd`)
+ * both draw it. A note's type is not one of the filters: the Type chip sets it.
  */
 function useNoteFilterFields(
   resolved: ResolvedNotesSearch,
@@ -80,19 +88,6 @@ function useNoteFilterFields(
 ): { fields: ListFilterField[]; clear: () => void } {
   const projects = useProjectOptions();
   const fields: ListFilterField[] = [
-    {
-      id: 'link',
-      label: 'Linked to',
-      icon: Link,
-      options: LINK_FILTERS.map((link) => ({
-        value: link,
-        label: LINK_LABELS[link],
-        icon: LINK_ICONS[link],
-      })),
-      multiple: true,
-      value: resolved.link,
-      onChange: (link) => setSearch({ link: listParam(link as LinkFilter[]) }),
-    },
     {
       id: 'project',
       label: 'Project',
@@ -111,10 +106,14 @@ function useNoteFilterFields(
       onChange: (project) => setSearch({ project: listParam(project as (ProjectId | 'none')[]) }),
     },
   ];
-  return { fields, clear: () => setSearch(CLEAR_FILTERS) };
+  // the Type chip is not one of the filters: it keeps what the URL says
+  return { fields, clear: () => setSearch({ project: undefined }) };
 }
 
-/** Which notes are shown: a chip per filter that is set. */
+/**
+ * Which notes are shown: the Type chip (All by default; or the standalone notes, the task notes or
+ * the event notes alone), where the other lists have Status, then a chip per filter that is set.
+ */
 export function NotesToolbarStart({
   resolved,
   setSearch,
@@ -122,8 +121,24 @@ export function NotesToolbarStart({
   resolved: ResolvedNotesSearch;
   setSearch: SetSearch;
 }) {
+  const compact = useWorkspaceShell().size === 'compact';
   const { fields, clear } = useNoteFilterFields(resolved, setSearch);
-  return <ListFilters fields={fields} onClear={clear} />;
+  return (
+    <>
+      <ListStatusChip<TypeFilter>
+        label="Type"
+        icon={Shapes}
+        options={TYPE_SCOPES}
+        statuses={TYPE_OPTIONS}
+        value={resolved.link ?? 'all'}
+        active={resolved.link !== undefined}
+        compact={compact}
+        // All is the default, so it leaves the URL
+        onChange={(type) => setSearch({ link: type === 'all' ? undefined : type })}
+      />
+      <ListFilters fields={fields} onClear={clear} />
+    </>
+  );
 }
 
 /** The Filter button, then how the notes are drawn: Display (List or Cards, and the sort). */

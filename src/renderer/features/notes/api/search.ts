@@ -9,8 +9,9 @@ import { multiParam } from '@renderer/shared/lib/search-params';
 // drops that one field back to its default rather than failing the page. No default is ever
 // written into the URL: a missing param is resolved at render (`resolveNotesSearch`).
 //
-// Both filters hold several values, "any of these" (`multiParam`): a list in the URL, or one value
-// alone, as links from before they could hold several have it.
+// The project filter holds several values, "any of these" (`multiParam`): a list in the URL, or
+// one value alone, as links from before it could hold several have it. `link` is the page's Type,
+// one value: a note is one type.
 
 const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
 
@@ -27,8 +28,8 @@ export const notesSearchSchema = z.object({
   dir: optional(z.enum(['asc', 'desc'])),
   /** the notes of any of these projects, `none` being the notes in no project */
   project: multiParam(z.union([projectId, z.literal('none')])),
-  /** the notes linked to an event, to a task, or to neither; any of those chosen */
-  link: multiParam(z.enum(LINK_FILTERS)),
+  /** the page's Type: the notes linked to an event, to a task, or to neither; all when missing */
+  link: optional(z.enum(LINK_FILTERS)),
 });
 
 export type NotesSearch = z.infer<typeof notesSearchSchema>;
@@ -61,13 +62,16 @@ const DEFAULT_DIRECTION: Record<NoteSortParam, 'asc' | 'desc'> = {
   title: 'asc',
 };
 
-/** The page's state, every missing param filled in. A filter is a list, empty when it is not set. */
+/**
+ * The page's state, every missing param filled in. The project filter is a list, empty when it is
+ * not set; `link` is undefined for notes of every type.
+ */
 export interface ResolvedNotesSearch {
   view: NoteView;
   sort: NoteSortParam;
   dir: 'asc' | 'desc';
   project: readonly (ProjectId | 'none')[];
-  link: readonly LinkFilter[];
+  link: LinkFilter | undefined;
 }
 
 export function resolveNotesSearch(search: NotesSearch): ResolvedNotesSearch {
@@ -77,7 +81,7 @@ export function resolveNotesSearch(search: NotesSearch): ResolvedNotesSearch {
     sort,
     dir: search.dir ?? DEFAULT_DIRECTION[sort],
     project: search.project ?? [],
-    link: search.link ?? [],
+    link: search.link,
   };
 }
 
@@ -98,7 +102,7 @@ export function noteListInput(resolved: ResolvedNotesSearch): NoteListInput {
   if (resolved.project.length > 0) {
     filter.projectId = resolved.project.map((project) => (project === 'none' ? null : project));
   }
-  if (resolved.link.length > 0) filter.linkedTo = [...resolved.link];
+  if (resolved.link) filter.linkedTo = resolved.link;
   return {
     filter,
     sort: { sortBy: SORT_BY[resolved.sort], direction: resolved.dir },

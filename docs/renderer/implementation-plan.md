@@ -307,7 +307,7 @@ export const tasksSearch = z.object({
 | `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                                     |
 | `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                                        |
 
-`priority` and `project` (and the notes page's `project` and `link`) hold several values, "any of
+`priority` and `project` (and the notes page's `project`) hold several values, "any of
 these": a list in the URL, or one value alone as older links have it (`multiParam`,
 `shared/lib/search-params.ts`), and a list in core's filter (`OneOrMany`). `status`, `due` and
 `source` hold one.
@@ -324,7 +324,8 @@ these": a list in the URL, or one value alone as older links have it (`multiPara
 ### `/app/notes`
 
 `view` (`list` default \| `card`), `sort` (`updatedAt` default, "Last edited" \| `createdAt` \|
-`title`), `dir`, `project` (`prj_…` \| `none`), `link` (`event` \| `task` \| `none`).
+`title`), `dir`, `project` (`prj_…` \| `none`), `link` (`event` \| `task` \| `none`: the Type
+chip, one value, every type when missing).
 
 ### `/app/calendar`
 

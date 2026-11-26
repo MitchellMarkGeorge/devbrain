@@ -19,7 +19,8 @@ import {
   Folder,
   Kanban,
   LayoutGrid,
-  Link,
+  Shapes,
+  type LucideIcon,
   List,
   Plus,
   Type,
@@ -112,28 +113,29 @@ const FIELDS: Record<DemoList, Field[]> = {
     projectField(['Auth Overhaul', 'API Gateway v2', 'AI Action Items', 'User Interface Revamp']),
   ],
   projects: [SOURCE],
-  notes: [
-    {
-      id: 'link',
-      multiple: true,
-      label: 'Linked to',
-      icon: Link,
-      options: [
-        { value: 'event', label: 'An event', icon: CalendarDays },
-        { value: 'task', label: 'A task', icon: CircleCheck },
-        { value: 'none', label: 'Nothing', icon: CircleSlash },
-      ],
-    },
-    projectField(['Auth Overhaul', 'API Gateway v2']),
-  ],
+  notes: [projectField(['Auth Overhaul', 'API Gateway v2'])],
 };
 
 interface Statuses {
+  /** the chip's name, where it is not Status: a note's Type */
+  label?: string;
+  icon?: LucideIcon;
   scopes: ListToolbarOption[];
   statuses: ListToolbarOption[];
 }
 
-const STATUSES: Partial<Record<DemoList, Statuses>> = {
+const STATUSES: Record<DemoList, Statuses> = {
+  // a note has no status: its chip is its type, by what the note is linked to
+  notes: {
+    label: 'Type',
+    icon: Shapes,
+    scopes: [{ value: 'all', label: 'All' }],
+    statuses: [
+      { value: 'none', label: 'Standalone', icon: CircleSlash },
+      { value: 'task', label: 'Task notes', icon: CircleCheck },
+      { value: 'event', label: 'Event notes', icon: CalendarDays },
+    ],
+  },
   tasks: {
     scopes: [
       { value: 'open', label: 'Open' },
@@ -219,7 +221,7 @@ export interface DemoToolbarStartProps {
   fixedProject?: boolean;
 }
 
-/** The start of a list page's toolbar: its Status chip and its filter chips. */
+/** The start of a list page's toolbar: its Status chip (a note's Type) and its filter chips. */
 export function DemoToolbarStart({
   list,
   compact,
@@ -229,7 +231,7 @@ export function DemoToolbarStart({
   fixedProject = false,
 }: DemoToolbarStartProps) {
   const statuses = STATUSES[list];
-  const [scope, setScope] = useState(status ?? statuses?.scopes[0]?.value ?? '');
+  const [scope, setScope] = useState(status ?? statuses.scopes[0]?.value ?? '');
   // the story's filters, before the first paint: the toolbar's end reads them too
   useLayoutEffect(() => {
     setStore(list, { values: filters ?? {}, fixedProject });
@@ -239,18 +241,17 @@ export function DemoToolbarStart({
   const { fields, clear } = useDemoFilters(list);
   return (
     <>
-      {statuses && (
-        <ListStatusChip
-          icon={CircleDashed}
-          options={statuses.scopes}
-          statuses={statuses.statuses}
-          value={scope}
-          active={scope !== statuses.scopes[0]?.value}
-          compact={compact}
-          defaultOpen={open === 'status'}
-          onChange={setScope}
-        />
-      )}
+      <ListStatusChip
+        label={statuses.label}
+        icon={statuses.icon ?? CircleDashed}
+        options={statuses.scopes}
+        statuses={statuses.statuses}
+        value={scope}
+        active={scope !== statuses.scopes[0]?.value}
+        compact={compact}
+        defaultOpen={open === 'status'}
+        onChange={setScope}
+      />
       <ListFilters fields={fields} onClear={clear} />
     </>
   );

@@ -160,7 +160,10 @@ export const Projects: Story = {
   render: () => <Toolbar start={{ list: 'projects' }} end={{ layout: 'cards' }} />,
 };
 
-/** Notes have no status, so the row starts with the chips. One filter is set: Clear is there too. */
+/**
+ * Notes have no status: their chip is the Type (All, or the standalone, task or event notes alone).
+ * One filter is set: Clear is there too.
+ */
 export const Notes: Story = {
   render: () => <Toolbar start={{ list: 'notes', filters: { project: ['Auth Overhaul'] } }} />,
 };

@@ -7,7 +7,6 @@ import {
   byText,
   click,
   eventually,
-  filterButton,
   filterCount,
   menuItem,
   rightClick,
@@ -97,38 +96,37 @@ describe('the notes list', () => {
     await eventually(() => expect(row('PKCE design notes')).toBeDefined());
     expect(row('Launch plan')).toBeUndefined();
     expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
-      filter: { projectId: [PROJECT.id], linkedTo: ['task'] },
+      filter: { projectId: [PROJECT.id], linkedTo: 'task' },
       sort: { sortBy: 'title', direction: 'asc' },
     });
-    // a chip for each of the two filters
-    expect(filterCount(app.container)).toBe(2);
+    // a chip for the project; the type shows in its own chip
+    expect(filterCount(app.container)).toBe(1);
+    expect(app.text()).toContain('TypeTask notes');
   });
 
-  it('ticks several values of a filter: the notes that are any of them', async () => {
+  it('sets the type from the Type chip, All leaving the URL', async () => {
     const { main, app } = notesPage();
     await eventually(() => expect(row('Launch plan')).toBeDefined());
-    const value = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
-    click(filterButton(app.container));
-    await eventually(() =>
-      expect(byText(document.body, '[role="menuitem"]', 'Linked to')).not.toBeNull(),
-    );
-    click(byText(document.body, '[role="menuitem"]', 'Linked to'));
-    await eventually(() => expect(value('An event')).not.toBeNull());
-    click(value('An event'));
-    await eventually(() => expect(value('An event')!.getAttribute('aria-checked')).toBe('true'));
-    click(value('A task'));
-    const list = encodeURIComponent(JSON.stringify(['event', 'task']));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=${list}`));
+    expect(app.text()).toContain('TypeAll');
+    const pick = async (type: string) => {
+      click(byText(app.container, 'button', 'Type'));
+      await eventually(() =>
+        expect(byText(document.body, '[role="menuitemradio"]', type)).not.toBeNull(),
+      );
+      click(byText(document.body, '[role="menuitemradio"]', type));
+    };
+    await pick('Task notes');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=task`));
     await eventually(() =>
       expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
-        filter: { linkedTo: ['event', 'task'] },
+        filter: { linkedTo: 'task' },
       }),
     );
     await eventually(() => expect(row('Launch plan')).toBeUndefined());
     expect(row('PKCE design notes')).toBeDefined();
-    expect(row('Jesse 1:1')).toBeDefined();
-    // "Any" removes the filter
-    click(value('Any'));
+    // the type is not one of the filters: no chip, and nothing to clear
+    expect(filterCount(app.container)).toBe(0);
+    await pick('All');
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
   });
 
@@ -137,7 +135,7 @@ describe('the notes list', () => {
     const { main } = notesPage(`?project=${list}&link=none`);
     await eventually(() => expect(row('Launch plan')).toBeDefined());
     expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
-      filter: { projectId: [PROJECT.id, null], linkedTo: ['none'] },
+      filter: { projectId: [PROJECT.id, null], linkedTo: 'none' },
     });
     expect(row('PKCE design notes')).toBeUndefined();
   });

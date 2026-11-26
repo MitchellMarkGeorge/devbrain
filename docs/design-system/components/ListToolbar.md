@@ -6,8 +6,10 @@ the start, the controls that change that and how they are drawn at the end. Four
 
 - **`ListStatusChip`** — "Status Open". First in the row and always there (a list always has a
   status scope, so the chip has no ×). Its menu is one choice: the scopes that span several
-  statuses (Open, All; Active, All), a separator, then each status alone. A page with no status
-  (Notes) leaves it out.
+  statuses (Open, All; Active, All), a separator, then each status alone. Notes have no status:
+  their chip is the note's type, "Type All" (`label="Type"`), with All, then Standalone, Task
+  notes and Event notes (what the note is linked to). So every list page starts with one chip
+  that picks one value, and it is not one of the filters: "Clear" leaves it alone.
 - **`ListFilters`** — at the start, after Status: a chip for each filter that is set. A chip is
   "Priority High, Medium" joined to its ×: its value opens its field's values straight away (no
   "Any": the × removes the filter); a long value is cut with "…". The chips are in the fields'
@@ -29,7 +31,7 @@ A field holds one value or several (`ListFilterField`):
 
 - **One value** (the default: Due, Source). Its values are a choice of one: radio items, each
   drawing a radio button. `value` is the value or `undefined`.
-- **Several values** (`multiple: true`: Priority, Project, a note's Linked to), meaning "any of
+- **Several values** (`multiple: true`: Priority, Project), meaning "any of
   these". Its values tick on their own: checkbox items, each drawing a checkbox. "Any" in the
   submenu unticks them all. `value` is a list, empty when the filter is not set, and `onChange`
   gets the new list in the options' order. Unticking the last value removes the filter and its
