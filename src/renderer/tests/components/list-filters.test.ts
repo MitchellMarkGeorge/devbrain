@@ -13,7 +13,7 @@ import {
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // A list's filters in its toolbar: a chip for each one that is set, with its own ×, then
-// "+ Filter"; the chips that don't fit the row fold into the button's count, and in a compact
+// the Filter button (an icon button, so it has no text); the chips that don't fit the row fold into the button's count, and in a compact
 // window they all do. (jsdom lays nothing out, so here every chip fits.)
 
 let container: HTMLDivElement;
@@ -62,14 +62,15 @@ const chips = () => [...container.querySelectorAll('[role="group"]')];
 const buttons = () => [...container.querySelectorAll('button')].map((b) => b.textContent);
 
 describe('ListFilters', () => {
-  it('draws a chip for each filter that is set, then "+ Filter"', () => {
+  it('draws a chip for each filter that is set, then the Filter button', () => {
     render({ fields: [field('Priority', 'a'), field('Due'), field('Source', 'b')] });
     expect(chips().map((chip) => chip.getAttribute('aria-label'))).toEqual([
       'Priority filter',
       'Source filter',
     ]);
     // each chip is its value and its ×; the menu's button names no filter; then Clear
-    expect(buttons()).toEqual(['PriorityAlpha', '', 'SourceBeta', '', 'Filter', 'Clear']);
+    expect(buttons()).toEqual(['PriorityAlpha', '', 'SourceBeta', '', '', 'Clear']);
+    expect(container.querySelector('button[aria-label="Filter"]')).not.toBeNull();
   });
 
   it('removes a filter from its chip’s ×', () => {
@@ -83,7 +84,7 @@ describe('ListFilters', () => {
   it('draws no chip with nothing set', () => {
     render({ fields: [field('Priority'), field('Due')] });
     expect(chips()).toEqual([]);
-    expect(buttons()).toEqual(['Filter']);
+    expect(buttons()).toEqual(['']);
   });
 
   it('folds the chips into the Filter button’s count in a compact window', () => {
@@ -139,7 +140,7 @@ describe('a filter that holds several values', () => {
     render({
       fields: [multi('Priority', ['a', 'b']), multi('Project'), multi('Link', ['a', 'b', 'c'])],
     });
-    expect(buttons()).toEqual(['PriorityAlpha, Beta', '', 'LinkAlpha +2', '', 'Filter', 'Clear']);
+    expect(buttons()).toEqual(['PriorityAlpha, Beta', '', 'LinkAlpha +2', '', '', 'Clear']);
   });
 
   it('counts a field once in a compact window, however many values it has', () => {
@@ -198,10 +199,10 @@ describe('a filter that holds several values', () => {
 });
 
 describe('chipsThatFit', () => {
-  // three chips of 150px (gap included), "+ Filter" 84px wide; "Filter +N" keeps 112px
+  // three chips of 150px (gap included), a plain button 84px wide; "Filter +N" keeps 112px
   const chips = [150, 150, 150];
 
-  it('shows every chip while they fit with "+ Filter" after them', () => {
+  it('shows every chip while they fit with the plain button after them', () => {
     expect(chipsThatFit(chips, 534, 84)).toBe(3);
   });
 

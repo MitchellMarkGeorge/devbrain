@@ -3,7 +3,6 @@ import {
   ArrowUpNarrowWide,
   CircleSlash,
   ListFilter,
-  Plus,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
@@ -31,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import type { IconSource } from '../../ui/Icon';
+import { IconButton } from '../../ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../ui/Select';
 import { ToggleGroup } from '../../ui/ToggleGroup';
@@ -350,7 +350,7 @@ const MORE_WIDTH = 112;
 
 /**
  * How many chips of these widths (each with the gap after it) fit in `available`, before the
- * trailing button. All of them while they fit with "+ Filter" (`plainWidth`) after them; otherwise
+ * trailing button. All of them while they fit with the Filter button (`plainWidth`) after them; otherwise
  * as many as leave room for "Filter +N". Chips fold from the end.
  */
 export function chipsThatFit(widths: number[], available: number, plainWidth: number): number {
@@ -384,8 +384,8 @@ function measure(row: HTMLElement, plainWidth: number): number {
 
 /**
  * A list's filters, on one row: a chip for each one that is set (its value opens the field's
- * values, its × removes it), then "+ Filter". The chips that don't fit the row fold into the
- * button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). A folded
+ * values, its × removes it), then the Filter button, an outline icon button. The chips that don't
+ * fit the row fold into the button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). A folded
  * chip stays in the row, unseen and out of its flow, so its width can always be read: how many
  * fit is counted from the page as it is, with nothing remembered. The menu
  * has an item for each field, showing what it is filtered to (so a folded filter is still one
@@ -402,8 +402,8 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
   const set = fields.filter((field) => valuesOf(field).length > 0);
   const row = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  // "+ Filter"'s width, as last drawn with no chip folded
-  const plainWidth = useRef(84);
+  // the Filter button's width, as last drawn with no chip folded
+  const plainWidth = useRef(32);
   const [shown, setShown] = useState(set.length);
   // What the fit depends on: which chips there are and what they say, and the row's width. A
   // value's label can arrive after its chip (a project's name, once the projects load), and the
@@ -454,9 +454,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
                 Filter
               </Button>
             ) : (
-              <Button ref={trigger} variant="ghost" icon={Plus} className={styles.add}>
-                Filter
-              </Button>
+              <IconButton ref={trigger} variant="outline" icon={ListFilter} label="Filter" />
             )
           }
         />

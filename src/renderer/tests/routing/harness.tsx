@@ -228,3 +228,14 @@ export function byText(root: ParentNode, selector: string, text: string): HTMLEl
     ) ?? null
   );
 }
+
+/**
+ * A list toolbar's Filter button: an icon button named "Filter", or with chips folded into it (as
+ * in the tests' compact window once a filter is set) a button reading "Filter 2".
+ */
+export function filterButton(root: ParentNode): HTMLElement | null {
+  return (
+    root.querySelector<HTMLElement>('button[aria-label="Filter"]') ??
+    byText(root, 'button', 'Filter')
+  );
+}

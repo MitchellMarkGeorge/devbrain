@@ -48,7 +48,7 @@ function Toolbar({
 
 const FILTERED = { priority: [String(TaskPriority.HIGH)], source: 'external' };
 
-/** Nothing filtered: the Status chip, a quiet "+ Filter", and Display at the end. */
+/** Nothing filtered: the Status chip, the Filter icon button, and Display at the end. */
 export const Tasks: Story = { render: () => <Toolbar start={{ list: 'tasks' }} /> };
 
 /**
@@ -104,7 +104,7 @@ export const StatusMenu: Story = {
   render: () => <Toolbar height={360} start={{ list: 'tasks', open: 'status' }} />,
 };
 
-/** "+ Filter": an item for each field, showing what it is filtered to and opening its values. */
+/** The Filter menu: an item for each field, showing what it is filtered to and opening its values. */
 export const FilterMenu: Story = {
   render: () => (
     <Toolbar height={640} start={{ list: 'tasks', filters: FILTERED, open: 'filter' }} />

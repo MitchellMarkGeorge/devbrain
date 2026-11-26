@@ -15,7 +15,7 @@ export const StatusMenu: Story = {
   render: () => <TasksPage open="status" />,
 };
 
-/** "+ Filter": an item for each field, each opening its values in a submenu. */
+/** The Filter menu: an item for each field, each opening its values in a submenu. */
 export const FilterMenu: Story = {
   name: 'Tasks – filter menu',
   render: () => <TasksPage open="filter" />,

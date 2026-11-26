@@ -7,9 +7,10 @@ the start, how they are drawn at the end. Three pieces, all `outline` 32px butto
   status scope, so the chip has no ×). Its menu is one choice: the scopes that span several
   statuses (Open, All; Active, All), a separator, then each status alone. A page with no status
   (Notes) leaves it out.
-- **`ListFilters`** — a chip for each filter that is set ("Priority High" joined to its ×), then a
-  quiet "+ Filter". A chip's value opens its field's values; its × removes the filter; a long value
-  is cut with "…". The "+ Filter" menu has an item for each field, with what the field is
+- **`ListFilters`** — a chip for each filter that is set ("Priority High" joined to its ×), then the
+  Filter button: an outline icon button (`IconButton`, the filter icon, named "Filter" in its
+  tooltip), the size of a chip's ×, so it reads as one more control in the row of chips. A chip's value opens its field's values; its × removes the filter; a long value
+  is cut with "…". The Filter menu has an item for each field, with what the field is
   filtered to before its chevron ("Priority High ›"), opening the field's values in a submenu:
   "Any" first, which removes the filter. A field whose values are the user's own (projects) gets a
   search row in its menus (`search`) and draws each value's own glyph (a project's folder in its
@@ -44,7 +45,7 @@ Rules:
 
 - The toolbar has no "New …" button: the title bar's New creates. The exception is a project's
   Tasks tab, which keeps New Task after Display because it files the task in that project.
-- Order at the start: Status, the chips in the fields' order, "+ Filter", then "Clear" at the
+- Order at the start: Status, the chips in the fields' order, the Filter button, then "Clear" at the
   row's end. Nothing else goes there.
 - The toolbar is always one row. `ListFilters` takes the room left after Status and measures it:
   the chips that fit are drawn, and the rest fold into the trailing button, which becomes an
@@ -52,7 +53,7 @@ Rules:
   menu, beside its field's name, and comes back as a chip when there is room (the window widens, or
   a chip before it is removed). Chips fold from the end, in the fields' order.
 - While a filter is set, a quiet "Clear" sits at the end of the filters' row, just before Display,
-  and removes them all. It is at the row's end, not after "+ Filter", so it stays in one place as
+  and removes them all. It is at the row's end, not after the Filter button, so it stays in one place as
   chips come and go; it also clears the folded ones. It shows with one filter too: that repeats the
   chip's × in a wide window, but it is the convention, it doesn't pop in at the second filter, and
   in a compact window (where the chip is folded) it is the only one-click way out. It leaves Status
@@ -73,6 +74,6 @@ Rules:
 Stories: `Lists/ListToolbar`; in a page, `Screens/Tasks` and `Screens/Menus/Toolbar menus`.
 `lists/ListToolbar/fixtures.tsx` gives stories each page's toolbar over sample choices.
 
-**Base UI:** `Menu` (Status, the chips and "+ Filter", with `Menu.SubmenuRoot` for a field and `Menu.FilterProvider` for its
+**Base UI:** `Menu` (Status, the chips and Filter, with `Menu.SubmenuRoot` for a field and `Menu.FilterProvider` for its
 search row), `Popover` and
 `Select` (Display), `ToggleGroup` (the layout switch).

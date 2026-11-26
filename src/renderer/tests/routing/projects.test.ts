@@ -3,7 +3,16 @@ import type { WorkspaceId } from '@common/ids';
 import { ProjectStatus, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  filterButton,
+  menuItem,
+  rightClick,
+  startApp,
+  stopApps,
+} from './harness';
 
 // The projects page (/app/$workspaceId/projects) and a project's page, over a fake main's projects.
 
@@ -332,7 +341,7 @@ describe('a project’s page', () => {
     await eventually(() => expect(app.text()).toContain('Audit token storage'));
     expect(app.text()).toContain('Draft ADR');
     expect(app.text()).not.toContain('Unfiled task');
-    click(byText(app.container, 'button', 'Filter'));
+    click(filterButton(app.container));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', 'Priority')).not.toBeNull(),
     );

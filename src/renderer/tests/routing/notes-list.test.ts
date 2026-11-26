@@ -3,7 +3,16 @@ import type { EventId, WorkspaceId } from '@common/ids';
 import { TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  filterButton,
+  menuItem,
+  rightClick,
+  startApp,
+  stopApps,
+} from './harness';
 
 // The notes page (/app/$workspaceId/notes): rows and cards from notes.list, the toolbar in the
 // URL, the states, the row menu, and creating a note.
@@ -98,7 +107,7 @@ describe('the notes list', () => {
     const { main, app } = notesPage();
     await eventually(() => expect(row('Launch plan')).toBeDefined());
     const value = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
-    click(byText(app.container, 'button', 'Filter'));
+    click(filterButton(app.container));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', 'Linked to')).not.toBeNull(),
     );

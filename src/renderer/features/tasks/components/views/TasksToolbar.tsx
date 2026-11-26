@@ -131,7 +131,7 @@ const LAYOUTS: ListToolbarOption<'list' | 'board'>[] = [
 /**
  * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
  * completed tasks"), a chip per filter that is set (priority, due, source, project) and
- * "+ Filter". Priority and project hold several values, due and source one. A project's Tasks tab has its project fixed: no Project filter.
+ * the Filter button. Priority and project hold several values, due and source one. A project's Tasks tab has its project fixed: no Project filter.
  */
 export function TasksToolbarStart({
   resolved,

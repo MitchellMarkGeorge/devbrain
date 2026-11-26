@@ -3,7 +3,7 @@ import type { WorkspaceId } from '@common/ids';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, filterButton, startApp, stopApps } from './harness';
 
 // The tasks page's list and group views: rows from tasks.list, the toolbar in the URL, the list
 // keys, the selection bar, the states, and Create task.
@@ -106,7 +106,7 @@ describe('the list view', () => {
     // opens Filter › Priority, whatever is open already
     const openPriority = async () => {
       if (value('Any')) return;
-      if (!field('Priority')) click(byText(app.container, 'button', 'Filter'));
+      if (!field('Priority')) click(filterButton(app.container));
       await eventually(() => expect(field('Priority')).not.toBeNull());
       click(field('Priority'));
       await eventually(() => expect(value('Any')).not.toBeNull());
@@ -135,7 +135,7 @@ describe('the list view', () => {
     ]);
     await eventually(() => expect(row('Build the page')).toBeDefined());
     const value = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
-    click(byText(app.container, 'button', 'Filter'));
+    click(filterButton(app.container));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', 'Priority')).not.toBeNull(),
     );
@@ -185,7 +185,7 @@ describe('the list view', () => {
   it('keeps a filter that holds one value a choice of one', async () => {
     const { app } = tasksPage();
     await eventually(() => expect(row('Plan the launch')).toBeDefined());
-    click(byText(app.container, 'button', 'Filter'));
+    click(filterButton(app.container));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', 'Source')).not.toBeNull(),
     );

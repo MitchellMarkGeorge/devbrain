@@ -60,11 +60,6 @@
   max-width: 80px;
 }
 
-/* "+ Filter": a quiet button after the chips */
-.add {
-  color: var(--muted-foreground);
-}
-
 /* "Clear": a quiet word at the row's end, in the same place however many chips there are */
 .clear {
   flex: none;
