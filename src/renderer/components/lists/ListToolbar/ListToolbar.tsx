@@ -453,12 +453,19 @@ export function ListFilters({ fields, onClear }: ListFiltersProps) {
 }
 
 export interface ListFilterButtonProps extends ListFiltersProps {
+  /**
+   * which edge of the button its menu lines up with: `end` (the default) at the toolbar's end,
+   * `start` where the button leads the row
+   */
+  align?: 'start' | 'end';
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
 }
 
 /**
- * The Filter button, at the toolbar's end before Display: an outline icon button. Its menu has an
+ * The Filter button: an outline icon button, at the toolbar's end before Display. On a page with
+ * no Status chip (Notes) it leads the row instead, before the chips, so the start of the toolbar
+ * is never empty; either way it comes before or apart from the chips, never after them. Its menu has an
  * item for each field, showing what it is filtered to and opening its values in a submenu, with a
  * search row for a field that asks for one, and "Clear filters" last while any is set. A field
  * holds one value (radio buttons), or with `multiple` several, meaning "any of these"
@@ -466,14 +473,20 @@ export interface ListFilterButtonProps extends ListFiltersProps {
  * the chips are drawn elsewhere (`ListFilters`), so it never moves and its menu stays under the
  * pointer while values are ticked.
  */
-export function ListFilterButton({ fields, defaultOpen, onClear }: ListFilterButtonProps) {
+export function ListFilterButton({
+  fields,
+  align = 'end',
+  defaultOpen,
+  onClear,
+}: ListFilterButtonProps) {
   const anySet = fields.some((field) => valuesOf(field).length > 0);
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger
         render={<IconButton variant="outline" icon={ListFilter} label="Filter" />}
       />
-      <DropdownMenuContent width="sm" align="end" aria-label="Filter">
+      {/* the wider menu: a field's name ("Linked to") and two of its values fit on one line */}
+      <DropdownMenuContent align={align} aria-label="Filter">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Filter by</DropdownMenuLabel>
           {fields.map((field) => (

@@ -71,8 +71,7 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
 
 /**
  * The fields the notes can be filtered by, with what the URL filters them to: what a note links
- * to, and its project. Both hold several values. The chips (`NotesToolbarStart`) and the Filter
- * button (`NotesToolbarEnd`) both draw them.
+ * to, and its project. Both hold several values.
  */
 function useNoteFilterFields(
   resolved: ResolvedNotesSearch,
@@ -114,7 +113,11 @@ function useNoteFilterFields(
   return { fields, clear: () => setSearch(CLEAR_FILTERS) };
 }
 
-/** Which notes are shown: a chip per filter that is set. */
+/**
+ * Which notes are shown: the Filter button, then a chip per filter that is set. Notes have no
+ * Status chip, so the Filter button leads the row here, where the other lists have it beside
+ * Display: the start of the toolbar is never empty.
+ */
 export function NotesToolbarStart({
   resolved,
   setSearch,
@@ -123,10 +126,15 @@ export function NotesToolbarStart({
   setSearch: SetSearch;
 }) {
   const { fields, clear } = useNoteFilterFields(resolved, setSearch);
-  return <ListFilters fields={fields} onClear={clear} />;
+  return (
+    <>
+      <ListFilterButton align="start" fields={fields} onClear={clear} />
+      <ListFilters fields={fields} onClear={clear} />
+    </>
+  );
 }
 
-/** The Filter button, then how the notes are drawn: Display (List or Cards, and the sort). */
+/** How the notes are drawn: Display (List or Cards, and the sort). */
 export function NotesToolbarEnd({
   resolved,
   setSearch,
@@ -135,10 +143,8 @@ export function NotesToolbarEnd({
   setSearch: SetSearch;
 }) {
   const compact = useWorkspaceShell().size === 'compact';
-  const { fields, clear } = useNoteFilterFields(resolved, setSearch);
   return (
     <>
-      <ListFilterButton fields={fields} onClear={clear} />
       <ListDisplay
         compact={compact}
         layout={{

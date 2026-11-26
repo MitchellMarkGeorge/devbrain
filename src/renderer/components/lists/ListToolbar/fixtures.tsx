@@ -219,7 +219,10 @@ export interface DemoToolbarStartProps {
   fixedProject?: boolean;
 }
 
-/** The start of a list page's toolbar: its Status chip and its filter chips. */
+/**
+ * The start of a list page's toolbar: its Status chip and its filter chips; on a page with no
+ * Status chip (Notes), the Filter button before the chips.
+ */
 export function DemoToolbarStart({
   list,
   compact,
@@ -251,6 +254,8 @@ export function DemoToolbarStart({
           onChange={setScope}
         />
       )}
+      {/* a page with no Status chip leads its row with the Filter button */}
+      {!statuses && <ListFilterButton align="start" fields={fields} onClear={clear} />}
       <ListFilters fields={fields} onClear={clear} />
     </>
   );
@@ -303,7 +308,7 @@ export interface DemoToolbarEndProps {
   open?: boolean | 'filter';
 }
 
-/** The end of a list page's toolbar: the Filter button, then Display. */
+/** The end of a list page's toolbar: the Filter button (on a page with a Status chip), then Display. */
 export function DemoToolbarEnd({
   list,
   compact,
@@ -319,7 +324,9 @@ export function DemoToolbarEnd({
   const { fields, clear } = useDemoFilters(list);
   return (
     <>
-      <ListFilterButton fields={fields} defaultOpen={open === 'filter'} onClear={clear} />
+      {STATUSES[list] && (
+        <ListFilterButton fields={fields} defaultOpen={open === 'filter'} onClear={clear} />
+      )}
       <ListDisplay
         compact={compact}
         defaultOpen={open === true}

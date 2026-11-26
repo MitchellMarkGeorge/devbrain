@@ -18,7 +18,9 @@ the start, the controls that change that and how they are drawn at the end. Four
   ("Priority High ›"), opening the field's values in a submenu: "Any" first, which removes the
   filter. A field whose values are the user's own (projects) gets a search row in its menus
   (`search`) and draws each value's own glyph (a project's folder in its colour). "Clear filters"
-  ends the menu while a filter is set. A page gives both pieces the same fields.
+  ends the menu while a filter is set. A page gives both pieces the same fields. On a page with
+  no Status chip (Notes) the button leads the row at the start instead, before the chips
+  (`align="start"`), so the start of the toolbar is never empty.
 - **`ListDisplay`** — "Display Priority". One popover: the layout as a full-width switch (List,
   Board; List, Cards), then "Group by" and "Sort by" as selects, the sort with a button for its
   direction. The button's value is what orders the page: the sort, or the layout when it orders
@@ -49,9 +51,10 @@ Rules:
 - The toolbar has no "New …" button: the title bar's New creates. The exception is a project's
   Tasks tab, which keeps New Task after Display because it files the task in that project.
 - Order at the start: Status, the chips, "+2" for the chips that don't fit, then "Clear" at the
-  row's end. At the end: the Filter button, then Display. Nothing else goes in either.
-- The Filter button is with Display, away from the chips, and never changes: adding a filter
-  draws its chip at the other end of the row, so the button does not move and its menu stays under
+  row's end. At the end: the Filter button, then Display. Nothing else goes in either. With no
+  Status chip, the Filter button takes its place at the start and the end is Display alone.
+- The Filter button is with Display, away from the chips (or, on Notes, before them), and never
+  changes: adding a filter draws its chip elsewhere in the row, so the button does not move and its menu stays under
   the pointer while values are ticked.
 - The toolbar is always one row. `ListFilters` takes the room left after Status and measures it:
   the chips that fit are drawn, and the rest are hidden, from the end, behind an outline "+2" after
