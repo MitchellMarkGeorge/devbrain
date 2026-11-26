@@ -84,6 +84,22 @@
 .rowMore {
   flex: none;
 }
+/*
+ * `shape="pill"`: the chip as one of the app's pills, fully round on `pill-fill`. ButtonGroup
+ * still squares the corners where the value meets the ×.
+ */
+.pill > [data-slot],
+.pillMore {
+  border-radius: var(--radius-full);
+  background: var(--pill-fill);
+}
+.pill > [data-slot]:first-of-type {
+  padding-left: 10px;
+}
+.pill .chipRemoveSmall {
+  width: 26px;
+  padding-right: 2px;
+}
 
 /* "Clear": a quiet word at the row's end, in the same place however many chips there are */
 .clear {

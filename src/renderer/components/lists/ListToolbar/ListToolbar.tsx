@@ -290,24 +290,28 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
 
 /**
  * A filter that is set, as a chip: its value opens the field's values, its × removes it. `small`
- * draws it 28px tall, for the chips' own row (`ListFilterChips`).
+ * draws it 28px tall, for the chips' own row (`ListFilterChips`); `pill` draws it as one of the
+ * app's pills there: 24px, fully round, 12px text.
  */
 function FilterChip({
   field,
   folded,
   small,
+  pill,
 }: {
   field: ListFilterField;
   folded?: boolean;
   small?: boolean;
+  pill?: boolean;
 }) {
+  const size = pill ? 'xs' : small ? 'sm' : undefined;
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
       data-chip=""
       // a folded chip is unseen, and so out of the accessibility tree and the tab order
       aria-hidden={folded || undefined}
-      className={cn(styles.chip, folded && styles.folded)}
+      className={cn(styles.chip, pill && styles.pill, folded && styles.folded)}
     >
       <Searchable field={field}>
         <DropdownMenu>
@@ -315,7 +319,7 @@ function FilterChip({
             render={
               <Button
                 variant="outline"
-                size={small ? 'sm' : undefined}
+                size={size}
                 icon={field.icon}
                 value={<FieldSummary field={field} className={styles.value} />}
               >
@@ -334,10 +338,10 @@ function FilterChip({
       </Searchable>
       <Button
         variant="outline"
-        size={small ? 'icon-sm' : 'icon'}
+        size={pill ? 'icon-xs' : small ? 'icon-sm' : 'icon'}
         icon={X}
         aria-label={`Remove ${field.label} filter`}
-        className={small ? styles.chipRemoveSmall : styles.chipRemove}
+        className={pill || small ? styles.chipRemoveSmall : styles.chipRemove}
         onClick={() => removeFilter(field)}
       />
     </ButtonGroup>
@@ -494,6 +498,11 @@ function FilterMenuButton({
 }
 
 export interface ListFilterChipsProps extends Pick<ListFiltersProps, 'fields'> {
+  /**
+   * `chip` (the default): small versions of the toolbar's chips, 28px with squared corners.
+   * `pill`: the app's pill shape, 24px and fully round, like the pills on a task's row.
+   */
+  shape?: 'chip' | 'pill';
   className?: string;
 }
 
@@ -516,7 +525,8 @@ function chipsKeyOf(set: ListFilterField[]): string {
  * don't fit fold into a "+2" at the row's end, whose menu holds their fields. With no filter set
  * the row is not drawn, so it takes no room. "Clear" stays in the toolbar.
  */
-export function ListFilterChips({ fields, className }: ListFilterChipsProps) {
+export function ListFilterChips({ fields, shape = 'chip', className }: ListFilterChipsProps) {
+  const pill = shape === 'pill';
   const set = fields.filter((field) => valuesOf(field).length > 0);
   const line = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(set.length);
@@ -534,7 +544,7 @@ export function ListFilterChips({ fields, className }: ListFilterChipsProps) {
 
   useLayoutEffect(() => {
     if (line.current) setShown(measure(line.current, 0, ROW_MORE_WIDTH));
-  }, [chipsKey, lineWidth]);
+  }, [chipsKey, lineWidth, pill]);
 
   if (!drawn) return null;
   const folded = set.slice(shown);
@@ -542,7 +552,7 @@ export function ListFilterChips({ fields, className }: ListFilterChipsProps) {
     <div role="group" aria-label="Filters" className={cn(styles.chipRow, className)}>
       <div ref={line} className={styles.chipLine}>
         {set.map((field, index) => (
-          <FilterChip key={field.id} field={field} small folded={index >= shown} />
+          <FilterChip key={field.id} field={field} small pill={pill} folded={index >= shown} />
         ))}
         {folded.length > 0 && (
           <DropdownMenu>
@@ -550,9 +560,9 @@ export function ListFilterChips({ fields, className }: ListFilterChipsProps) {
               render={
                 <Button
                   variant="outline"
-                  size="sm"
+                  size={pill ? 'xs' : 'sm'}
                   aria-label={`${folded.length} more filters`}
-                  className={styles.rowMore}
+                  className={cn(styles.rowMore, pill && styles.pillMore)}
                 >
                   +{folded.length}
                 </Button>

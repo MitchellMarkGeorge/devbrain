@@ -139,10 +139,12 @@ export const ManyFilters: Story = {
 function ChipRowToolbar({
   filters,
   open,
+  shape,
   width = 1100,
   height = 120,
 }: {
   filters?: Record<string, string | string[]>;
+  shape?: 'chip' | 'pill';
   open?: boolean;
   width?: number;
   height?: number;
@@ -155,7 +157,7 @@ function ChipRowToolbar({
           start={<DemoToolbarStart list="tasks" state={state} open={open ? 'filter' : undefined} />}
           end={<DemoToolbarEnd list="tasks" />}
         />
-        <DemoFilterChips state={state} />
+        <DemoFilterChips state={state} shape={shape} />
       </div>
     </TooltipProvider>
   );
@@ -175,6 +177,34 @@ export const ChipRow: Story = {
         due: 'today',
         project: ['Auth Overhaul', 'API Gateway v2', 'none'],
       }}
+    />
+  ),
+};
+
+const PILL_FILTERS = {
+  priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+  due: 'today',
+  project: ['Auth Overhaul', 'API Gateway v2', 'none'],
+};
+
+/**
+ * The alternative's chips as pills: 24px, fully round, 12px text, like the pills on a task's row.
+ * Not used by the app.
+ */
+export const ChipRowPills: Story = {
+  name: 'Alternative — filters as pills',
+  render: () => <ChipRowToolbar shape="pill" filters={PILL_FILTERS} />,
+};
+
+/** The pills in a narrow page: one line, the rest in "+2". */
+export const ChipRowPillsNarrow: Story = {
+  name: 'Alternative — filters as pills, narrow',
+  render: () => (
+    <ChipRowToolbar
+      shape="pill"
+      width={520}
+      height={160}
+      filters={{ ...PILL_FILTERS, source: 'external' }}
     />
   ),
 };
