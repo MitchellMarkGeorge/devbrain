@@ -13,7 +13,7 @@ import electronPath from 'electron';
  * - build/icon.icns: macOS, 16 to 1024 px;
  * - build/icon.ico: Windows, 16 to 256 px.
  *
- * The mark is drawn in soft, gently bevelled silver on a dark rounded square with a hairline rim
+ * The mark is drawn flat, in one light neutral, on a dark rounded square with a hairline rim
  * (scripts/icons/render.mjs), on the macOS icon grid (824 of 1024 px, with room for the shadow macOS adds); the Windows sizes fill more of the
  * canvas, as Windows icons do. Chromium draws them (scripts/icons/render.mjs, on Electron), so
  * nothing needs installing; on Linux without a display it runs under xvfb-run.

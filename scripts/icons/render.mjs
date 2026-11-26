@@ -7,16 +7,15 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const [svgPath, outDir, ...images] = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
-// the logomark's paths, to be filled with chrome instead of flat white
+// the logomark's paths, to be filled with the icon's own neutral instead of white
 const markPaths = readFileSync(svgPath, 'utf8')
   .match(/<g[^>]*>([\s\S]*)<\/g>/)[1]
   .trim();
 
-// The icon, drawn on a 48-unit tile. The mark is polished chrome: a fill that reflects a soft,
-// even light, gently bevelled edges from a light above, and a
-// contact shadow. It sits on a dark tile with a faint cool glow behind it, a soft light from
-// above and a hairline rim. The mark's viewBox is 40 by 48: 0.8 of the
-// tile high, its circle spans two thirds of it.
+// The icon, drawn on a 48-unit tile. The mark is flat: one light neutral (neutral-200), no gradient,
+// bevel or shadow. It sits on a dark tile with a faint cool glow behind it, a soft light from
+// above and a hairline rim. The mark is square (viewBox 40 by 40) and spans 26 of the tile's 48
+// units.
 const tile = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="100%" height="100%">
   <defs>
     <clipPath id="tile"><rect width="48" height="48" rx="10.8"/></clipPath>
@@ -39,37 +38,6 @@ const tile = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width=
       <stop offset="0.8" stop-color="#ffffff" stop-opacity="0.06"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0.1"/>
     </linearGradient>
-    <linearGradient id="chrome" x1="8" y1="4" x2="32" y2="44" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f4f5f7"/>
-      <stop offset="0.3" stop-color="#dcdfe3"/>
-      <stop offset="0.5" stop-color="#b4b7bc"/>
-      <stop offset="0.7" stop-color="#cfcecb"/>
-      <stop offset="1" stop-color="#c4c2be"/>
-    </linearGradient>
-    <filter id="metal" x="-4" y="-4" width="48" height="58" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <!-- contact shadow -->
-      <feGaussianBlur in="SourceAlpha" stdDeviation="1.6"/>
-      <feOffset dy="2" result="blur"/>
-      <feColorMatrix in="blur" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.4 0" result="shadow"/>
-      <!-- bevel: a light from above glancing off the rounded edges -->
-      <feGaussianBlur in="SourceAlpha" stdDeviation="0.55" result="bump"/>
-      <feSpecularLighting in="bump" surfaceScale="1.4" specularConstant="0.5" specularExponent="40" lighting-color="#ffffff" result="spec">
-        <feDistantLight azimuth="250" elevation="32"/>
-      </feSpecularLighting>
-      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specIn"/>
-      <!-- shade the lower edges -->
-      <feOffset in="SourceAlpha" dy="-0.6" result="up"/>
-      <feComposite in="SourceAlpha" in2="up" operator="out" result="lowerEdge"/>
-      <feGaussianBlur in="lowerEdge" stdDeviation="0.3"/>
-      <feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0"/>
-      <feComposite in2="SourceAlpha" operator="in" result="edgeShade"/>
-      <feComposite in="specIn" in2="SourceGraphic" operator="arithmetic" k2="0.25" k3="1" result="lit"/>
-      <feMerge>
-        <feMergeNode in="shadow"/>
-        <feMergeNode in="lit"/>
-        <feMergeNode in="edgeShade"/>
-      </feMerge>
-    </filter>
     <filter id="inner" x="0" y="-3" width="48" height="54" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="alpha"/>
       <feOffset dy="-2"/><feGaussianBlur stdDeviation="1.5"/>
@@ -82,8 +50,8 @@ const tile = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width=
     <g clip-path="url(#tile)">
       <rect width="48" height="48" fill="url(#base)"/>
       <rect width="48" height="48" fill="url(#glow)"/>
-      <svg x="8" y="4.8" width="32" height="38.4" viewBox="0 0 40 48" overflow="visible">
-        <g fill="url(#chrome)" filter="url(#metal)">${markPaths}</g>
+      <svg x="11" y="11" width="26" height="26" viewBox="0 0 40 40">
+        <g fill="#e5e5e5">${markPaths}</g>
       </svg>
       <rect width="48" height="48" fill="url(#gloss)"/>
     </g>
