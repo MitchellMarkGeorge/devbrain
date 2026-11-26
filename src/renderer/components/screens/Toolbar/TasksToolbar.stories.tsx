@@ -19,7 +19,7 @@ function TasksToolbar({ compact = false }: { compact?: boolean }) {
             <DemoToolbarStart
               list="tasks"
               compact={compact}
-              filters={{ priority: String(TaskPriority.HIGH), source: 'external' }}
+              filters={{ priority: [String(TaskPriority.HIGH)], source: 'external' }}
             />
           }
           end={<DemoToolbarEnd list="tasks" compact={compact} />}

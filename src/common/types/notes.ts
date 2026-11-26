@@ -16,6 +16,10 @@ export interface NoteListItem extends Note {
   link: NoteLinkSummary | null;
 }
 
+// What a note is linked to, as a filter: any event, any task, or neither.
+export const NOTE_LINK_KINDS = ['event', 'task', 'none'] as const;
+export type NoteLinkKind = (typeof NOTE_LINK_KINDS)[number];
+
 export type NoteLinkSummary = ({ type: 'event' } & EventSummary) | ({ type: 'task' } & TaskSummary);
 
 /**

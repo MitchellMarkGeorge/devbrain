@@ -1,4 +1,5 @@
 import type { EventId, ProjectId, TaskId } from '@common/ids';
+import type { NoteLinkKind, OneOrMany } from '@common/types';
 
 export interface CreateNoteOptions {
   title?: string;
@@ -12,11 +13,13 @@ export interface CreateNoteOptions {
 export interface NoteFilterOptions {
   // allowing null for some options to be able to test the absence of said links
   // for example, getting all notes that are without a project
-  projectId?: ProjectId | null;
+  // a list: the notes in any of these projects, null among them being the notes in none
+  projectId?: OneOrMany<ProjectId | null>;
   linkedEventId?: EventId | null;
   linkedTaskId?: TaskId | null;
-  // the notes linked to any event, or to any task (the Notes page's "Link" filter)
-  linkedTo?: 'event' | 'task';
+  // the notes linked to any event, to any task, or to neither (the Notes page's "Linked to"
+  // filter); a list: the notes that are any of these
+  linkedTo?: OneOrMany<NoteLinkKind>;
 }
 
 export interface NoteSortOptions {

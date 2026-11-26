@@ -3,11 +3,15 @@ import { DateTime } from 'luxon';
 import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
 import { TaskPriority, TaskStatus, type AppSettings } from '@common/types';
 import type { ipc } from '@renderer/ipc';
+import { multiParam } from '@renderer/shared/lib/search-params';
 
 // The tasks page's search params (docs/renderer/implementation-plan.md, "Search params"): snake
 // case names and values, each `.optional().catch(undefined)`, so a bad value drops that one field
 // back to its default rather than failing the page. A missing param means "the setting's default",
 // read at render (`resolveTasksSearch`), so no default is ever written into the URL.
+//
+// Priority and project hold several values, "any of these" (`multiParam`): a list in the URL, or
+// one value alone, as links from before they could hold several have it. Due and source hold one.
 
 const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
 
@@ -38,9 +42,9 @@ export const tasksSearchSchema = z.object({
   dir: optional(z.enum(['asc', 'desc'])),
   /** `open` hides completed and cancelled tasks; the default follows `showCompletedTasks` */
   status: optional(z.enum(STATUS_FILTERS)),
-  priority: optional(z.enum(PRIORITY_FILTERS)),
-  /** a project's tasks, or `none` for the tasks in no project */
-  project: optional(z.union([projectId, z.literal('none')])),
+  priority: multiParam(z.enum(PRIORITY_FILTERS)),
+  /** the tasks of any of these projects, `none` being the tasks in no project */
+  project: multiParam(z.union([projectId, z.literal('none')])),
   due: optional(z.enum(DUE_FILTERS)),
   /** core's `origin`: synced from an integration, or not */
   source: optional(z.enum(SOURCE_FILTERS)),
@@ -62,6 +66,9 @@ export type SortParam = (typeof SORTS)[number];
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 export type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
 export type DueFilter = (typeof DUE_FILTERS)[number];
+export type SourceFilter = (typeof SOURCE_FILTERS)[number];
+/** A project filter's value: a project, or `none` for the tasks (or notes) in no project. */
+export type ProjectFilter = ProjectId | 'none';
 
 /** What `tasks.list` takes. */
 export type TaskListInput = NonNullable<Parameters<typeof ipc.tasks.list.query>[0]>;
@@ -106,17 +113,20 @@ const DEFAULT_DIRECTION: Record<SortParam, 'asc' | 'desc'> = {
   updated_at: 'desc',
 };
 
-/** The page's state, with every missing param filled from the settings. */
+/**
+ * The page's state, with every missing param filled from the settings. A filter that holds several
+ * values is a list, empty when it is not set.
+ */
 export interface ResolvedTasksSearch {
   view: TaskView;
   groupBy: GroupBy;
   sort: SortParam;
   dir: 'asc' | 'desc';
   status: StatusFilter;
-  priority: PriorityFilter | undefined;
-  project: ProjectId | 'none' | undefined;
+  priority: readonly PriorityFilter[];
+  project: readonly ProjectFilter[];
   due: DueFilter | undefined;
-  source: 'local' | 'external' | undefined;
+  source: SourceFilter | undefined;
   open: TaskId | undefined;
 }
 
@@ -131,8 +141,8 @@ export function resolveTasksSearch(
     sort,
     dir: search.dir ?? DEFAULT_DIRECTION[sort],
     status: search.status ?? (settings.tasks.showCompletedTasks ? 'all' : 'open'),
-    priority: search.priority,
-    project: search.project,
+    priority: search.priority ?? [],
+    project: search.project ?? [],
     due: search.due,
     source: search.source,
     open: search.open,
@@ -192,6 +202,20 @@ export function dueFilter(
   }
 }
 
+/** A project filter's value as core's: null for the tasks in no project. */
+export function projectIdOf(project: ProjectFilter): ProjectId | null {
+  return project === 'none' ? null : project;
+}
+
+/**
+ * The one project the page is filtered to, if it is filtered to exactly one: where a task added
+ * from the page is filed. With several chosen, or "No project", there is none.
+ */
+export function onlyProjectOf(resolved: ResolvedTasksSearch): ProjectId | undefined {
+  const [project, ...others] = resolved.project;
+  return project !== undefined && project !== 'none' && others.length === 0 ? project : undefined;
+}
+
 /**
  * The page's filter, as `tasks.list` takes it: each param mapped to core's field, top-level tasks
  * only (a board column's cards; the list views drop `excludeSubtasks`, `taskListInput`).
@@ -200,8 +224,10 @@ export function taskFilterOf(resolved: ResolvedTasksSearch, today: Date): TaskFi
   const filter: TaskFilter = { excludeSubtasks: true };
   if (resolved.status === 'open') filter.excludeClosed = true;
   else if (resolved.status !== 'all') filter.status = STATUS_OF[resolved.status];
-  if (resolved.priority) filter.priority = PRIORITY_OF[resolved.priority];
-  if (resolved.project) filter.projectId = resolved.project === 'none' ? null : resolved.project;
+  if (resolved.priority.length > 0) {
+    filter.priority = resolved.priority.map((priority) => PRIORITY_OF[priority]);
+  }
+  if (resolved.project.length > 0) filter.projectId = resolved.project.map(projectIdOf);
   if (resolved.due) Object.assign(filter, dueFilter(resolved.due, today));
   if (resolved.source) filter.origin = resolved.source;
   return filter;

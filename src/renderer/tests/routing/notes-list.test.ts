@@ -87,11 +87,49 @@ describe('the notes list', () => {
     await eventually(() => expect(row('PKCE design notes')).toBeDefined());
     expect(row('Launch plan')).toBeUndefined();
     expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
-      filter: { projectId: PROJECT.id, linkedTo: 'task' },
+      filter: { projectId: [PROJECT.id], linkedTo: ['task'] },
       sort: { sortBy: 'title', direction: 'asc' },
     });
     // the test window is compact: the two filters' chips fold into the Filter button's count
     expect(app.text()).toContain('Filter2');
+  });
+
+  it('ticks several values of a filter: the notes that are any of them', async () => {
+    const { main, app } = notesPage();
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    const value = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
+    click(byText(app.container, 'button', 'Filter'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Linked to')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Linked to'));
+    await eventually(() => expect(value('An event')).not.toBeNull());
+    click(value('An event'));
+    await eventually(() => expect(value('An event')!.getAttribute('aria-checked')).toBe('true'));
+    click(value('A task'));
+    const list = encodeURIComponent(JSON.stringify(['event', 'task']));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=${list}`));
+    await eventually(() =>
+      expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
+        filter: { linkedTo: ['event', 'task'] },
+      }),
+    );
+    await eventually(() => expect(row('Launch plan')).toBeUndefined());
+    expect(row('PKCE design notes')).toBeDefined();
+    expect(row('Jesse 1:1')).toBeDefined();
+    // "Any" removes the filter
+    click(value('Any'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
+  });
+
+  it('lists the notes of any of several projects, "No project" among them', async () => {
+    const list = encodeURIComponent(JSON.stringify([PROJECT.id, 'none']));
+    const { main } = notesPage(`?project=${list}&link=none`);
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
+      filter: { projectId: [PROJECT.id, null], linkedTo: ['none'] },
+    });
+    expect(row('PKCE design notes')).toBeUndefined();
   });
 
   it('drops a bad param and keeps the rest', async () => {

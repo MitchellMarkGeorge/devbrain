@@ -33,21 +33,31 @@
   width: 28px;
   color: var(--muted-foreground);
 }
-/* a chip's value: a long project name is cut with "…" */
-.value {
-  display: block;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/*
+ * What a field is filtered to, in a chip or the Filter menu: its text, cut with "…" when it is
+ * long (a project's name, two values side by side), then "+2", which is never cut.
+ */
+.summary {
+  display: flex;
+  min-width: 0;
 }
-
-/* a field's value in the Filter menu: cut before it squeezes the field's name */
-.menuValue {
-  display: block;
-  max-width: 72px;
+.summaryText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.more {
+  flex: none;
+  white-space: pre;
+}
+/* in a chip */
+.value {
+  max-width: 160px;
+}
+/* in the Filter menu: cut before it squeezes the field's name */
+.menuValue {
+  max-width: 80px;
 }
 
 /* "+ Filter": a quiet button after the chips */

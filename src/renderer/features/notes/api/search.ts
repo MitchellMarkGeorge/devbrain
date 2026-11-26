@@ -1,11 +1,16 @@
 import { z } from 'zod';
 import { isId, type ProjectId, type TaskId } from '@common/ids';
+import { NOTE_LINK_KINDS } from '@common/types';
 import type { ipc } from '@renderer/ipc';
+import { multiParam } from '@renderer/shared/lib/search-params';
 
 // The notes page's search params (docs/renderer/implementation-plan.md, "Search params ›
 // /app/notes"): snake case names and values, each `.optional().catch(undefined)`, so a bad value
 // drops that one field back to its default rather than failing the page. No default is ever
 // written into the URL: a missing param is resolved at render (`resolveNotesSearch`).
+//
+// Both filters hold several values, "any of these" (`multiParam`): a list in the URL, or one value
+// alone, as links from before they could hold several have it.
 
 const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
 
@@ -13,17 +18,17 @@ const projectId = z.custom<ProjectId>((value) => isId('project', value), 'Not a 
 
 export const NOTE_VIEWS = ['list', 'card'] as const;
 export const NOTE_SORTS = ['updated_at', 'created_at', 'title'] as const;
-export const LINK_FILTERS = ['event', 'task', 'none'] as const;
+export const LINK_FILTERS = NOTE_LINK_KINDS;
 
 export const notesSearchSchema = z.object({
   view: optional(z.enum(NOTE_VIEWS)),
   /** "Last edited" by default */
   sort: optional(z.enum(NOTE_SORTS)),
   dir: optional(z.enum(['asc', 'desc'])),
-  /** a project's notes, or `none` for the notes in no project */
-  project: optional(z.union([projectId, z.literal('none')])),
-  /** the notes linked to an event, to a task, or to neither */
-  link: optional(z.enum(LINK_FILTERS)),
+  /** the notes of any of these projects, `none` being the notes in no project */
+  project: multiParam(z.union([projectId, z.literal('none')])),
+  /** the notes linked to an event, to a task, or to neither; any of those chosen */
+  link: multiParam(z.enum(LINK_FILTERS)),
 });
 
 export type NotesSearch = z.infer<typeof notesSearchSchema>;
@@ -56,13 +61,13 @@ const DEFAULT_DIRECTION: Record<NoteSortParam, 'asc' | 'desc'> = {
   title: 'asc',
 };
 
-/** The page's state, every missing param filled in. */
+/** The page's state, every missing param filled in. A filter is a list, empty when it is not set. */
 export interface ResolvedNotesSearch {
   view: NoteView;
   sort: NoteSortParam;
   dir: 'asc' | 'desc';
-  project: ProjectId | 'none' | undefined;
-  link: LinkFilter | undefined;
+  project: readonly (ProjectId | 'none')[];
+  link: readonly LinkFilter[];
 }
 
 export function resolveNotesSearch(search: NotesSearch): ResolvedNotesSearch {
@@ -71,8 +76,8 @@ export function resolveNotesSearch(search: NotesSearch): ResolvedNotesSearch {
     view: search.view ?? 'list',
     sort,
     dir: search.dir ?? DEFAULT_DIRECTION[sort],
-    project: search.project,
-    link: search.link,
+    project: search.project ?? [],
+    link: search.link ?? [],
   };
 }
 
@@ -90,9 +95,10 @@ export const NOTES_PAGE_SIZE = 100;
 /** The page's `notes.list` input, without the cursor. */
 export function noteListInput(resolved: ResolvedNotesSearch): NoteListInput {
   const filter: NoteFilter = {};
-  if (resolved.project) filter.projectId = resolved.project === 'none' ? null : resolved.project;
-  if (resolved.link === 'none') Object.assign(filter, { linkedEventId: null, linkedTaskId: null });
-  else if (resolved.link) filter.linkedTo = resolved.link;
+  if (resolved.project.length > 0) {
+    filter.projectId = resolved.project.map((project) => (project === 'none' ? null : project));
+  }
+  if (resolved.link.length > 0) filter.linkedTo = [...resolved.link];
   return {
     filter,
     sort: { sortBy: SORT_BY[resolved.sort], direction: resolved.dir },

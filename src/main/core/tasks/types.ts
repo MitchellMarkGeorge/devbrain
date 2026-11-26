@@ -1,5 +1,5 @@
 import type { EventId, NoteId, ProjectId } from '@common/ids';
-import type { SettablePriority, TaskPriority, TaskStatus } from '@common/types';
+import type { OneOrMany, SettablePriority, TaskPriority, TaskStatus } from '@common/types';
 import { tasks } from '@main/db/schema/tasks';
 import { InferSelectModel } from 'drizzle-orm';
 
@@ -47,10 +47,12 @@ export interface TaskFilterOptions {
   status?: TaskStatus;
   // allowing null for some options to be able to test the absence of said links
   // for example, getting all tasks that are without a project
-  projectId?: ProjectId | null;
+  // a list: the tasks in any of these projects, null among them being the tasks in none
+  projectId?: OneOrMany<ProjectId | null>;
   noteId?: NoteId | null;
   eventId?: EventId | null;
-  priority?: TaskPriority;
+  // a list: the tasks with any of these priorities
+  priority?: OneOrMany<TaskPriority>;
   dueOn?: Date;
   dueBefore?: Date;
   dueAfter?: Date;

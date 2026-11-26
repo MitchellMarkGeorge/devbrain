@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
+import { listParam } from '@renderer/shared/lib/search-params';
 import {
   ListDisplay,
   ListFilters,
@@ -66,7 +67,10 @@ const LAYOUTS: ListToolbarOption<NoteView>[] = [
   { value: 'card', label: 'Cards', icon: LayoutGrid },
 ];
 
-/** Which notes are shown: a chip per filter that is set (what it links to, its project), "+ Filter". */
+/**
+ * Which notes are shown: a chip per filter that is set (what it links to, its project), "+ Filter".
+ * Both filters hold several values.
+ */
 export function NotesToolbarStart({
   resolved,
   setSearch,
@@ -89,8 +93,9 @@ export function NotesToolbarStart({
             label: LINK_LABELS[link],
             icon: LINK_ICONS[link],
           })),
+          multiple: true,
           value: resolved.link,
-          onChange: (link) => setSearch({ link: link as LinkFilter | undefined }),
+          onChange: (link) => setSearch({ link: listParam(link as LinkFilter[]) }),
         },
         {
           id: 'project',
@@ -105,8 +110,10 @@ export function NotesToolbarStart({
             })),
             { value: 'none', label: 'No project', icon: CircleSlash },
           ],
+          multiple: true,
           value: resolved.project,
-          onChange: (project) => setSearch({ project: project as ProjectId | 'none' | undefined }),
+          onChange: (project) =>
+            setSearch({ project: listParam(project as (ProjectId | 'none')[]) }),
         },
       ]}
       onClear={() => setSearch(CLEAR_FILTERS)}

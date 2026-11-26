@@ -13,8 +13,28 @@ import {
 
 describe('notesSearchSchema', () => {
   it('reads every param', () => {
-    const search = { view: 'card', sort: 'title', dir: 'desc', project: 'prj_1', link: 'event' };
+    const search = {
+      view: 'card',
+      sort: 'title',
+      dir: 'desc',
+      project: ['prj_1', 'none'],
+      link: ['event', 'task'],
+    };
     expect(notesSearchSchema.parse(search)).toEqual(search);
+  });
+
+  it('reads a filter’s one value, as older links have it, as a list of one', () => {
+    expect(notesSearchSchema.parse({ project: 'prj_1', link: 'event' })).toEqual({
+      project: ['prj_1'],
+      link: ['event'],
+    });
+  });
+
+  it('drops a bad value from a list, and the filter when none is left', () => {
+    expect(
+      notesSearchSchema.parse({ project: ['tsk_1', 'prj_1', 'prj_1'], link: ['meeting'] }),
+    ).toEqual({ project: ['prj_1'] });
+    expect(notesSearchSchema.parse({ link: [] }).link).toBeUndefined();
   });
 
   it('drops a bad value, keeping the rest', () => {
@@ -26,11 +46,11 @@ describe('notesSearchSchema', () => {
         project: 'tsk_1',
         link: 'task',
       }),
-    ).toEqual({ link: 'task' });
+    ).toEqual({ link: ['task'] });
   });
 
   it('reads `none` for the notes in no project', () => {
-    expect(notesSearchSchema.parse({ project: 'none' })).toEqual({ project: 'none' });
+    expect(notesSearchSchema.parse({ project: 'none' })).toEqual({ project: ['none'] });
   });
 
   it('writes nothing for a missing param', () => {
@@ -44,8 +64,8 @@ describe('resolveNotesSearch', () => {
       view: 'list',
       sort: 'updated_at',
       dir: 'desc',
-      project: undefined,
-      link: undefined,
+      project: [],
+      link: [],
     });
   });
 
@@ -56,8 +76,8 @@ describe('resolveNotesSearch', () => {
 
   it('knows when a filter narrows the list', () => {
     expect(hasFilters({ view: 'card', sort: 'title' })).toBe(false);
-    expect(hasFilters({ link: 'none' })).toBe(true);
-    expect(hasFilters({ project: 'none' })).toBe(true);
+    expect(hasFilters({ link: ['none'] })).toBe(true);
+    expect(hasFilters({ project: ['none'] })).toBe(true);
   });
 });
 
@@ -66,11 +86,19 @@ describe('noteListInput', () => {
     const input = (search: Parameters<typeof resolveNotesSearch>[0]) =>
       noteListInput(resolveNotesSearch(search)).filter;
     expect(input({})).toEqual({});
-    expect(input({ project: 'none' })).toEqual({ projectId: null });
-    expect(input({ project: 'prj_1' as never })).toEqual({ projectId: 'prj_1' });
-    expect(input({ link: 'event' })).toEqual({ linkedTo: 'event' });
-    expect(input({ link: 'task' })).toEqual({ linkedTo: 'task' });
-    expect(input({ link: 'none' })).toEqual({ linkedEventId: null, linkedTaskId: null });
+    expect(input({ project: ['none'] })).toEqual({ projectId: [null] });
+    expect(input({ project: ['prj_1' as never] })).toEqual({ projectId: ['prj_1'] });
+    expect(input({ link: ['event'] })).toEqual({ linkedTo: ['event'] });
+    expect(input({ link: ['none'] })).toEqual({ linkedTo: ['none'] });
+  });
+
+  it('sends several values of a filter as a list, "no project" among them as null', () => {
+    const input = (search: Parameters<typeof resolveNotesSearch>[0]) =>
+      noteListInput(resolveNotesSearch(search)).filter;
+    expect(input({ project: ['prj_1' as never, 'none'], link: ['event', 'task'] })).toEqual({
+      projectId: ['prj_1', null],
+      linkedTo: ['event', 'task'],
+    });
   });
 
   it('maps the sort, in pages of 100', () => {

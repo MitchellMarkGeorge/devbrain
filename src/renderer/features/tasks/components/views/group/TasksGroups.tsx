@@ -18,6 +18,7 @@ import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from '../../../lib/groups
 import { groupTasksQuery } from '../../../api/queries';
 import {
   hasFilters,
+  onlyProjectOf,
   taskListInput,
   type ResolvedTasksSearch,
   type TasksSearch,
@@ -27,9 +28,11 @@ import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
 import { useCreateTask } from '../../../hooks/use-create-task';
 import styles from '../TasksView.module.css';
 
-// a project's own groups (its page) file a new task in it
+// a project's own groups (its page), or a list filtered to one project, file a new task in it;
+// filtered to several, in none of them
 function projectDefault(resolved: ResolvedTasksSearch): { projectId?: ProjectId } {
-  return resolved.project && resolved.project !== 'none' ? { projectId: resolved.project } : {};
+  const projectId = onlyProjectOf(resolved);
+  return projectId ? { projectId } : {};
 }
 
 export interface TasksGroupsProps {

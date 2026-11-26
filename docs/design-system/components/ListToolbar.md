@@ -9,16 +9,31 @@ the start, how they are drawn at the end. Three pieces, all `outline` 32px butto
   (Notes) leaves it out.
 - **`ListFilters`** — a chip for each filter that is set ("Priority High" joined to its ×), then a
   quiet "+ Filter". A chip's value opens its field's values; its × removes the filter; a long value
-  is cut with "…". The "+ Filter" menu has an item for each field, with the value the field is
+  is cut with "…". The "+ Filter" menu has an item for each field, with what the field is
   filtered to before its chevron ("Priority High ›"), opening the field's values in a submenu:
   "Any" first, which removes the filter. A field whose values are the user's own (projects) gets a
   search row in its menus (`search`) and draws each value's own glyph (a project's folder in its
-  colour). "Clear filters" ends the menu while a filter is set. A field holds one value.
+  colour). "Clear filters" ends the menu while a filter is set.
 - **`ListDisplay`** — "Display Priority". One popover: the layout as a full-width switch (List,
   Board; List, Cards), then "Group by" and "Sort by" as selects, the sort with a button for its
   direction. The button's value is what orders the page: the sort, or the layout when it orders
   itself. A layout with nothing else to set (the board) shows a line saying so (`note`) in place of
   the rows.
+
+A field holds one value or several (`ListFilterField`):
+
+- **One value** (the default: Due, Source). Its values are a choice of one (radio items); picking
+  one closes the menu. `value` is the value or `undefined`.
+- **Several values** (`multiple: true`: Priority, Project, a note's Linked to), meaning "any of
+  these". Its values tick on their own (checkbox items) and the menu stays open for the next one;
+  "Any" in the submenu unticks them all and closes it. `value` is a list, empty when the filter is
+  not set, and `onChange` gets the new list in the options' order. Unticking the last value removes
+  the chip. The chip and the menu's item show the same summary: one value's label ("High"), two
+  side by side ("High, Medium"), and from three the first and how many more ("High +2"). The text
+  is cut with "…" when it is long; "+2" never is.
+
+A field is one filter however many values it holds: one chip, and one in the counts "Filter 2" and
+"Filter +2".
 
 Rules:
 

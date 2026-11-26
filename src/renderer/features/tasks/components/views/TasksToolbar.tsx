@@ -14,7 +14,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import type { ProjectId } from '@common/ids';
 import {
   Button,
   ListDisplay,
@@ -31,6 +30,7 @@ import { trpc } from '@renderer/ipc';
 import { useCreateTask } from '../../hooks/use-create-task';
 import { useProjectOptions } from '../../hooks/use-project-options';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
+import { listParam } from '@renderer/shared/lib/search-params';
 import {
   CLEAR_FILTERS,
   DUE_FILTERS,
@@ -43,6 +43,7 @@ import {
   type DueFilter,
   type GroupBy,
   type PriorityFilter,
+  type ProjectFilter,
   type ResolvedTasksSearch,
   type SortParam,
   type StatusFilter,
@@ -130,7 +131,7 @@ const LAYOUTS: ListToolbarOption<'list' | 'board'>[] = [
 /**
  * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
  * completed tasks"), a chip per filter that is set (priority, due, source, project) and
- * "+ Filter". A project's Tasks tab has its project fixed: no Project filter.
+ * "+ Filter". Priority and project hold several values, due and source one. A project's Tasks tab has its project fixed: no Project filter.
  */
 export function TasksToolbarStart({
   resolved,
@@ -156,8 +157,9 @@ export function TasksToolbarStart({
         label: PRIORITY_FILTER_LABELS[priority],
         icon: <PriorityIcon priority={PRIORITY_OF[priority]} />,
       })),
+      multiple: true,
       value: resolved.priority,
-      onChange: (priority) => setSearch({ priority: priority as PriorityFilter | undefined }),
+      onChange: (priority) => setSearch({ priority: listParam(priority as PriorityFilter[]) }),
     },
     {
       id: 'due',
@@ -197,8 +199,9 @@ export function TasksToolbarStart({
         })),
         { value: 'none', label: 'No project', icon: CircleSlash },
       ],
+      multiple: true,
       value: resolved.project,
-      onChange: (project) => setSearch({ project: project as ProjectId | 'none' | undefined }),
+      onChange: (project) => setSearch({ project: listParam(project as ProjectFilter[]) }),
     });
   }
 

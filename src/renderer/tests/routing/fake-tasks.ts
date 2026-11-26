@@ -1,9 +1,12 @@
 import type { NoteId, ProjectId, TaskId } from '@common/ids';
 import {
+  listOf,
   ProjectStatus,
   TaskPriority,
   TaskStatus,
+  type NoteLinkKind,
   type NoteListItem,
+  type OneOrMany,
   type Project,
   type ProjectStats,
   type Task,
@@ -101,8 +104,8 @@ export function fakeNote(
 
 type Filter = {
   status?: TaskStatus;
-  priority?: TaskPriority;
-  projectId?: ProjectId | null;
+  priority?: OneOrMany<TaskPriority>;
+  projectId?: OneOrMany<ProjectId | null>;
   excludeClosed?: boolean;
   excludeSubtasks?: boolean;
   noDueDate?: boolean;
@@ -113,11 +116,26 @@ type Filter = {
 };
 
 type NoteFilter = {
-  projectId?: ProjectId | null;
+  projectId?: OneOrMany<ProjectId | null>;
   linkedEventId?: string | null;
   linkedTaskId?: string | null;
-  linkedTo?: 'event' | 'task';
+  linkedTo?: OneOrMany<NoteLinkKind>;
 };
+
+// a filter that takes one value or a list, as core's does: any of them
+const isOneOf = <T>(value: T, wanted: OneOrMany<T> | undefined) =>
+  wanted === undefined || listOf(wanted).includes(value);
+
+// core's `linkedTo`: linked to an event, to a task, or to neither; a list is any of those
+function linkedToAny(note: NoteListItem, wanted: OneOrMany<NoteLinkKind> | undefined): boolean {
+  if (wanted === undefined) return true;
+  const kinds = listOf(wanted);
+  return (
+    (kinds.includes('event') && note.linkedEventId !== null) ||
+    (kinds.includes('task') && note.linkedTaskId !== null) ||
+    (kinds.includes('none') && note.linkedEventId === null && note.linkedTaskId === null)
+  );
+}
 
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
@@ -179,8 +197,8 @@ export class FakeTasks {
       (task) =>
         task.archivedAt === null &&
         (filter.status === undefined || task.status === filter.status) &&
-        (filter.priority === undefined || task.priority === filter.priority) &&
-        (filter.projectId === undefined || task.projectId === filter.projectId) &&
+        isOneOf(task.priority, filter.priority) &&
+        isOneOf(task.projectId, filter.projectId) &&
         (!filter.excludeClosed || !CLOSED.includes(task.status)) &&
         (!filter.excludeSubtasks || task.parentTaskId === null) &&
         (!filter.noDueDate || task.dueDate === null) &&
@@ -232,11 +250,10 @@ export class FakeTasks {
       .filter(
         (note) =>
           note.archivedAt === null &&
-          (filter.projectId === undefined || note.projectId === filter.projectId) &&
+          isOneOf(note.projectId, filter.projectId) &&
           (filter.linkedEventId === undefined || note.linkedEventId === filter.linkedEventId) &&
           (filter.linkedTaskId === undefined || note.linkedTaskId === filter.linkedTaskId) &&
-          (filter.linkedTo !== 'event' || note.linkedEventId !== null) &&
-          (filter.linkedTo !== 'task' || note.linkedTaskId !== null),
+          linkedToAny(note, filter.linkedTo),
       )
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }

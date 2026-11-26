@@ -307,9 +307,10 @@ export const tasksSearch = z.object({
 | `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                                     |
 | `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                                        |
 
-Core filters `status` and `priority` by one value each. Multi-select filters are a main change
-(T3); the params are written as single values now and can become arrays later without breaking
-URLs (`z.union([value, z.array(value)])`).
+`priority` and `project` (and the notes page's `project` and `link`) hold several values, "any of
+these": a list in the URL, or one value alone as older links have it (`multiParam`,
+`shared/lib/search-params.ts`), and a list in core's filter (`OneOrMany`). `status`, `due` and
+`source` hold one.
 
 ### `/app/projects`
 

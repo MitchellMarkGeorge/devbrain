@@ -93,7 +93,7 @@ describe('the project page’s params', () => {
     expect(projectTasksSearch({ tab: 'tasks', view: 'group' }, id)).toEqual({
       view: 'group',
       group_by: 'status',
-      project: id,
+      project: [id],
     });
     expect(projectTasksSearch({ group_by: 'project' }, id).group_by).toBe('status');
     expect(projectTasksSearch({ group_by: 'priority' }, id).group_by).toBe('priority');

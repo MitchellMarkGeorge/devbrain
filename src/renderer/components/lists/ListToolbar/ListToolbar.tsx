@@ -13,6 +13,7 @@ import { Button } from '../../ui/Button';
 import { ButtonGroup } from '../../ui/ButtonGroup';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuEmpty,
   DropdownMenuFilter,
@@ -116,14 +117,11 @@ export function ListStatusChip<Value extends string = string>({
   );
 }
 
-/** One thing a list can be filtered by, and the value it is filtered to (none: not filtering). */
-export interface ListFilterField {
+interface ListFilterFieldBase {
   id: string;
   label: string;
   icon: IconSource;
   options: ListToolbarOption[];
-  value: string | undefined;
-  onChange: (value: string | undefined) => void;
   /**
    * gives the field's submenu a search row with this placeholder ("Search projects…"): for a
    * field whose values are the user's own, and so may be many
@@ -131,13 +129,100 @@ export interface ListFilterField {
   search?: string;
 }
 
+/** A field that holds one value (Due): its values are a choice of one. */
+export interface ListSingleFilterField extends ListFilterFieldBase {
+  multiple?: false;
+  /** the value it is filtered to; none: not filtering */
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+}
+
+/** A field that holds several values, meaning "any of these" (Priority): each ticks on its own. */
+export interface ListMultiFilterField extends ListFilterFieldBase {
+  multiple: true;
+  /** the values it is filtered to; empty: not filtering */
+  value: readonly string[];
+  onChange: (value: string[]) => void;
+}
+
+/** One thing a list can be filtered by, and what it is filtered to. */
+export type ListFilterField = ListSingleFilterField | ListMultiFilterField;
+
+/** The values a field is filtered to: none, one, or for a `multiple` field several. */
+function valuesOf(field: ListFilterField): readonly string[] {
+  if (field.multiple) return field.value;
+  return field.value === undefined ? [] : [field.value];
+}
+
+function removeFilter(field: ListFilterField) {
+  if (field.multiple) field.onChange([]);
+  else field.onChange(undefined);
+}
+
 /**
- * A field's values as a choice of one, under a search row for a field that asks for one (the menu
- * or submenu around them must then be in a `DropdownMenuFilter`). `any` puts "Any" first, which
- * removes the filter.
+ * What a field is filtered to, in words: one value's label ("High"), two side by side
+ * ("High, Medium"), and from three the first with how many more ("High +2"). In the options'
+ * order, whatever order they were ticked in.
+ */
+export function filterSummary(field: ListFilterField): { text: string; more: number } {
+  const values = valuesOf(field);
+  const labels = field.options
+    .filter((option) => values.includes(option.value))
+    .map((option) => option.label);
+  if (values.length <= 2) return { text: labels.join(', '), more: 0 };
+  return { text: labels[0] ?? '', more: values.length - 1 };
+}
+
+/** A field's summary, in a chip or a menu: the text is cut with "…" before "+2" is. */
+function FieldSummary({ field, className }: { field: ListFilterField; className?: string }) {
+  const { text, more } = filterSummary(field);
+  return (
+    <span className={cn(styles.summary, className)}>
+      <span className={styles.summaryText}>{text}</span>
+      {more > 0 && <span className={styles.more}> +{more}</span>}
+    </span>
+  );
+}
+
+/** `values` with `value` ticked or unticked, in the options' order (a value with no option last). */
+function toggled(field: ListMultiFilterField, value: string, checked: boolean): string[] {
+  const next = new Set(field.value);
+  if (checked) next.add(value);
+  else next.delete(value);
+  const known = field.options.map((option) => option.value).filter((known) => next.has(known));
+  return [...known, ...[...next].filter((other) => !known.includes(other))];
+}
+
+/**
+ * A field's values, under a search row for a field that asks for one (the menu or submenu around
+ * them must then be in a `DropdownMenuFilter`): a choice of one, or for a `multiple` field items
+ * that tick on their own, the menu staying open. `any` puts "Any" first, which removes the filter.
  */
 function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) {
-  const values = (
+  const values = field.multiple ? (
+    <DropdownMenuGroup>
+      {any && (
+        <DropdownMenuCheckboxItem
+          icon={CircleSlash}
+          checked={field.value.length === 0}
+          closeOnClick
+          onCheckedChange={() => field.onChange([])}
+        >
+          Any
+        </DropdownMenuCheckboxItem>
+      )}
+      {field.options.map((option) => (
+        <DropdownMenuCheckboxItem
+          key={option.value}
+          icon={option.icon}
+          checked={field.value.includes(option.value)}
+          onCheckedChange={(checked) => field.onChange(toggled(field, option.value, checked))}
+        >
+          {option.label}
+        </DropdownMenuCheckboxItem>
+      ))}
+    </DropdownMenuGroup>
+  ) : (
     <DropdownMenuRadioGroup
       value={field.value ?? ''}
       onValueChange={(next: string) => field.onChange(next === '' ? undefined : next)}
@@ -168,17 +253,17 @@ function Searchable({ field, children }: { field: ListFilterField; children: Rea
 }
 
 /**
- * A field in the Filter menu: an item naming the field and the value it is filtered to, opening
- * its values in a submenu, "Any" first.
+ * A field in the Filter menu: an item naming the field and what it is filtered to, opening its
+ * values in a submenu, "Any" first.
  */
 function FieldSubmenu({ field }: { field: ListFilterField }) {
-  const current = field.options.find((option) => option.value === field.value);
+  const set = valuesOf(field).length > 0;
   return (
     <Searchable field={field}>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger
           icon={field.icon}
-          value={current && <span className={styles.menuValue}>{current.label}</span>}
+          value={set ? <FieldSummary field={field} className={styles.menuValue} /> : undefined}
         >
           {field.label}
         </DropdownMenuSubTrigger>
@@ -192,7 +277,6 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
 
 /** A filter that is set, as a chip: its value opens the field's values, its × removes it. */
 function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean }) {
-  const current = field.options.find((option) => option.value === field.value);
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
@@ -208,7 +292,7 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
               <Button
                 variant="outline"
                 icon={field.icon}
-                value={<span className={styles.value}>{current?.label}</span>}
+                value={<FieldSummary field={field} className={styles.value} />}
               >
                 {field.label}
               </Button>
@@ -229,7 +313,7 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
         icon={X}
         aria-label={`Remove ${field.label} filter`}
         className={styles.chipRemove}
-        onClick={() => field.onChange(undefined)}
+        onClick={() => removeFilter(field)}
       />
     </ButtonGroup>
   );
@@ -291,16 +375,18 @@ function measure(row: HTMLElement, plainWidth: number): number {
  * button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). A folded
  * chip stays in the row, unseen and out of its flow, so its width can always be read: how many
  * fit is counted from the page as it is, with nothing remembered. The menu
- * has an item for each field, showing the value it is filtered to (so a folded filter is still
- * one click away) and opening its values in a submenu, with a search row for a field that asks for
- * one. A field holds one value.
+ * has an item for each field, showing what it is filtered to (so a folded filter is still one
+ * click away) and opening its values in a submenu, with a search row for a field that asks for
+ * one. A field holds one value, or with `multiple` several, meaning "any of these": its values
+ * tick on their own, its chip names up to two ("High, Medium") and then counts ("High +2"), and
+ * unticking the last one removes the chip.
  *
  * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group), where it
  * stays put as chips come and go. It is there with one filter too: beside the chip's × in a wide
  * window, and the only one-click way out in a compact one, where the chip is folded.
  */
 export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
-  const set = fields.filter((field) => field.value !== undefined);
+  const set = fields.filter((field) => valuesOf(field).length > 0);
   const row = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   // "+ Filter"'s width, as last drawn with no chip folded
@@ -311,8 +397,8 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
   // chip is wider for it, so the label is part of the key.
   const chipsKey = set
     .map((field) => {
-      const label = field.options.find((option) => option.value === field.value)?.label ?? '';
-      return `${field.id}:${field.value}:${label}`;
+      const { text, more } = filterSummary(field);
+      return `${field.id}:${valuesOf(field).join(',')}:${text}:${more}`;
     })
     .join('|');
   const [rowWidth, setRowWidth] = useState(0);

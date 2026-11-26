@@ -4,6 +4,7 @@ import { tasks } from '@main/db/schema/tasks';
 import { LinkState, Task, TaskStatus } from '@common/types';
 import { localDayWindow } from '../shared/dates';
 import { hasLinkInState } from '../integrations/refs';
+import { isOneOf } from '../shared/filters';
 import { keyset, PageOptions } from '../shared/pagination';
 import type { TaskFilterOptions, TaskSortOptions } from './types';
 
@@ -27,11 +28,8 @@ export function taskFilterClauses(table: TasksTable, filter: TaskFilterOptions):
 
   if (filter.status) clauses.push(eq(table.status, filter.status));
 
-  if (filter.projectId !== undefined) {
-    clauses.push(
-      filter.projectId === null ? isNull(table.projectId) : eq(table.projectId, filter.projectId),
-    );
-  }
+  // one project or any of several; null is the tasks in no project
+  if (filter.projectId !== undefined) clauses.push(isOneOf(table.projectId, filter.projectId));
 
   if (filter.noteId !== undefined) {
     clauses.push(
@@ -48,7 +46,7 @@ export function taskFilterClauses(table: TasksTable, filter: TaskFilterOptions):
   }
 
   // NONE is 0, so test for a value, not truthiness
-  if (filter.priority !== undefined) clauses.push(eq(table.priority, filter.priority));
+  if (filter.priority !== undefined) clauses.push(isOneOf(table.priority, filter.priority));
   if (filter.dueBefore != null) clauses.push(lt(table.dueDate, filter.dueBefore));
   if (filter.dueAfter != null) clauses.push(gt(table.dueDate, filter.dueAfter));
   if (filter.noDueDate) clauses.push(isNull(table.dueDate));

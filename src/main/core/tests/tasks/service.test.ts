@@ -516,6 +516,51 @@ describe('TaskService — listTasks', () => {
     expect(result[0].id).toBe(high.id);
   });
 
+  it('filter.priority takes a list: the tasks with any of those priorities', () => {
+    const make = (
+      title: string,
+      priority: TaskPriority.HIGH | TaskPriority.MEDIUM | TaskPriority.LOW,
+    ) => tasks.createTask({ title, dueDate: TOMORROW, priority });
+    const high = make('High', TaskPriority.HIGH);
+    const medium = make('Medium', TaskPriority.MEDIUM);
+    const low = make('Low', TaskPriority.LOW);
+    const idsFor = (priority: TaskPriority[]) =>
+      tasks
+        .listTasks({ priority })
+        .items.map((task) => task.id)
+        .sort();
+    expect(idsFor([TaskPriority.HIGH, TaskPriority.MEDIUM])).toEqual([high.id, medium.id].sort());
+    expect(idsFor([TaskPriority.LOW])).toEqual([low.id]);
+    // an empty list asks for nothing
+    expect(idsFor([])).toEqual([]);
+  });
+
+  it('filter.projectId takes a list, null among them being the tasks in no project', () => {
+    const other = new ProjectService(db, tasks).createProject({ title: 'Other' }).id;
+    const inFake = tasks.createTask({
+      title: 'Fake',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+    });
+    const inOther = tasks.createTask({ title: 'Other', dueDate: TOMORROW, projectId: other });
+    const inNone = tasks.createTask({ title: 'None', dueDate: TOMORROW });
+    const idsFor = (projectId: (ProjectId | null)[]) =>
+      tasks
+        .listTasks({ projectId })
+        .items.map((task) => task.id)
+        .sort();
+    expect(idsFor([FAKE_PROJECT_ID, other])).toEqual([inFake.id, inOther.id].sort());
+    expect(idsFor([other, null])).toEqual([inOther.id, inNone.id].sort());
+    expect(idsFor([null])).toEqual([inNone.id]);
+    // the tree reads the same filter
+    expect(
+      tasks
+        .listTaskTree({ projectId: [other, null] })
+        .items.map((task) => task.id)
+        .sort(),
+    ).toEqual([inOther.id, inNone.id].sort());
+  });
+
   it('filter.priority finds the tasks with no priority (NONE is 0, not "no filter")', () => {
     const none = tasks.createTask({ title: 'Synced, no priority', dueDate: TOMORROW });
     // only sync sets NONE; stand in for it with a direct write

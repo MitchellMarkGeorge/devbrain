@@ -131,5 +131,5 @@ export function projectTasksSearch(search: ProjectSearch, projectId: ProjectId):
   const { tab, ...tasks } = search;
   const groupBy =
     tasks.group_by === undefined || tasks.group_by === 'project' ? 'status' : tasks.group_by;
-  return { ...tasks, group_by: groupBy, project: projectId };
+  return { ...tasks, group_by: groupBy, project: [projectId] };
 }

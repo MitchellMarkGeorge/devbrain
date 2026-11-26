@@ -1,8 +1,14 @@
 import { z } from 'zod';
-import type { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
+import {
+  NOTE_LINK_KINDS,
+  type Note,
+  type NoteDeleteResult,
+  type NoteListItem,
+  type Page,
+} from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
-import { zId, zPageFields } from '../zod';
+import { zId, zOneOrMany, zPageFields } from '../zod';
 
 // The workspace's active notes. A note's markdown lives in its file: `updateContent` writes it, and
 // the rows returned carry its preview only.
@@ -26,8 +32,15 @@ export const notesRouter = t.router({
   list: wsProcedure
     .input(
       z.object({
-        // `linkedTo`: the notes linked to any event, or to any task
-        filter: z.object({ ...links, linkedTo: z.enum(['event', 'task']).optional() }).optional(),
+        // `projectId` and `linkedTo` take a list too: the notes in any of the projects; the
+        // notes linked to any event, to any task or to neither, or any of those
+        filter: z
+          .object({
+            ...links,
+            projectId: zOneOrMany(zId('project').nullable()).optional(),
+            linkedTo: zOneOrMany(z.enum(NOTE_LINK_KINDS)).optional(),
+          })
+          .optional(),
         sort: z
           .object({
             sortBy: z.enum(['createdAt', 'updatedAt', 'title']),

@@ -21,3 +21,9 @@ export const zPageFields = {
 };
 
 export const zPage = z.object(zPageFields).optional();
+
+// core's OneOrMany: a filter's one value, or a list of them meaning "any of these". An empty list
+// is refused: it would ask for nothing.
+export function zOneOrMany<T extends z.ZodType>(schema: T) {
+  return z.union([schema, z.array(schema).min(1)]);
+}

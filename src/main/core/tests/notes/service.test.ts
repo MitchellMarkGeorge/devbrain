@@ -281,6 +281,35 @@ describe('NoteService — listNotes', () => {
     expect(notesService.listNotes({ linkedTo: 'task' }).items.map((n) => n.id)).toEqual([task.id]);
   });
 
+  it('filter.linkedTo takes "none" and a list: the notes that are any of them', async () => {
+    const event = await notesService.createNote({ title: 'Event', linkedEventId: FAKE_EVENT_ID });
+    const task = await notesService.createNote({ title: 'Task', linkedTaskId: FAKE_TASK_ID });
+    const unlinked = await notesService.createNote({ title: 'Unlinked' });
+    const idsFor = (linkedTo: ('event' | 'task' | 'none')[] | 'none') =>
+      notesService
+        .listNotes({ linkedTo })
+        .items.map((n) => n.id)
+        .sort();
+    expect(idsFor('none')).toEqual([unlinked.id]);
+    expect(idsFor(['event', 'task'])).toEqual([event.id, task.id].sort());
+    expect(idsFor(['task', 'none'])).toEqual([task.id, unlinked.id].sort());
+    expect(idsFor(['event', 'task', 'none'])).toEqual([event.id, task.id, unlinked.id].sort());
+    expect(idsFor([])).toEqual([]);
+  });
+
+  it('filter.projectId takes a list, null among them being the notes in no project', async () => {
+    const inProject = await notesService.createNote({ title: 'In', projectId: FAKE_PROJECT_ID });
+    const noProject = await notesService.createNote({ title: 'None' });
+    const idsFor = (projectId: (ProjectId | null)[]) =>
+      notesService
+        .listNotes({ projectId })
+        .items.map((n) => n.id)
+        .sort();
+    expect(idsFor([FAKE_PROJECT_ID])).toEqual([inProject.id]);
+    expect(idsFor([FAKE_PROJECT_ID, null])).toEqual([inProject.id, noProject.id].sort());
+    expect(idsFor([null])).toEqual([noProject.id]);
+  });
+
   it('filter.linkedTaskId: null returns only notes without a linked task', async () => {
     await notesService.createNote({ title: 'Linked', linkedTaskId: FAKE_TASK_ID });
     const unlinked = await notesService.createNote({ title: 'Unlinked' });

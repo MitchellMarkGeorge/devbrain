@@ -9,7 +9,7 @@ import {
 } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
-import { zId, zPageFields } from '../zod';
+import { zId, zOneOrMany, zPageFields } from '../zod';
 
 // Tasks, subtasks and their links. Archiving one is the archive router's; detach and reattach hand
 // a synced task to the user and back (DetachService).
@@ -25,11 +25,11 @@ const status = z.enum(TaskStatus);
 // core's TaskFilterOptions
 const filter = z.object({
   status: status.optional(),
-  // null: the tasks without one
-  projectId: zId('project').nullable().optional(),
+  // null: the tasks without one; a list: the tasks in any of them
+  projectId: zOneOrMany(zId('project').nullable()).optional(),
   noteId: zId('note').nullable().optional(),
   eventId: zId('event').nullable().optional(),
-  priority: priorityFilter.optional(),
+  priority: zOneOrMany(priorityFilter).optional(),
   dueOn: z.date().optional(),
   dueBefore: z.date().optional(),
   dueAfter: z.date().optional(),

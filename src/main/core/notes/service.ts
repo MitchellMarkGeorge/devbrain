@@ -6,10 +6,11 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
 import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
-import { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
+import { listOf, Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
 import { CreateNoteOptions, NoteFilterOptions, NoteSortOptions, UpdateNoteOptions } from './types';
 import { stripMarkdown } from '../shared/markdown';
 import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
+import { anyOf, isOneOf } from '../shared/filters';
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
@@ -187,11 +188,8 @@ export class NoteService {
   ): Page<NoteListItem> {
     const clauses = [isNull(notes.archivedAt)];
 
-    if (filter.projectId !== undefined) {
-      clauses.push(
-        filter.projectId === null ? isNull(notes.projectId) : eq(notes.projectId, filter.projectId),
-      );
-    }
+    // one project or any of several; null is the notes in no project
+    if (filter.projectId !== undefined) clauses.push(isOneOf(notes.projectId, filter.projectId));
 
     if (filter.linkedEventId !== undefined) {
       clauses.push(
@@ -209,8 +207,17 @@ export class NoteService {
       );
     }
 
-    if (filter.linkedTo === 'event') clauses.push(isNotNull(notes.linkedEventId));
-    if (filter.linkedTo === 'task') clauses.push(isNotNull(notes.linkedTaskId));
+    if (filter.linkedTo !== undefined) {
+      // each kind is a condition on the two link columns; several kinds are any of them
+      const kinds = new Set(listOf(filter.linkedTo));
+      const conditions: SQL[] = [];
+      if (kinds.has('event')) conditions.push(isNotNull(notes.linkedEventId));
+      if (kinds.has('task')) conditions.push(isNotNull(notes.linkedTaskId));
+      if (kinds.has('none')) {
+        conditions.push(and(isNull(notes.linkedEventId), isNull(notes.linkedTaskId)) as SQL);
+      }
+      clauses.push(anyOf(conditions));
+    }
 
     let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {

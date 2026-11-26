@@ -53,3 +53,12 @@ export interface TaskSummary {
   title: string;
   status: TaskStatus;
 }
+
+// A filter that takes one value or several, several meaning "any of these": a list page's filter
+// can hold more than one (High and Medium priority).
+export type OneOrMany<T> = T | readonly T[];
+
+/** A `OneOrMany` as a list. */
+export function listOf<T>(value: OneOrMany<T>): readonly T[] {
+  return Array.isArray(value) ? (value as readonly T[]) : [value as T];
+}

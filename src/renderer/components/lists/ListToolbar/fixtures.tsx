@@ -45,7 +45,8 @@ import {
 /** Which list page's toolbar a story draws. */
 export type DemoList = 'tasks' | 'projects' | 'notes';
 
-type Field = Omit<ListFilterField, 'value' | 'onChange'>;
+/** A field without its state: one that holds several values says so (`multiple`). */
+type Field = Omit<ListFilterField, 'value' | 'onChange' | 'multiple'> & { multiple?: boolean };
 
 const SOURCE: Field = {
   id: 'source',
@@ -66,6 +67,7 @@ const PROJECT_COLOURS: Record<string, Swatch> = {
 
 const projectField = (names: string[]): Field => ({
   id: 'project',
+  multiple: true,
   label: 'Project',
   icon: Folder,
   search: 'Search projects…',
@@ -83,6 +85,7 @@ const FIELDS: Record<DemoList, Field[]> = {
   tasks: [
     {
       id: 'priority',
+      multiple: true,
       label: 'Priority',
       icon: ChartNoAxesColumnIncreasing,
       options: [TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW, TaskPriority.NONE].map(
@@ -111,6 +114,7 @@ const FIELDS: Record<DemoList, Field[]> = {
   notes: [
     {
       id: 'link',
+      multiple: true,
       label: 'Linked to',
       icon: Link,
       options: [
@@ -165,8 +169,11 @@ export interface DemoToolbarStartProps {
   compact?: boolean;
   /** the status the chip starts on; the list's default (Open, Active) otherwise */
   status?: string;
-  /** the filters set at first, by field id: `{ priority: String(TaskPriority.HIGH) }` */
-  filters?: Record<string, string>;
+  /**
+   * the filters set at first, by field id: `{ priority: [String(TaskPriority.HIGH)] }`, a list
+   * for a field that holds several values
+   */
+  filters?: Record<string, string | string[]>;
   /** draws one of the menus open */
   open?: 'status' | 'filter';
   /** a project's Tasks tab: no Project filter */
@@ -184,7 +191,7 @@ export function DemoToolbarStart({
 }: DemoToolbarStartProps) {
   const statuses = STATUSES[list];
   const [scope, setScope] = useState(status ?? statuses?.scopes[0]?.value ?? '');
-  const [values, setValues] = useState<Record<string, string | undefined>>(filters);
+  const [values, setValues] = useState<Record<string, string | string[] | undefined>>(filters);
   return (
     <>
       {statuses && (
@@ -204,11 +211,14 @@ export function DemoToolbarStart({
         defaultOpen={open === 'filter'}
         fields={FIELDS[list]
           .filter((field) => !fixedProject || field.id !== 'project')
-          .map((field) => ({
-            ...field,
-            value: values[field.id],
-            onChange: (value) => setValues((all) => ({ ...all, [field.id]: value })),
-          }))}
+          .map(({ multiple, ...field }): ListFilterField => {
+            const value = values[field.id];
+            const onChange = (next: string | string[] | undefined) =>
+              setValues((all) => ({ ...all, [field.id]: next }));
+            return multiple
+              ? { ...field, multiple: true, value: [value ?? []].flat(), onChange }
+              : { ...field, value: [value].flat()[0], onChange };
+          })}
         onClear={() => setValues({})}
       />
     </>

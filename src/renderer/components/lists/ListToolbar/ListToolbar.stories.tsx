@@ -46,7 +46,7 @@ function Toolbar({
   );
 }
 
-const FILTERED = { priority: String(TaskPriority.HIGH), source: 'external' };
+const FILTERED = { priority: [String(TaskPriority.HIGH)], source: 'external' };
 
 /** Nothing filtered: the Status chip, a quiet "+ Filter", and Display at the end. */
 export const Tasks: Story = { render: () => <Toolbar start={{ list: 'tasks' }} /> };
@@ -59,12 +59,51 @@ export const Filtered: Story = {
   render: () => <Toolbar start={{ list: 'tasks', filters: FILTERED }} />,
 };
 
+/**
+ * A filter holding several values, "any of these": a chip names two ("High, Medium") and from
+ * three counts the rest ("Auth Overhaul +2"). Due and Source hold one value.
+ */
+export const SeveralValues: Story = {
+  render: () => (
+    <Toolbar
+      start={{
+        list: 'tasks',
+        filters: {
+          priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+          project: ['Auth Overhaul', 'API Gateway v2', 'none'],
+        },
+      }}
+    />
+  ),
+};
+
+/**
+ * The Filter menu over fields that hold several values: each field's item shows the same summary
+ * as its chip. In a field's submenu the values tick on their own and the menu stays open; "Any"
+ * unticks them all.
+ */
+export const SeveralValuesMenu: Story = {
+  render: () => (
+    <Toolbar
+      height={640}
+      start={{
+        list: 'tasks',
+        filters: {
+          priority: [String(TaskPriority.HIGH), String(TaskPriority.MEDIUM)],
+          project: ['Auth Overhaul', 'API Gateway v2', 'none'],
+        },
+        open: 'filter',
+      }}
+    />
+  ),
+};
+
 /** The Status chip's menu: the scopes, then each status alone. */
 export const StatusMenu: Story = {
   render: () => <Toolbar height={360} start={{ list: 'tasks', open: 'status' }} />,
 };
 
-/** "+ Filter": an item for each field, showing the value it is filtered to and opening its values. */
+/** "+ Filter": an item for each field, showing what it is filtered to and opening its values. */
 export const FilterMenu: Story = {
   render: () => (
     <Toolbar height={640} start={{ list: 'tasks', filters: FILTERED, open: 'filter' }} />
@@ -84,10 +123,10 @@ export const ManyFilters: Story = {
       start={{
         list: 'tasks',
         filters: {
-          priority: String(TaskPriority.NONE),
+          priority: [String(TaskPriority.NONE)],
           due: 'overdue',
           source: 'external',
-          project: 'User Interface Revamp',
+          project: ['User Interface Revamp'],
         },
       }}
     />
@@ -122,7 +161,7 @@ export const Projects: Story = {
 
 /** Notes have no status, so the row starts with the filters. One is set: Clear is there too. */
 export const Notes: Story = {
-  render: () => <Toolbar start={{ list: 'notes', filters: { project: 'Auth Overhaul' } }} />,
+  render: () => <Toolbar start={{ list: 'notes', filters: { project: ['Auth Overhaul'] } }} />,
 };
 
 /** The filtered toolbar on the dark theme. */

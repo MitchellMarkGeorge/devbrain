@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Circle } from 'lucide-react';
-import { chipsThatFit } from '../../components/lists/ListToolbar/ListToolbar';
+import { chipsThatFit, filterSummary } from '../../components/lists/ListToolbar/ListToolbar';
 import {
   ListFilters,
   type ListFilterField,
+  type ListMultiFilterField,
   type ListFiltersProps,
 } from '../../components/lists/ListToolbar';
 
@@ -29,14 +30,28 @@ afterEach(() => {
   container.remove();
 });
 
+const OPTIONS = [
+  { value: 'a', label: 'Alpha' },
+  { value: 'b', label: 'Beta' },
+  { value: 'c', label: 'Gamma' },
+];
+
 const field = (id: string, value?: string): ListFilterField => ({
   id,
   label: id,
   icon: Circle,
-  options: [
-    { value: 'a', label: 'Alpha' },
-    { value: 'b', label: 'Beta' },
-  ],
+  options: OPTIONS,
+  value,
+  onChange: vi.fn(),
+});
+
+/** A field that holds several values. */
+const multi = (id: string, value: string[] = []): ListMultiFilterField => ({
+  id,
+  label: id,
+  icon: Circle,
+  options: OPTIONS,
+  multiple: true,
   value,
   onChange: vi.fn(),
 });
@@ -95,6 +110,88 @@ describe('ListFilters', () => {
   it('keeps Clear in a compact window with one filter, where its chip is folded', () => {
     render({ fields: [field('Priority', 'a'), field('Due')], compact: true });
     expect(buttons()).toEqual(['Filter1', 'Clear']);
+  });
+});
+
+describe('a filter that holds several values', () => {
+  const pointer = (target: Element | null, type: string) =>
+    target?.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 }));
+  const press = (target: Element | null) =>
+    act(() => {
+      pointer(target, 'pointerdown');
+      pointer(target, 'mousedown');
+      pointer(target, 'pointerup');
+      pointer(target, 'mouseup');
+      pointer(target, 'click');
+    });
+  const items = (role: string) => [...document.body.querySelectorAll(`[role="${role}"]`)];
+  const item = (role: string, label: string) =>
+    items(role).find((element) => element.textContent === label) ?? null;
+
+  it('names one value, two side by side, and from three the first and how many more', () => {
+    expect(filterSummary(multi('Priority', ['a']))).toEqual({ text: 'Alpha', more: 0 });
+    // in the options' order, whatever order they were ticked in
+    expect(filterSummary(multi('Priority', ['b', 'a']))).toEqual({ text: 'Alpha, Beta', more: 0 });
+    expect(filterSummary(multi('Priority', ['c', 'b', 'a']))).toEqual({ text: 'Alpha', more: 2 });
+  });
+
+  it('draws a chip while it has a value, with that summary', () => {
+    render({
+      fields: [multi('Priority', ['a', 'b']), multi('Project'), multi('Link', ['a', 'b', 'c'])],
+    });
+    expect(buttons()).toEqual(['PriorityAlpha, Beta', '', 'LinkAlpha +2', '', 'Filter', 'Clear']);
+  });
+
+  it('counts a field once in a compact window, however many values it has', () => {
+    render({ fields: [multi('Priority', ['a', 'b']), field('Due', 'a')], compact: true });
+    expect(buttons()).toEqual(['Filter2', 'Clear']);
+  });
+
+  it('removes every value from its chip’s ×', () => {
+    const priority = multi('Priority', ['a', 'b']);
+    render({ fields: [priority] });
+    act(() =>
+      container.querySelector<HTMLElement>('[aria-label="Remove Priority filter"]')!.click(),
+    );
+    expect(priority.onChange).toHaveBeenCalledWith([]);
+  });
+
+  it('ticks its values on their own in the chip’s menu, in the options’ order', () => {
+    const priority = multi('Priority', ['c', 'a']);
+    render({ fields: [priority] });
+    press(container.querySelector('[role="group"] button'));
+    // checkbox items, with no "Any": the chip's × removes the filter
+    expect(items('menuitemcheckbox').map((element) => element.textContent)).toEqual([
+      'Alpha',
+      'Beta',
+      'Gamma',
+    ]);
+    expect(
+      items('menuitemcheckbox').map((element) => element.getAttribute('aria-checked')),
+    ).toEqual(['true', 'false', 'true']);
+    press(item('menuitemcheckbox', 'Beta'));
+    expect(priority.onChange).toHaveBeenLastCalledWith(['a', 'b', 'c']);
+    press(item('menuitemcheckbox', 'Gamma'));
+    expect(priority.onChange).toHaveBeenLastCalledWith(['a']);
+    // ticking leaves the menu open
+    expect(items('menuitemcheckbox')).toHaveLength(3);
+  });
+
+  it('removes the filter when its last value is unticked', () => {
+    const priority = multi('Priority', ['a']);
+    render({ fields: [priority] });
+    press(container.querySelector('[role="group"] button'));
+    press(item('menuitemcheckbox', 'Alpha'));
+    expect(priority.onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('keeps a field that holds one value a choice of one', () => {
+    const due = field('Due', 'a');
+    render({ fields: [due] });
+    press(container.querySelector('[role="group"] button'));
+    expect(items('menuitemcheckbox')).toEqual([]);
+    press(item('menuitemradio', 'Beta'));
+    expect(due.onChange).toHaveBeenCalledWith('b');
   });
 });
 
