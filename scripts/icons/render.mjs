@@ -12,51 +12,14 @@ const markPaths = readFileSync(svgPath, 'utf8')
   .match(/<g[^>]*>([\s\S]*)<\/g>/)[1]
   .trim();
 
-// The icon, drawn on a 48-unit tile. The mark is flat: one light neutral (neutral-200), no gradient,
-// bevel or shadow. It sits on a dark tile with a faint cool glow behind it, a soft light from
-// above and a hairline rim. The mark is square (viewBox 40 by 40) and spans 26 of the tile's 48
-// units.
+// The icon, drawn on a 48-unit tile, flat: the mark in one light neutral (neutral-200) on a
+// rounded square in the app's dark ground (#111111), with no gradient, light, rim or shadow. The
+// mark is square (viewBox 40 by 40) and spans 26 of the tile's 48 units.
 const tile = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="100%" height="100%">
-  <defs>
-    <clipPath id="tile"><rect width="48" height="48" rx="10.8"/></clipPath>
-    <linearGradient id="base" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#202226"/>
-      <stop offset="1" stop-color="#111214"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="24" cy="25" r="20" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7fa6ff" stop-opacity="0.08"/>
-      <stop offset="0.5" stop-color="#5470c8" stop-opacity="0.025"/>
-      <stop offset="1" stop-color="#5b7fd6" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="gloss" cx="24" cy="-6" r="30" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#fff" stop-opacity="0.14"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffffff" stop-opacity="0.2"/>
-      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.05"/>
-      <stop offset="0.8" stop-color="#ffffff" stop-opacity="0.06"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.1"/>
-    </linearGradient>
-    <filter id="inner" x="0" y="-3" width="48" height="54" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="alpha"/>
-      <feOffset dy="-2"/><feGaussianBlur stdDeviation="1.5"/>
-      <feComposite in2="alpha" operator="arithmetic" k2="-1" k3="1"/>
-      <feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0"/>
-      <feBlend in2="SourceGraphic"/>
-    </filter>
-  </defs>
-  <g filter="url(#inner)">
-    <g clip-path="url(#tile)">
-      <rect width="48" height="48" fill="url(#base)"/>
-      <rect width="48" height="48" fill="url(#glow)"/>
-      <svg x="11" y="11" width="26" height="26" viewBox="0 0 40 40">
-        <g fill="#e5e5e5">${markPaths}</g>
-      </svg>
-      <rect width="48" height="48" fill="url(#gloss)"/>
-    </g>
-  </g>
-  <rect x="0.4" y="0.4" width="47.2" height="47.2" rx="10.4" fill="none" stroke="url(#rim)" stroke-width="0.5"/>
+  <rect width="48" height="48" rx="10.8" fill="#111111"/>
+  <svg x="11" y="11" width="26" height="26" viewBox="0 0 40 40">
+    <g fill="#e5e5e5">${markPaths}</g>
+  </svg>
 </svg>`;
 
 function page(size, tileShare) {
