@@ -107,7 +107,7 @@ doesn't read the pull request's state from GitHub.
 
 ## The Tasks page
 
-The toolbar says which tasks are shown on the left (**Status**, your filters and **+ Filter**) and
+The toolbar says which tasks are shown on the left (**Status** and your filters) and
 how they're drawn on the right (**Display**).
 
 ### Layouts
@@ -140,19 +140,28 @@ The view you open with is the **Default view** in [Settings › Tasks](/docs/set
 **Status** is always first in the toolbar: Open (Not started and In progress), All, or one status.
 Whether completed tasks show by default is the **Show completed tasks** setting.
 
-**+ Filter** narrows the list further. Pick what to filter by, then a value:
+The **Filter** button, beside **Display**, narrows the list further. Pick what to filter by, then
+its values:
 
-- **Priority**: High, Medium, Low or No priority.
-- **Due**: Overdue, Today, This week (the next seven days) or No due date.
-- **Source**: **Local** (your own tasks) or **Synced** (from Linear).
-- **Project**: one project, or **No project**. Type to find a project.
+- **Priority**: High, Medium, Low or No priority. Tick as many as you like.
+- **Due**: Overdue, Today, This week (the next seven days) or No due date. One at a time.
+- **Source**: **Local** (your own tasks) or **Synced** (from Linear). One at a time.
+- **Project**: any of your projects, and **No project**. Tick as many as you like, and type to
+  find a project.
 
-Each filter you set shows in the toolbar as its own button, such as "Priority High". Click it to
-change its value, or its **×** to remove it. When the window is too narrow to show them all, the
-rest fold into the button, which counts them, such as "Filter +2". In the menu, each filter shows its value
-beside its name, and **Any** removes one. While any filter is set, **Clear** at the end of the
-toolbar removes them all, as **Clear filters** in the menu does. A filter holds one
-value at a time.
+A filter with several values ticked shows the tasks that match any of them: High and Medium
+ticked shows both. Untick the last value and the filter is gone. The menu stays open while you
+pick, so you can set several values and several filters in one go; click outside it or press
+**Esc** when you're done.
+
+Each filter you set shows at the start of the toolbar, after **Status**, as its own button, such
+as "Priority High", "Priority High, Medium" with two values, or "Priority High +2" from three.
+Click one to change its values, or its **×** to remove it. When the window is too narrow to show
+them all, the rest are behind a button that counts them, such as "+2"; click it to see and change
+them. While any filter is set, **Clear** removes them all, as **Clear filters** in the menu does.
+
+Grouping by something you have filtered shows only the groups you chose: filter to High and
+Medium, group by priority, and there are two groups.
 
 **Sort by** in **Display** orders the list (not the board, whose columns follow the status) by
 **Priority**, **Due date**, **Status**, **Last updated** or **Created**; the button beside it

@@ -307,14 +307,16 @@ export const tasksSearch = z.object({
 | `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                                     |
 | `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                                        |
 
-Core filters `status` and `priority` by one value each. Multi-select filters are a main change
-(T3); the params are written as single values now and can become arrays later without breaking
-URLs (`z.union([value, z.array(value)])`).
+`priority` and `project` (and the notes page's `project`) hold several values, "any of
+these": a list in the URL, or one value alone as older links have it (`multiParam`,
+`shared/lib/search-params.ts`), and a list in core's filter (`OneOrMany`). `status`, `due` and
+`source` hold one.
 
 ### `/app/projects`
 
 `view` (`list` | `card`), `status` (`active` default \| `all` \| `not_started` \| `on_hold` \|
-`completed`), `sort` (`dueDate` default \| `createdAt` \| `updatedAt` \| `status`), `dir`, `source`.
+`completed`), `sort` (`dueDate` default \| `createdAt` \| `updatedAt` \| `status`), `dir`, `source`,
+`due` (`overdue` \| `week` \| `month` \| `none`, mapped to `dueBefore`/`dueAfter`/`noDueDate` at the call).
 
 ### `/app/projects/$projectId`
 
@@ -323,7 +325,9 @@ URLs (`z.union([value, z.array(value)])`).
 ### `/app/notes`
 
 `view` (`list` default \| `card`), `sort` (`updatedAt` default, "Last edited" \| `createdAt` \|
-`title`), `dir`, `project` (`prj_…` \| `none`), `link` (`event` \| `task` \| `none`).
+`title`), `dir`, `project` (`prj_…` \| `none`), `link` (`event` \| `task` \| `none`: the Type
+chip, one value, every type when missing), `edited` (`today` \| `week` \| `month` \| `older`, mapped to
+`editedFrom`/`editedBefore` at the call), `tasks` (`with` \| `without`, core's `hasTasks`).
 
 ### `/app/calendar`
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TaskPriority, TaskStatus, type AppSettings, type Project } from '@common/types';
 import {
   hasFilters,
+  onlyProjectOf,
   resolveTasksSearch,
   taskFilterOf,
   taskListInput,
@@ -34,8 +35,8 @@ describe('tasksSearchSchema', () => {
         sort: 'updated_at',
         dir: 'asc',
         status: 'in_progress',
-        priority: 'high',
-        project: 'prj_1',
+        priority: ['high', 'medium'],
+        project: ['prj_1', 'none'],
         due: 'week',
         source: 'external',
         open: 'tsk_1',
@@ -46,12 +47,30 @@ describe('tasksSearchSchema', () => {
       sort: 'updated_at',
       dir: 'asc',
       status: 'in_progress',
-      priority: 'high',
-      project: 'prj_1',
+      priority: ['high', 'medium'],
+      project: ['prj_1', 'none'],
       due: 'week',
       source: 'external',
       open: 'tsk_1',
     });
+  });
+
+  it('reads a filter’s one value, as older links have it, as a list of one', () => {
+    expect(tasksSearchSchema.parse({ priority: 'high', project: 'prj_1' })).toEqual({
+      priority: ['high'],
+      project: ['prj_1'],
+    });
+  });
+
+  it('drops a bad value from a list, and the filter when none is left', () => {
+    expect(
+      tasksSearchSchema.parse({ priority: ['urgent', 'low', 'low'], project: ['tsk_1'] }),
+    ).toEqual({ priority: ['low'] });
+    expect(tasksSearchSchema.parse({ priority: [] }).priority).toBeUndefined();
+  });
+
+  it('keeps due and source to one value', () => {
+    expect(tasksSearchSchema.parse({ due: ['today', 'week'], source: ['local'] })).toEqual({});
   });
 
   it('drops a bad value, keeping the rest', () => {
@@ -65,7 +84,7 @@ describe('tasksSearchSchema', () => {
         priority: 3,
       }),
     ).toEqual({ status: 'open' });
-    expect(tasksSearchSchema.parse({ project: 'none' })).toEqual({ project: 'none' });
+    expect(tasksSearchSchema.parse({ project: 'none' })).toEqual({ project: ['none'] });
   });
 
   it('writes nothing for a missing param', () => {
@@ -107,19 +126,37 @@ describe('the filter tasks.list gets', () => {
     expect(
       filterOf({
         status: 'completed',
-        priority: 'low',
-        project: 'prj_1' as never,
+        priority: ['low'],
+        project: ['prj_1' as never],
         source: 'local',
       }),
     ).toEqual({
       excludeSubtasks: true,
       status: TaskStatus.COMPLETED,
-      priority: TaskPriority.LOW,
-      projectId: 'prj_1',
+      priority: [TaskPriority.LOW],
+      projectId: ['prj_1'],
       origin: 'local',
     });
-    expect(filterOf({ project: 'none' }).projectId).toBeNull();
-    expect(filterOf({ priority: 'none' }).priority).toBe(TaskPriority.NONE);
+    expect(filterOf({ project: ['none'] }).projectId).toEqual([null]);
+    expect(filterOf({ priority: ['none'] }).priority).toEqual([TaskPriority.NONE]);
+  });
+
+  it('sends several values of a filter as a list, "no project" among them as null', () => {
+    expect(
+      filterOf({ priority: ['high', 'medium'], project: ['prj_1' as never, 'none'] }),
+    ).toMatchObject({
+      priority: [TaskPriority.HIGH, TaskPriority.MEDIUM],
+      projectId: ['prj_1', null],
+    });
+  });
+
+  it('files a new task in the project the page is filtered to, when it is just one', () => {
+    const only = (project: string[]) =>
+      onlyProjectOf(resolveTasksSearch({ project: project as never }, SETTINGS));
+    expect(only(['prj_1'])).toBe('prj_1');
+    expect(only(['prj_1', 'prj_2'])).toBeUndefined();
+    expect(only(['none'])).toBeUndefined();
+    expect(only([])).toBeUndefined();
   });
 
   it('maps a due bucket to dates around today', () => {
@@ -140,7 +177,7 @@ describe('the filter tasks.list gets', () => {
 
   it('says whether a filter narrows the list', () => {
     expect(hasFilters({ view: 'list', sort: 'priority' })).toBe(false);
-    expect(hasFilters({ priority: 'high' })).toBe(true);
+    expect(hasFilters({ priority: ['high'] })).toBe(true);
   });
 });
 
@@ -167,9 +204,11 @@ describe('the group view’s groups', () => {
     });
     expect(defs[2].filter).toEqual({ projectId: null });
     expect(
-      groupDefs(resolved({ group_by: 'project', project: 'prj_b' as never }), TODAY, projects).map(
-        (def) => def.label,
-      ),
+      groupDefs(
+        resolved({ group_by: 'project', project: ['prj_b' as never] }),
+        TODAY,
+        projects,
+      ).map((def) => def.label),
     ).toEqual(['API']);
   });
 
@@ -191,10 +230,16 @@ describe('the group view’s groups', () => {
     // a task added there is the user's own: it takes the default priority, never NONE
     expect(none.defaults).toEqual({});
     expect(
-      groupDefs(resolved({ group_by: 'priority', priority: 'none' }), TODAY, []).map(
+      groupDefs(resolved({ group_by: 'priority', priority: ['none'] }), TODAY, []).map(
         (def) => def.label,
       ),
     ).toEqual(['No priority']);
+    // filtered to several: a group for each, in the groups' own order
+    expect(
+      groupDefs(resolved({ group_by: 'priority', priority: ['medium', 'high'] }), TODAY, []).map(
+        (def) => def.label,
+      ),
+    ).toEqual(['High', 'Medium']);
   });
 });
 

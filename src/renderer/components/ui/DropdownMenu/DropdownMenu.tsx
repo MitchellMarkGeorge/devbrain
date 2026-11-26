@@ -182,40 +182,62 @@ export function DropdownMenuItem({
   );
 }
 
-export interface DropdownMenuCheckboxItemProps extends Menu.CheckboxItem.Props, ItemContentProps {}
+/**
+ * How a checkbox or radio item shows it is chosen. `tick` (the default): a tick on the right while
+ * it is, in place of its shortcut. `control`: a checkbox or a radio button before its icon, drawn
+ * whether chosen or not, for a menu that stays open while several things are set in it (a list's
+ * filters), where the control says the item can be ticked and what kind of choice it is.
+ */
+export type MenuItemIndicator = 'tick' | 'control';
+
+export interface DropdownMenuCheckboxItemProps extends Menu.CheckboxItem.Props, ItemContentProps {
+  indicator?: MenuItemIndicator;
+}
 
 /**
  * An item that toggles (a filter's values): icon, label, and a tick on the right while checked,
- * in place of its shortcut.
+ * in place of its shortcut; or with `indicator="control"` a checkbox before its icon.
  */
 export function DropdownMenuCheckboxItem({
   icon,
   shortcut,
+  indicator = 'tick',
   className,
   children,
   ...props
 }: DropdownMenuCheckboxItemProps) {
   return (
     <Menu.CheckboxItem className={mergeClassName(menuItemVariants(), className)} {...props}>
+      {indicator === 'control' && (
+        <Menu.CheckboxItemIndicator keepMounted className={styles.checkControl}>
+          <Icon icon={Check} size={12} />
+        </Menu.CheckboxItemIndicator>
+      )}
       <ItemContent icon={icon} shortcut={shortcut}>
         {children}
       </ItemContent>
-      <Menu.CheckboxItemIndicator className={styles.tick}>
-        <Tick />
-      </Menu.CheckboxItemIndicator>
+      {indicator === 'tick' && (
+        <Menu.CheckboxItemIndicator className={styles.tick}>
+          <Tick />
+        </Menu.CheckboxItemIndicator>
+      )}
     </Menu.CheckboxItem>
   );
 }
 
-export interface DropdownMenuRadioItemProps extends Menu.RadioItem.Props, ItemContentProps {}
+export interface DropdownMenuRadioItemProps extends Menu.RadioItem.Props, ItemContentProps {
+  indicator?: MenuItemIndicator;
+}
 
 /**
  * One choice of a `DropdownMenuRadioGroup` (sort by, group by, a status): ticked on the right
- * while chosen, in place of its shortcut.
+ * while chosen, in place of its shortcut; or with `indicator="control"` a radio button before its
+ * icon. Picking one closes the menu unless `closeOnClick` is false.
  */
 export function DropdownMenuRadioItem({
   icon,
   shortcut,
+  indicator = 'tick',
   closeOnClick = true,
   className,
   children,
@@ -228,12 +250,17 @@ export function DropdownMenuRadioItem({
       className={mergeClassName(menuItemVariants(), className)}
       {...props}
     >
+      {indicator === 'control' && (
+        <Menu.RadioItemIndicator keepMounted className={styles.radioControl} />
+      )}
       <ItemContent icon={icon} shortcut={shortcut}>
         {children}
       </ItemContent>
-      <Menu.RadioItemIndicator className={styles.tick}>
-        <Tick />
-      </Menu.RadioItemIndicator>
+      {indicator === 'tick' && (
+        <Menu.RadioItemIndicator className={styles.tick}>
+          <Tick />
+        </Menu.RadioItemIndicator>
+      )}
     </Menu.RadioItem>
   );
 }

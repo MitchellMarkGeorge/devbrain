@@ -146,6 +146,45 @@
   user-select: none;
 }
 
+/*
+ * `indicator="control"`: a checkbox or a radio button before the item's icon, drawn chosen or not.
+ * They look like `Checkbox` (16px, 4px corners, filled primary while checked) and a radio button of
+ * the same size, but are pictures: the item is what is focused and pressed.
+ */
+.checkControl,
+.radioControl {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--input);
+  background: var(--input-fill);
+  color: var(--primary-foreground);
+}
+.checkControl {
+  border-radius: 4px;
+}
+.checkControl[data-unchecked] > svg {
+  visibility: hidden;
+}
+.radioControl {
+  border-radius: 50%;
+}
+.checkControl[data-checked],
+.radioControl[data-checked] {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+/* the radio button's dot */
+.radioControl[data-checked]::after {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary-foreground);
+  content: '';
+}
+
 /* checkbox, radio and Select items: the tick sits on the right, in place of the shortcut */
 .tick {
   display: flex;

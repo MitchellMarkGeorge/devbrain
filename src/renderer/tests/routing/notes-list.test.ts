@@ -3,7 +3,17 @@ import type { EventId, WorkspaceId } from '@common/ids';
 import { TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  filterButton,
+  filterCount,
+  menuItem,
+  rightClick,
+  startApp,
+  stopApps,
+} from './harness';
 
 // The notes page (/app/$workspaceId/notes): rows and cards from notes.list, the toolbar in the
 // URL, the states, the row menu, and creating a note.
@@ -87,11 +97,84 @@ describe('the notes list', () => {
     await eventually(() => expect(row('PKCE design notes')).toBeDefined());
     expect(row('Launch plan')).toBeUndefined();
     expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
-      filter: { projectId: PROJECT.id, linkedTo: 'task' },
+      filter: { projectId: [PROJECT.id], linkedTo: 'task' },
       sort: { sortBy: 'title', direction: 'asc' },
     });
-    // the test window is compact: the two filters' chips fold into the Filter button's count
-    expect(app.text()).toContain('Filter2');
+    // a chip for the project; the type shows in its own chip
+    expect(filterCount(app.container)).toBe(1);
+    expect(app.text()).toContain('TypeTask notes');
+  });
+
+  it('sets the type from the Type chip, All leaving the URL', async () => {
+    const { main, app } = notesPage();
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    expect(app.text()).toContain('TypeAll');
+    const pick = async (type: string) => {
+      click(byText(app.container, 'button', 'Type'));
+      await eventually(() =>
+        expect(byText(document.body, '[role="menuitemradio"]', type)).not.toBeNull(),
+      );
+      click(byText(document.body, '[role="menuitemradio"]', type));
+    };
+    await pick('Task notes');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=task`));
+    await eventually(() =>
+      expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
+        filter: { linkedTo: 'task' },
+      }),
+    );
+    await eventually(() => expect(row('Launch plan')).toBeUndefined());
+    expect(row('PKCE design notes')).toBeDefined();
+    // the type is not one of the filters: no chip, and nothing to clear
+    expect(filterCount(app.container)).toBe(0);
+    await pick('All');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
+  });
+
+  it('filters by Has tasks from the Filter menu, the Type kept by Clear', async () => {
+    const { main, app } = notesPage('?link=task');
+    await eventually(() => expect(row('PKCE design notes')).toBeDefined());
+    click(filterButton(app.container));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Has tasks')).not.toBeNull(),
+    );
+    // the menu has the three fields, and not the type
+    expect(byText(document.body, '[role="menuitem"]', 'Edited')).not.toBeNull();
+    expect(byText(document.body, '[role="menuitem"]', 'Project')).not.toBeNull();
+    click(byText(document.body, '[role="menuitem"]', 'Has tasks'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitemradio"]', 'No')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitemradio"]', 'No'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=task&tasks=without`));
+    await eventually(() =>
+      expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
+        filter: { linkedTo: 'task', hasTasks: false },
+      }),
+    );
+    expect(filterCount(app.container)).toBe(1);
+    click(byText(app.container, 'button', 'Clear'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes?link=task`));
+  });
+
+  it('asks core for the notes edited in the URL’s days', async () => {
+    const { main } = notesPage('?edited=older');
+    await eventually(() => expect(main.callsTo('notes.list').length).toBeGreaterThan(0));
+    const { filter } = main.callsTo('notes.list').at(-1)!.input as {
+      filter: { editedBefore?: Date; editedFrom?: Date };
+    };
+    expect(filter.editedBefore).toBeInstanceOf(Date);
+    expect(filter.editedFrom).toBeUndefined();
+  });
+
+  it('lists the notes of any of several projects, "No project" among them', async () => {
+    const list = encodeURIComponent(JSON.stringify([PROJECT.id, 'none']));
+    const { main } = notesPage(`?project=${list}&link=none`);
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    expect(main.callsTo('notes.list').at(-1)!.input).toMatchObject({
+      filter: { projectId: [PROJECT.id, null], linkedTo: 'none' },
+    });
+    expect(row('PKCE design notes')).toBeUndefined();
   });
 
   it('drops a bad param and keeps the rest', async () => {

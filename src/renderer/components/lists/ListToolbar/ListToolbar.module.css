@@ -1,9 +1,9 @@
 /* The list pages' toolbar pieces. See docs/design-system/components/ListToolbar.md */
 
 /*
- * The filters' row: the room the toolbar leaves after Status, on one line. Its width is the room
- * there is, not what its chips need (it grows from nothing), so the chips that fit can be counted.
- * It is the containing block of its folded chips.
+ * The filters' row: the chips, in the room the toolbar leaves after Status, on one line. Its width
+ * is the room there is, not what its chips need (it grows from nothing), so the chips that fit can
+ * be counted. It is the containing block of its hidden chips.
  */
 .filters {
   position: relative;
@@ -13,49 +13,87 @@
   gap: var(--space-2);
   min-width: 0;
 }
-
-/* a filter chip: a ButtonGroup of its value and its ×, at its own width */
+/*
+ * A chip: a ButtonGroup of its value and its ×, as wide as its text. When the row is short of room
+ * the chips shown shrink, none below its least (a min-width set as the row is laid out): a chip's
+ * value text gives way, with "…".
+ */
 .chip {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.chipButton {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* the button's value: the part that gives way */
+.chipButton > span:last-child {
+  display: flex;
+  min-width: 0;
 }
 /*
- * A chip folded into "Filter +N": still in the row at its own width, so it can be measured when
- * the row changes, but unseen (which also takes it out of the tab order) and out of the flow
- * (`absolute`), so it takes no room beside the chips that are shown.
+ * A chip that does not fit: still in the row at its own width, so it can be measured when the row
+ * changes, but unseen (which also takes it out of the tab order) and out of the flow, so it takes
+ * no room beside the chips that are shown.
  */
-.folded {
+.hidden {
   position: absolute;
   visibility: hidden;
   pointer-events: none;
+}
+/* a chip's value: it gives way, with "…", when its chip shrinks */
+.chipValue {
+  min-width: 0;
 }
 /* the ×: narrower than a square button, and quiet until pointed at */
 .chipRemove {
   width: 28px;
   color: var(--muted-foreground);
 }
-/* a chip's value: a long project name is cut with "…" */
-.value {
-  display: block;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* "+2": how many chips are hidden, after the last one shown */
+.hiddenCount {
+  flex: none;
+  padding: 0 var(--space-2);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
-/* a field's value in the Filter menu: cut before it squeezes the field's name */
-.menuValue {
-  display: block;
-  max-width: 72px;
+/*
+ * What a field is filtered to, in a chip or the Filter menu: its text, cut with "…" when it is long (a
+ * project's name, two values side by side), then "+2", which is never cut.
+ */
+.summary {
+  display: flex;
+  min-width: 0;
+}
+.summaryText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* "+ Filter": a quiet button after the chips */
-.add {
-  color: var(--muted-foreground);
+.more {
+  flex: none;
+  white-space: pre;
+}
+/*
+ * Two values, in a chip short of room (`data-compact`, set as the row is laid out): the second
+ * gives way to "+1", so the chip says there is another before any of its text is cut.
+ */
+[data-compact] .rest {
+  display: none;
+}
+[data-compact] .summary[data-two]::after {
+  content: ' +1';
+  flex: none;
+  white-space: pre;
+}
+/* cut before it squeezes the field's name */
+.menuValue {
+  max-width: 80px;
 }
 
-/* "Clear": a quiet word at the row's end, in the same place however many chips there are */
+/* "Clear": a quiet word at the row's end */
 .clear {
   flex: none;
   margin-left: auto;

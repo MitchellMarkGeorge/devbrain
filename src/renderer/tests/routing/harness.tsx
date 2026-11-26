@@ -228,3 +228,13 @@ export function byText(root: ParentNode, selector: string, text: string): HTMLEl
     ) ?? null
   );
 }
+
+/** A list toolbar's Filter button, at its end beside Display. */
+export function filterButton(root: ParentNode): HTMLElement | null {
+  return root.querySelector<HTMLElement>('button[aria-label="Filter"]');
+}
+
+/** How many filters a list toolbar shows as set: its chips, hidden ones included. */
+export function filterCount(root: ParentNode): number {
+  return root.querySelectorAll('[data-chip]').length;
+}

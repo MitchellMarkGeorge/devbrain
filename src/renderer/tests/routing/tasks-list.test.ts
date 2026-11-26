@@ -3,7 +3,15 @@ import type { WorkspaceId } from '@common/ids';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeTask, FakeTasks } from './fake-tasks';
-import { byText, click, eventually, startApp, stopApps } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  filterButton,
+  filterCount,
+  startApp,
+  stopApps,
+} from './harness';
 
 // The tasks page's list and group views: rows from tasks.list, the toolbar in the URL, the list
 // keys, the selection bar, the states, and Create task.
@@ -24,6 +32,9 @@ const SAMPLE = [
   fakeTask('tsk_build', 'Build the page', { status: TaskStatus.IN_PROGRESS }),
   fakeTask('tsk_ship', 'Ship it', { status: TaskStatus.COMPLETED }),
 ];
+
+/** A filter's values as the URL holds several: a JSON list. */
+const list = (...values: string[]) => encodeURIComponent(JSON.stringify(values));
 
 const row = (title: string) =>
   [...document.querySelectorAll<HTMLElement>('[role="row"][data-task-id]')].find((el) =>
@@ -98,11 +109,12 @@ describe('the list view', () => {
     const { app, main } = tasksPage();
     await eventually(() => expect(row('Plan the launch')).toBeDefined());
     const field = (label: string) => byText(document.body, '[role="menuitem"]', label);
-    const value = (label: string) => byText(document.body, '[role="menuitemradio"]', label);
+    // priority holds several values: its values tick on their own
+    const value = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
     // opens Filter › Priority, whatever is open already
     const openPriority = async () => {
       if (value('Any')) return;
-      if (!field('Priority')) click(byText(app.container, 'button', 'Filter'));
+      if (!field('Priority')) click(filterButton(app.container));
       await eventually(() => expect(field('Priority')).not.toBeNull());
       click(field('Priority'));
       await eventually(() => expect(value('Any')).not.toBeNull());
@@ -111,17 +123,113 @@ describe('the list view', () => {
     // a submenu for each field
     for (const label of ['Due', 'Source', 'Project']) expect(field(label)).not.toBeNull();
     click(value('High'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?priority=high`));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?priority=${list('high')}`));
     await eventually(() =>
       expect(main.callsTo('tasks.tree').at(-1)!.input).toMatchObject({
-        filter: { priority: TaskPriority.HIGH },
+        filter: { priority: [TaskPriority.HIGH] },
       }),
     );
-    // the test window is compact: the filter's chip folds into the Filter button's count
-    await eventually(() => expect(app.text()).toContain('Filter1'));
+    // the filter's chip
+    await eventually(() => expect(filterCount(app.container)).toBe(1));
     await openPriority();
     click(value('Any'));
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
+  });
+
+  it('ticks a second value of a filter, and removes the filter by unticking the last', async () => {
+    const { app, main } = tasksPage('', [
+      ...SAMPLE,
+      fakeTask('tsk_test', 'Test the page', { priority: TaskPriority.MEDIUM }),
+    ]);
+    await eventually(() => expect(row('Build the page')).toBeDefined());
+    const value = (label: string) => byText(document.body, '[role="menuitemcheckbox"]', label);
+    click(filterButton(app.container));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Priority')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Priority'));
+    await eventually(() => expect(value('High')).not.toBeNull());
+    click(value('High'));
+    await eventually(() => expect(value('High')!.getAttribute('aria-checked')).toBe('true'));
+    // the menu stays open for the next one
+    click(value('Medium'));
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/tasks?priority=${list('high', 'medium')}`),
+    );
+    await eventually(() =>
+      expect(main.callsTo('tasks.tree').at(-1)!.input).toMatchObject({
+        filter: { priority: [TaskPriority.HIGH, TaskPriority.MEDIUM] },
+      }),
+    );
+    // any of them: the high and the medium task, not the low ones
+    await eventually(() => expect(row('Build the page')).toBeUndefined());
+    expect(row('Plan the launch')).toBeDefined();
+    expect(row('Test the page')).toBeDefined();
+    // one filter, however many values: one chip
+    expect(filterCount(app.container)).toBe(1);
+    // the field's item in the menu names both
+    expect(
+      [...document.body.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent),
+    ).toContain('PriorityHigh, Medium');
+    click(value('High'));
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/tasks?priority=${list('medium')}`),
+    );
+    await eventually(() => expect(value('High')!.getAttribute('aria-checked')).toBe('false'));
+    click(value('Medium'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
+    await eventually(() => expect(row('Build the page')).toBeDefined());
+  });
+
+  it('reads a filter’s one value from a link made before it could hold several', async () => {
+    const { main } = tasksPage('?priority=high&source=local');
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    expect(row('Build the page')).toBeUndefined();
+    expect(main.callsTo('tasks.tree').at(-1)!.input).toMatchObject({
+      filter: { priority: [TaskPriority.HIGH], origin: 'local' },
+    });
+  });
+
+  it('draws a chip for a filter that is set, and removes the filter from its ×', async () => {
+    const { app } = tasksPage(`?priority=${list('high', 'medium')}&source=local`);
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    const chips = () =>
+      [...app.container.querySelectorAll('[data-chip]')].map((chip) => chip.textContent);
+    expect(chips()).toEqual(['PriorityHigh, Medium', 'SourceLocal']);
+    expect(filterCount(app.container)).toBe(2);
+    click(app.container.querySelector('[aria-label="Remove Priority filter"]'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?source=local`));
+    await eventually(() => expect(chips()).toEqual(['SourceLocal']));
+  });
+
+  it('keeps a filter that holds one value a choice of one', async () => {
+    const { app } = tasksPage();
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    click(filterButton(app.container));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Source')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Source'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitemradio"]', 'Synced')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitemradio"]', 'Synced'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks?source=external`));
+  });
+
+  it('groups by a filtered field into the chosen groups only', async () => {
+    const { app } = tasksPage(`?view=group&group_by=priority&priority=${list('high', 'medium')}`, [
+      ...SAMPLE,
+      fakeTask('tsk_test', 'Test the page', { priority: TaskPriority.MEDIUM }),
+    ]);
+    await eventually(() => expect(row('Test the page')).toBeDefined());
+    const headings = [...app.container.querySelectorAll('[role="row"]:not([data-task-id])')].map(
+      (heading) => heading.textContent ?? '',
+    );
+    expect(headings.some((text) => text.includes('High'))).toBe(true);
+    expect(headings.some((text) => text.includes('Medium'))).toBe(true);
+    expect(headings.some((text) => text.includes('Low'))).toBe(false);
+    expect(row('Build the page')).toBeUndefined();
   });
 
   it('groups the list from Display, and ungroups it with None', async () => {

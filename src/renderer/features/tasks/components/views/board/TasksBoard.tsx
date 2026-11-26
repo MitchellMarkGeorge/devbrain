@@ -27,6 +27,7 @@ import { prefetchTaskSheet, taskListQuery } from '../../../api/queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
+  onlyProjectOf,
   STATUS_OF,
   taskFilterOf,
   taskSortOf,
@@ -122,7 +123,8 @@ export function TasksBoard({ resolved, onOpen, showProjectPill }: TasksBoardProp
     );
   }
 
-  const projectId = resolved.project && resolved.project !== 'none' ? resolved.project : undefined;
+  // "Add task" files the task in the project the board is filtered to, if it is just one
+  const projectId = onlyProjectOf(resolved);
   return (
     // DndContext draws no element: the board itself is the right-click area and the key scope
     <DndContext

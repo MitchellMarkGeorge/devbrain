@@ -22,10 +22,13 @@ export function TasksPage({
       <AppFrame
         active="Tasks"
         breadcrumb={['Tasks', { label: 'List', icon: List }]}
-        toolbarStart={
-          <DemoToolbarStart list="tasks" open={open === 'display' ? undefined : open} />
+        toolbarStart={<DemoToolbarStart list="tasks" open={open === 'status' ? open : undefined} />}
+        toolbarEnd={
+          <DemoToolbarEnd
+            list="tasks"
+            open={open === 'display' ? true : open === 'filter' ? 'filter' : undefined}
+          />
         }
-        toolbarEnd={<DemoToolbarEnd list="tasks" open={open === 'display'} />}
       >
         <TaskList tasks={LIST_TASKS} states={states} />
       </AppFrame>

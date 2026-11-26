@@ -6,6 +6,7 @@ import { primeLinks, primeMentions } from '@renderer/shared/api/loaders';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { noteContentQuery, noteListQuery, noteTasksQuery } from './queries';
 import { noteListInput, resolveNotesSearch, type NotesSearch } from './search';
+import { today } from '@renderer/features/tasks/api/loaders';
 
 // What the notes routes load before their first frame (routes/app/$workspaceId/notes/): they only
 // prime React Query's cache, which the pages read.
@@ -13,7 +14,7 @@ import { noteListInput, resolveNotesSearch, type NotesSearch } from './search';
 /** The list page: the first page of notes, for the view's filters and sort. */
 export async function loadNotes({ queryClient }: RouterContext, search: NotesSearch) {
   await queryClient.infiniteQuery({
-    ...noteListQuery(noteListInput(resolveNotesSearch(search))),
+    ...noteListQuery(noteListInput(resolveNotesSearch(search), today())),
     staleTime: 'static',
   });
 }

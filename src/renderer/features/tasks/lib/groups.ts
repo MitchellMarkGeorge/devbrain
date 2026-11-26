@@ -93,8 +93,11 @@ export function groupDefs(
           defaults: { status },
         }));
     case 'priority':
+      // filtered to some priorities: a group for each of those only
       return PRIORITIES.filter(
-        (priority) => !resolved.priority || PRIORITY_OF[resolved.priority] === priority,
+        (priority) =>
+          resolved.priority.length === 0 ||
+          resolved.priority.some((chosen) => PRIORITY_OF[chosen] === priority),
       ).map((priority) => ({
         id: `priority:${priority}`,
         label: PRIORITY_LABELS[priority],
@@ -134,10 +137,10 @@ export function groupDefs(
         filter: { projectId: null },
         defaults: { projectId: null },
       };
-      if (resolved.project === 'none') return [none];
-      const shown = resolved.project
-        ? projects.filter((project) => project.id === resolved.project)
-        : projects;
+      // filtered to some projects: a group for each of those only, "No project" if it is one
+      const chosen = resolved.project;
+      const shown =
+        chosen.length > 0 ? projects.filter((project) => chosen.includes(project.id)) : projects;
       return [
         ...shown.map(
           (project): TaskGroupDef => ({
@@ -149,7 +152,7 @@ export function groupDefs(
             projectId: project.id,
           }),
         ),
-        ...(resolved.project ? [] : [none]),
+        ...(chosen.length === 0 || chosen.includes('none') ? [none] : []),
       ];
     }
   }

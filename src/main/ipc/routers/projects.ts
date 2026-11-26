@@ -29,6 +29,7 @@ export const projectsRouter = t.router({
             dueOn: z.date().optional(),
             dueBefore: z.date().optional(),
             dueAfter: z.date().optional(),
+            noDueDate: z.boolean().optional(),
             status: status.optional(),
             excludeCompleted: z.boolean().optional(),
             origin: z.enum(['local', 'external']).optional(),

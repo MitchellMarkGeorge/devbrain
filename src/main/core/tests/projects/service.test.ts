@@ -325,6 +325,13 @@ describe('ProjectService — listProjects', () => {
     expect(result[0].id).toBe(late.id);
   });
 
+  it('filter.noDueDate returns only the projects with no due date', async () => {
+    const undated = projects.createProject({ title: 'Undated' });
+    projects.createProject({ title: 'Dated', dueDate: NEXT_WEEK });
+    const result = projects.listProjects({ noDueDate: true }).items;
+    expect(result.map((p) => p.id)).toEqual([undated.id]);
+  });
+
   it('filter.dueOn returns projects due on that calendar day', async () => {
     const today = new Date();
     const midday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);

@@ -20,6 +20,7 @@ import {
   type NotesSearch,
   type ResolvedNotesSearch,
 } from '../../api/search';
+import { today } from '@renderer/features/tasks/api/loaders';
 import { useNoteActions } from '../../hooks/use-note-actions';
 import { NotesEmptyState, NotesErrorState, NotesLoading } from './NotesStates';
 import { NotesSelectionBar } from './NotesSelectionBar';
@@ -40,7 +41,7 @@ export interface NotesViewProps {
  * focused row.
  */
 export function NotesView({ resolved, search, onClearFilters, onNewNote }: NotesViewProps) {
-  const query = useInfiniteQuery(noteListQuery(noteListInput(resolved)));
+  const query = useInfiniteQuery(noteListQuery(noteListInput(resolved, today())));
   const notes = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
   const byId = useMemo(() => new Map(notes.map((note) => [note.id as string, note])), [notes]);
   const actions = useNoteActions();

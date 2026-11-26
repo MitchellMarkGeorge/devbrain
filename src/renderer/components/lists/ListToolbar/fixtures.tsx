@@ -3,7 +3,7 @@
  * over sample choices, each holding its own state, so a screen story draws the toolbar the app
  * does and its controls work.
  */
-import { useState } from 'react';
+import { useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { ProjectStatus, TaskPriority, TaskStatus } from '@common/types';
 import {
   Calendar,
@@ -19,7 +19,10 @@ import {
   Folder,
   Kanban,
   LayoutGrid,
-  Link,
+  ListChecks,
+  PencilLine,
+  Shapes,
+  type LucideIcon,
   List,
   Plus,
   Type,
@@ -36,6 +39,7 @@ import {
 } from '../../types';
 import {
   ListDisplay,
+  ListFilterButton,
   ListFilters,
   ListStatusChip,
   type ListFilterField,
@@ -45,7 +49,8 @@ import {
 /** Which list page's toolbar a story draws. */
 export type DemoList = 'tasks' | 'projects' | 'notes';
 
-type Field = Omit<ListFilterField, 'value' | 'onChange'>;
+/** A field without its state: one that holds several values says so (`multiple`). */
+type Field = Omit<ListFilterField, 'value' | 'onChange' | 'multiple'> & { multiple?: boolean };
 
 const SOURCE: Field = {
   id: 'source',
@@ -66,6 +71,7 @@ const PROJECT_COLOURS: Record<string, Swatch> = {
 
 const projectField = (names: string[]): Field => ({
   id: 'project',
+  multiple: true,
   label: 'Project',
   icon: Folder,
   search: 'Search projects…',
@@ -83,6 +89,7 @@ const FIELDS: Record<DemoList, Field[]> = {
   tasks: [
     {
       id: 'priority',
+      multiple: true,
       label: 'Priority',
       icon: ChartNoAxesColumnIncreasing,
       options: [TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW, TaskPriority.NONE].map(
@@ -107,16 +114,39 @@ const FIELDS: Record<DemoList, Field[]> = {
     SOURCE,
     projectField(['Auth Overhaul', 'API Gateway v2', 'AI Action Items', 'User Interface Revamp']),
   ],
-  projects: [SOURCE],
+  projects: [
+    {
+      id: 'due',
+      label: 'Due',
+      icon: Calendar,
+      options: [
+        { value: 'overdue', label: 'Overdue', icon: CircleAlert },
+        { value: 'week', label: 'This week', icon: Calendar },
+        { value: 'month', label: 'This month', icon: Calendar },
+        { value: 'none', label: 'No due date', icon: CircleSlash },
+      ],
+    },
+    SOURCE,
+  ],
   notes: [
     {
-      id: 'link',
-      label: 'Linked to',
-      icon: Link,
+      id: 'edited',
+      label: 'Edited',
+      icon: PencilLine,
       options: [
-        { value: 'event', label: 'An event', icon: CalendarDays },
-        { value: 'task', label: 'A task', icon: CircleCheck },
-        { value: 'none', label: 'Nothing', icon: CircleSlash },
+        { value: 'today', label: 'Today', icon: Calendar },
+        { value: 'week', label: 'Past 7 days', icon: Calendar },
+        { value: 'month', label: 'Past 30 days', icon: Calendar },
+        { value: 'older', label: 'Older', icon: Calendar },
+      ],
+    },
+    {
+      id: 'tasks',
+      label: 'Has tasks',
+      icon: ListChecks,
+      options: [
+        { value: 'with', label: 'Yes', icon: CircleCheck },
+        { value: 'without', label: 'No', icon: CircleSlash },
       ],
     },
     projectField(['Auth Overhaul', 'API Gateway v2']),
@@ -124,11 +154,25 @@ const FIELDS: Record<DemoList, Field[]> = {
 };
 
 interface Statuses {
+  /** the chip's name, where it is not Status: a note's Type */
+  label?: string;
+  icon?: LucideIcon;
   scopes: ListToolbarOption[];
   statuses: ListToolbarOption[];
 }
 
-const STATUSES: Partial<Record<DemoList, Statuses>> = {
+const STATUSES: Record<DemoList, Statuses> = {
+  // a note has no status: its chip is its type, by what the note is linked to
+  notes: {
+    label: 'Type',
+    icon: Shapes,
+    scopes: [{ value: 'all', label: 'All' }],
+    statuses: [
+      { value: 'none', label: 'Standalone', icon: CircleSlash },
+      { value: 'task', label: 'Task notes', icon: CircleCheck },
+      { value: 'event', label: 'Event notes', icon: CalendarDays },
+    ],
+  },
   tasks: {
     scopes: [
       { value: 'open', label: 'Open' },
@@ -160,57 +204,92 @@ const STATUSES: Partial<Record<DemoList, Statuses>> = {
   },
 };
 
+type DemoValues = Record<string, string | string[] | undefined>;
+
+// The filters a story's toolbar holds. Its chips are at the toolbar's start and its Filter button
+// at the end, in two components a story places apart, so they share their state here: one set of
+// values per list, as a story draws one toolbar.
+const stores = new Map<DemoList, { values: DemoValues; fixedProject: boolean }>();
+const listeners = new Set<() => void>();
+const EMPTY: { values: DemoValues; fixedProject: boolean } = { values: {}, fixedProject: false };
+
+function setStore(list: DemoList, next: { values: DemoValues; fixedProject: boolean }) {
+  stores.set(list, next);
+  listeners.forEach((listener) => listener());
+}
+
+/** The sample fields of `list`, over the values its story's toolbar shares. */
+function useDemoFilters(list: DemoList): { fields: ListFilterField[]; clear: () => void } {
+  const store = useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => stores.get(list) ?? EMPTY,
+  );
+  const fields = FIELDS[list]
+    .filter((field) => !store.fixedProject || field.id !== 'project')
+    .map(({ multiple, ...field }): ListFilterField => {
+      const value = store.values[field.id];
+      const onChange = (next: string | string[] | undefined) => {
+        const current = stores.get(list) ?? EMPTY;
+        setStore(list, { ...current, values: { ...current.values, [field.id]: next } });
+      };
+      return multiple
+        ? { ...field, multiple: true, value: [value ?? []].flat(), onChange }
+        : { ...field, value: [value].flat()[0], onChange };
+    });
+  return { fields, clear: () => setStore(list, { ...(stores.get(list) ?? EMPTY), values: {} }) };
+}
+
 export interface DemoToolbarStartProps {
   list: DemoList;
   compact?: boolean;
   /** the status the chip starts on; the list's default (Open, Active) otherwise */
   status?: string;
-  /** the filters set at first, by field id: `{ priority: String(TaskPriority.HIGH) }` */
-  filters?: Record<string, string>;
-  /** draws one of the menus open */
-  open?: 'status' | 'filter';
+  /**
+   * the filters set at first, by field id: `{ priority: [String(TaskPriority.HIGH)] }`, a list
+   * for a field that holds several values
+   */
+  filters?: Record<string, string | string[]>;
+  /** draws the Status menu open (the Filter menu is `DemoToolbarEnd`'s) */
+  open?: 'status';
   /** a project's Tasks tab: no Project filter */
   fixedProject?: boolean;
 }
 
-/** The start of a list page's toolbar: its Status chip, its filter chips and "+ Filter". */
+/** The start of a list page's toolbar: its Status chip (a note's Type) and its filter chips. */
 export function DemoToolbarStart({
   list,
   compact,
   status,
-  filters = {},
+  filters,
   open,
-  fixedProject,
+  fixedProject = false,
 }: DemoToolbarStartProps) {
   const statuses = STATUSES[list];
-  const [scope, setScope] = useState(status ?? statuses?.scopes[0]?.value ?? '');
-  const [values, setValues] = useState<Record<string, string | undefined>>(filters);
+  const [scope, setScope] = useState(status ?? statuses.scopes[0]?.value ?? '');
+  // the story's filters, before the first paint: the toolbar's end reads them too
+  useLayoutEffect(() => {
+    setStore(list, { values: filters ?? {}, fixedProject });
+    // set once, as a story's initial state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const { fields, clear } = useDemoFilters(list);
   return (
     <>
-      {statuses && (
-        <ListStatusChip
-          icon={CircleDashed}
-          options={statuses.scopes}
-          statuses={statuses.statuses}
-          value={scope}
-          active={scope !== statuses.scopes[0]?.value}
-          compact={compact}
-          defaultOpen={open === 'status'}
-          onChange={setScope}
-        />
-      )}
-      <ListFilters
+      <ListStatusChip
+        label={statuses.label}
+        icon={statuses.icon ?? CircleDashed}
+        options={statuses.scopes}
+        statuses={statuses.statuses}
+        value={scope}
+        active={scope !== statuses.scopes[0]?.value}
         compact={compact}
-        defaultOpen={open === 'filter'}
-        fields={FIELDS[list]
-          .filter((field) => !fixedProject || field.id !== 'project')
-          .map((field) => ({
-            ...field,
-            value: values[field.id],
-            onChange: (value) => setValues((all) => ({ ...all, [field.id]: value })),
-          }))}
-        onClear={() => setValues({})}
+        defaultOpen={open === 'status'}
+        onChange={setScope}
       />
+      <ListFilters fields={fields} onClear={clear} />
     </>
   );
 }
@@ -258,11 +337,11 @@ export interface DemoToolbarEndProps {
   layout?: string;
   /** the tasks list's grouping at first; none otherwise */
   groupBy?: string;
-  /** draws Display open */
-  open?: boolean;
+  /** draws Display open (`true`), or the Filter menu */
+  open?: boolean | 'filter';
 }
 
-/** The end of a list page's toolbar: Display. */
+/** The end of a list page's toolbar: the Filter button, then Display. */
 export function DemoToolbarEnd({
   list,
   compact,
@@ -275,22 +354,26 @@ export function DemoToolbarEnd({
   const [sort, setSort] = useState(SORTS[list][0]!.value);
   const [dir, setDir] = useState<'asc' | 'desc'>(list === 'projects' ? 'asc' : 'desc');
   const board = layout === 'board';
+  const { fields, clear } = useDemoFilters(list);
   return (
-    <ListDisplay
-      compact={compact}
-      defaultOpen={open}
-      layout={{ options: LAYOUTS[list], value: layout, onChange: setLayout }}
-      groupBy={
-        list === 'tasks' && !board
-          ? { options: GROUP_BYS, value: groupBy, onChange: setGroupBy }
-          : undefined
-      }
-      sort={
-        board
-          ? undefined
-          : { options: SORTS[list], value: sort, onChange: setSort, dir, onDirChange: setDir }
-      }
-      note={board ? 'The board groups tasks by status.' : undefined}
-    />
+    <>
+      <ListFilterButton fields={fields} defaultOpen={open === 'filter'} onClear={clear} />
+      <ListDisplay
+        compact={compact}
+        defaultOpen={open === true}
+        layout={{ options: LAYOUTS[list], value: layout, onChange: setLayout }}
+        groupBy={
+          list === 'tasks' && !board
+            ? { options: GROUP_BYS, value: groupBy, onChange: setGroupBy }
+            : undefined
+        }
+        sort={
+          board
+            ? undefined
+            : { options: SORTS[list], value: sort, onChange: setSort, dir, onDirChange: setDir }
+        }
+        note={board ? 'The board groups tasks by status.' : undefined}
+      />
+    </>
   );
 }

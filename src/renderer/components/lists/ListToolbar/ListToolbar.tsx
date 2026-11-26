@@ -3,16 +3,16 @@ import {
   ArrowUpNarrowWide,
   CircleSlash,
   ListFilter,
-  Plus,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { ButtonGroup } from '../../ui/ButtonGroup';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuEmpty,
   DropdownMenuFilter,
@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import type { IconSource } from '../../ui/Icon';
+import { IconButton } from '../../ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../ui/Select';
 import { ToggleGroup } from '../../ui/ToggleGroup';
@@ -90,7 +91,8 @@ export function ListStatusChip<Value extends string = string>({
         render={
           <Button
             variant="outline"
-            icon={icon}
+            // one status alone shows its own icon; a scope (Open, All) has none, and keeps the chip's
+            icon={current?.icon ?? icon}
             value={current?.label}
             hideValue={compact}
             active={active}
@@ -116,14 +118,11 @@ export function ListStatusChip<Value extends string = string>({
   );
 }
 
-/** One thing a list can be filtered by, and the value it is filtered to (none: not filtering). */
-export interface ListFilterField {
+interface ListFilterFieldBase {
   id: string;
   label: string;
   icon: IconSource;
   options: ListToolbarOption[];
-  value: string | undefined;
-  onChange: (value: string | undefined) => void;
   /**
    * gives the field's submenu a search row with this placeholder ("Search projects…"): for a
    * field whose values are the user's own, and so may be many
@@ -131,23 +130,145 @@ export interface ListFilterField {
   search?: string;
 }
 
+/** A field that holds one value (Due): its values are a choice of one. */
+export interface ListSingleFilterField extends ListFilterFieldBase {
+  multiple?: false;
+  /** the value it is filtered to; none: not filtering */
+  value: string | undefined;
+  onChange: (value: string | undefined) => void;
+}
+
+/** A field that holds several values, meaning "any of these" (Priority): each ticks on its own. */
+export interface ListMultiFilterField extends ListFilterFieldBase {
+  multiple: true;
+  /** the values it is filtered to; empty: not filtering */
+  value: readonly string[];
+  onChange: (value: string[]) => void;
+}
+
+/** One thing a list can be filtered by, and what it is filtered to. */
+export type ListFilterField = ListSingleFilterField | ListMultiFilterField;
+
+/** The values a field is filtered to: none, one, or for a `multiple` field several. */
+function valuesOf(field: ListFilterField): readonly string[] {
+  if (field.multiple) return field.value;
+  return field.value === undefined ? [] : [field.value];
+}
+
 /**
- * A field's values as a choice of one, under a search row for a field that asks for one (the menu
- * or submenu around them must then be in a `DropdownMenuFilter`). `any` puts "Any" first, which
- * removes the filter.
+ * What a field is filtered to, in words: one value's label ("High"), two side by side
+ * ("High, Medium"), and from three the first with how many more ("High +2"). In the options'
+ * order, whatever order they were ticked in.
+ */
+export function filterSummary(field: ListFilterField): { text: string; more: number } {
+  const values = valuesOf(field);
+  const labels = field.options
+    .filter((option) => values.includes(option.value))
+    .map((option) => option.label);
+  if (values.length <= 2) return { text: labels.join(', '), more: 0 };
+  return { text: labels[0] ?? '', more: values.length - 1 };
+}
+
+/**
+ * A chip's icon: its value's own when the field is filtered to one value (a project's folder in
+ * its colour, a priority's gauge), so the chip shows what was picked and not only its name; the
+ * field's when the value has none, or when several values are chosen.
+ */
+function chipIcon(field: ListFilterField): IconSource | undefined {
+  const values = valuesOf(field);
+  if (values.length !== 1) return field.icon;
+  return field.options.find((option) => option.value === values[0])?.icon ?? field.icon;
+}
+
+/**
+ * A field's summary, in a chip or a menu: the text is cut with "…" before "+2" is. Two values are
+ * marked (`data-two`), the second apart from the first: a chip short of room drops the second for
+ * "+1" before any of its text is cut (`[data-compact]`, set as the row is laid out).
+ */
+function FieldSummary({ field, className }: { field: ListFilterField; className?: string }) {
+  const { text, more } = filterSummary(field);
+  const two = valuesOf(field).length === 2;
+  // "High, Medium" as "High" and ", Medium"
+  const comma = two ? text.indexOf(', ') : -1;
+  return (
+    <span className={cn(styles.summary, className)} data-two={comma > 0 ? '' : undefined}>
+      <span data-summary-text="" className={styles.summaryText}>
+        {comma > 0 ? (
+          <>
+            {text.slice(0, comma)}
+            <span className={styles.rest}>{text.slice(comma)}</span>
+          </>
+        ) : (
+          text
+        )}
+      </span>
+      {more > 0 && <span className={styles.more}> +{more}</span>}
+    </span>
+  );
+}
+
+/** `values` with `value` ticked or unticked, in the options' order (a value with no option last). */
+function toggled(field: ListMultiFilterField, value: string, checked: boolean): string[] {
+  const next = new Set(field.value);
+  if (checked) next.add(value);
+  else next.delete(value);
+  const known = field.options.map((option) => option.value).filter((known) => next.has(known));
+  return [...known, ...[...next].filter((other) => !known.includes(other))];
+}
+
+/**
+ * A field's values, under a search row for a field that asks for one (the menu or submenu around
+ * them must then be in a `DropdownMenuFilter`): radio buttons for a choice of one, checkboxes for
+ * a `multiple` field. Each value draws its control, and neither kind closes the menu, so several
+ * values, and then other fields, can be set in one visit. `any` puts "Any" first, which removes
+ * the filter.
  */
 function FieldValues({ field, any }: { field: ListFilterField; any?: boolean }) {
-  const values = (
+  const values = field.multiple ? (
+    <DropdownMenuGroup>
+      {any && (
+        <DropdownMenuCheckboxItem
+          indicator="control"
+          icon={CircleSlash}
+          checked={field.value.length === 0}
+          onCheckedChange={() => field.onChange([])}
+        >
+          Any
+        </DropdownMenuCheckboxItem>
+      )}
+      {field.options.map((option) => (
+        <DropdownMenuCheckboxItem
+          key={option.value}
+          indicator="control"
+          icon={option.icon}
+          checked={field.value.includes(option.value)}
+          onCheckedChange={(checked) => field.onChange(toggled(field, option.value, checked))}
+        >
+          {option.label}
+        </DropdownMenuCheckboxItem>
+      ))}
+    </DropdownMenuGroup>
+  ) : (
     <DropdownMenuRadioGroup
       value={field.value ?? ''}
       onValueChange={(next: string) => field.onChange(next === '' ? undefined : next)}
     >
       {any && (
-        <DropdownMenuRadioItem value="" icon={CircleSlash}>
+        <DropdownMenuRadioItem value="" icon={CircleSlash} indicator="control" closeOnClick={false}>
           Any
         </DropdownMenuRadioItem>
       )}
-      <RadioItems options={field.options} />
+      {field.options.map((option) => (
+        <DropdownMenuRadioItem
+          key={option.value}
+          value={option.value}
+          icon={option.icon}
+          indicator="control"
+          closeOnClick={false}
+        >
+          {option.label}
+        </DropdownMenuRadioItem>
+      ))}
     </DropdownMenuRadioGroup>
   );
   if (field.search === undefined) return values;
@@ -168,17 +289,17 @@ function Searchable({ field, children }: { field: ListFilterField; children: Rea
 }
 
 /**
- * A field in the Filter menu: an item naming the field and the value it is filtered to, opening
- * its values in a submenu, "Any" first.
+ * A field in the Filter menu: an item naming the field and what it is filtered to, opening its
+ * values in a submenu, "Any" first.
  */
 function FieldSubmenu({ field }: { field: ListFilterField }) {
-  const current = field.options.find((option) => option.value === field.value);
+  const set = valuesOf(field).length > 0;
   return (
     <Searchable field={field}>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger
           icon={field.icon}
-          value={current && <span className={styles.menuValue}>{current.label}</span>}
+          value={set ? <FieldSummary field={field} className={styles.menuValue} /> : undefined}
         >
           {field.label}
         </DropdownMenuSubTrigger>
@@ -190,25 +311,47 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
   );
 }
 
-/** A filter that is set, as a chip: its value opens the field's values, its × removes it. */
-function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean }) {
-  const current = field.options.find((option) => option.value === field.value);
+/**
+ * Tells `onOpenChange` a menu is closed when the component that draws it goes: a chip whose last
+ * value is unticked in its own menu leaves with the menu still open, and nothing else reports it.
+ */
+function useClosedOnUnmount(onOpenChange: (open: boolean) => void) {
+  useEffect(() => () => onOpenChange(false), [onOpenChange]);
+}
+
+/**
+ * A filter that is set, as a chip: "Priority High, Medium" joined to its ×. Its value opens the
+ * field's values straight away, with no trip through the Filter menu; its × removes the filter.
+ * `hidden`: it does not fit the row (see `ListFilters`).
+ */
+function FilterChip({
+  field,
+  hidden,
+  onOpenChange,
+}: {
+  field: ListFilterField;
+  hidden: boolean;
+  /** its menu opened or closed */
+  onOpenChange: (open: boolean) => void;
+}) {
+  useClosedOnUnmount(onOpenChange);
   return (
     <ButtonGroup
       aria-label={`${field.label} filter`}
       data-chip=""
-      // a folded chip is unseen, and so out of the accessibility tree and the tab order
-      aria-hidden={folded || undefined}
-      className={cn(styles.chip, folded && styles.folded)}
+      // a chip that is not seen is out of the accessibility tree and the tab order too
+      aria-hidden={hidden || undefined}
+      className={cn(styles.chip, hidden && styles.hidden)}
     >
       <Searchable field={field}>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={onOpenChange}>
           <DropdownMenuTrigger
             render={
               <Button
                 variant="outline"
-                icon={field.icon}
-                value={<span className={styles.value}>{current?.label}</span>}
+                icon={chipIcon(field)}
+                className={styles.chipButton}
+                value={<FieldSummary field={field} className={styles.chipValue} />}
               >
                 {field.label}
               </Button>
@@ -229,93 +372,167 @@ function FilterChip({ field, folded }: { field: ListFilterField; folded: boolean
         icon={X}
         aria-label={`Remove ${field.label} filter`}
         className={styles.chipRemove}
-        onClick={() => field.onChange(undefined)}
+        onClick={() => (field.multiple ? field.onChange([]) : field.onChange(undefined))}
       />
     </ButtonGroup>
   );
 }
 
-export interface ListFiltersProps {
-  fields: ListFilterField[];
-  /** a narrow window: every chip folds into the "Filter" button, which counts them */
-  compact?: boolean;
-  /** draws the menu open at first, for a picture of it */
-  defaultOpen?: boolean;
-  /**
-   * removes every filter: "Clear" at the row's end and "Clear filters" at the menu's end, while
-   * any is set
-   */
-  onClear: () => void;
+// the room kept after the chips for the marker of those that are hidden: "+2"
+const MORE_WIDTH = 52;
+// the least of a second value that is worth showing after the first: ", Me…"
+const MIN_SECOND_WIDTH = 36;
+// the least of a chip's value that is shown, cut with "…": room for "High +1"
+const MIN_VALUE_WIDTH = 64;
+
+/** A chip as the fit sees it: its own width, and the least it can shrink to (gap included in both). */
+export interface ChipSize {
+  width: number;
+  min: number;
 }
 
-// the room kept for the trailing button once chips are folded into it: "Filter +2"
-const MORE_WIDTH = 112;
-
 /**
- * How many chips of these widths (each with the gap after it) fit in `available`, before the
- * trailing button. All of them while they fit with "+ Filter" (`plainWidth`) after them; otherwise
- * as many as leave room for "Filter +N". Chips fold from the end.
+ * How many chips, from the start, are shown in `available`. All of them while they fit, shrunk if
+ * need be: a chip can give up its value's text, down to its `min`. When they don't fit even at
+ * their least, chips are hidden from the end, with room kept for the "+N" marker.
  */
-export function chipsThatFit(widths: number[], available: number, plainWidth: number): number {
-  const all = widths.reduce((sum, width) => sum + width, 0);
-  if (all + plainWidth <= available) return widths.length;
+export function fitChips(chips: ChipSize[], available: number): number {
+  if (chips.reduce((sum, chip) => sum + chip.min, 0) <= available) return chips.length;
   let used = MORE_WIDTH;
   let fit = 0;
-  for (const width of widths) {
-    if (used + width > available) break;
-    used += width;
+  for (const chip of chips) {
+    if (used + chip.min > available) break;
+    used += chip.min;
     fit += 1;
   }
   return fit;
 }
 
 /**
- * `chipsThatFit` for the chips in `row`, in the room its "Clear" (if it is drawn) leaves. A row
- * that has not been laid out shows them all.
+ * Lays the chips of `row` out in the room its "Clear" leaves, and returns how many are shown
+ * (`fitChips`). Three rules: a chip is as wide as its text; when the row is short the chips shown
+ * shrink, their text cut with "…" (the row's flex layout shares the room out, none going below its
+ * least); and the chips that don't fit even so are hidden, from the end. `keep` holds the count
+ * where it is (a menu of the row is open: a chip must not hide under it). A row that has not been
+ * laid out shows them all.
  */
-function measure(row: HTMLElement, plainWidth: number): number {
+function layOut(row: HTMLElement, keep?: number): number {
   const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
+  // each chip whole and at its own width, to be read
+  for (const chip of chips) {
+    chip.style.flex = 'none';
+    chip.style.minWidth = '';
+    delete chip.dataset.compact;
+  }
   if (row.clientWidth === 0) return chips.length;
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
   const clear = row.querySelector<HTMLElement>('[data-clear]');
-  return chipsThatFit(
-    chips.map((chip) => chip.offsetWidth + gap),
-    row.clientWidth - (clear ? clear.offsetWidth + gap : 0),
-    plainWidth,
-  );
+  const available = row.clientWidth - (clear ? clear.offsetWidth + gap : 0);
+  const sizes = chips.map((chip): ChipSize => {
+    const width = chip.offsetWidth + gap;
+    const text = chip.querySelector<HTMLElement>('[data-summary-text]');
+    const spare = Math.max(0, (text?.offsetWidth ?? 0) - MIN_VALUE_WIDTH);
+    return { width, min: width - spare };
+  });
+  const shown = keep === undefined ? fitChips(sizes, available) : Math.min(keep, chips.length);
+  chips.forEach((chip, index) => {
+    // A chip that is shown may shrink, as far as its least, in proportion to the text it has to
+    // give (flex weighs a shrink factor by the width, hence the division): a long value gives
+    // way more than a short one. A hidden chip keeps its own width.
+    const { width, min } = sizes[index]!;
+    // (scaled up: factors that add up to less than 1 would leave part of the overflow in place)
+    chip.style.flex = index < shown ? `0 ${((width - min) / width) * 1000} auto` : 'none';
+    chip.style.minWidth = index < shown ? `${min - gap}px` : '';
+  });
+  return shown;
 }
 
 /**
- * A list's filters, on one row: a chip for each one that is set (its value opens the field's
- * values, its × removes it), then "+ Filter". The chips that don't fit the row fold into the
- * button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). A folded
- * chip stays in the row, unseen and out of its flow, so its width can always be read: how many
- * fit is counted from the page as it is, with nothing remembered. The menu
- * has an item for each field, showing the value it is filtered to (so a folded filter is still
- * one click away) and opening its values in a submenu, with a search row for a field that asks for
- * one. A field holds one value.
- *
- * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group), where it
- * stays put as chips come and go. It is there with one filter too: beside the chip's × in a wide
- * window, and the only one-click way out in a compact one, where the chip is folded.
+ * Marks the chips of `row` whose two values are cut so short that the second no longer shows:
+ * "High…" reads as one value, so such a chip says "High +1" instead (`[data-compact]`). Read with
+ * the row as it is drawn, so after `layOut`'s count is on the page; from the end, each chip read
+ * after the one before it has made room.
  */
-export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
-  const set = fields.filter((field) => field.value !== undefined);
+function markCompact(row: HTMLElement) {
+  const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]:not([aria-hidden])')];
+  for (const chip of chips) delete chip.dataset.compact;
+  for (const chip of chips.reverse()) {
+    const text = chip.querySelector<HTMLElement>('[data-two] [data-summary-text]');
+    const second = text?.querySelector<HTMLElement>('span');
+    if (!text || !second) continue;
+    const first = text.scrollWidth - second.offsetWidth;
+    if (text.clientWidth < first + MIN_SECOND_WIDTH) chip.dataset.compact = '';
+  }
+}
+
+/** "+2": how many chips are hidden, after the last one shown; its menu has their fields. */
+function HiddenChips({
+  fields,
+  onOpenChange,
+}: {
+  fields: ListFilterField[];
+  onOpenChange: (open: boolean) => void;
+}) {
+  useClosedOnUnmount(onOpenChange);
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            aria-label={`${fields.length} more ${fields.length === 1 ? 'filter' : 'filters'}`}
+            className={styles.hiddenCount}
+          >
+            +{fields.length}
+          </Button>
+        }
+      />
+      <DropdownMenuContent width="sm" align="start" aria-label="More filters">
+        {fields.map((field) => (
+          <FieldSubmenu key={field.id} field={field} />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export interface ListFiltersProps {
+  fields: ListFilterField[];
+  /** removes every filter: "Clear" at the row's end, while any is set */
+  onClear: () => void;
+}
+
+/**
+ * The filters that are set, at the toolbar's start: a chip for each, in the fields' order, each
+ * opening its own field's values. Filters are added from the `ListFilterButton` at the toolbar's
+ * end, beside Display, which is why nothing here moves when one is.
+ *
+ * The row is one line. A chip is as wide as its text; when the row is short the chips shrink, their
+ * text cut with "…"; and the chips that don't fit even so are hidden, from the end, and a "+2" after the last one shown says how many: its menu has those fields, each opening its values, so a hidden
+ * filter is still two clicks away. A hidden chip stays in the row, unseen and out of its flow, so
+ * its width can always be read: how many fit is counted from the page as it is, with nothing
+ * remembered.
+ *
+ * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group).
+ */
+export function ListFilters({ fields, onClear }: ListFiltersProps) {
+  const set = fields.filter((field) => valuesOf(field).length > 0);
   const row = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  // "+ Filter"'s width, as last drawn with no chip folded
-  const plainWidth = useRef(84);
   const [shown, setShown] = useState(set.length);
-  // What the fit depends on: which chips there are and what they say, and the row's width. A
-  // value's label can arrive after its chip (a project's name, once the projects load), and the
-  // chip is wider for it, so the label is part of the key.
+  const [rowWidth, setRowWidth] = useState(0);
+  // A menu of the row is open (a chip's, or the marker's). Ticking a value in it changes what the
+  // chips say, and so which fit; a chip that hid then, or a marker that went, would take the open
+  // menu with it. So the count is held until the menu closes.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const shownNow = useRef(shown);
+  // What the fit depends on, besides the row's width: which chips there are and what they say. A
+  // value's label can arrive after its chip (a project's name, once the projects load).
   const chipsKey = set
     .map((field) => {
-      const label = field.options.find((option) => option.value === field.value)?.label ?? '';
-      return `${field.id}:${field.value}:${label}`;
+      const { text, more } = filterSummary(field);
+      return `${field.id}:${text}:${more}`;
     })
     .join('|');
-  const [rowWidth, setRowWidth] = useState(0);
 
   useLayoutEffect(() => {
     const element = row.current;
@@ -327,57 +544,28 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
 
   useLayoutEffect(() => {
     if (!row.current) return;
-    if (shown >= set.length && trigger.current) plainWidth.current = trigger.current.offsetWidth;
-    setShown(measure(row.current, plainWidth.current));
-    // `shown` is this effect's own result: measured again only when the chips or the row change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chipsKey, rowWidth, compact]);
+    const next = layOut(row.current, menuOpen ? shownNow.current : undefined);
+    shownNow.current = next;
+    setShown(next);
+  }, [chipsKey, rowWidth, menuOpen]);
 
-  const folded = compact ? set.length : Math.max(0, set.length - shown);
+  // after the count above is drawn: the hidden chips out of the row, the marker in it
+  useLayoutEffect(() => {
+    if (row.current) markCompact(row.current);
+  }, [shown, chipsKey, rowWidth, menuOpen]);
+
+  const hidden = set.slice(shown);
   return (
     <div ref={row} className={styles.filters}>
-      {!compact &&
-        set.map((field, index) => (
-          <FilterChip key={field.id} field={field} folded={index >= shown} />
-        ))}
-      <DropdownMenu defaultOpen={defaultOpen}>
-        <DropdownMenuTrigger
-          render={
-            folded > 0 ? (
-              <Button
-                ref={trigger}
-                variant="outline"
-                icon={ListFilter}
-                // every filter folded: how many are set; some: how many more than the chips shown
-                value={folded === set.length ? String(folded) : `+${folded}`}
-                active
-              >
-                Filter
-              </Button>
-            ) : (
-              <Button ref={trigger} variant="ghost" icon={Plus} className={styles.add}>
-                Filter
-              </Button>
-            )
-          }
+      {set.map((field, index) => (
+        <FilterChip
+          key={field.id}
+          field={field}
+          hidden={index >= shown}
+          onOpenChange={setMenuOpen}
         />
-        <DropdownMenuContent width="sm" align="start" aria-label="Filter">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-            {fields.map((field) => (
-              <FieldSubmenu key={field.id} field={field} />
-            ))}
-          </DropdownMenuGroup>
-          {set.length > 0 && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
-                Clear filters
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      ))}
+      {hidden.length > 0 && <HiddenChips fields={hidden} onOpenChange={setMenuOpen} />}
       {set.length > 0 && (
         <Button
           variant="ghost"
@@ -390,6 +578,48 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
         </Button>
       )}
     </div>
+  );
+}
+
+export interface ListFilterButtonProps extends ListFiltersProps {
+  /** draws the menu open at first, for a picture of it */
+  defaultOpen?: boolean;
+}
+
+/**
+ * The Filter button, at the toolbar's end before Display: an outline icon button. Its menu has an
+ * item for each field, showing what it is filtered to and opening its values in a submenu, with a
+ * search row for a field that asks for one, and "Clear filters" last while any is set. A field
+ * holds one value (radio buttons), or with `multiple` several, meaning "any of these"
+ * (checkboxes); picking a value never closes the menu. The button is the same whatever is set and
+ * the chips are drawn elsewhere (`ListFilters`), so it never moves and its menu stays under the
+ * pointer while values are ticked.
+ */
+export function ListFilterButton({ fields, defaultOpen, onClear }: ListFilterButtonProps) {
+  const anySet = fields.some((field) => valuesOf(field).length > 0);
+  return (
+    <DropdownMenu defaultOpen={defaultOpen}>
+      <DropdownMenuTrigger
+        render={<IconButton variant="outline" icon={ListFilter} label="Filter" />}
+      />
+      {/* the wider menu: a field's name ("Linked to") and two of its values fit on one line */}
+      <DropdownMenuContent align="end" aria-label="Filter">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+          {fields.map((field) => (
+            <FieldSubmenu key={field.id} field={field} />
+          ))}
+        </DropdownMenuGroup>
+        {anySet && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem icon={CircleSlash} onClick={onClear}>
+              Clear filters
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

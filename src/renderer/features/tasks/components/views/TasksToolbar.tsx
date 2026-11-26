@@ -14,10 +14,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import type { ProjectId } from '@common/ids';
 import {
   Button,
   ListDisplay,
+  ListFilterButton,
   ListFilters,
   ListStatusChip,
   ProjectGlyph,
@@ -31,6 +31,7 @@ import { trpc } from '@renderer/ipc';
 import { useCreateTask } from '../../hooks/use-create-task';
 import { useProjectOptions } from '../../hooks/use-project-options';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
+import { listParam } from '@renderer/shared/lib/search-params';
 import {
   CLEAR_FILTERS,
   DUE_FILTERS,
@@ -43,6 +44,7 @@ import {
   type DueFilter,
   type GroupBy,
   type PriorityFilter,
+  type ProjectFilter,
   type ResolvedTasksSearch,
   type SortParam,
   type StatusFilter,
@@ -128,24 +130,17 @@ const LAYOUTS: ListToolbarOption<'list' | 'board'>[] = [
 ];
 
 /**
- * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
- * completed tasks"), a chip per filter that is set (priority, due, source, project) and
- * "+ Filter". A project's Tasks tab has its project fixed: no Project filter.
+ * The fields the tasks can be filtered by, with what the URL filters them to: priority, due,
+ * source and project. Priority and project hold several values, due and source one. A project's
+ * Tasks tab has its project fixed: no Project filter. The chips (`TasksToolbarStart`) and the
+ * Filter button (`TasksToolbarEnd`) both draw them.
  */
-export function TasksToolbarStart({
-  resolved,
-  setSearch,
-}: {
-  resolved: ResolvedTasksSearch;
-  setSearch: SetSearch;
-}) {
-  const compact = useWorkspaceShell().size === 'compact';
+function useTaskFilterFields(
+  resolved: ResolvedTasksSearch,
+  setSearch: SetSearch,
+): { fields: ListFilterField[]; clear: () => void } {
   const { search, project: fixedProject } = useTasksSearch();
-  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
-  // the status the page shows with none in the URL: Open, or All with completed tasks shown
-  const defaultStatus = resolveTasksSearch({}, settings).status;
   const projects = useProjectOptions();
-
   const fields: ListFilterField[] = [
     {
       id: 'priority',
@@ -156,8 +151,9 @@ export function TasksToolbarStart({
         label: PRIORITY_FILTER_LABELS[priority],
         icon: <PriorityIcon priority={PRIORITY_OF[priority]} />,
       })),
+      multiple: true,
       value: resolved.priority,
-      onChange: (priority) => setSearch({ priority: priority as PriorityFilter | undefined }),
+      onChange: (priority) => setSearch({ priority: listParam(priority as PriorityFilter[]) }),
     },
     {
       id: 'due',
@@ -197,10 +193,32 @@ export function TasksToolbarStart({
         })),
         { value: 'none', label: 'No project', icon: CircleSlash },
       ],
+      multiple: true,
       value: resolved.project,
-      onChange: (project) => setSearch({ project: project as ProjectId | 'none' | undefined }),
+      onChange: (project) => setSearch({ project: listParam(project as ProjectFilter[]) }),
     });
   }
+
+  // the Status chip is not one of the filters: it keeps what the URL says
+  return { fields, clear: () => setSearch({ ...CLEAR_FILTERS, status: search.status }) };
+}
+
+/**
+ * Which tasks are shown: the Status chip (Open or All, or one status; the default follows "Show
+ * completed tasks"), then a chip per filter that is set.
+ */
+export function TasksToolbarStart({
+  resolved,
+  setSearch,
+}: {
+  resolved: ResolvedTasksSearch;
+  setSearch: SetSearch;
+}) {
+  const compact = useWorkspaceShell().size === 'compact';
+  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
+  // the status the page shows with none in the URL: Open, or All with completed tasks shown
+  const defaultStatus = resolveTasksSearch({}, settings).status;
+  const { fields, clear } = useTaskFilterFields(resolved, setSearch);
 
   return (
     <>
@@ -214,18 +232,13 @@ export function TasksToolbarStart({
         // the default leaves the URL, so it goes on following the setting
         onChange={(status) => setSearch({ status: status === defaultStatus ? undefined : status })}
       />
-      <ListFilters
-        fields={fields}
-        compact={compact}
-        // the Status chip is not one of the filters: it keeps what the URL says
-        onClear={() => setSearch({ ...CLEAR_FILTERS, status: search.status })}
-      />
+      <ListFilters fields={fields} onClear={clear} />
     </>
   );
 }
 
 /**
- * How the tasks are drawn: Display (List or Board; in the list, the grouping and the sort). On a
+ * The Filter button, which adds and changes the filters, then how the tasks are drawn: Display (List or Board; in the list, the grouping and the sort). On a
  * project's Tasks tab, New Task too, which files the task in the project; elsewhere the title
  * bar's New creates one.
  */
@@ -242,8 +255,10 @@ export function TasksToolbarEnd({
   const board = resolved.view === 'board';
   // within one project, grouping by project makes one group
   const groupBys = GROUP_BYS.filter((groupBy) => !fixedProject || groupBy !== 'project');
+  const { fields, clear } = useTaskFilterFields(resolved, setSearch);
   return (
     <>
+      <ListFilterButton fields={fields} onClear={clear} />
       <ListDisplay
         compact={compact}
         layout={{

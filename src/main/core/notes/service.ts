@@ -1,15 +1,16 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
-import { SQL, and, isNull, isNotNull, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, isNotNull, desc, eq, exists, gte, inArray, lt, not } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
 import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
-import { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
+import { listOf, Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
 import { CreateNoteOptions, NoteFilterOptions, NoteSortOptions, UpdateNoteOptions } from './types';
 import { stripMarkdown } from '../shared/markdown';
 import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
+import { anyOf, isOneOf } from '../shared/filters';
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
@@ -187,11 +188,8 @@ export class NoteService {
   ): Page<NoteListItem> {
     const clauses = [isNull(notes.archivedAt)];
 
-    if (filter.projectId !== undefined) {
-      clauses.push(
-        filter.projectId === null ? isNull(notes.projectId) : eq(notes.projectId, filter.projectId),
-      );
-    }
+    // one project or any of several; null is the notes in no project
+    if (filter.projectId !== undefined) clauses.push(isOneOf(notes.projectId, filter.projectId));
 
     if (filter.linkedEventId !== undefined) {
       clauses.push(
@@ -209,8 +207,31 @@ export class NoteService {
       );
     }
 
-    if (filter.linkedTo === 'event') clauses.push(isNotNull(notes.linkedEventId));
-    if (filter.linkedTo === 'task') clauses.push(isNotNull(notes.linkedTaskId));
+    if (filter.linkedTo !== undefined) {
+      // each kind is a condition on the two link columns; several kinds are any of them
+      const kinds = new Set(listOf(filter.linkedTo));
+      const conditions: SQL[] = [];
+      if (kinds.has('event')) conditions.push(isNotNull(notes.linkedEventId));
+      if (kinds.has('task')) conditions.push(isNotNull(notes.linkedTaskId));
+      if (kinds.has('none')) {
+        conditions.push(and(isNull(notes.linkedEventId), isNull(notes.linkedTaskId)) as SQL);
+      }
+      clauses.push(anyOf(conditions));
+    }
+
+    if (filter.editedFrom != null) clauses.push(gte(notes.updatedAt, filter.editedFrom));
+    if (filter.editedBefore != null) clauses.push(lt(notes.updatedAt, filter.editedBefore));
+
+    if (filter.hasTasks !== undefined) {
+      // a task made from the note names it; one in the trash does not count
+      const made = exists(
+        this.db
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(and(eq(tasks.linkedNoteId, notes.id), isNull(tasks.archivedAt))),
+      );
+      clauses.push(filter.hasTasks ? made : not(made));
+    }
 
     let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {
