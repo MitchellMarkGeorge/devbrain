@@ -246,6 +246,29 @@ describe('a filter that holds one value', () => {
   });
 });
 
+describe('a chip’s icon', () => {
+  const mark = (name: string) => createElement('i', { 'data-mark': name });
+  const options = [
+    { value: 'a', label: 'Alpha', icon: mark('alpha') },
+    { value: 'b', label: 'Beta', icon: mark('beta') },
+    { value: 'c', label: 'Gamma' },
+  ];
+  const chipMark = () =>
+    container.querySelector('[data-chip] [data-mark]')?.getAttribute('data-mark') ?? null;
+
+  it('is the value’s own when one value is chosen', () => {
+    render({ fields: [{ ...multi('Project', ['b']), options }] });
+    expect(chipMark()).toBe('beta');
+  });
+
+  it('is the field’s for several values, or a value with no icon', () => {
+    render({ fields: [{ ...multi('Project', ['a', 'b']), options }] });
+    expect(chipMark()).toBeNull();
+    render({ fields: [{ ...field('Project', 'c'), options }] });
+    expect(chipMark()).toBeNull();
+  });
+});
+
 describe('a chip of two values', () => {
   it('marks its second value, so a row short of room can show "+1" in its place', () => {
     render({ fields: [multi('Priority', ['a', 'b'])] });

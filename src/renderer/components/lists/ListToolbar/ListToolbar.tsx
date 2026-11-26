@@ -91,7 +91,8 @@ export function ListStatusChip<Value extends string = string>({
         render={
           <Button
             variant="outline"
-            icon={icon}
+            // one status alone shows its own icon; a scope (Open, All) has none, and keeps the chip's
+            icon={current?.icon ?? icon}
             value={current?.label}
             hideValue={compact}
             active={active}
@@ -166,6 +167,17 @@ export function filterSummary(field: ListFilterField): { text: string; more: num
     .map((option) => option.label);
   if (values.length <= 2) return { text: labels.join(', '), more: 0 };
   return { text: labels[0] ?? '', more: values.length - 1 };
+}
+
+/**
+ * A chip's icon: its value's own when the field is filtered to one value (a project's folder in
+ * its colour, a priority's gauge), so the chip shows what was picked and not only its name; the
+ * field's when the value has none, or when several values are chosen.
+ */
+function chipIcon(field: ListFilterField): IconSource | undefined {
+  const values = valuesOf(field);
+  if (values.length !== 1) return field.icon;
+  return field.options.find((option) => option.value === values[0])?.icon ?? field.icon;
 }
 
 /**
@@ -337,7 +349,7 @@ function FilterChip({
             render={
               <Button
                 variant="outline"
-                icon={field.icon}
+                icon={chipIcon(field)}
                 className={styles.chipButton}
                 value={<FieldSummary field={field} className={styles.chipValue} />}
               >

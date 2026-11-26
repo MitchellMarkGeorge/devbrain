@@ -13,7 +13,11 @@ the start, the controls that change that and how they are drawn at the end. Four
 - **`ListFilters`** — at the start, after Status: a chip for each filter that is set. A chip is
   "Priority High, Medium" joined to its ×: its value opens its field's values straight away (no
   "Any": the × removes the filter); a long value is cut with "…". The chips are in the fields'
-  order, whatever order they were set in. With no filter set it draws nothing.
+  order, whatever order they were set in. With no filter set it draws nothing. A chip filtered to
+  one value leads with that value's own icon (a project's folder in its colour, a priority's
+  gauge, a status's circle); with several values, or a value that has no icon, it keeps the
+  field's. The Status chip does the same: one status alone shows its icon, a scope (Open, All)
+  the chip's own.
 - **`ListFilterButton`** — at the end, before Display: the Filter button, an outline icon button
   (`IconButton`, the filter icon, named "Filter" in its tooltip), the same whatever is set. Its
   menu has an item for each field, with what the field is filtered to before its chevron
