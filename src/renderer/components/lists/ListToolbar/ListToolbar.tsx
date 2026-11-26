@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '../../ui/Button';
 import { ButtonGroup } from '../../ui/ButtonGroup';
 import {
@@ -193,7 +193,7 @@ function FieldSubmenu({ field }: { field: ListFilterField }) {
 function FilterChip({ field }: { field: ListFilterField }) {
   const current = field.options.find((option) => option.value === field.value);
   return (
-    <ButtonGroup aria-label={`${field.label} filter`} data-chip="" className={styles.chip}>
+    <ButtonGroup aria-label={`${field.label} filter`} className={styles.chip}>
       <Searchable field={field}>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -202,6 +202,7 @@ function FilterChip({ field }: { field: ListFilterField }) {
                 variant="outline"
                 icon={field.icon}
                 value={<span className={styles.value}>{current?.label}</span>}
+                className={styles.chipValue}
               >
                 {field.label}
               </Button>
@@ -230,8 +231,11 @@ function FilterChip({ field }: { field: ListFilterField }) {
 
 export interface ListFiltersProps {
   fields: ListFilterField[];
-  /** a narrow window: every chip folds into the "Filter" button, which counts them */
-  compact?: boolean;
+  /**
+   * the window's size (the shell's): how many chips are drawn before the rest fold into the
+   * "Filter" button. `wide` by default.
+   */
+  size?: 'compact' | 'medium' | 'wide';
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
   /**
@@ -241,92 +245,33 @@ export interface ListFiltersProps {
   onClear: () => void;
 }
 
-// the room kept for the trailing button once chips are folded into it: "Filter +2"
-const MORE_WIDTH = 112;
-
 /**
- * How many chips of these widths (each with the gap after it) fit in `available`, before the
- * trailing button. All of them while they fit with "+ Filter" (`plainWidth`) after them; otherwise
- * as many as leave room for "Filter +N". Chips fold from the end.
+ * How many filter chips a toolbar draws at each window size (the shell's `size`), the rest folded
+ * into the Filter button. What fits beside Status, the button, Clear and Display with the sidebar
+ * open: none in a compact window, one in a medium one (from 1080px), two in a wide one (from
+ * 1280px). A fixed count, not a measurement: the toolbar is the same at a given size whatever the
+ * chips say, and nothing is drawn to be measured.
  */
-export function chipsThatFit(widths: number[], available: number, plainWidth: number): number {
-  const all = widths.reduce((sum, width) => sum + width, 0);
-  if (all + plainWidth <= available) return widths.length;
-  let used = MORE_WIDTH;
-  let fit = 0;
-  for (const width of widths) {
-    if (used + width > available) break;
-    used += width;
-    fit += 1;
-  }
-  return fit;
-}
+const MAX_CHIPS = { compact: 0, medium: 1, wide: 2 } as const;
 
 /**
- * A list's filters, on one row: a chip for each one that is set (its value opens the field's
- * values, its × removes it), then "+ Filter". The chips that don't fit the row fold into the
- * button, which then reads "Filter +2"; in a compact window they all do ("Filter 2"). The menu
- * has an item for each field, showing the value it is filtered to (so a folded filter is still
- * one click away) and opening its values in a submenu, with a search row for a field that asks for
- * one. A field holds one value.
+ * A list's filters, on one row: a chip for each of the first ones that are set (its value opens
+ * the field's values, its × removes it), then "+ Filter". A window shows as many chips as its
+ * size allows (`MAX_CHIPS`); the rest fold into the button, which then reads "Filter +2", or
+ * "Filter 2" in a compact window, where they all do. The menu has an item for each field, showing
+ * the value it is filtered to (so a folded filter is still one click away) and opening its values
+ * in a submenu, with a search row for a field that asks for one. A field holds one value.
  *
  * While a filter is set, "Clear" sits at the row's end (before the toolbar's end group), where it
  * stays put as chips come and go. It is there with one filter too: beside the chip's × in a wide
  * window, and the only one-click way out in a compact one, where the chip is folded.
  */
-export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFiltersProps) {
+export function ListFilters({ fields, size = 'wide', defaultOpen, onClear }: ListFiltersProps) {
   const set = fields.filter((field) => field.value !== undefined);
-  const row = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  // Only the chips that fit are in the DOM. To know which do, each set of chips is drawn whole
-  // once and measured before the browser paints (a layout effect), and the widths are kept: a
-  // resize then needs no chip drawn to count again.
-  // The key names what each chip says, not only what it is set to: a value's label can arrive
-  // after its chip (a project's name, once the projects load), and the chip is wider for it.
-  const chipsKey = set
-    .map((field) => {
-      const label = field.options.find((option) => option.value === field.value)?.label ?? '';
-      return `${field.id}:${field.value}:${label}`;
-    })
-    .join('|');
-  // what was measured for the chips of `key`: each chip's width and "Clear"'s (with the gap after
-  // it), and "+ Filter"'s
-  const [measured, setMeasured] = useState({ key: '', chips: [] as number[], clear: 0, plain: 0 });
-  const measuring = !compact && measured.key !== chipsKey;
-  // the row's width, as the browser last laid it out; none before that
-  const [rowWidth, setRowWidth] = useState(0);
-
-  useLayoutEffect(() => {
-    const element = row.current;
-    if (!element || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => setRowWidth(element.clientWidth));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  useLayoutEffect(() => {
-    const element = row.current;
-    if (!element || !measuring) return;
-    const gap = parseFloat(getComputedStyle(element).columnGap) || 0;
-    const widthOf = (selector: string) =>
-      [...element.querySelectorAll<HTMLElement>(selector)].map((item) => item.offsetWidth + gap);
-    setMeasured({
-      key: chipsKey,
-      chips: widthOf('[data-chip]'),
-      clear: widthOf('[data-clear]')[0] ?? 0,
-      plain: trigger.current?.offsetWidth ?? 0,
-    });
-  }, [chipsKey, measuring]);
-
-  // a row that has not been laid out (no width) shows every chip
-  const fit =
-    measuring || rowWidth === 0
-      ? set.length
-      : chipsThatFit(measured.chips, rowWidth - measured.clear, measured.plain);
-  const shown = compact ? [] : set.slice(0, fit);
+  const shown = set.slice(0, MAX_CHIPS[size]);
   const folded = set.length - shown.length;
   return (
-    <div ref={row} className={styles.filters}>
+    <div className={styles.filters}>
       {shown.map((field) => (
         <FilterChip key={field.id} field={field} />
       ))}
@@ -335,7 +280,6 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
           render={
             folded > 0 ? (
               <Button
-                ref={trigger}
                 variant="outline"
                 icon={ListFilter}
                 // every filter folded: how many are set; some: how many more than the chips shown
@@ -345,7 +289,7 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
                 Filter
               </Button>
             ) : (
-              <Button ref={trigger} variant="ghost" icon={Plus} className={styles.add}>
+              <Button variant="ghost" icon={Plus} className={styles.add}>
                 Filter
               </Button>
             )
@@ -371,7 +315,6 @@ export function ListFilters({ fields, compact, defaultOpen, onClear }: ListFilte
       {set.length > 0 && (
         <Button
           variant="ghost"
-          data-clear=""
           aria-label="Clear filters"
           className={styles.clear}
           onClick={onClear}

@@ -74,11 +74,11 @@ export function NotesToolbarStart({
   resolved: ResolvedNotesSearch;
   setSearch: SetSearch;
 }) {
-  const compact = useWorkspaceShell().size === 'compact';
+  const { size } = useWorkspaceShell();
   const projects = useProjectOptions();
   return (
     <ListFilters
-      compact={compact}
+      size={size}
       fields={[
         {
           id: 'link',

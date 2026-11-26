@@ -139,7 +139,8 @@ export function TasksToolbarStart({
   resolved: ResolvedTasksSearch;
   setSearch: SetSearch;
 }) {
-  const compact = useWorkspaceShell().size === 'compact';
+  const { size } = useWorkspaceShell();
+  const compact = size === 'compact';
   const { search, project: fixedProject } = useTasksSearch();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   // the status the page shows with none in the URL: Open, or All with completed tasks shown
@@ -216,7 +217,7 @@ export function TasksToolbarStart({
       />
       <ListFilters
         fields={fields}
-        compact={compact}
+        size={size}
         // the Status chip is not one of the filters: it keeps what the URL says
         onClear={() => setSearch({ ...CLEAR_FILTERS, status: search.status })}
       />

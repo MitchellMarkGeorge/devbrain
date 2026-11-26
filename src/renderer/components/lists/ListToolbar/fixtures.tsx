@@ -163,6 +163,8 @@ const STATUSES: Partial<Record<DemoList, Statuses>> = {
 export interface DemoToolbarStartProps {
   list: DemoList;
   compact?: boolean;
+  /** the window's size, for how many chips are drawn; from `compact` otherwise */
+  size?: 'compact' | 'medium' | 'wide';
   /** the status the chip starts on; the list's default (Open, Active) otherwise */
   status?: string;
   /** the filters set at first, by field id: `{ priority: String(TaskPriority.HIGH) }` */
@@ -177,6 +179,7 @@ export interface DemoToolbarStartProps {
 export function DemoToolbarStart({
   list,
   compact,
+  size,
   status,
   filters = {},
   open,
@@ -200,7 +203,7 @@ export function DemoToolbarStart({
         />
       )}
       <ListFilters
-        compact={compact}
+        size={size ?? (compact ? 'compact' : 'wide')}
         defaultOpen={open === 'filter'}
         fields={FIELDS[list]
           .filter((field) => !fixedProject || field.id !== 'project')

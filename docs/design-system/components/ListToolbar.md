@@ -26,11 +26,15 @@ Rules:
   Tasks tab, which keeps New Task after Display because it files the task in that project.
 - Order at the start: Status, the chips in the fields' order, "+ Filter", then "Clear" at the
   row's end. Nothing else goes there.
-- The toolbar is always one row. `ListFilters` takes the room left after Status and measures it:
-  the chips that fit are drawn, and the rest fold into the trailing button, which becomes an
-  outlined "Filter +2" (two more filters than the chips shown). A folded filter is still in the
-  menu, beside its field's name, and comes back as a chip when there is room (the window widens, or
-  a chip before it is removed). Chips fold from the end, in the fields' order.
+- The toolbar is always one row. `ListFilters` draws a fixed number of chips for the window's size
+  (`size`, the shell's): two in a wide window, one in a medium one, none in a compact one. The
+  rest fold into the trailing button, which becomes an outlined "Filter +2" (two more filters than
+  the chips shown). Chips are drawn in the fields' order, so removing one brings the next folded
+  one back. A folded filter is still in the menu, beside its field's name.
+- The count is fixed, not measured: the toolbar is the same at a given window size whatever the
+  chips say, and nothing is drawn to be measured. The counts are what fits beside Status, the
+  button, Clear and Display with the sidebar open. Should a row still be tight (a long project
+  name), a chip gives way by cutting its value with "…"; it never runs under Display.
 - While a filter is set, a quiet "Clear" sits at the end of the filters' row, just before Display,
   and removes them all. It is at the row's end, not after "+ Filter", so it stays in one place as
   chips come and go; it also clears the folded ones. It shows with one filter too: that repeats the
@@ -39,10 +43,8 @@ Rules:
   alone, as "Clear filters" in the menu does.
 - A chip is a `ButtonGroup` of two outline buttons. (`ButtonGroup` squares corners by `data-slot`,
   not by position, so the chip keeps its shape while its menu is open.)
-- Only the chips that fit are in the DOM. Each set of chips is drawn whole once and measured before
-  the browser paints; the widths are kept, so a resize counts again without drawing any chip.
-- In a compact window (`compact`) Status and Display keep their names and drop their values
-  (`Button`'s `hideValue`; Status draws pressed while it is off its default), and every chip folds:
+- In a compact window Status and Display keep their names and drop their values (`compact`:
+  `Button`'s `hideValue`; Status draws pressed while it is off its default), and every chip folds:
   the button reads "Filter 2", how many filters are set.
 - The page owns the state (its URL's search params); the pieces are controlled. A status equal to
   the page's default leaves the URL.
