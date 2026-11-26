@@ -62,23 +62,27 @@
 
 /*
  * An alternative being tried (`ListFilterChips`): the chips in a row of their own under the
- * toolbar, in line with its controls. They wrap; nothing folds.
+ * toolbar, in line with its controls. One line: the chips that don't fit fold into its "+2", by
+ * the same measuring as the toolbar's own chips (the line is the containing block of the folded).
  */
 .chipRow {
-  display: flex;
   flex: none;
-  flex-wrap: wrap;
+  min-width: 0;
+  padding: 0 var(--space-6) var(--space-3);
+}
+.chipLine {
+  position: relative;
+  display: flex;
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
-  padding: 0 var(--space-6) var(--space-3);
 }
 .chipRemoveSmall {
   width: 24px;
   color: var(--muted-foreground);
 }
-.rowClear {
-  color: var(--muted-foreground);
+.rowMore {
+  flex: none;
 }
 
 /* "Clear": a quiet word at the row's end, in the same place however many chips there are */

@@ -371,10 +371,15 @@ const MORE_WIDTH = 112;
  * trailing button. All of them while they fit with the Filter button (`plainWidth`) after them; otherwise
  * as many as leave room for "Filter +N". Chips fold from the end.
  */
-export function chipsThatFit(widths: number[], available: number, plainWidth: number): number {
+export function chipsThatFit(
+  widths: number[],
+  available: number,
+  plainWidth: number,
+  moreWidth = MORE_WIDTH,
+): number {
   const all = widths.reduce((sum, width) => sum + width, 0);
   if (all + plainWidth <= available) return widths.length;
-  let used = MORE_WIDTH;
+  let used = moreWidth;
   let fit = 0;
   for (const width of widths) {
     if (used + width > available) break;
@@ -388,7 +393,7 @@ export function chipsThatFit(widths: number[], available: number, plainWidth: nu
  * `chipsThatFit` for the chips in `row`, in the room its "Clear" (if it is drawn) leaves. A row
  * that has not been laid out shows them all.
  */
-function measure(row: HTMLElement, plainWidth: number): number {
+function measure(row: HTMLElement, plainWidth: number, moreWidth = MORE_WIDTH): number {
   const chips = [...row.querySelectorAll<HTMLElement>('[data-chip]')];
   if (row.clientWidth === 0) return chips.length;
   const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
@@ -397,6 +402,7 @@ function measure(row: HTMLElement, plainWidth: number): number {
     chips.map((chip) => chip.offsetWidth + gap),
     row.clientWidth - (clear ? clear.offsetWidth + gap : 0),
     plainWidth,
+    moreWidth,
   );
 }
 
@@ -447,7 +453,10 @@ function FilterMenuItems({ fields, onClear }: Pick<ListFiltersProps, 'fields' | 
   );
 }
 
-/** The Filter button alone, its chips drawn elsewhere (`chips="row"`): it stays where it is. */
+/**
+ * The Filter button alone, its chips drawn elsewhere (`chips="row"`): it stays where it is, and
+ * "Clear" keeps its place at the row's end, before Display.
+ */
 function FilterMenuButton({
   fields,
   defaultOpen,
@@ -455,48 +464,108 @@ function FilterMenuButton({
 }: Pick<ListFiltersProps, 'fields' | 'defaultOpen' | 'onClear'>) {
   const anySet = fields.some((field) => valuesOf(field).length > 0);
   return (
-    <DropdownMenu defaultOpen={defaultOpen}>
-      <DropdownMenuTrigger
-        render={
-          <IconButton
-            variant="outline"
-            icon={ListFilter}
-            label="Filter"
-            data-pressed={anySet ? '' : undefined}
-          />
-        }
-      />
-      <FilterMenuItems fields={fields} onClear={onClear} />
-    </DropdownMenu>
+    <div className={styles.filters}>
+      <DropdownMenu defaultOpen={defaultOpen}>
+        <DropdownMenuTrigger
+          render={
+            <IconButton
+              variant="outline"
+              icon={ListFilter}
+              label="Filter"
+              data-pressed={anySet ? '' : undefined}
+            />
+          }
+        />
+        <FilterMenuItems fields={fields} onClear={onClear} />
+      </DropdownMenu>
+      {anySet && (
+        <Button
+          variant="ghost"
+          data-clear=""
+          aria-label="Clear filters"
+          className={styles.clear}
+          onClick={onClear}
+        >
+          Clear
+        </Button>
+      )}
+    </div>
   );
 }
 
-export interface ListFilterChipsProps extends Pick<ListFiltersProps, 'fields' | 'onClear'> {
+export interface ListFilterChipsProps extends Pick<ListFiltersProps, 'fields'> {
   className?: string;
+}
+
+// the room kept in the chips' row for its "+2" once chips are folded into it
+const ROW_MORE_WIDTH = 48;
+
+/** What a row's fit depends on: which chips there are and what they say. */
+function chipsKeyOf(set: ListFilterField[]): string {
+  return set
+    .map((field) => {
+      const { text, more } = filterSummary(field);
+      return `${field.id}:${valuesOf(field).join(',')}:${text}:${more}`;
+    })
+    .join('|');
 }
 
 /**
  * An alternative being tried, with `ListFilters chips="row"`: the filters that are set, as a row
- * of their own under the toolbar. The chips are smaller (28px), wrap onto more lines instead of
- * folding, and end with "Clear". With no filter set the row is not drawn, so it takes no room.
+ * of their own under the toolbar. The chips are smaller (28px) and stay on one line: those that
+ * don't fit fold into a "+2" at the row's end, whose menu holds their fields. With no filter set
+ * the row is not drawn, so it takes no room. "Clear" stays in the toolbar.
  */
-export function ListFilterChips({ fields, onClear, className }: ListFilterChipsProps) {
+export function ListFilterChips({ fields, className }: ListFilterChipsProps) {
   const set = fields.filter((field) => valuesOf(field).length > 0);
-  if (set.length === 0) return null;
+  const line = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(set.length);
+  const [lineWidth, setLineWidth] = useState(0);
+  const chipsKey = chipsKeyOf(set);
+  const drawn = set.length > 0;
+
+  useLayoutEffect(() => {
+    const element = line.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setLineWidth(element.clientWidth));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [drawn]);
+
+  useLayoutEffect(() => {
+    if (line.current) setShown(measure(line.current, 0, ROW_MORE_WIDTH));
+  }, [chipsKey, lineWidth]);
+
+  if (!drawn) return null;
+  const folded = set.slice(shown);
   return (
     <div role="group" aria-label="Filters" className={cn(styles.chipRow, className)}>
-      {set.map((field) => (
-        <FilterChip key={field.id} field={field} small />
-      ))}
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label="Clear filters"
-        className={styles.rowClear}
-        onClick={onClear}
-      >
-        Clear
-      </Button>
+      <div ref={line} className={styles.chipLine}>
+        {set.map((field, index) => (
+          <FilterChip key={field.id} field={field} small folded={index >= shown} />
+        ))}
+        {folded.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`${folded.length} more filters`}
+                  className={styles.rowMore}
+                >
+                  +{folded.length}
+                </Button>
+              }
+            />
+            <DropdownMenuContent width="sm" align="start" aria-label="More filters">
+              {folded.map((field) => (
+                <FieldSubmenu key={field.id} field={field} />
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 }
@@ -511,12 +580,7 @@ function InlineFilters({ fields, compact, defaultOpen, onClear }: ListFiltersPro
   // What the fit depends on: which chips there are and what they say, and the row's width. A
   // value's label can arrive after its chip (a project's name, once the projects load), and the
   // chip is wider for it, so the label is part of the key.
-  const chipsKey = set
-    .map((field) => {
-      const { text, more } = filterSummary(field);
-      return `${field.id}:${valuesOf(field).join(',')}:${text}:${more}`;
-    })
-    .join('|');
+  const chipsKey = chipsKeyOf(set);
   const [rowWidth, setRowWidth] = useState(0);
 
   useLayoutEffect(() => {

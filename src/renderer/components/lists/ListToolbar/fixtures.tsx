@@ -216,7 +216,7 @@ export function useDemoFilters(
 
 /** The alternative's row of chips under the toolbar, over the state its toolbar was given. */
 export function DemoFilterChips({ state }: { state: DemoFilters }) {
-  return <ListFilterChips fields={state.fields} onClear={state.clear} />;
+  return <ListFilterChips fields={state.fields} />;
 }
 
 /** The start of a list page's toolbar: its Status chip, its filter chips and the Filter button. */

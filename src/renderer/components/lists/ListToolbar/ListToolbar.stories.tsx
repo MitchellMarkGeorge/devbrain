@@ -162,8 +162,8 @@ function ChipRowToolbar({
 }
 
 /**
- * An alternative being tried: the chips in a row of their own under the toolbar, smaller (28px),
- * with "Clear" after them. The Filter button never moves, so its menu stays under the pointer
+ * An alternative being tried: the chips in a row of their own under the toolbar, smaller (28px).
+ * "Clear" keeps its place at the toolbar's end, before Display. The Filter button never moves, so its menu stays under the pointer
  * while values are ticked; it is drawn pressed while a filter is set. Not used by the app.
  */
 export const ChipRow: Story = {
@@ -185,7 +185,10 @@ export const ChipRowEmpty: Story = {
   render: () => <ChipRowToolbar open height={420} />,
 };
 
-/** The alternative in a narrow page: the chips wrap onto another line instead of folding. */
+/**
+ * The alternative in a narrow page: the chips stay on one line, and those that don't fit fold into
+ * a "+2" at the row's end, whose menu holds their fields.
+ */
 export const ChipRowNarrow: Story = {
   name: 'Alternative — chips in their own row, narrow',
   render: () => (
