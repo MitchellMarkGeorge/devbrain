@@ -100,6 +100,14 @@ export const MockChips: Story = {
   ),
 };
 
+/** MOCK-UP, not used by the app: the same chips as the toolbar's own outline buttons, 32px. */
+export const MockOutlineChips: Story = {
+  name: 'Mock-up — outline chips after the Filter button',
+  render: () => (
+    <Toolbar height={320} start={{ list: 'tasks', filters: CHIP_FILTERS, chips: 'outline' }} />
+  ),
+};
+
 /** The mock-up in a narrow page: the chips that don't fit are not drawn; the badge still counts them. */
 export const MockChipsNarrow: Story = {
   name: 'Mock-up — chips after the Filter button, narrow',

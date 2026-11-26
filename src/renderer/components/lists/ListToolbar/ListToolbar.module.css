@@ -49,6 +49,19 @@
   height: var(--control-sm);
   overflow: hidden;
 }
+/* `chips="outline"`: the toolbar's own outline buttons, a little clear of the badge */
+.outlineChips {
+  gap: var(--space-4) var(--space-2);
+  height: var(--control-md);
+  margin-left: var(--space-1);
+}
+.outlineChip {
+  flex: none;
+}
+.outlineRemove {
+  width: 28px;
+  color: var(--muted-foreground);
+}
 /* flat: a faint fill and no line, so it is neither a toolbar button nor a row's pill */
 .chip {
   flex: none;

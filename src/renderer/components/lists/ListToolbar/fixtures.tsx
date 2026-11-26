@@ -178,8 +178,8 @@ export interface DemoToolbarStartProps {
   open?: 'status' | 'filter';
   /** a project's Tasks tab: no Project filter */
   fixedProject?: boolean;
-  /** the mock-up: flat chips after the Filter button */
-  chips?: boolean;
+  /** the mock-up: chips after the Filter button, flat or as outline buttons */
+  chips?: boolean | 'outline';
 }
 
 /** The start of a list page's toolbar: its Status chip, its filter chips and the Filter button. */

@@ -305,16 +305,20 @@ function FilterTooltip({ set }: { set: ListFilterField[] }) {
  * Its value opens the field's values straight away, with no trip through the Filter menu; its ×
  * removes the filter.
  */
-function FilterChip({ field }: { field: ListFilterField }) {
+function FilterChip({ field, outline }: { field: ListFilterField; outline?: boolean }) {
   return (
-    <ButtonGroup aria-label={`${field.label} filter`} data-chip="" className={styles.chip}>
+    <ButtonGroup
+      aria-label={`${field.label} filter`}
+      data-chip=""
+      className={outline ? styles.outlineChip : styles.chip}
+    >
       <Searchable field={field}>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
-                variant="ghost"
-                size="sm"
+                variant={outline ? 'outline' : 'ghost'}
+                size={outline ? undefined : 'sm'}
                 icon={field.icon}
                 value={<FieldSummary field={field} className={styles.chipValue} />}
               >
@@ -332,11 +336,11 @@ function FilterChip({ field }: { field: ListFilterField }) {
         </DropdownMenu>
       </Searchable>
       <Button
-        variant="ghost"
-        size="icon-sm"
+        variant={outline ? 'outline' : 'ghost'}
+        size={outline ? 'icon' : 'icon-sm'}
         icon={X}
         aria-label={`Remove ${field.label} filter`}
-        className={styles.chipRemove}
+        className={outline ? styles.outlineRemove : styles.chipRemove}
         onClick={() => (field.multiple ? field.onChange([]) : field.onChange(undefined))}
       />
     </ButtonGroup>
@@ -348,9 +352,10 @@ export interface ListFiltersProps {
   /**
    * MOCK-UP, off in the app: also draws the filters that are set as flat chips after the Filter
    * button, in the fields' order, while there is room. A chip that does not fit the row is not
-   * drawn; the badge, the tooltip and the menu still account for it.
+   * drawn; the badge, the tooltip and the menu still account for it. `outline` draws them as the
+   * toolbar's own outline buttons, 32px, in place of the flat 28px chips.
    */
-  chips?: boolean;
+  chips?: boolean | 'outline';
   /** draws the menu open at first, for a picture of it */
   defaultOpen?: boolean;
   /**
@@ -411,9 +416,9 @@ export function ListFilters({ fields, chips, defaultOpen, onClear }: ListFilters
         )}
       </span>
       {chips && count > 0 && (
-        <div className={styles.chips}>
+        <div className={cn(styles.chips, chips === 'outline' && styles.outlineChips)}>
           {set.map((field) => (
-            <FilterChip key={field.id} field={field} />
+            <FilterChip key={field.id} field={field} outline={chips === 'outline'} />
           ))}
         </div>
       )}
