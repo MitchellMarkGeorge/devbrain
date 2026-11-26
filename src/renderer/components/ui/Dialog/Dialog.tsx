@@ -53,7 +53,11 @@ export function DialogContent({
   return (
     <BaseDialog.Portal>
       <BaseDialog.Backdrop className={styles.backdrop} />
-      <BaseDialog.Popup className={mergeClassName(dialogVariants({ size }), className)} {...props}>
+      <BaseDialog.Popup
+        className={mergeClassName(dialogVariants({ size }), className)}
+        data-light-dismiss=""
+        {...props}
+      >
         {children}
         {showClose && (
           <BaseDialog.Close

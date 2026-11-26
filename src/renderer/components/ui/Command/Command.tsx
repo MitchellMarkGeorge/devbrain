@@ -232,7 +232,11 @@ export function CommandDialog({
     <Dialog.Root {...props}>
       <Dialog.Portal>
         <Dialog.Backdrop className={styles.backdrop} />
-        <Dialog.Popup className={cn(styles.dialog, className)} aria-label={label}>
+        <Dialog.Popup
+          className={cn(styles.dialog, className)}
+          aria-label={label}
+          data-light-dismiss=""
+        >
           {children}
           <Dialog.Close render={<VisuallyHidden render={<button type="button" />} />}>
             Close

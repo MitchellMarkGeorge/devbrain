@@ -53,6 +53,7 @@ export function ContextMenuContent({
         align={align}
         alignOffset={alignOffset}
         className={menuStyles.positioner}
+        data-light-dismiss=""
       >
         <BaseContextMenu.Popup
           className={mergeClassName(menuPopupVariants({ width }), className)}

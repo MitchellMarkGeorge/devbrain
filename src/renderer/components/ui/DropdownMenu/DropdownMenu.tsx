@@ -94,6 +94,7 @@ export function DropdownMenuContent({
         alignOffset={alignOffset}
         anchor={anchor}
         className={styles.positioner}
+        data-light-dismiss=""
       >
         <Menu.Popup className={mergeClassName(menuPopupVariants({ width }), className)} {...props}>
           <MenuScrollArea>{children}</MenuScrollArea>

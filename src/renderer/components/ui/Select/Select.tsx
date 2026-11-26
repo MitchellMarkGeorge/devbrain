@@ -73,6 +73,7 @@ export function SelectContent({
         sideOffset={sideOffset}
         alignItemWithTrigger={false}
         className={menuStyles.positioner}
+        data-light-dismiss=""
       >
         <BaseSelect.Popup
           className={mergeClassName(menuPopupVariants({ width }), className)}
