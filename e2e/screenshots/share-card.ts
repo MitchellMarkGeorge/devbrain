@@ -47,7 +47,7 @@ body {
 }
 .text { position: absolute; left: 72px; top: 72px; width: 470px; }
 .brand { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 600; }
-.brand svg { width: 34px; height: 41px; }
+.brand svg { width: 34px; height: 34px; }
 .brand g { fill: var(--foreground-strong); }
 h1 { margin-top: 112px; font-size: 54px; line-height: 1.08; font-weight: 600; letter-spacing: -0.02em; }
 p { margin-top: 24px; font-size: 23px; line-height: 1.4; color: var(--muted-foreground); }

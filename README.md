@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="src/renderer/assets/devbrain-logomark.svg" />
-    <img src="src/renderer/assets/devbrain-logomark-dark.svg" alt="" width="64" height="77" />
+    <img src="src/renderer/assets/devbrain-logomark-dark.svg" alt="" width="64" height="64" />
   </picture>
 
   <h1>DevBrain</h1>

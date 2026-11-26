@@ -5,7 +5,7 @@ import { CaptionButtons, WindowStart } from '../WindowBar';
 import styles from './AppShell.module.css';
 
 export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
-  /** the mark above the title: a `Logomark` (40×48), or a workspace's tile */
+  /** the mark above the title: a `Logomark` (40px), or a workspace's tile */
   logo?: ReactNode;
   /** "Welcome to DevBrain" (30px semibold) */
   title?: ReactNode;

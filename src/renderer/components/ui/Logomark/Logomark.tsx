@@ -7,7 +7,7 @@ import styles from './Logomark.module.css';
 
 export const logomarkVariants = cva(styles.mark, {
   variants: {
-    /** `sm` 20×24 in a lockup, `md` 40×48 above onboarding titles, `lg` 60×72 on the splash */
+    /** `sm` 20px in a lockup, `md` 40px above onboarding titles, `lg` 60px on the splash */
     size: { sm: styles.sm, md: styles.md, lg: styles.lg },
     pulse: { true: styles.pulse },
   },
@@ -56,7 +56,7 @@ export interface LockupProps extends ComponentPropsWithoutRef<'span'> {
   ground?: 'dark' | 'light';
 }
 
-/** The mark (20×24), `space-3`, then "DevBrain" in Inter semibold. There is no wordmark file. */
+/** The mark (20px), `space-3`, then "DevBrain" in Inter semibold. There is no wordmark file. */
 export function Lockup({ ground, className, ...props }: LockupProps) {
   return (
     <span className={cn(styles.lockup, className)} {...props}>

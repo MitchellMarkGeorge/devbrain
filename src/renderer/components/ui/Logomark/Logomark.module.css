@@ -4,7 +4,7 @@
   flex: none;
   height: auto;
 }
-/* 20×24 beside the name, 40×48 above onboarding titles, 60×72 on the splash screen */
+/* 20px beside the name, 40px above onboarding titles, 60px on the splash screen */
 .sm {
   width: 20px;
 }
