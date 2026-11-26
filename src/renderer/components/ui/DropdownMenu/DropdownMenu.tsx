@@ -64,7 +64,7 @@ export function MenuScrollArea({
   className?: string;
 }) {
   return (
-    <ScrollArea className={cn(styles.scroll, className)} viewportClassName={styles.viewport}>
+    <ScrollArea className={cn(styles.scroll, className)} contentClassName={styles.viewport}>
       {children}
     </ScrollArea>
   );

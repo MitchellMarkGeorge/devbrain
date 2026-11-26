@@ -35,7 +35,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
     <ScrollArea
       orientation="horizontal"
       className={styles.scroller}
-      viewportClassName={styles.viewport}
+      contentClassName={styles.viewport}
     >
       <div ref={ref} className={cn(styles.board, className)} {...props} />
     </ScrollArea>
@@ -188,7 +188,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
       <ScrollArea
         className={styles.cardsArea}
         viewportRef={scrollerRef}
-        viewportClassName={styles.cards}
+        contentClassName={styles.cards}
       >
         {/*
          * The whole column's height, so the scrollbar is the whole column's; the drawn cards flow

@@ -12,6 +12,18 @@
   outline: none;
 }
 /*
+ * the content: at least the area's height, so what is in it can fill the area or sit at its foot
+ * (a flex column with a `flex: 1` child), and as tall as its children beyond that. Scrolled
+ * sideways it is the area's height, and as wide as its children.
+ */
+.content {
+  box-sizing: border-box;
+  min-height: 100%;
+}
+.content[data-orientation='horizontal'] {
+  height: 100%;
+}
+/*
  * it takes keyboard focus while it overflows (arrow keys scroll it): a 1px ring inside its edge,
  * not when a click focused it (data-pointer-focus), which the next key pressed would show
  */

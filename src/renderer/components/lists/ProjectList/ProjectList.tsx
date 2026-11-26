@@ -190,7 +190,7 @@ function ProjectListInner<Project extends ProjectListRow>(
       className={cn(styles.list, className)}
       style={style}
       viewportRef={listRef}
-      viewportClassName={styles.viewport}
+      contentClassName={styles.viewport}
       viewportProps={{
         role: 'grid',
         'aria-multiselectable': true,

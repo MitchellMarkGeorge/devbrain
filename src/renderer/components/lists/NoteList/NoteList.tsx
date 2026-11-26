@@ -182,7 +182,7 @@ function NoteListInner<Note extends NoteListRow>(
       className={cn(styles.list, className)}
       style={style}
       viewportRef={listRef}
-      viewportClassName={styles.viewport}
+      contentClassName={styles.viewport}
       viewportProps={{
         role: 'grid',
         'aria-multiselectable': true,

@@ -1,7 +1,11 @@
-/* The calendar page under its header: the grid, and the right panel in wide windows */
+/*
+ * The calendar page under its header: the grid, and the right panel in wide windows. It fills the
+ * page from no height of its own (a basis of 0), as a `PageContent` list does, so the grid and the
+ * panel scroll themselves and the page never does.
+ */
 .page {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   border-top: 1px solid var(--border);
 }

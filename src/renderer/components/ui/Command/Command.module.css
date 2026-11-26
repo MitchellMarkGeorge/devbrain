@@ -57,7 +57,7 @@
 .listArea {
   max-height: min(60vh, 384px);
 }
-.listArea:has(> * > .list:empty) {
+.listArea:has(> * > * > .list:empty) {
   display: none;
 }
 .list {

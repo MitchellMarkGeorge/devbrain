@@ -92,7 +92,7 @@ function VirtualCardGridInner<T>(
       ref={ref}
       className={cn(styles.scroller, className)}
       viewportRef={scrollerRef}
-      viewportClassName={styles.viewport}
+      contentClassName={styles.viewport}
     >
       <div
         role="grid"

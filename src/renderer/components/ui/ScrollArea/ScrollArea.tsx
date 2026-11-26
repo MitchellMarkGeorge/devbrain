@@ -1,21 +1,16 @@
-import {
-  forwardRef,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  type ComponentPropsWithoutRef,
-  type FocusEvent,
-  type Ref,
-} from 'react';
+import { forwardRef, type ComponentPropsWithoutRef, type FocusEvent, type Ref } from 'react';
 import { ScrollArea as BaseScrollArea } from '@base-ui/react/scroll-area';
 import { cn, mergeClassName } from '../../lib/cn';
-import { mergeRefs } from '../../lib/merge-refs';
 import styles from './ScrollArea.module.css';
 
 export interface ScrollAreaProps extends BaseScrollArea.Root.Props {
-  /** the scrolling element's class: the content's own layout (padding, flex, gaps) goes here */
-  viewportClassName?: string;
-  /** the scrolling element, whose children are the content */
+  /**
+   * the content's class: its own layout (padding, flex, gaps) goes here. The content is one element
+   * in the scrolling one, at least as tall as the area (as wide, scrolled sideways), holding the
+   * children
+   */
+  contentClassName?: string;
+  /** the scrolling element, which holds the content */
   viewportRef?: Ref<HTMLDivElement>;
   /**
    * more props for the scrolling element, when it is itself a widget: a virtualized list's
@@ -35,17 +30,18 @@ export interface ScrollAreaProps extends BaseScrollArea.Root.Props {
  * the content (or, with `orientation="horizontal"`, one scrolled sideways under a scrollbar over its
  * bottom edge) (the sidebar, a sheet's body, every list and page that scrolls). The scrollbar shows while the area scrolls or the
  * pointer is over it, never when nothing overflows; drag its thumb or click its track to scroll.
- * Give the area a height (or let a flex column size it); the content goes in its viewport.
+ * Give the area a height (or let a flex column size it); the children go in its content, which
+ * grows with them and is measured as it does, so the scrollbar follows what is in the area.
  *
  * The root carries `data-overflow-y-start` while the content is scrolled from the top, for a
  * pinned header's shadow.
  * ```tsx
- * <ScrollArea className={styles.panel} viewportClassName={styles.list}>…</ScrollArea>
+ * <ScrollArea className={styles.panel} contentClassName={styles.list}>…</ScrollArea>
  * ```
  */
 export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function ScrollArea(
   {
-    viewportClassName,
+    contentClassName,
     viewportRef,
     viewportProps,
     orientation = 'vertical',
@@ -55,9 +51,6 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
   },
   ref,
 ) {
-  const viewport = useRef<HTMLDivElement | null>(null);
-  useContentResize(viewport);
-  const setViewport = useMemo(() => mergeRefs(viewport, viewportRef), [viewportRef]);
   return (
     <BaseScrollArea.Root ref={ref} className={mergeClassName(styles.root, className)} {...props}>
       <BaseScrollArea.Viewport
@@ -70,15 +63,27 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
           if (event.target === event.currentTarget) delete event.currentTarget.dataset.pointerFocus;
           viewportProps?.onBlur?.(event);
         }}
-        ref={setViewport}
-        className={cn(styles.viewport, viewportClassName)}
+        ref={viewportRef}
+        className={styles.viewport}
         // one way only: content reaching past the other edge is cut, not scrolled
         style={{
           ...viewportProps?.style,
           ...(orientation === 'vertical' ? { overflowX: 'hidden' } : { overflowY: 'hidden' }),
         }}
       >
-        {children}
+        {/*
+         * Base UI measures the overflow again when the content resizes, so a page swapping a tall
+         * child for a short one leaves no stale scrollbar. It makes the content at least as wide as
+         * what is in it; scrolled down, the content keeps to the area's width instead, so a long
+         * line is cut (or truncates) as it would in the viewport itself.
+         */}
+        <BaseScrollArea.Content
+          className={cn(styles.content, contentClassName)}
+          data-orientation={orientation}
+          style={orientation === 'vertical' ? { minWidth: 0 } : undefined}
+        >
+          {children}
+        </BaseScrollArea.Content>
       </BaseScrollArea.Viewport>
       <BaseScrollArea.Scrollbar orientation={orientation} className={styles.scrollbar}>
         <BaseScrollArea.Thumb className={styles.thumb} />
@@ -103,50 +108,4 @@ function markPointerFocus(event: FocusEvent<HTMLDivElement>) {
     // a DOM without :focus-visible
   }
   if (fromPointer) viewport.dataset.pointerFocus = '';
-}
-
-/**
- * Base UI measures whether the area overflows when the viewport resizes or scrolls, not when its
- * content changes: a page that swaps a tall child for a short one (a project's Overview for its
- * Tasks tab, Home for a list page in the shell) left a stale scrollbar that showed on hover. This
- * watches the viewport's children and, when one resizes or they change, sends the viewport a
- * scroll event: Base UI measures again, and as the scroll position hasn't moved, the scrollbar
- * doesn't flash.
- *
- * A `display: contents` child (an `Inert`) has no box of its own, so it never resizes: its
- * children are the viewport's content, and are watched in its place.
- */
-function useContentResize(viewportRef: { current: HTMLDivElement | null }) {
-  useLayoutEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport || typeof ResizeObserver === 'undefined') return;
-    let frame = 0;
-    const measure = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => viewport.dispatchEvent(new Event('scroll')));
-    };
-    const resize = new ResizeObserver(measure);
-    const mutation = new MutationObserver(() => {
-      observeContent();
-      measure();
-    });
-    const observe = (parent: Element) => {
-      mutation.observe(parent, { childList: true });
-      for (const child of parent.children) {
-        if (getComputedStyle(child).display === 'contents') observe(child);
-        else resize.observe(child);
-      }
-    };
-    const observeContent = () => {
-      resize.disconnect();
-      mutation.disconnect();
-      observe(viewport);
-    };
-    observeContent();
-    return () => {
-      cancelAnimationFrame(frame);
-      resize.disconnect();
-      mutation.disconnect();
-    };
-  }, [viewportRef]);
 }

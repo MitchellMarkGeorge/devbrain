@@ -61,41 +61,40 @@ describe('the scroll area’s focus', () => {
   });
 });
 
-// Base UI measures the overflow again on a scroll event; the area sends one when its content
-// changes. A `display: contents` child has no box, so its children are watched in its place.
+// The children go in one content element inside the scrolling one: Base UI watches its size, so
+// the scrollbar follows what is in the area, and it carries the content's layout.
 describe('the scroll area’s content', () => {
-  it('measures again when a display: contents child swaps its content', async () => {
-    const observed: Element[] = [];
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        observe(element: Element) {
-          observed.push(element);
-        }
-        disconnect() {
-          observed.length = 0;
-        }
-      },
-    );
-    const page = (tab: string) =>
-      createElement(
-        ScrollArea,
-        { viewportProps: { tabIndex: 0 } },
-        createElement('div', { id: 'tabs' }),
+  it('holds the children in a content element with the content’s class', () => {
+    act(() =>
+      root.render(
         createElement(
-          'div',
-          { style: { display: 'contents' } },
-          createElement('div', { key: tab, id: tab }),
+          ScrollArea,
+          { viewportProps: { tabIndex: 0 }, contentClassName: 'layout' },
+          createElement('div', { id: 'child' }),
         ),
-      );
-    act(() => root.render(page('overview')));
-    expect(observed.map((element) => element.id)).toEqual(['tabs', 'overview']);
+      ),
+    );
+    const scroll = container.querySelector<HTMLElement>('[tabindex="0"]')!;
+    const content = container.querySelector<HTMLElement>('#child')!.parentElement!;
+    expect(content.parentElement).toBe(scroll);
+    expect(scroll.children).toHaveLength(1);
+    expect(content.classList.contains('layout')).toBe(true);
+    // scrolled down, it keeps to the area's width, so a long line is cut, not scrolled
+    expect(content.style.minWidth).toMatch(/^0(px)?$/);
+  });
 
-    const onScroll = vi.fn();
-    container.querySelector('[tabindex="0"]')!.addEventListener('scroll', onScroll);
-    act(() => root.render(page('tasks')));
-    await vi.waitFor(() => expect(onScroll).toHaveBeenCalled());
-    expect(observed.map((element) => element.id)).toEqual(['tabs', 'tasks']);
-    vi.unstubAllGlobals();
+  it('is as wide as its children when it scrolls sideways', () => {
+    act(() =>
+      root.render(
+        createElement(
+          ScrollArea,
+          { orientation: 'horizontal' },
+          createElement('div', { id: 'child' }),
+        ),
+      ),
+    );
+    const content = container.querySelector<HTMLElement>('#child')!.parentElement!;
+    expect(content.dataset.orientation).toBe('horizontal');
+    expect(content.style.minWidth).toBe('fit-content');
   });
 });

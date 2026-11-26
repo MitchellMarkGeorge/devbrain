@@ -138,9 +138,11 @@ describe('the notes list', () => {
     await eventually(() => expect(document.querySelector(selector)).not.toBeNull());
     rightClick(document.querySelector(selector));
     const favorite = await menuItem('Favorite');
-    // the trigger is the grid's own scroller (its viewport's parent), not a wrapper around it
+    // the trigger is the grid's own scroller (the root around its viewport and content), not a
+    // wrapper around it
     const grid = document.querySelector('[role="grid"]')!;
-    expect(document.querySelector('[data-popup-open]')).toBe(grid.parentElement!.parentElement);
+    const viewport = grid.parentElement!.parentElement!;
+    expect(document.querySelector('[data-popup-open]')).toBe(viewport.parentElement);
     click(favorite);
     await eventually(() =>
       expect(main.callsTo('notes.setFavorite').map((call) => call.input)).toEqual([

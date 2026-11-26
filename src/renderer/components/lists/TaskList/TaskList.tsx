@@ -394,7 +394,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       className={cn(styles.list, className)}
       style={style}
       viewportRef={listRef}
-      viewportClassName={styles.viewport}
+      contentClassName={styles.viewport}
       viewportProps={{
         role: 'grid',
         'aria-multiselectable': true,

@@ -138,7 +138,7 @@ export function SuggestionMenu<Item>({
       <ScrollArea
         className={styles.scroll}
         viewportRef={list}
-        viewportClassName={styles.viewport}
+        contentClassName={styles.viewport}
         viewportProps={{
           role: 'listbox',
           'aria-activedescendant': activeId,
