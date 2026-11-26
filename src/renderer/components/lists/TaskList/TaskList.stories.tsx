@@ -131,8 +131,8 @@ export const NestedSelected: Story = {
   },
 };
 
-/** A narrow list: each row stacks its own pills as far as it needs to */
-export const NarrowStacked: Story = {
+/** A narrow list: a row short of room shortens its title, then its named pills' labels */
+export const Narrow: Story = {
   args: { tasks: [BUSY_TASK, ...SAMPLE_TASKS.slice(0, 2)] },
   decorators: [
     (Story) => (

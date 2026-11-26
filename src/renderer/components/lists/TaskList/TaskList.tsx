@@ -18,7 +18,7 @@ import { SelectionBar } from '../SelectionBar';
 import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { isSynced } from '../../types';
-import { TaskRow, treeOf, type TaskRowData, type TaskRowProps, type TaskRowTree } from '../TaskRow';
+import { TaskRow, treeOf, type TaskRowData, type TaskRowTree } from '../TaskRow';
 import styles from './TaskList.module.css';
 
 /** One group of a grouped list: its heading, then its rows (none while `collapsed`). */
@@ -97,8 +97,6 @@ export interface TaskListBaseProps extends Omit<
    */
   subtasksShown?: (task: TaskRowData) => boolean | undefined;
   onSubtasksShownChange?: (task: TaskRowData, shown: boolean) => void;
-  /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
-  stack?: TaskRowProps['stack'];
   /** shows each row's project pill (the default); `false` for a list of one project's tasks */
   showProject?: boolean;
   /** shows a subtask's parent pill (the default); `false` for a task's own Subtasks section */
@@ -209,7 +207,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     nested = false,
     subtasksShown,
     onSubtasksShownChange,
-    stack,
     showProject,
     showParent,
     showLink,
@@ -466,7 +463,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               onSubtasksShownChange={
                 onSubtasksShownChange && ((shown) => onSubtasksShownChange(task, shown))
               }
-              stack={stack}
               showProject={showProject}
               showParent={showParent}
               showLink={showLink}

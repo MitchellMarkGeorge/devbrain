@@ -1,17 +1,11 @@
 import {
   Children,
   forwardRef,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
   type ComponentProps,
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
-  type Ref,
-  type RefObject,
 } from 'react';
 import { cva } from 'class-variance-authority';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -78,14 +72,6 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
    */
   compact?: boolean;
   /**
-   * How the pills stack (overlapping, labels shortened) when the row runs out of room; pointing at
-   * a pill spreads them back out over the end of the title. `auto` (the
-   * default) measures the row: first the pills after the title stack, then the key with the subtask or parent pill, and the
-   * title shortens only after that. `none`, `right` and `both` pin a level, for pictures of the
-   * row. A side with one pill never stacks.
-   */
-  stack?: StackMode;
-  /**
    * shows the task's project pill (the default). A list of one project's tasks (that project's
    * page) passes `false`: the pill would say the same thing on every row.
    */
@@ -118,198 +104,19 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   onDueDateChange?: (date: Date) => void;
 }
 
-export type StackMode = 'auto' | 'none' | 'right' | 'both';
-
-// how far the pills are stacked: 0 none, 1 the right side, 2 both sides
-type StackLevel = 0 | 1 | 2;
-const LEVELS: Record<Exclude<StackMode, 'auto'>, StackLevel> = { none: 0, right: 1, both: 2 };
-
-// stacked pills overlap by this much, each over the one before (--space-1)
-const STACK_OVERLAP = 4;
-// the gap between pills that are not stacked (--space-1-5)
-const STACK_GAP = 6;
-// a pill's widest: 240px (Badge's cap), or 140px while stacked
-const PILL_MAX = 240;
-const STACKED_PILL_MAX = 140;
-// a pill shortened to its icon: its border, padding and 12px icon (TaskRow.module.css's 34px)
-const PILL_ICON_WIDTH = 34;
-// how far the title gives way while the row's stacks are spread (pointed at)
-const SPREAD_NAME_MIN = 40;
-
 /**
- * The pills on one side of the title. Stacked, when the row runs out of room, they overlap a
- * little, each pill over the one before, and each is capped at 140px with its label shortened.
- * Pointing at a pill (or focusing one) spreads every stack in the row back out, full labels and all,
- * over the end of the title, which gives way down to a word or two (TaskRow.module.css).
+ * The pills on one side of the title. They never overlap and never move: when the row runs out of
+ * room the title shortens first, then the pills with a name (the parent, the link, the project)
+ * shorten their labels, down to their icons, while the key and the subtask count (`data-keep`)
+ * stay whole. All of it is the row's flex layout (TaskRow.module.css); nothing is measured.
  */
-function PillStack({ stacked, children }: { stacked: boolean; children: ReactNode }) {
-  const pills = Children.toArray(children);
-  if (pills.length === 0) return null;
+function Pills({ children }: { children: ReactNode }) {
+  if (Children.toArray(children).length === 0) return null;
   return (
-    <span
-      className={styles.stack}
-      data-stack=""
-      data-stacked={stacked && pills.length > 1 ? '' : undefined}
-      // stacked, the stack narrows no further than every pill's icon
-      style={{ ['--pills' as string]: pills.length }}
-    >
-      {pills}
+    <span className={styles.pills} data-pills="">
+      {children}
     </span>
   );
-}
-
-/**
- * A pill's full width, the same however it is drawn: capped, shortened to its icon in a stack, or
- * mid-animation. Its own scroll width counts the parts that run past its edge, and each part that
- * clips its own text (the label, shortened to an ellipsis) adds what it hides. Measuring the pill
- * as drawn would loop: a shortened pill measures narrow, the row unstacks, and it measures wide.
- */
-function pillWidth(pill: Element, max: number): number {
-  let hidden = 0;
-  for (const part of pill.querySelectorAll('*')) {
-    hidden += Math.max(0, part.scrollWidth - part.clientWidth);
-  }
-  return Math.min(pill.scrollWidth + 2 + hidden, max);
-}
-
-// a stack's width with its pills apart and stacked, from their full widths
-function stackWidths(stack: Element | null): { spread: number; stacked: number; floor: number } {
-  const pills = Array.from(stack?.children ?? []);
-  if (pills.length === 0) return { spread: 0, stacked: 0, floor: 0 };
-  const sum = (max: number) => pills.reduce((total, pill) => total + pillWidth(pill, max), 0);
-  return {
-    // spread with nothing pointed at, as narrow as it goes: the key and the subtask count
-    // (`data-keep`) whole, every other pill at its icon
-    floor:
-      pills.reduce(
-        (total, pill) =>
-          total + (pill.hasAttribute('data-keep') ? pillWidth(pill, PILL_MAX) : PILL_ICON_WIDTH),
-        0,
-      ) +
-      STACK_GAP * (pills.length - 1),
-    spread: sum(PILL_MAX) + STACK_GAP * (pills.length - 1),
-    stacked:
-      pills.length > 1 ? sum(STACKED_PILL_MAX) - STACK_OVERLAP * (pills.length - 1) : sum(PILL_MAX),
-  };
-}
-
-function gapOf(element: Element): number {
-  return parseFloat(getComputedStyle(element).columnGap) || 0;
-}
-
-/**
- * The stack level that fits the row (and, for any row, how its stacks share the room when spread):
- * the first of none, right, both at which the title's full text
- * fits beside the pills. It works from full widths (the title's text, each pill, the priority and
- * the date), never from the row as it is drawn, so it gives the same answer while the pills are
- * animating between levels.
- */
-function useAutoStack(
-  enabled: boolean,
-  rowRef: RefObject<HTMLDivElement | null>,
-  canStack: { left: boolean; right: boolean },
-): StackLevel {
-  const [level, setLevel] = useState<StackLevel>(0);
-
-  const fit = useCallback(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    const title = row.querySelector<HTMLElement>('[data-title]');
-    const name = title?.querySelector<HTMLElement>('[data-name]');
-    const side = row.querySelector<HTMLElement>('[data-side]');
-    if (!title || !name || !side) return;
-    const left = stackWidths(title.querySelector('[data-stack]'));
-    const rightStack = side.querySelector('[data-stack]');
-    const right = stackWidths(rightStack);
-
-    // the room from the start of the title to the row's right padding
-    const rowBox = row.getBoundingClientRect();
-    const paddingRight = parseFloat(getComputedStyle(row).paddingRight) || 0;
-    const room = rowBox.right - paddingRight - title.getBoundingClientRect().left;
-    // the side's own parts (priority, date) and the gaps between everything
-    const sideParts = Array.from(side.children).filter((child) => child !== rightStack);
-    const sideFixed =
-      sideParts.reduce((sum, part) => sum + (part as HTMLElement).offsetWidth, 0) +
-      gapOf(side) * (side.children.length - 1);
-    const titleGap = left.spread ? gapOf(title) : 0;
-
-    // Spread (the row pointed at), the title gives way down to SPREAD_NAME_MIN and the two stacks
-    // share what is left between it and the priority, each in proportion to its full width: the
-    // title's cell is held at the title's floor and the stack before it's share, and the side
-    // takes the rest. Written straight onto the row: it changes nothing React draws.
-    const budget = Math.max(0, room - SPREAD_NAME_MIN - titleGap - gapOf(row) - sideFixed);
-    const pills = left.spread + right.spread;
-    // never less than either stack's floor, so no pill spills out of its stack
-    const share = pills <= budget ? left.spread : (budget * left.spread) / pills;
-    const leftShare = Math.max(left.floor, Math.min(share, budget - right.floor));
-    row.style.setProperty('--spread-name-min', `${SPREAD_NAME_MIN}px`);
-    row.style.setProperty('--spread-title-min', `${SPREAD_NAME_MIN + titleGap + leftShare}px`);
-
-    if (!enabled) return;
-    const fixed = name.scrollWidth + gapOf(row) + sideFixed + titleGap;
-    const fits = (l: StackLevel) =>
-      fixed + (l >= 1 ? right.stacked : right.spread) + (l === 2 ? left.stacked : left.spread) <=
-      room + 0.5;
-    const levels: StackLevel[] = [0];
-    if (canStack.right) levels.push(1);
-    if (canStack.left) levels.push(2);
-    setLevel(levels.find(fits) ?? levels[levels.length - 1]);
-  }, [enabled, rowRef, canStack.left, canStack.right]);
-
-  // fit on every render (the task may have changed), when the row changes size, and once the
-  // fonts have loaded (the title's width changes with them)
-  useLayoutEffect(fit);
-  useLayoutEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    const observer = new ResizeObserver(() => fit());
-    observer.observe(row);
-    document.fonts?.ready.then(() => fit());
-    return () => observer.disconnect();
-  }, [rowRef, fit]);
-
-  return level;
-}
-
-/**
- * Spreads the row's stacks (`data-spread`, which TaskRow.module.css draws) once the pointer reaches
- * a pill, or focus does, and keeps them spread until the pointer leaves the row and focus leaves its
- * pills. Pointing at the rest of the row only tints it. Kept till the row is left rather than the
- * stack: spread, the pills move as the title gives way, and a pointer left just outside them would
- * fold them back under it, and spread them again. Set on the element, not by a render: nothing
- * React draws changes.
- */
-function useSpreadOnPills(rowRef: RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    const onPill = (target: EventTarget | null) =>
-      target instanceof Element && target.closest('[data-stack]') != null;
-    const spread = () => row.setAttribute('data-spread', '');
-    const fold = () => row.removeAttribute('data-spread');
-    const pointerOver = (event: PointerEvent) => {
-      if (onPill(event.target)) spread();
-    };
-    const pointerLeave = () => {
-      if (!row.querySelector('[data-stack] :focus-visible')) fold();
-    };
-    const focusIn = (event: FocusEvent) => {
-      if (onPill(event.target)) spread();
-    };
-    const focusOut = (event: FocusEvent) => {
-      if (!onPill(event.relatedTarget) && !row.matches(':hover')) fold();
-    };
-    row.addEventListener('pointerover', pointerOver);
-    row.addEventListener('pointerleave', pointerLeave);
-    row.addEventListener('focusin', focusIn);
-    row.addEventListener('focusout', focusOut);
-    return () => {
-      row.removeEventListener('pointerover', pointerOver);
-      row.removeEventListener('pointerleave', pointerLeave);
-      row.removeEventListener('focusin', focusIn);
-      row.removeEventListener('focusout', focusOut);
-    };
-  }, [rowRef]);
 }
 
 /**
@@ -328,11 +135,6 @@ function TreeGuides({ tree }: { tree: TaskRowTree }) {
       {tree.open && <span className={styles.stem} style={at(tree.depth)} />}
     </span>
   );
-}
-
-function assignRef<T>(ref: Ref<T> | undefined, value: T) {
-  if (typeof ref === 'function') ref(value);
-  else if (ref) (ref as { current: T }).current = value;
 }
 
 // clicks on the row's own controls (checkbox, status, pills) don't open the task
@@ -367,7 +169,6 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     subtasksShown,
     onSubtasksShownChange,
     compact,
-    stack,
     showProject = true,
     showParent = true,
     showLink = true,
@@ -386,36 +187,14 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   },
   ref,
 ) {
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const setRowRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      rowRef.current = node;
-      assignRef(ref, node);
-    },
-    [ref],
-  );
   const { now, formatListDate } = useFormat();
   const synced = isSynced(task);
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;
   // a subtask drawn under its parent leaves out the parent's pill: the guide points at the parent
   const parent = !showParent || (tree && tree.depth > 0) ? null : task.parentTask;
-  const leftPills = [key, parent, subtasks].filter(Boolean).length;
   const project = showProject ? task.project : null;
   const link = showLink ? task.link : null;
-  const rightPills = [link, project].filter(Boolean).length;
-  const autoLevel = useAutoStack(stack === 'auto' || stack === undefined, rowRef, {
-    left: leftPills > 1,
-    right: rightPills > 1,
-  });
-  const level = stack === undefined || stack === 'auto' ? autoLevel : LEVELS[stack];
-  useSpreadOnPills(rowRef);
-  // The row draws its first level without motion; changes after that animate. The flag is set on
-  // the element after the first frame and never by a render, so React leaves it alone.
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => rowRef.current?.setAttribute('data-settled', ''));
-    return () => cancelAnimationFrame(frame);
-  }, []);
 
   // a pick made on the row shows until core's status changes (the refetch after the write)
   const [picked, setPicked] = useState<{ from: TaskStatus; to: TaskStatus } | null>(null);
@@ -467,7 +246,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
 
   return (
     <div
-      ref={setRowRef}
+      ref={ref}
       role="row"
       tabIndex={0}
       aria-selected={selected}
@@ -498,7 +277,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         <span className={styles.name} data-name="">
           {task.title}
         </span>
-        <PillStack stacked={level === 2}>
+        <Pills>
           {key && task.external && (
             <PillHoverCard target={{ type: 'source', title: task.title, external: task.external }}>
               <SourcePill
@@ -551,10 +330,10 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
                 </Badge>
               </PillHoverCard>
             ))}
-        </PillStack>
+        </Pills>
       </div>
       <div className={styles.side} data-side="">
-        <PillStack stacked={level >= 1}>
+        <Pills>
           {link && (
             <PillHoverCard target={linkTarget(link)}>
               <EntityPill entity={link} />
@@ -565,7 +344,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
               <EntityPill entity={{ type: 'project', ...project }} />
             </PillHoverCard>
           )}
-        </PillStack>
+        </Pills>
         <span className={styles.priority}>
           <PriorityIcon priority={task.priority} />
         </span>
