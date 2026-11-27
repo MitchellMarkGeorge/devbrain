@@ -31,6 +31,7 @@ import { TaskStatus } from '@common/types';
 import { StatusIcon } from '../../entities/StatusIcon';
 import type { CalendarEvent } from '../../types';
 import { AllDayEvent, EventBlock, NowIndicator } from '../EventBlock';
+import { calendarEventOrder } from './event-order';
 import { formatHour, formatShortTime, formatTimeRange, type TimeFormat } from '../calendar-events';
 import styles from './CalendarView.module.css';
 
@@ -57,25 +58,6 @@ const MONTH_WEEKS = 6;
 const WEEKDAY_ROW = 32;
 /** the week and day views open a quarter hour above `scrollToHour`, so its label shows whole */
 const SCROLL_MARGIN_MINUTES = 15;
-
-/**
- * Where an item comes among those FullCalendar's own order ties (the same start, length and
- * all-day): events, then open tasks, then completed and cancelled ones.
- */
-function rankOf(item: CalendarViewEventProps): number {
-  if (item.kind !== 'task') return 0;
-  return item.status === TaskStatus.COMPLETED || item.status === TaskStatus.CANCELLED ? 2 : 1;
-}
-// FullCalendar's default order, with the rank before the title. It compares an event's fields
-// with its `extendedProps` beside them, and takes field names and functions together, which its
-// types don't say
-const EVENT_ORDER = [
-  'start',
-  '-duration',
-  'allDay',
-  (a: CalendarViewEventProps, b: CalendarViewEventProps) => rankOf(a) - rankOf(b),
-  'title',
-] as unknown as string[];
 
 /** "07:45:00": the time a quarter hour before `hour`, as FullCalendar's scrollTime takes it */
 function scrollTimeBefore(hour: number): string {
@@ -374,7 +356,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         moreLinkContent={(arg: { num: number }) => `+${arg.num} more`}
         views={{ dayGridMonth: { expandRows: true } }}
         eventDisplay="block"
-        eventOrder={EVENT_ORDER}
+        eventOrder={calendarEventOrder}
         eventContent={eventContent}
         eventClass={eventClass}
         {...THEME}
