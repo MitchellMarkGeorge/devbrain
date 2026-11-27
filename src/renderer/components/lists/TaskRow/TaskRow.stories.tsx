@@ -156,6 +156,22 @@ export const PriorityMenuOpen: Story = {
 };
 
 /**
+ * With no pills on its side (a subtask's row), the priority is the side's first part. Open, its
+ * button stays where it was: against the date.
+ */
+export const PriorityMenuOpenWithoutPills: Story = {
+  name: 'Priority menu open, no side pills',
+  args: {
+    task: sampleTask({ title: 'Write the migration', priority: TaskPriority.LOW }),
+    showProject: false,
+    showLink: false,
+    defaultPriorityMenuOpen: true,
+    onPriorityChange: () => {},
+  },
+  decorators: PriorityMenuOpen.decorators,
+};
+
+/**
  * A row short of room: the pills give way first. They stack, each sliding under the one after it
  * down to its icon; then the last pill of each group shortens its label; only then does the title
  * shorten, and never below 48px. Point at a group of pills to spread that group back out: the pills

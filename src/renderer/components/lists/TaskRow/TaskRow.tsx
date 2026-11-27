@@ -412,84 +412,92 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         />
       )}
       {taskStatus}
-      <div className={styles.title} data-title="">
-        <span className={styles.name} data-name="">
-          {task.title}
-        </span>
-        <Pills>
-          {key && task.external && (
-            <PillHoverCard target={{ type: 'source', title: task.title, external: task.external }}>
-              <SourcePill
-                provider={providerOf(task.external)}
-                detached={isDetached(task)}
-                data-keep=""
+      <div className={styles.content}>
+        <div className={styles.title} data-title="">
+          <span className={styles.name} data-name="">
+            {task.title}
+          </span>
+          <Pills>
+            {key && task.external && (
+              <PillHoverCard
+                target={{ type: 'source', title: task.title, external: task.external }}
               >
-                {key}
-              </SourcePill>
-            </PillHoverCard>
-          )}
-          {parent && (
-            <PillHoverCard target={{ type: 'task', ...parent }}>
-              <EntityPill
-                entity={{ type: 'parent', ...parent }}
-                onClick={onOpenEntity && (() => onOpenEntity(parent))}
-              />
-            </PillHoverCard>
-          )}
-          {subtasks &&
-            (subtasksShown !== undefined && onSubtasksShownChange ? (
-              // the count as the show/hide button: no hover card, since the subtasks it would list
-              // are the rows under it, a click away
-              <Badge
-                muted
-                icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
-                tabIndex={-1}
-                aria-expanded={subtasksShown}
-                aria-label={`Subtasks, ${subtasks.completed} of ${subtasks.total} done`}
-                data-subtasks-toggle=""
-                data-keep=""
-                onClick={() => onSubtasksShownChange(!subtasksShown)}
-              >
-                <span className={styles.toggle}>
-                  {subtasks.completed}/{subtasks.total}
-                  {subtasksShown ? (
-                    <ChevronDown size={12} aria-hidden />
-                  ) : (
-                    <ChevronRight size={12} aria-hidden />
-                  )}
-                </span>
-              </Badge>
-            ) : (
-              <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
+                <SourcePill
+                  provider={providerOf(task.external)}
+                  detached={isDetached(task)}
+                  data-keep=""
+                >
+                  {key}
+                </SourcePill>
+              </PillHoverCard>
+            )}
+            {parent && (
+              <PillHoverCard target={{ type: 'task', ...parent }}>
+                <EntityPill
+                  entity={{ type: 'parent', ...parent }}
+                  onClick={onOpenEntity && (() => onOpenEntity(parent))}
+                />
+              </PillHoverCard>
+            )}
+            {subtasks &&
+              (subtasksShown !== undefined && onSubtasksShownChange ? (
+                // the count as the show/hide button: no hover card, since the subtasks it would list
+                // are the rows under it, a click away
                 <Badge
                   muted
                   icon={
                     <ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />
                   }
+                  tabIndex={-1}
+                  aria-expanded={subtasksShown}
+                  aria-label={`Subtasks, ${subtasks.completed} of ${subtasks.total} done`}
+                  data-subtasks-toggle=""
                   data-keep=""
+                  onClick={() => onSubtasksShownChange(!subtasksShown)}
                 >
-                  {subtasks.completed}/{subtasks.total}
+                  <span className={styles.toggle}>
+                    {subtasks.completed}/{subtasks.total}
+                    {subtasksShown ? (
+                      <ChevronDown size={12} aria-hidden />
+                    ) : (
+                      <ChevronRight size={12} aria-hidden />
+                    )}
+                  </span>
                 </Badge>
+              ) : (
+                <PillHoverCard target={subtasksTarget(task.id, subtasks)}>
+                  <Badge
+                    muted
+                    icon={
+                      <ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />
+                    }
+                    data-keep=""
+                  >
+                    {subtasks.completed}/{subtasks.total}
+                  </Badge>
+                </PillHoverCard>
+              ))}
+          </Pills>
+        </div>
+        <div className={styles.side} data-side="">
+          <Pills>
+            {link && (
+              <PillHoverCard target={linkTarget(link)}>
+                <EntityPill entity={link} onClick={onOpenEntity && (() => onOpenEntity(link))} />
               </PillHoverCard>
-            ))}
-        </Pills>
+            )}
+            {project && (
+              <PillHoverCard target={{ type: 'project', ...project }}>
+                <EntityPill
+                  entity={{ type: 'project', ...project }}
+                  onClick={onOpenEntity && (() => onOpenEntity(project))}
+                />
+              </PillHoverCard>
+            )}
+          </Pills>
+        </div>
       </div>
-      <div className={styles.side} data-side="">
-        <Pills>
-          {link && (
-            <PillHoverCard target={linkTarget(link)}>
-              <EntityPill entity={link} onClick={onOpenEntity && (() => onOpenEntity(link))} />
-            </PillHoverCard>
-          )}
-          {project && (
-            <PillHoverCard target={{ type: 'project', ...project }}>
-              <EntityPill
-                entity={{ type: 'project', ...project }}
-                onClick={onOpenEntity && (() => onOpenEntity(project))}
-              />
-            </PillHoverCard>
-          )}
-        </Pills>
+      <span className={styles.meta}>
         {taskPriority}
         <span
           className={cn(
@@ -511,7 +519,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             </>
           )}
         </span>
-      </div>
+      </span>
     </div>
   );
 });

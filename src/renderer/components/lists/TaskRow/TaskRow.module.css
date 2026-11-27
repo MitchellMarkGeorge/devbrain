@@ -2,9 +2,11 @@
  * One task in a strokeless list. See docs/design-system/components/TaskRow.md and the README's
  * "Lists".
  *
- * One flex line: the selection checkbox, the status icon, the title, its pills, then (pushed to the
- * right) the side's pills, the priority and the date, 8px apart. With the 8px padding before the
- * 16px checkbox, the status icon starts 32px from the row's edge.
+ * A grid of named areas, 8px apart: the selection checkbox, the status icon, the content (the title
+ * and every pill, one flex line) and the meta (the priority and the date). Each is placed by name,
+ * not by what comes before it: a row's controls are menu triggers, and Base UI puts focus guards
+ * (hidden spans) beside a trigger while its menu is open. With the 8px padding before the 16px
+ * checkbox, the status icon starts 32px from the row's edge.
  */
 .row {
   --check-inset: 8px;
@@ -18,7 +20,10 @@
   /* where the status icon starts (32px): the tree's guides are drawn from it */
   --row-strip: calc(var(--check-inset) + var(--check-slot) + var(--row-gap));
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-areas: 'check status content meta';
+  /* the status column fits the icon and, in a tree, its indent; the content takes the rest */
+  grid-template-columns: var(--check-slot) auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: var(--row-gap);
   min-height: var(--row-height);
@@ -115,6 +120,8 @@
 
 /* Home: 44px with no checkbox, the status icon 12px in (as Figma's Home draws TaskRow) */
 .compact {
+  grid-template-areas: 'status content meta';
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 44px;
   padding: 0 var(--space-4) 0 var(--space-3);
 }
@@ -161,7 +168,7 @@
  * accessibility tree), so showing it moves nothing.
  */
 .check {
-  flex: none;
+  grid-area: check;
   visibility: hidden;
 }
 .row:hover .check,
@@ -176,7 +183,6 @@
 /* the status and the priority icons are 24px buttons that open their menus (or the icon alone,
    `data-readonly`, for a synced task); neither gives way */
 .rowButton {
-  flex: none;
   display: grid;
   place-items: center;
   width: var(--status-size);
@@ -187,6 +193,9 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+.status {
+  grid-area: status;
 }
 .rowButton[data-readonly] {
   cursor: default;
@@ -201,9 +210,9 @@
 }
 
 /*
- * The title, each pill's slot and the side's parts are all items of the row's one flex line (their
- * wrappers draw no box), so the row shares its room out among them in one pass. Short of room, the
- * pills give way first and the title last:
+ * The content: the title and each pill's slot, on both sides, are all items of its one flex line
+ * (their wrappers draw no box), so it shares its room out among them in one pass, which columns of
+ * the row's grid could not. Short of room, the pills give way first and the title last:
  *
  * 1. The pills stack. A slot narrows while its pill keeps its width, so the pill slides under the
  *    one after it, down to its --pill-edge (its icon). The last pill of a group is on top, whole.
@@ -217,6 +226,13 @@
  *
  * The priority and the date never give way.
  */
+.content {
+  grid-area: content;
+  display: flex;
+  align-items: center;
+  column-gap: var(--row-gap);
+  min-width: 0;
+}
 .title,
 .side,
 .pills {
@@ -335,14 +351,17 @@
   animation: spread var(--duration-slow) var(--ease-surface);
 }
 
-/*
- * the side starts at its first part, which takes the room left over: its pills, else the priority.
- * Not `.priority:first-child`: while its menu is open, Base UI's trigger puts focus guards (hidden
- * spans) on either side of it, and the priority would lose the room and jump to the title.
- */
-.side > .pills:first-child > :first-child,
-.side > .priority:not(.pills ~ .priority) {
+/* the side's pills are pushed to the right of the content, against the meta */
+.side > .pills:first-child > :first-child {
   margin-left: auto;
+}
+
+/* the priority and the date: the last column, as wide in every row of a list */
+.meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: var(--row-gap);
 }
 
 /* 60px: the widest date, "May 2027", so every row's date, priority and pills line up */
