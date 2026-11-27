@@ -1,4 +1,4 @@
-import { forwardRef, type ComponentPropsWithoutRef } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef, type FormEvent } from 'react';
 import { cn } from '../../lib/cn';
 import styles from './EditorContent.module.css';
 
@@ -46,17 +46,39 @@ export interface EditorTitleProps extends ComponentPropsWithoutRef<'h1'> {
  * A note's title over its content: the 24px semibold document title (30px at `lg`), "Untitled"
  * in `subtle-foreground` while it is empty. Make it `contentEditable` or render an input through
  * it.
+ *
+ * Editable, it is `plaintext-only`, so a paste or a drop of rich text (a heading copied from the
+ * body) keeps its words, not its markup. It stays one line: an edit that leaves a line break
+ * (a paste or drop of several lines, or the `<br>` the browser leaves in a cleared title) is set
+ * back to one line, the breaks as spaces.
  */
 export const EditorTitle = forwardRef<HTMLHeadingElement, EditorTitleProps>(function EditorTitle(
-  { placeholder = 'Untitled', size = 'default', className, ...props },
+  { placeholder = 'Untitled', size = 'default', className, contentEditable, onInput, ...props },
   ref,
 ) {
+  const editable = contentEditable === true || contentEditable === 'true';
   return (
     <h1
       ref={ref}
       data-placeholder={placeholder}
       className={cn(styles.title, size === 'lg' && styles.titleLg, className)}
+      contentEditable={editable ? 'plaintext-only' : contentEditable}
+      onInput={(event) => {
+        if (editable) keepOneLine(event);
+        onInput?.(event);
+      }}
       {...props}
     />
   );
 });
+
+/** Sets a title an edit left more than one line of text in back to one line, the caret at its end. */
+function keepOneLine(event: FormEvent<HTMLHeadingElement>) {
+  const title = event.currentTarget;
+  if (title.childElementCount === 0 && !/[\r\n]/.test(title.textContent ?? '')) return;
+  const line = title.innerText.replace(/\s*[\r\n]+\s*/g, ' ');
+  // emptied, so the placeholder shows (`:empty`)
+  title.textContent = line.trim() === '' ? '' : line;
+  window.getSelection()?.selectAllChildren(title);
+  window.getSelection()?.collapseToEnd();
+}
