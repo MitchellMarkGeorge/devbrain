@@ -4,7 +4,7 @@ How DevBrain keeps known-vulnerable packages out, and the findings left open on 
 
 ## What checks
 
-- **CI** (`audit` job in `.circleci/config.yml`) runs `npm audit --omit=dev --audit-level=high`
+- **CI** (`audit` job in `.github/workflows/ci.yml`) runs `npm audit --omit=dev --audit-level=high`
   against the lockfile and fails on a high or critical advisory in a production dependency. It
   needs no install, and fails on a new advisory too, not only on a change to the lockfile.
 - **Dependabot** (`.github/dependabot.yml`) opens a pull request each week: one for the minor and

@@ -112,11 +112,10 @@ run, run it on a machine with a display (with `DISPLAY` set the script doesn't u
 
 ### In CI
 
-The CircleCI `e2e` job runs `npm run e2e` on `cimg/node:24.0-browsers`, under Xvfb. It makes
-Electron's `chrome-sandbox` setuid root first, as Chromium's sandbox needs when it runs as a
-non-root user in Docker. It runs two tests at a time, and stores `test-results/e2e` as artifacts
-only when a test fails: the traces, screenshots, logs and folders above. Test results go to
-CircleCI's Tests tab.
+The GitHub Actions `e2e` job (`.github/workflows/ci.yml`) runs `npm run e2e` on `ubuntu-latest`,
+under Xvfb. It makes Electron's `chrome-sandbox` setuid root first, as Chromium's sandbox needs
+when it runs as a non-root user. It runs two tests at a time, and uploads `test-results/e2e` as
+an artifact only when a test fails: the traces, screenshots, logs and folders above.
 
 The tests run against the built app, not the packaged one. Once packaging is in CI they can run
 against `release/linux-unpacked` instead: `launchApp` (`e2e/support/app.ts`) is the one place that

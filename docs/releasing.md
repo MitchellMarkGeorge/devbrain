@@ -46,7 +46,7 @@ target's OS and architecture, and macOS signing and notarization need macOS.
 
 | Platform | Build on                     | Output in `release/`                                         | CI                                |
 | -------- | ---------------------------- | ------------------------------------------------------------ | --------------------------------- |
-| Linux    | Linux x64                    | `DevBrain-<version>-x86_64.AppImage`                         | `package_linux` (CircleCI)        |
+| Linux    | Linux x64                    | `DevBrain-<version>-x86_64.AppImage`                         | `package_linux` (GitHub Actions)  |
 | macOS    | a Mac (Apple Silicon or x64) | `DevBrain-<version>-arm64.dmg`, `DevBrain-<version>-x64.dmg` | not yet: needs a macOS executor   |
 | Windows  | Windows x64                  | `DevBrain-Setup-<version>-x64.exe` (NSIS, per user)          | not yet: needs a Windows executor |
 
@@ -96,8 +96,9 @@ platform and check by hand that:
 ## Signing
 
 electron-builder signs when it finds the credentials in the environment, and builds unsigned (with a
-warning) when it doesn't. None are set up yet. Keep them out of the repository: on CircleCI, as
-project environment variables or in a restricted context used only by release jobs.
+warning) when it doesn't. None are set up yet. Keep them out of the repository: on GitHub Actions, as
+repository secrets, available only to release jobs (an environment with required reviewers
+works well).
 
 **macOS** (Developer ID, then notarization; both needed for Gatekeeper to open a downloaded app):
 
@@ -124,8 +125,8 @@ and a Windows build machine.
 
 ## Not automated yet
 
-- Building the macOS and Windows installers: CircleCI's `package_linux` covers Linux only. Adding
-  them means a macOS and a Windows executor running `npm ci` and `npm run compile`.
+- Building the macOS and Windows installers: the CI `package_linux` job covers Linux only. Adding
+  them means a macOS and a Windows runner (free on a public repository) running `npm ci` and `npm run compile`.
 - Checking a build: nothing launches the packaged app automatically; check it by hand (above).
 - Signing and notarization: no credentials exist yet (above).
 - Tagging, release notes and uploading the installers: by hand.

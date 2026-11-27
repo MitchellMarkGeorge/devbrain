@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# a newer push to the same branch or pull request replaces the run in progress
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# read-only token: nothing here writes to the repository
+permissions:
+  contents: read
+
+env:
+  # the Electron binary is downloaded on first use; HUSKY=0 keeps `prepare` from installing hooks
+  HUSKY: '0'
+
+jobs:
+  # Fails on a high or critical advisory in a production dependency. Reads the lockfile only, so it
+  # needs no install, and fails on a newly published advisory too (docs/security/dependencies.md)
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  # the tests run on Electron's Node (scripts/vitest.mts); ubuntu-latest has the libraries Chrome needs
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Run tests
+        run: npm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest/results.xml
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore
+
+  # The end-to-end tests (docs/testing.md): the built app, driven by Playwright, under Xvfb
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Set up Electron
+        run: |
+          # the electron package downloads its binary on first use
+          node -e "require('electron')"
+          # Chromium's sandbox, as a non-root user: its helper must be setuid root
+          sandbox=node_modules/electron/dist/chrome-sandbox
+          sudo chown root:root "$sandbox" && sudo chmod 4755 "$sandbox"
+          command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+      - name: Run end-to-end tests
+        run: npm run e2e
+      # a failed test's trace, screenshot, main log and DevBrain folder; nothing is kept for a pass
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failures
+          path: test-results/e2e
+          if-no-files-found: ignore
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  # Packages the Linux AppImage. macOS and Windows aren't built here (docs/releasing.md).
+  package_linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-builder-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            electron-builder-${{ runner.os }}-${{ runner.arch }}-
+      - name: Package the AppImage
+        run: npm run compile
+      # the AppImage alone: release/ also holds linux-unpacked, the same app unpacked
+      - name: Collect the AppImage
+        run: mkdir -p artifacts && cp release/*.AppImage artifacts/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: artifacts
