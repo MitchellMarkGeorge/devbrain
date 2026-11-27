@@ -81,6 +81,16 @@ img {
   -webkit-user-drag: none;
 }
 
+/*
+ * While a layer that closes on a press outside it is open (a menu, a select, a popover, a dialog:
+ * each marks itself `data-light-dismiss`), nothing drags the window. A drag region's presses go to
+ * the system to move the window and never reach the page, so a press on the title bar couldn't
+ * close the layer as a press anywhere else does. It drags again once the layer is closing.
+ */
+:root:has([data-light-dismiss][data-open]) * {
+  -webkit-app-region: no-drag;
+}
+
 p,
 h1,
 h2,

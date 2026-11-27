@@ -163,6 +163,12 @@ included) can, with the text cursor. Links and images can't be dragged out of th
 `user-select` unless it is a control inside a selectable area (the editor's callout and code block
 headers).
 
+**A press on the title bar closes what's open,** as a press anywhere else does. A drag region's
+presses go to the system to move the window and never reach the page, so while a layer that
+closes on a press outside it is open (`DropdownMenu`, `ContextMenu`, `Select`, `Popover`, `Dialog`,
+`Command`), nothing drags the window. Those components mark their open layer `data-light-dismiss`
+and `base.css` does the rest; a new one of that kind marks itself the same way.
+
 Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
 name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).
 

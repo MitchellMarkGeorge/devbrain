@@ -49,6 +49,7 @@ export function PopoverContent({
         sideOffset={sideOffset}
         alignOffset={alignOffset}
         className={styles.positioner}
+        data-light-dismiss=""
       >
         <BasePopover.Popup
           className={mergeClassName(popoverVariants({ size }), className)}
