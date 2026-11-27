@@ -1018,7 +1018,7 @@ toast). `DocumentPage` at 720px, `Tabs` in `?tab`, `SettingsSection` / `Settings
   confirmations, Danger zone: Delete workspace (`workspaces.delete` after a typed confirmation;
   then the root lands on `/onboarding`).
 - **Tasks**: default sort, priority, due date, view, show completed.
-- **Calendar**: week starts on, default event length, default view, Hide weekends (S3).
+- **Calendar**: week starts on, default event length, default view, Hide weekends (S3), Show tasks (the tasks due each day on the grid, `calendar.showTasks`).
 - **Data & storage**: data folder path with Show in Finder (`settings.showDataFolder`); Import
   tasks / notes (`transfer.importTasks` / `importNotes`, then the import summary dialog from the
   returned summary, with "View Tasks"); Export tasks CSV/JSON and notes (toast with the result).

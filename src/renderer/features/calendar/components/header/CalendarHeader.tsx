@@ -27,6 +27,7 @@ import {
 import { usePlatformWords } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
+import { useSetSetting } from '@renderer/features/settings/hooks/use-set-setting';
 import { monthTitle } from '../../lib/range';
 import type { CalendarViewParam } from '../../api/search';
 import styles from './CalendarHeader.module.css';
@@ -66,13 +67,20 @@ export function headerLayout(width: number): CalendarHeaderLayout {
 /** The toolbar's start: the month shown, and the calendar filter. */
 export const CalendarHeaderStart = forwardRef<
   HTMLDivElement,
-  { date: Date; calendars: readonly Calendar[]; layout?: CalendarHeaderLayout }
->(function CalendarHeaderStart({ date, calendars, layout = 'full' }, ref) {
+  {
+    date: Date;
+    calendars: readonly Calendar[];
+    /** the "Show tasks" setting: tasks are drawn on the day they're due */
+    showTasks: boolean;
+    layout?: CalendarHeaderLayout;
+  }
+>(function CalendarHeaderStart({ date, calendars, showTasks, layout = 'full' }, ref) {
   return (
     <div ref={ref} className={styles.start}>
       <h1 className={styles.title}>{monthTitle(date, layout === 'full' ? 'long' : 'short')}</h1>
       <CalendarFilterMenu
         calendars={calendars}
+        showTasks={showTasks}
         display={layout === 'full' ? 'value' : layout === 'short' ? 'label' : 'icon'}
       />
     </div>
@@ -200,14 +208,17 @@ export function filterGroups(calendars: readonly Calendar[]): Calendar[][] {
 /**
  * "Filter: All calendars" (Figma `7424:42573`): every calendar with a tick while it shows, by
  * where it comes from ("On this Mac", "On this PC" or "On this computer" by platform, "Google ·
- * mitchell@acme.com"), then Show all. Core keeps each calendar's visibility
- * (`calendars.setVisible`), not the URL.
+ * mitchell@acme.com"), then Tasks (the tasks due each day), then Show all. Core keeps each
+ * calendar's visibility (`calendars.setVisible`) and the settings file whether tasks show
+ * (`calendar.showTasks`), not the URL.
  */
 export function CalendarFilterMenu({
   calendars,
+  showTasks,
   display = 'value',
 }: {
   calendars: readonly Calendar[];
+  showTasks: boolean;
   /** "Filter All calendars", "Filter", or the icon alone */
   display?: 'value' | 'label' | 'icon';
 }) {
@@ -218,10 +229,13 @@ export function CalendarFilterMenu({
   const setVisible = useMutation(
     trpc.calendars.setVisible.mutationOptions({ onError: (e) => showError(e) }),
   );
+  const setSetting = useSetSetting();
+  const setShowTasks = (value: boolean) =>
+    void setSetting({ path: 'settings.calendar.showTasks', value });
   const groups = filterGroups(calendars);
   const listed = groups.flat();
-  // some calendar is hidden: the Filter draws pressed wherever its value doesn't show
-  const active = listed.some((calendar) => !calendar.visible);
+  // something is hidden: the Filter draws pressed wherever its value doesn't show
+  const active = !showTasks || listed.some((calendar) => !calendar.visible);
   const accountOf = (calendar: Calendar) =>
     integrations?.find((integration) =>
       integration.sources.some((source) => source.id === calendar.sourceId),
@@ -280,10 +294,21 @@ export function CalendarFilterMenu({
             </Fragment>
           );
         })}
+        {groups.length > 0 && <DropdownMenuSeparator />}
+        <DropdownMenuGroup>
+          <DropdownMenuCheckboxItem
+            checked={showTasks}
+            closeOnClick={false}
+            onCheckedChange={setShowTasks}
+          >
+            Tasks
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          disabled={listed.every((calendar) => calendar.visible)}
+          disabled={showTasks && listed.every((calendar) => calendar.visible)}
           onClick={() => {
+            if (!showTasks) setShowTasks(true);
             for (const calendar of listed) {
               if (!calendar.visible) setVisible.mutate({ id: calendar.id, visible: true });
             }

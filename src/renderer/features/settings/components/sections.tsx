@@ -184,6 +184,17 @@ export function CalendarSettingsSection() {
               />
             }
           />
+          <SettingsRow
+            label="Show tasks"
+            description="Show each task on the day it’s due."
+            control={
+              <SettingSwitch
+                label="Show tasks"
+                checked={calendar.showTasks}
+                onChange={(value) => set({ path: 'settings.calendar.showTasks', value })}
+              />
+            }
+          />
         </SettingsGroup>
       </SettingsSection>
     </>

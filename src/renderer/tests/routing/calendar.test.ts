@@ -283,6 +283,49 @@ describe('the calendar page', () => {
     );
   });
 
+  it('draws a task on the day it is due, opens its sheet, and hides tasks from the filter', async () => {
+    const tasks = new FakeTasks([
+      fakeTask('tsk_guide', 'Write PKCE migration guide', { dueDate: at(1, 0) }),
+      fakeTask('tsk_later', 'Ship auth overhaul', { dueDate: at(9, 0) }),
+      fakeTask('tsk_someday', 'Tidy the runbook'),
+    ]);
+    const main = mainWith(store(), tasks);
+    main.routes.set('settings.set', (args) => {
+      main.calendarSettings = { ...main.calendarSettings, showTasks: args.value as boolean };
+      return [undefined, ['settings']];
+    });
+    const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22` });
+    await eventually(() => expect(eventEl('Write PKCE migration guide')).toBeDefined());
+    // the week's tasks only: Monday 22 up to Monday 29
+    expect(eventEl('Ship auth overhaul')).toBeUndefined();
+    expect(eventEl('Tidy the runbook')).toBeUndefined();
+    expect(
+      main.callsTo('tasks.list').map((call) => (call.input as { filter: unknown }).filter),
+    ).toContainEqual({ dueAfter: new Date(MONDAY.getTime() - 1), dueBefore: at(7, 0) });
+
+    click(eventEl('Write PKCE migration guide')!);
+    await eventually(() => expect(search(app).get('open')).toBe('tsk_guide'));
+    await eventually(() =>
+      expect(
+        document.querySelector('[data-testid="task-sheet"] input[aria-label="Title"]'),
+      ).toHaveProperty('value', 'Write PKCE migration guide'),
+    );
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('open')).toBeNull());
+
+    click(byText(app.container, 'button', 'Filter'));
+    const menu = () => document.querySelector<HTMLElement>('[data-testid="calendar-filter"]');
+    await eventually(() => expect(menu()).not.toBeNull());
+    click(byText(menu()!, '[role="menuitemcheckbox"]', 'Tasks'));
+    await eventually(() =>
+      expect(main.callsTo('settings.set').map((call) => call.input)).toEqual([
+        { path: 'settings.calendar.showTasks', value: false },
+      ]),
+    );
+    await eventually(() => expect(eventEl('Write PKCE migration guide')).toBeUndefined());
+    expect(eventEl('Design Review')).toBeDefined();
+  });
+
   it('hides a calendar from the filter, through core', async () => {
     const main = mainWith(store());
     const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22` });

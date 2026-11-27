@@ -58,6 +58,25 @@ const WEEKDAY_ROW = 32;
 /** the week and day views open a quarter hour above `scrollToHour`, so its label shows whole */
 const SCROLL_MARGIN_MINUTES = 15;
 
+/**
+ * Where an item comes among those FullCalendar's own order ties (the same start, length and
+ * all-day): events, then open tasks, then completed and cancelled ones.
+ */
+function rankOf(item: CalendarViewEventProps): number {
+  if (item.kind !== 'task') return 0;
+  return item.status === TaskStatus.COMPLETED || item.status === TaskStatus.CANCELLED ? 2 : 1;
+}
+// FullCalendar's default order, with the rank before the title. It compares an event's fields
+// with its `extendedProps` beside them, and takes field names and functions together, which its
+// types don't say
+const EVENT_ORDER = [
+  'start',
+  '-duration',
+  'allDay',
+  (a: CalendarViewEventProps, b: CalendarViewEventProps) => rankOf(a) - rankOf(b),
+  'title',
+] as unknown as string[];
+
 /** "07:45:00": the time a quarter hour before `hour`, as FullCalendar's scrollTime takes it */
 function scrollTimeBefore(hour: number): string {
   const minutes = Math.max(0, hour * 60 - SCROLL_MARGIN_MINUTES);
@@ -73,11 +92,12 @@ const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
  */
 export interface CalendarViewEventProps {
   /**
-   * `event` (default), a `task` scheduled on the grid (its status icon), `focus` time (neutral,
-   * dashed) or `out-of-office` (a neutral all-day chip; a timed one is drawn as focus time)
+   * `event` (default), a `task` (its status icon in place of the colour bar: all-day on the day
+   * it is due, or scheduled on the grid), `focus` time (neutral, dashed) or `out-of-office` (a
+   * neutral all-day chip; a timed one is drawn as focus time)
    */
   kind?: 'event' | 'task' | 'focus' | 'out-of-office';
-  /** a scheduled task's status */
+  /** a task's status: its icon, and a completed or cancelled one is struck through */
   status?: TaskStatus;
   /** the event is tentative, or you answered "maybe": dashed at 70% */
   tentative?: boolean;
@@ -133,7 +153,7 @@ export interface CalendarViewProps {
   scrollToHour?: number;
   /** events listed in a month day before "+N more" (3) */
   maxEvents?: number;
-  /** the event shown as selected (its sheet is open) */
+  /** the event or task shown as selected (its sheet is open) */
   selectedEventId?: string;
   /** the label of the all-day row's gutter */
   allDayLabel?: ReactNode;
@@ -354,6 +374,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         moreLinkContent={(arg: { num: number }) => `+${arg.num} more`}
         views={{ dayGridMonth: { expandRows: true } }}
         eventDisplay="block"
+        eventOrder={EVENT_ORDER}
         eventContent={eventContent}
         eventClass={eventClass}
         {...THEME}

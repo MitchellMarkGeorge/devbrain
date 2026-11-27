@@ -33,6 +33,7 @@ const SETTINGS: Pick<AppSettings, 'calendar'> = {
     firstDayOfWeek: 'monday',
     defaultView: 'week',
     hideWeekends: false,
+    showTasks: true,
   },
 };
 

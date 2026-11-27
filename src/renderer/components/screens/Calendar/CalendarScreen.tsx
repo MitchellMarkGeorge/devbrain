@@ -39,12 +39,9 @@ function agendaEvent(
  */
 export function CalendarScreen({
   view,
-  filter = 'All calendars',
   children,
 }: {
   view: 'month' | 'week' | 'day';
-  /** what the filter button says is shown */
-  filter?: string;
   children: ReactNode;
 }) {
   return (
@@ -62,7 +59,7 @@ export function CalendarScreen({
             >
               June 2026
             </h1>
-            <Button variant="outline" icon={ListFilter} value={filter}>
+            <Button variant="outline" icon={ListFilter} value="All calendars">
               Filter
             </Button>
           </>

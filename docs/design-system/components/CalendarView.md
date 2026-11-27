@@ -16,7 +16,8 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
   No lines between the headers; one `border` line under them.
 - **All-day row**: "All day" in the gutter (`subtle-foreground`), `AllDayEvent` chips spanning the
   days they cover, 4px in from the column lines, stacked in 22px rows 4px apart (32px for one row).
-  More than `maxEvents` → "+N more".
+  More than `maxEvents` → "+N more". A task due that day is an `AllDayEvent` task chip, under the
+  day's all-day events.
 - **Hours**: 48px each (`slotMinHeight`), the label (12px `subtle-foreground`) right-aligned 12px
   from the gutter's edge and centred on its `border` line. The first hour's line is the all-day
   row's, at the top of the scroller, so its label is hidden rather than cut in half. Columns are split by
@@ -45,7 +46,9 @@ medium; today on the red `now-indicator` disc, other months' days `subtle-foregr
 `maxEvents` (3) 20px event lines, 2px apart (in a view too short for six weeks of them, about 760px, as
 many as the cell fits, so a 640px window shows the whole month without scrolling): the calendar's `ColourBar`, the start time ("9:30",
 `subtle-foreground`) and the title (12px `foreground`, cut with "…"). All-day events come first and
-have no time; one that spans days is one line across them. Out of office and focus time have a grey
+have no time; one that spans days is one line across them. A task due that day is a line with its
+12px `StatusIcon` in place of the bar and no time, after the all-day events and before the timed
+ones; a completed or cancelled one is struck through in `subtle-foreground`. Out of office and focus time have a grey
 bar and a `muted-foreground` title; tentative events are at 70%. More than `maxEvents` → "+2 more"
 (`muted-foreground`), which calls `onDayClick` (or opens FullCalendar's popover when there is none).
 The date is a link to the day when `onDayClick` is set.
@@ -55,7 +58,8 @@ The date is a link to the day when `onDayClick` is set.
 Each event's look comes from its `extendedProps` (`CalendarViewEventProps`), which the adapter's
 `toEventInput` sets from core's event:
 
-- `kind`: `event` (default), `task` (a task on the grid: its `status` icon), `focus` (neutral bar,
+- `kind`: `event` (default), `task` (its `status` icon in place of the bar: all-day on the day it
+  is due, from the adapter's `toTaskInput`, or a block scheduled on the grid), `focus` (neutral bar,
   dashed), `out-of-office` (a neutral chip all-day, focus time when timed).
 - `tentative`: dashed at 70%, the time line ending "· Maybe".
 - `declined`: the whole event at 50%.
@@ -63,7 +67,11 @@ Each event's look comes from its `extendedProps` (`CalendarViewEventProps`), whi
 
 The colour is FullCalendar's: the event's own `color`, else its source's (one source per calendar); a timed event's block is tinted with it (`EventBlock`).
 A swatch name (`'green'`) or a `#rrggbb` both work. FullCalendar's own event chrome (fill, border,
-shadow) is removed; the selected event (`selectedEventId`) and a focused one get the `ring` outline.
+shadow) is removed; the selected event or task (`selectedEventId`) and a focused one get the `ring` outline.
+
+Items that start together and last as long are ordered events first, then open tasks, then
+completed and cancelled ones, then by title (`eventOrder`), so a day's open tasks are not pushed
+into "+N more" by the ones already done.
 Events are focusable and open on Enter when `onEventClick` is set.
 
 ## Props

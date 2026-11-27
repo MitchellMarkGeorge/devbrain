@@ -30,6 +30,8 @@ export const appSettingsSchema = z.object({
     defaultView: z.enum(['month', 'week', 'day']),
     // the week and month views show Monday to Friday only
     hideWeekends: z.boolean(),
+    // tasks with a due date are drawn on that day, beside the events
+    showTasks: z.boolean(),
   }),
 });
 

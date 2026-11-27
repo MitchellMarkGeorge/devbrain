@@ -68,6 +68,7 @@ describe('an old settings file', () => {
       defaultView: 'week',
       firstDayOfWeek: 'sunday',
       hideWeekends: false,
+      showTasks: true,
     });
     expect(devBrain.settings.get('settings.tasks.showCompletedTasks')).toBe(true);
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBeNull();

@@ -2,4 +2,5 @@
 export * from './date-param';
 export * from './event-input';
 export * from './recurrence';
+export * from './task-input';
 export { occurrencesBetween, type Occurrence } from '@common/recurrence';

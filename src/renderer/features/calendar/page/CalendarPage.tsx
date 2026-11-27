@@ -50,9 +50,10 @@ declare module '@tanstack/history' {
 /**
  * The calendar (`/app/$workspaceId/calendar`, Figma `7158:13273` week, `7158:13856` day,
  * `7158:18439` month): the header (the month, the calendar filter, the view, ‹ Today ›, New
- * Event) over `CalendarView`, driven by the URL's `view` and `date`; the mini calendar and agenda
+ * Event) over `CalendarView`, driven by the URL's `view` and `date`, with the tasks due on each
+ * day beside the events (the "Show tasks" setting); the mini calendar and agenda
  * at the right in wide windows; and the sheet at `?open=`, an event's (`evt_…`) or a task's
- * (`tsk_…`, from the agenda or an event's linked tasks).
+ * (`tsk_…`, from the grid, the agenda or an event's linked tasks).
  */
 export function CalendarPage() {
   const { resolved, setSearch } = useCalendarSearch();
@@ -68,8 +69,13 @@ export function CalendarPage() {
   const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
-  const sources = useEventSources(calendars, view);
-  usePrefetchRanges(calendars, neighbouringRanges(resolved.view, resolved.date, options));
+  const { showTasks } = settings.calendar;
+  const sources = useEventSources(calendars, view, showTasks);
+  usePrefetchRanges(
+    calendars,
+    neighbouringRanges(resolved.view, resolved.date, options),
+    showTasks,
+  );
   const [loading, onLoading] = useDelayedLoading();
   const duration = defaultDurationMinutes(settings);
 
@@ -107,6 +113,8 @@ export function CalendarPage() {
     });
 
   const onEventClick = (event: CalendarViewEvent) => {
+    // a task due that day: its sheet
+    if (isId('task', event.id)) return openTask(event.id);
     const { recurring } = event.props as Partial<EventInputProps>;
     // a series' expanded occurrence is named by its start in the series
     openEvent(event.id as EventId, recurring ? event.start : undefined);
@@ -142,7 +150,14 @@ export function CalendarPage() {
        */}
       <PageToolbar
         ref={toolbar}
-        start={<CalendarHeaderStart date={resolved.date} calendars={calendars} layout={layout} />}
+        start={
+          <CalendarHeaderStart
+            date={resolved.date}
+            calendars={calendars}
+            showTasks={showTasks}
+            layout={layout}
+          />
+        }
         end={
           <CalendarHeaderEnd
             view={resolved.view}
@@ -169,7 +184,7 @@ export function CalendarPage() {
             firstDay={options.firstDay}
             hideWeekends={options.hideWeekends}
             timeFormat={settings.general.timeFormat}
-            selectedEventId={isId('event', resolved.open ?? '') ? resolved.open : undefined}
+            selectedEventId={resolved.open}
             onEventClick={onEventClick}
             onSelect={(selection: CalendarViewSelection) =>
               createEvent(draftFromSelection(selection, duration))

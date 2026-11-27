@@ -123,7 +123,7 @@ const due = (id: string, title: string, day: number, status: TaskStatus): Calend
   status,
 });
 
-/** Mock-up: the tasks due in June, drawn on their due day */
+/** The tasks due in June, each drawn on its due day */
 export const TASKS_DUE: CalendarEvent[] = [
   due('t-rate', 'Add rate limiting to /token', 18, TaskStatus.COMPLETED),
   due('t-flaky', 'Fix flaky session test', 19, TaskStatus.COMPLETED),

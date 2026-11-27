@@ -30,6 +30,7 @@ export function getDefaults(rootPath?: string): SettingsFile {
         defaultView: 'week',
         firstDayOfWeek: 'monday',
         hideWeekends: false,
+        showTasks: true,
       },
     },
     state: {

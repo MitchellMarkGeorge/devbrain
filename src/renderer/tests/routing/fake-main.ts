@@ -129,6 +129,7 @@ export class FakeMain {
     firstDayOfWeek: 'monday',
     defaultView: 'week',
     hideWeekends: false,
+    showTasks: true,
   };
   // each workspace's calendars and events; a workspace without any has one calendar naming it
   readonly calendarStores = new Map<WorkspaceId, FakeCalendar>();

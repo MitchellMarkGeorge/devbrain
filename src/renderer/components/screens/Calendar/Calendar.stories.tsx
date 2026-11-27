@@ -88,11 +88,11 @@ const withTasks = (events: CalendarEvent[]): EventSourceInput[] => [
   { id: 'tasks', events: TASKS_DUE.map(calendarEventInput) },
 ];
 
-/** Mock-up: tasks on their due day, in the week's all-day row */
+/** The tasks due each day in the week's all-day row, under the all-day events */
 export const WeekWithTasks: Story = {
-  name: 'Week — tasks due (mock-up)',
+  name: 'Week — tasks due',
   render: () => (
-    <CalendarScreen view="week" filter="All calendars, Tasks">
+    <CalendarScreen view="week">
       <CalendarView
         view="week"
         date={NOW}
@@ -105,11 +105,11 @@ export const WeekWithTasks: Story = {
   ),
 };
 
-/** Mock-up: tasks on their due day, as lines in the month's cells */
+/** The tasks due each day as lines in the month's cells, after the all-day events */
 export const MonthWithTasks: Story = {
-  name: 'Month — tasks due (mock-up)',
+  name: 'Month — tasks due',
   render: () => (
-    <CalendarScreen view="month" filter="All calendars, Tasks">
+    <CalendarScreen view="month">
       <CalendarView
         view="month"
         date={NOW}

@@ -32,6 +32,7 @@ const SETTINGS: AppSettings = {
     firstDayOfWeek: 'monday',
     defaultView: 'week',
     hideWeekends: false,
+    showTasks: true,
   },
 };
 
