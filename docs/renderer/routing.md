@@ -193,7 +193,7 @@ gone back to.** Back, a sidebar link, a key (G T) and a search result never disa
 page is shown, because none of them is asked: its state is kept under the page's path, not under
 the history entry or the way taken to it.
 
-- **Where it scrolled** is the router's scroll restoration, keyed by path
+- **Where it scrolled** is the router's scroll restoration, keyed by path (and the visit, below)
   (`getScrollRestorationKey` in `app/router.tsx`), not by history entry (its default, which only
   Back and Forward return to). A sheet opened over a page, a filter and a sort change the search,
   not the path, so the page stays where it is.
@@ -218,12 +218,14 @@ the history entry or the way taken to it.
   and `AppSidebar`'s links and the keys that go to a page use it (`search` as a function on the
   links, read as the link is followed, so never a step behind the page drawn).
 
-Both last while the window is open, and a path names its workspace, so each workspace has its
-own and has them still when it is switched back to. Two limits:
+Both last until another workspace is shown: one switched back to starts afresh, its pages at
+their tops and in their own views. The router's saved places can't be dropped, so the scroll key
+carries which visit to a workspace this is (`visit`, which goes up as a navigation crosses into
+another workspace, after the router has saved the last page under the old one), and the old keys
+are never asked for again; the root layout drops the searches it kept. Two limits:
 
 - The router restores a place once, as the page renders. A page whose content arrives later is
-  shorter then, and stops short of where it was: a workspace opened again loads its pages afresh,
-  as does a list changed to from the board.
+  shorter then, and stops short of where it was: a list changed to from the board.
 - A history entry keeps its own URL, so Back to an older entry of a section shows the filters it
   had then, not its latest.
 

@@ -13,7 +13,8 @@ import {
 // Home or document page's PageContent (data-slot="page-scroll"), never the page around them. The
 // router keeps where each page scrolled by its path: a page starts at its top the first time it is
 // shown, and is where it was left however it is gone back to (Back, the sidebar, a search result),
-// with its view and filters. A sheet opened over a page leaves
+// with its view and filters, until another workspace is shown: one switched back to starts afresh.
+// A sheet opened over a page leaves
 // it where it is. The window is made short, so the seeded pages overflow it.
 
 /** What scrolls in the page's card: each element in it that overflows and scrolls. */
@@ -217,18 +218,21 @@ test('Pages: one scroller each, at the top when first shown, where it was left w
   await expect(window).toHaveURL(taskPage);
   await expect.poll(pageTop).toBeGreaterThan(top - 40);
 
-  // another workspace and back: a section's view is as it was left. (Its place is too when its
-  // content is there as the router restores it; a workspace opened again loads it afresh, so it
-  // isn't checked here.)
+  // another workspace and back: the workspace starts afresh, its pages at their tops and in their
+  // own views
   await goTo(window, 'Tasks');
   await chooseView(window, 'Board');
+  await goTo(window, 'Home');
+  await scrollAndSettle(window, 60);
+  const [homePlace] = await scrollers(window);
+  expect(homePlace.top).toBeGreaterThan(0);
   await workspaceButton(window).click();
   await window.getByRole('menuitem', { name: 'New workspace…' }).click();
   await createWorkspace(window, 'Other');
   await switchWorkspace(window, 'Seeded');
-  await expect(window).toHaveURL(/\/tasks/);
-  await goTo(window, 'Home');
   await expect(window).toHaveURL(/\/home/);
+  await expect(window.getByRole('main').getByPlaceholder('What needs doing?')).toBeVisible();
+  await expect.poll(() => scrollers(window)).toEqual([{ slot: 'page-scroll', top: 0 }]);
   await goTo(window, 'Tasks');
-  await expect(window).toHaveURL(/\/tasks\?view=board$/);
+  await expect(window).toHaveURL(/\/tasks$/);
 });
