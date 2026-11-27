@@ -48,6 +48,7 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
   return (
     <div
       ref={ref}
+      data-slot="page"
       data-in-shell={inShell ? '' : undefined}
       className={cn(styles.page, className)}
       {...props}
@@ -147,8 +148,12 @@ export const pageContentVariants = cva(styles.content, {
 export interface PageContentProps
   extends ComponentPropsWithoutRef<'div'>, VariantProps<typeof pageContentVariants> {}
 
-/** The selector of the page's scroller (a Home or document `PageContent`'s scrolling element). */
-export const PAGE_SCROLL_SELECTOR = '[data-slot="page-scroll"]';
+/**
+ * The page's one scroller: the first `ScrollArea` in the `Page` (a Home or document `PageContent`,
+ * a list, the board, a project's Overview). `document.querySelector` finds the outermost, as an
+ * element comes before what is in it. The app's router scrolls it to the top on a new page.
+ */
+export const PAGE_SCROLLER_SELECTOR = '[data-slot="page"] [data-scroll-viewport]';
 
 /**
  * The page under its header and toolbar, filling the height left. Workspace pages use the full
@@ -156,8 +161,8 @@ export const PAGE_SCROLL_SELECTOR = '[data-slot="page-scroll"]';
  * the margins grow. `list` and `grid` pass the height on to the list or grid in them, which
  * scrolls itself. `home` and `document` keep their own height and are the page's scroller: a
  * `ScrollArea` whose scrollbar is drawn over the page's right edge, its scrolling element carrying
- * `data-slot="page-scroll"` (`PAGE_SCROLL_SELECTOR`), which the app's router scrolls to the top on
- * a new page. The class and props go on the area; its padding and column are inside it.
+ * `data-slot="page-scroll"`. The class and props go on the area; its padding and column are inside
+ * it.
  */
 export const PageContent = forwardRef<HTMLDivElement, PageContentProps>(function PageContent(
   { layout, className, children, ...props },

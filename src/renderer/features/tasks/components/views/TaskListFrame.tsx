@@ -238,14 +238,24 @@ export function TaskListFrame(props: TaskListFrameProps) {
       >
         {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
         <KeyScope name="list" render={<div className={styles.region} />}>
+          {/*
+           * The router keeps a list's place under its scroller's place in the DOM, unless it is
+           * named; the grouped list's scroller is where the plain list's is, so each is named and
+           * never takes the other's place (docs/renderer/routing.md, "Scrolling")
+           */}
           {groups ? (
             <TaskList
               {...sharedListProps}
+              data-scroll-restoration-id="grouped-task-list"
               groups={groups.map((group, i) => ({ ...group, tasks: visibleLists[i] }))}
               selecting={selectedIds.length > 0}
             />
           ) : (
-            <TaskList {...sharedListProps} tasks={visibleLists[0]} />
+            <TaskList
+              {...sharedListProps}
+              data-scroll-restoration-id="task-list"
+              tasks={visibleLists[0]}
+            />
           )}
         </KeyScope>
         <TasksSelectionBar
