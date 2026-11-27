@@ -255,3 +255,50 @@ export const Compact: Story = {
     ),
   ],
 };
+
+const MEASURED: object = { 'data-fit': '' };
+
+/**
+ * EXPERIMENT, not the row's layout: the same stacking and spreading with the widths worked out in
+ * code (`data-fit`, `measured-fit.ts` and `fit.ts`) in place of the flex line's shrink factors.
+ * Each pair is today's row, then the measured one; they should draw the same at every width, and
+ * spread the same when a group of pills is pointed at. Drag the last pair's handle to resize it.
+ */
+export const MeasuredPrototype: Story = {
+  name: 'Measured prototype',
+  decorators: [
+    (Story) => (
+      <div style={{ width: 1120 }}>
+        <Story />
+      </div>
+    ),
+  ],
+  render: () => (
+    <Stack gap="2">
+      {[1120, 900, 760, 640, 520, 420].map((width) => (
+        <div key={width} style={{ width }}>
+          <Label>{`${width}px: flex, then measured`}</Label>
+          <TaskRow task={BUSY_TASK} />
+          <TaskRow task={BUSY_TASK} {...MEASURED} />
+        </div>
+      ))}
+      <div
+        style={{
+          width: 640,
+          minWidth: 360,
+          maxWidth: 1120,
+          resize: 'horizontal',
+          overflow: 'hidden',
+          paddingBottom: 12,
+          borderBottom: '1px dashed var(--border)',
+        }}
+      >
+        <Label>Resizable: flex, then measured</Label>
+        <TaskRow task={BUSY_TASK} />
+        <TaskRow task={BUSY_TASK} {...MEASURED} />
+        <TaskRow task={SAMPLE_TASKS[0]} />
+        <TaskRow task={SAMPLE_TASKS[0]} {...MEASURED} />
+      </div>
+    </Stack>
+  ),
+};
