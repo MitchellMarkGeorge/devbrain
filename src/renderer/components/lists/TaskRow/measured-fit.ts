@@ -153,11 +153,14 @@ function attach(row: HTMLElement) {
   };
 }
 
-/** Fits a row marked `data-fit` by measuring it; does nothing for any other row. */
+/** Fits a row marked `data-fit`, or inside something that is, by measuring it; no other row. */
 export function useMeasuredFit(rowRef: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const row = rowRef.current;
-    if (row?.hasAttribute('data-fit')) return attach(row);
+    // on the row itself, or around a list of them (TaskList passes its rows no attribute)
+    if (!row?.closest('[data-fit]')) return;
+    row.setAttribute('data-fit', '');
+    return attach(row);
   }, [rowRef]);
   // after every render: what the row shows may have changed (a check of its text, nothing measured)
   useLayoutEffect(() => {

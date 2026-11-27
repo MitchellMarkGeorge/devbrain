@@ -6,7 +6,15 @@ import { GroupHeading } from '../GroupHeading';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
-import { BUSY_TASK, manyTasks, SAMPLE_TASKS, SAMPLE_TREE } from '../TaskRow/fixtures';
+import {
+  BUSY_TASK,
+  manyTasks,
+  sampleEventLink,
+  sampleNoteLink,
+  sampleParent,
+  SAMPLE_TASKS,
+  SAMPLE_TREE,
+} from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
 import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '@renderer/keyboard';
 import {
@@ -306,4 +314,49 @@ export const ThousandRowsGrouped: Story = {
       </Page>
     );
   },
+};
+
+// rows with most of their pills, so a 640px list has every one of them stacking
+const BUSY_ROWS = manyTasks(TOTAL).map((task, index) => ({
+  ...task,
+  title: `${task.title}: ${BUSY_TASK.title.slice(0, 12 + ((index * 7) % 50))}`,
+  parentTask: index % 3 === 0 ? null : sampleParent('Refactor core services'),
+  subtaskProgress: index % 2 === 0 ? { completed: index % 4, total: 5 } : null,
+  link:
+    index % 5 === 0
+      ? null
+      : index % 2 === 0
+        ? sampleEventLink('Architecture review', 'blue')
+        : sampleNoteLink('Sync engine notes'),
+}));
+
+function BusyRows({ measured }: { measured?: boolean }) {
+  return (
+    <div data-profile="" data-fit={measured ? '' : undefined} style={{ width: 640 }}>
+      <Page
+        header={
+          <Text size="xs" tone="subtle">
+            {measured ? 'Measured' : 'Flex'}: {TOTAL} busy rows
+          </Text>
+        }
+      >
+        <TaskList tasks={BUSY_ROWS} />
+      </Page>
+    </div>
+  );
+}
+
+/**
+ * EXPERIMENT: 1,000 rows short of room, laid out as they are today. The pair of this and the
+ * measured story is what the measured prototype (`TaskRow`'s `data-fit`) is profiled on.
+ */
+export const BusyRowsFlex: Story = {
+  name: '1,000 busy rows, flex',
+  render: () => <BusyRows />,
+};
+
+/** EXPERIMENT: the same rows, each fitted by measuring (`data-fit` around the list). */
+export const BusyRowsMeasured: Story = {
+  name: '1,000 busy rows, measured prototype',
+  render: () => <BusyRows measured />,
 };
