@@ -1,8 +1,8 @@
-import { z } from 'zod';
 import { type AppSettings, appSettingsSchema, type SettingsFile } from '@common/types';
 import type { DotPathValue, DotPaths } from '@main/core/settings/types';
 import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
+import { zPathUpdate } from '../zod';
 
 // The user's settings. The app's state beside them in the settings file is main's alone (the
 // workspaces routes write lastWorkspaceId, runtime/last-page.ts the last page).
@@ -16,26 +16,8 @@ type SettingUpdate = {
   [P in SettingPath]: { path: P; value: DotPathValue<SettingsFile, P> };
 }[SettingPath];
 
-// every path under `settings`, each with its part of core's schema
-function settingSchemas(
-  schema: z.ZodObject = appSettingsSchema,
-  prefix = 'settings',
-): [string, z.ZodType][] {
-  return Object.entries(schema.shape).flatMap(([key, part]) => {
-    const path = `${prefix}.${key}`;
-    const entry: [string, z.ZodType] = [path, part];
-    return part instanceof z.ZodObject ? [entry, ...settingSchemas(part, path)] : [entry];
-  });
-}
-
-const [first, ...rest] = settingSchemas().map(([path, value]) =>
-  z.object({ path: z.literal(path), value }),
-);
 // the path picks the schema the value is checked against; a path outside `settings` is refused
-const settingUpdateSchema = z.discriminatedUnion('path', [first, ...rest]) as unknown as z.ZodType<
-  SettingUpdate,
-  SettingUpdate
->;
+const settingUpdateSchema = zPathUpdate<SettingUpdate>(appSettingsSchema, 'settings');
 
 export const settingsRouter = t.router({
   get: devBrainProcedure.query(({ ctx }): AppSettings => ctx.devBrain.settings.get('settings')),

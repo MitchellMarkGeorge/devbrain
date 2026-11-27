@@ -4,10 +4,19 @@ import { z } from 'zod';
 import { isId, type WorkspaceId } from '@common/ids';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
-import { lastPageSchema, type WorkspaceInfo } from '@common/types';
+import {
+  defaultWorkspaceState,
+  lastPageSchema,
+  workspaceStateSchema,
+  type WorkspaceInfo,
+  type WorkspaceState,
+} from '@common/types';
+import { withDefaults } from '../settings/defaults';
 
-// What a workspace says about itself, kept in its folder: its id, name, colour, creation time, and
-// the page the app was on when it last closed.
+// What a workspace says about itself, kept in its folder: its id, name, colour, creation time, the
+// page the app was on when it last closed, and its `state` (what the app remembers for it, such as
+// whether the calendar shows tasks). One file for everything that is the workspace's own, as the
+// DevBrain folder's settings.json is for what every workspace shares.
 // This is the only place they are stored, so they move with the folder to another computer
 // (WorkspaceService.import), and a lost workspaces.json, which keeps only where each folder is
 // (registry.ts), loses none of them.
@@ -25,12 +34,25 @@ const manifestSchema = z.object({
   // added after version 1, so optional; an older DevBrain drops it when it rewrites the manifest.
   // A bad value is dropped alone, never the manifest with the name and colour
   lastPage: lastPageSchema.nullable().optional().catch(null),
+  // added after version 1 too, and read by `stateOf`
+  state: z.unknown().optional(),
 });
 
 export type WorkspaceManifest = Pick<
   WorkspaceInfo,
-  'id' | 'name' | 'color' | 'createdAt' | 'lastPage'
+  'id' | 'name' | 'color' | 'createdAt' | 'lastPage' | 'state'
 >;
+
+/**
+ * The state a manifest holds: every value it lacks is the default (a manifest written before the
+ * value was added), and one with a wrong value is the defaults whole, never the manifest with the
+ * name and colour.
+ */
+function stateOf(stored: unknown): WorkspaceState {
+  const defaults = defaultWorkspaceState();
+  const parsed = workspaceStateSchema.safeParse(withDefaults(stored, defaults));
+  return parsed.success ? parsed.data : defaults;
+}
 
 function toManifestJson(info: WorkspaceManifest): string {
   const manifest: z.infer<typeof manifestSchema> = {
@@ -40,6 +62,7 @@ function toManifestJson(info: WorkspaceManifest): string {
     color: info.color,
     createdAt: info.createdAt,
     lastPage: info.lastPage,
+    state: info.state,
   };
   return JSON.stringify(manifest, null, 2);
 }
@@ -74,6 +97,13 @@ export function readManifest(folder: string): WorkspaceManifest | null {
   }
   const parsed = manifestSchema.safeParse(json);
   if (!parsed.success) return null;
-  const { id, name, color, createdAt, lastPage } = parsed.data;
-  return { id: id as WorkspaceId, name, color, createdAt, lastPage: lastPage ?? null };
+  const { id, name, color, createdAt, lastPage, state } = parsed.data;
+  return {
+    id: id as WorkspaceId,
+    name,
+    color,
+    createdAt,
+    lastPage: lastPage ?? null,
+    state: stateOf(state),
+  };
 }

@@ -51,7 +51,7 @@ declare module '@tanstack/history' {
  * The calendar (`/app/$workspaceId/calendar`, Figma `7158:13273` week, `7158:13856` day,
  * `7158:18439` month): the header (the month, the calendar filter, the view, ‹ Today ›, New
  * Event) over `CalendarView`, driven by the URL's `view` and `date`, with the tasks due on each
- * day beside the events (the "Show tasks" setting); the mini calendar and agenda
+ * day beside the events (the Filter's "Tasks"); the mini calendar and agenda
  * at the right in wide windows; and the sheet at `?open=`, an event's (`evt_…`) or a task's
  * (`tsk_…`, from the grid, the agenda or an event's linked tasks).
  */
@@ -69,7 +69,9 @@ export function CalendarPage() {
   const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
-  const { showTasks } = settings.calendar;
+  // the workspace's own choice (the Filter's "Tasks"), on until it is unticked
+  const workspace = useSuspenseQuery(trpc.workspaces.current.queryOptions()).data;
+  const showTasks = workspace?.state.calendar.showTasks ?? true;
   const sources = useEventSources(calendars, view, showTasks);
   usePrefetchRanges(
     calendars,

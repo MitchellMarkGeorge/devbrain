@@ -1,3 +1,4 @@
+import { defaultWorkspaceState } from '@common/types';
 import { createGoogleCalendarProvider } from '../../integrations/providers/google-calendar';
 import { deferred } from '../utils';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -50,6 +51,7 @@ const makeInfo = (
   createdAt: Date.now(),
   lastOpenedAt: null,
   lastPage: null,
+  state: defaultWorkspaceState(),
   ...overrides,
 });
 

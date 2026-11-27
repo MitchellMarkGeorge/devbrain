@@ -1,3 +1,4 @@
+import { defaultWorkspaceState } from '@common/types';
 import { deferred, WORKSPACE_OPTIONS } from '../utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
@@ -34,6 +35,7 @@ const makeInfo = (overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo => ({
   createdAt: Date.now(),
   lastOpenedAt: null,
   lastPage: null,
+  state: defaultWorkspaceState(),
   ...overrides,
 });
 
@@ -49,7 +51,9 @@ const makeRegistry = (infos: Omit<WorkspaceInfo, 'lastPage'>[]) =>
   Object.fromEntries(
     infos.map((info) => [
       info.id,
-      Object.fromEntries(Object.entries(info).filter(([key]) => key !== 'lastPage')),
+      Object.fromEntries(
+        Object.entries(info).filter(([key]) => key !== 'lastPage' && key !== 'state'),
+      ),
     ]),
   ) as Record<WorkspaceId, Omit<WorkspaceInfo, 'lastPage'>>;
 
@@ -356,6 +360,7 @@ describe('WorkspaceService — update', () => {
       color: infos[0].color,
       createdAt: infos[0].createdAt,
       lastPage: null,
+      state: defaultWorkspaceState(),
     });
 
     await service.update(infos[0].id, { color: '#00bc7d' });
@@ -478,6 +483,96 @@ describe('WorkspaceService — update', () => {
     expect(saved.name).toBe('Renamed');
     expect(saved.lastOpenedAt).not.toBeNull();
     expect(service.currentWorkspace?.info.name).toBe('Renamed');
+  });
+});
+
+describe('WorkspaceService — setState', () => {
+  function setup() {
+    const info = makeInfo({
+      id: 'wsp_a' as WorkspaceId,
+      path: path.join(tmpDir, 'workspaces', 'wsp_a'),
+    });
+    writeRegistry(tmpDir, [info]);
+    fsSync.mkdirSync(info.path, { recursive: true });
+    writeManifest(info.path, info);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    const changes: WorkspaceChange[] = [];
+    service.onChange((change) => changes.push(change));
+    return { service, info, changes };
+  }
+  const manifestFile = (folder: string) => path.join(folder, 'workspace.json');
+
+  it("keeps one value in the folder's manifest, and sends updated", () => {
+    const { service, info, changes } = setup();
+    expect(service.getById(info.id).state).toEqual({ calendar: { showTasks: true } });
+    const updated = service.setState(info.id, 'calendar.showTasks', false);
+    expect(updated.state).toEqual({ calendar: { showTasks: false } });
+    expect(readManifest(info.path)).toMatchObject({
+      name: info.name,
+      state: { calendar: { showTasks: false } },
+    });
+    expect(service.getById(info.id).state.calendar.showTasks).toBe(false);
+    expect(changes).toEqual([{ type: 'updated', workspace: updated }]);
+  });
+
+  it('writes a group whole, and nothing when the value is unchanged', () => {
+    const { service, info, changes } = setup();
+    service.setState(info.id, 'calendar', { showTasks: false });
+    expect(service.getById(info.id).state.calendar.showTasks).toBe(false);
+    const before = fsSync.statSync(manifestFile(info.path)).mtimeMs;
+    service.setState(info.id, 'calendar.showTasks', false);
+    expect(fsSync.statSync(manifestFile(info.path)).mtimeMs).toBe(before);
+    expect(changes).toHaveLength(1);
+  });
+
+  it('keeps the state through a rename and a saved page', async () => {
+    const { service, info } = setup();
+    service.setState(info.id, 'calendar.showTasks', false);
+    await service.update(info.id, { name: 'Renamed' });
+    service.setLastPage(info.id, '/app/wsp_a/notes');
+    expect(service.getById(info.id)).toMatchObject({
+      name: 'Renamed',
+      lastPage: '/app/wsp_a/notes',
+      state: { calendar: { showTasks: false } },
+    });
+  });
+
+  it('reads a manifest without a state, or with a wrong one, as the defaults, keeping its name', () => {
+    const { service, info } = setup();
+    const file = manifestFile(info.path);
+    const manifest = JSON.parse(fsSync.readFileSync(file, 'utf8')) as Record<string, unknown>;
+    // written before the state was added
+    delete manifest.state;
+    fsSync.writeFileSync(file, JSON.stringify(manifest));
+    expect(service.getById(info.id)).toMatchObject({
+      name: info.name,
+      state: { calendar: { showTasks: true } },
+    });
+    // a group without a value added since, and a wrong value
+    fsSync.writeFileSync(file, JSON.stringify({ ...manifest, state: { calendar: {} } }));
+    expect(service.getById(info.id).state).toEqual({ calendar: { showTasks: true } });
+    fsSync.writeFileSync(
+      file,
+      JSON.stringify({ ...manifest, state: { calendar: { showTasks: 'yes' } } }),
+    );
+    expect(service.getById(info.id)).toMatchObject({
+      name: info.name,
+      state: { calendar: { showTasks: true } },
+    });
+  });
+
+  it('refuses a wrong value, an unknown workspace and a missing folder', () => {
+    const { service, info } = setup();
+    expect(() => service.setState(info.id, 'calendar.showTasks', 'yes' as never)).toThrow(
+      InvalidInputError,
+    );
+    expect(() => service.setState('wsp_nope' as WorkspaceId, 'calendar.showTasks', false)).toThrow(
+      NotFoundError,
+    );
+    fsSync.rmSync(info.path, { recursive: true });
+    expect(() => service.setState(info.id, 'calendar.showTasks', false)).toThrow(
+      WorkspaceDataMissingError,
+    );
   });
 });
 

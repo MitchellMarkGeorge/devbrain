@@ -101,7 +101,7 @@ Each calendar source's `events(info)` function calls `listForCalendar(info.start
 
 ## Tasks
 
-A task with a due date is drawn on that day, beside the events, when the `calendar.showTasks` setting is on (the Filter menu's **Tasks**, and Settings › Calendar's **Show tasks**). Tasks are not events: nothing is stored for them, and they have no calendar.
+A task with a due date is drawn on that day, beside the events, when the workspace's `calendar.showTasks` is on (the Filter menu's **Tasks**). It is the workspace's own state, in its manifest (`workspace.setState`), not a setting: each workspace remembers it, and it is on until unticked. Tasks are not events: nothing is stored for them, and they have no calendar.
 
 - **One more source**, after the calendars' (`toTaskSource`, id `tasks`). Its `events(info)` reads `tasks.list` with `dueAfter`/`dueBefore` around `info.start` and `info.end`, by due date, every page (`readTasksDue`). Completed and cancelled tasks are included; archived ones never are.
 - **`toTaskInput`**: `id` the task's (`tsk_…`, which is how a click tells a task from an event and opens the task sheet), `allDay: true`, `start` the local day the due date falls on as text, `editable: false`, and `extendedProps` `{ kind: 'task', status }`. No colour: `CalendarView` draws the status icon in place of the bar.

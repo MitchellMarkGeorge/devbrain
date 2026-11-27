@@ -31,7 +31,6 @@ const validSettings: SettingsFile = {
       firstDayOfWeek: 'monday',
       defaultView: 'week',
       hideWeekends: false,
-      showTasks: true,
     },
   },
   state: {

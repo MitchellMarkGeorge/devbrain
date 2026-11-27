@@ -9,6 +9,7 @@ import type {
   IpcResult,
 } from '@common/ipc/types';
 import {
+  defaultWorkspaceState,
   LinkState,
   type Mention,
   type AppSettings,
@@ -61,6 +62,7 @@ export function workspace(
     createdAt: 1_700_000_000_000,
     lastOpenedAt: null,
     lastPage: null,
+    state: defaultWorkspaceState(),
     ...extra,
   };
 }
@@ -129,7 +131,6 @@ export class FakeMain {
     firstDayOfWeek: 'monday',
     defaultView: 'week',
     hideWeekends: false,
-    showTasks: true,
   };
   // each workspace's calendars and events; a workspace without any has one calendar naming it
   readonly calendarStores = new Map<WorkspaceId, FakeCalendar>();
@@ -613,6 +614,17 @@ export class FakeMain {
           1,
         );
         return [undefined, ['workspace']];
+      }
+      case 'workspace.setState': {
+        // the open workspace's state, one value by its dot path
+        const found = this.workspaces.find((w) => w.id === this.open)!;
+        const keys = (args.path as string).split('.');
+        const state = structuredClone(found.state) as unknown as Record<string, unknown>;
+        let node = state;
+        for (const key of keys.slice(0, -1)) node = node[key] as Record<string, unknown>;
+        node[keys[keys.length - 1]] = args.value;
+        found.state = state as unknown as FakeWorkspace['state'];
+        return [this.info(this.open), ['workspace']];
       }
       case 'workspace.showInFolder':
         return [undefined, []];

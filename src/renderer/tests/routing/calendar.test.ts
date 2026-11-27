@@ -306,17 +306,13 @@ describe('the calendar page', () => {
     );
   });
 
-  it('draws a task on the day it is due, opens its sheet, and hides tasks from the filter', async () => {
+  it('draws a task on the day it is due, opens its sheet, and hides tasks for the workspace from the filter', async () => {
     const tasks = new FakeTasks([
       fakeTask('tsk_guide', 'Write PKCE migration guide', { dueDate: at(1, 0) }),
       fakeTask('tsk_later', 'Ship auth overhaul', { dueDate: at(9, 0) }),
       fakeTask('tsk_someday', 'Tidy the runbook'),
     ]);
     const main = mainWith(store(), tasks);
-    main.routes.set('settings.set', (args) => {
-      main.calendarSettings = { ...main.calendarSettings, showTasks: args.value as boolean };
-      return [undefined, ['settings']];
-    });
     const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22` });
     await eventually(() => expect(eventEl('Write PKCE migration guide')).toBeDefined());
     // the week's tasks only: Monday 22 up to Monday 29
@@ -341,8 +337,8 @@ describe('the calendar page', () => {
     await eventually(() => expect(menu()).not.toBeNull());
     click(byText(menu()!, '[role="menuitemcheckbox"]', 'Tasks'));
     await eventually(() =>
-      expect(main.callsTo('settings.set').map((call) => call.input)).toEqual([
-        { path: 'settings.calendar.showTasks', value: false },
+      expect(main.callsTo('workspace.setState').map((call) => call.input)).toEqual([
+        { path: 'calendar.showTasks', value: false },
       ]),
     );
     await eventually(() => expect(eventEl('Write PKCE migration guide')).toBeUndefined());

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import type { z } from 'zod';
 import type { WorkspaceId } from '@common/ids';
-import type { WorkspaceInfo } from '@common/types';
+import { defaultWorkspaceState, type WorkspaceInfo } from '@common/types';
 import { workspaceRegistrySchema, type registryEntrySchema } from './schema';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
@@ -50,6 +50,7 @@ export function describeWorkspace(entry: RegistryEntry): WorkspaceInfo {
     createdAt: own?.createdAt ?? entry.createdAt ?? databaseCreatedAt(entry.path),
     lastOpenedAt: entry.lastOpenedAt,
     lastPage: own?.lastPage ?? null,
+    state: own?.state ?? defaultWorkspaceState(),
   };
 }
 
@@ -97,7 +98,14 @@ export function moveDetailsToManifests(
       const existing = readManifest(entry.path);
       if (existing?.id !== entry.id) {
         const { name, color, createdAt } = describeWorkspace(entry);
-        writeManifest(entry.path, { id: entry.id, name, color, createdAt, lastPage: null });
+        writeManifest(entry.path, {
+          id: entry.id,
+          name,
+          color,
+          createdAt,
+          lastPage: null,
+          state: defaultWorkspaceState(),
+        });
       }
     } catch (error) {
       // a folder that is gone keeps its details here quietly: the workspace fails on open anyway

@@ -1,6 +1,15 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { lastPageSchema, Page, workspaceIdOfPage, type WorkspaceInfo } from '@common/types';
+import {
+  defaultWorkspaceState,
+  lastPageSchema,
+  Page,
+  workspaceIdOfPage,
+  workspaceStateSchema,
+  type WorkspaceInfo,
+  type WorkspaceState,
+} from '@common/types';
+import type { DotPathValue, DotPaths } from '../settings/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -152,6 +161,7 @@ export class WorkspaceService {
       createdAt: Date.now(),
       lastOpenedAt: null,
       lastPage: null,
+      state: defaultWorkspaceState(),
     };
 
     // The database first, then the registry: a workspace is registered only once it can be opened.
@@ -255,6 +265,38 @@ export class WorkspaceService {
       throw new WorkspaceDataMissingError(id, 'Workspace directory not found');
     }
     if (this.current?.info.id === id) this.current.info.lastPage = page;
+  }
+
+  /**
+   * Writes one value of a workspace's state, or one group of them ('calendar'), by its dot path
+   * ('calendar.showTasks'), in its folder's manifest (manifest.ts), leaving the others as they are.
+   * The workspace's counterpart of SettingsService.set. When this is the open workspace, its `info`
+   * changes too. Synchronous, as a settings write is. Writes nothing and sends nothing when the
+   * value is unchanged.
+   *
+   * Throws InvalidInputError when the state with the value is not one the schema takes,
+   * NotFoundError for an unknown id, and WorkspaceDataMissingError when the workspace's folder is
+   * gone.
+   */
+  setState<P extends DotPaths<WorkspaceState>>(
+    id: WorkspaceId,
+    path: P,
+    value: DotPathValue<WorkspaceState, P>,
+  ): WorkspaceInfo {
+    const info = this.getById(id);
+    const parsed = workspaceStateSchema.safeParse(withValueAt(info.state, path.split('.'), value));
+    if (!parsed.success) throw new InvalidInputError(`Not a value for ${path}`);
+    const updated: WorkspaceInfo = { ...info, state: parsed.data };
+    if (JSON.stringify(updated.state) === JSON.stringify(info.state)) return info;
+    try {
+      writeManifest(updated.path, updated);
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      throw new WorkspaceDataMissingError(id, 'Workspace directory not found');
+    }
+    if (this.current?.info.id === id) this.current.info.state = updated.state;
+    this.changes.emit({ type: 'updated', workspace: updated });
+    return updated;
   }
 
   /**
@@ -455,6 +497,8 @@ export class WorkspaceService {
       lastOpenedAt: null,
       // the page it was on where it came from
       lastPage: manifest?.lastPage ?? null,
+      // and what it remembered there
+      state: manifest?.state ?? defaultWorkspaceState(),
     };
 
     try {
@@ -566,4 +610,12 @@ async function copyWorkspaceFolder(source: string, destination: string): Promise
   } catch (error) {
     throw unreadable(error, source);
   }
+}
+
+// `node` with the value at `keys` replaced, every object on the way copied
+function withValueAt(node: unknown, keys: string[], value: unknown): unknown {
+  if (keys.length === 0) return value;
+  const [key, ...rest] = keys;
+  const record = (node ?? {}) as Record<string, unknown>;
+  return { ...record, [key]: withValueAt(record[key], rest, value) };
 }

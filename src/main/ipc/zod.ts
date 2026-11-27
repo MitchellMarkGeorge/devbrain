@@ -27,3 +27,26 @@ export const zPage = z.object(zPageFields).optional();
 export function zOneOrMany<T extends z.ZodType>(schema: T) {
   return z.union([schema, z.array(schema).min(1)]);
 }
+
+// every dot path under `prefix` into `schema`, each with its part of the schema: 'settings.calendar'
+// with the calendar group's schema, 'settings.calendar.defaultView' with the view's
+function pathSchemas(schema: z.ZodObject, prefix: string): [string, z.ZodType][] {
+  return Object.entries(schema.shape).flatMap(([key, part]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const entry: [string, z.ZodType] = [path, part];
+    return part instanceof z.ZodObject ? [entry, ...pathSchemas(part, path)] : [entry];
+  });
+}
+
+/**
+ * The input of a route that writes one value by its dot path (`settings.set`,
+ * `workspace.setState`): `{ path, value }`, where the path picks the part of `schema` the value is
+ * checked against, and a path outside it is refused. `Update` is the union of each path with its
+ * value's type, which the caller builds from the schema's type.
+ */
+export function zPathUpdate<Update>(schema: z.ZodObject, prefix = ''): z.ZodType<Update, Update> {
+  const [first, ...rest] = pathSchemas(schema, prefix).map(([path, value]) =>
+    z.object({ path: z.literal(path), value }),
+  );
+  return z.discriminatedUnion('path', [first, ...rest]) as unknown as z.ZodType<Update, Update>;
+}

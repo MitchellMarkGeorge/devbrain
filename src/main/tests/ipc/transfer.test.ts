@@ -79,6 +79,30 @@ describe('Show in Finder', () => {
     expect(desktop.openFolder).toHaveBeenCalledWith(workspace.info.path);
   });
 
+  it("writes one value of the open workspace's state, checked against its schema", async () => {
+    expect(
+      code(
+        await call('workspace.setState', { path: 'calendar.showTasks', value: false }, 'mutation'),
+      ),
+    ).toBe('no_workspace_open');
+    const workspace = await openWorkspace();
+    expect(
+      await call('workspace.setState', { path: 'calendar.showTasks', value: false }, 'mutation'),
+    ).toMatchObject({
+      ok: true,
+      data: { id: workspace.info.id, state: { calendar: { showTasks: false } } },
+      changed: ['workspace'],
+    });
+    expect(devBrain.currentWorkspace?.info.state.calendar.showTasks).toBe(false);
+    // a wrong value and a path outside the state are refused before core
+    for (const input of [
+      { path: 'calendar.showTasks', value: 'yes' },
+      { path: 'name', value: 'Renamed' },
+    ]) {
+      expect((await call('workspace.setState', input, 'mutation')).ok).toBe(false);
+    }
+  });
+
   it("shows a note's file, from core's path, and refuses a trashed or unknown note", async () => {
     const workspace = await openWorkspace();
     const note = await workspace.notes.createNote({ title: 'Plan' });
