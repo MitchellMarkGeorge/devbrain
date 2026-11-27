@@ -41,6 +41,7 @@ import {
 } from '../../types';
 import type { TaskRowData } from './types';
 import type { TaskRowTree } from './tree';
+import { useMeasuredFit } from './measured-fit';
 import styles from './TaskRow.module.css';
 
 export const taskRowVariants = cva(styles.row, {
@@ -161,7 +162,8 @@ const SPREAD_GROUP = '[data-pills]:is(:hover, :has(:focus-visible, [data-popup-o
 function useSpreadPills(rowRef: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const row = rowRef.current;
-    if (!row) return;
+    // the measured experiment (`data-fit`) spreads its own way: see measured-fit.ts
+    if (!row || row.hasAttribute('data-fit')) return;
 
     const sync = () => {
       const group = row.querySelector(SPREAD_GROUP);
@@ -287,6 +289,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     [ref],
   );
   useSpreadPills(rowRef);
+  useMeasuredFit(rowRef);
   const { now, formatListDate } = useFormat();
   const synced = isSynced(task);
   const key = task.external?.key;
