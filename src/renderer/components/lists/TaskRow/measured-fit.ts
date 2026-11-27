@@ -3,7 +3,7 @@ import { fitRow, type FitGroup, type FitInput } from './fit';
 
 /**
  * EXPERIMENT, story-only (`data-fit` on a TaskRow): the row's stacking and spreading with the
- * widths worked out here and set on the parts (`--fit-width`), in place of the flex line's shrink
+ * widths worked out here and set on the parts, in place of the flex line's shrink
  * factors and `useSpreadPills`' before-and-after measuring.
  *
  * What is read from the page, and when:
@@ -42,8 +42,10 @@ const rowOfContent = new WeakMap<Element, HTMLElement>();
 const waiting = new Set<HTMLElement>();
 let observer: ResizeObserver | undefined;
 
+// the width itself, not a custom property: one would be inherited, and so restyle the pill and
+// its icons on every write
 function setWidth(part: HTMLElement, width: number) {
-  part.style.setProperty('--fit-width', `${width}px`);
+  part.style.width = `${width}px`;
 }
 
 /** Sets every part's width for the row's room and spread: arithmetic and writes, nothing read. */
@@ -116,7 +118,9 @@ function attach(row: HTMLElement) {
       for (const entry of entries) {
         const resized = rowOfContent.get(entry.target);
         const resizedState = resized && rows.get(resized);
-        if (!resized || !resizedState || resizedState.width === entry.contentRect.width) continue;
+        // the first report after a row is measured is the width it was measured at
+        if (!resized || !resizedState) continue;
+        if (Math.abs(resizedState.width - entry.contentRect.width) < 0.05) continue;
         resizedState.width = entry.contentRect.width;
         apply(resized, resizedState, false);
       }

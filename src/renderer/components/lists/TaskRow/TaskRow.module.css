@@ -353,21 +353,21 @@
 
 /*
  * EXPERIMENT, story-only (`data-fit`): the same stacking and spreading with every width worked out
- * by the row (measured-fit.ts) and set as --fit-width, so no part grows or gives way on its own
+ * by the row (measured-fit.ts) and set on each part, so no part grows or gives way on its own
  * and the shrink factors above do nothing. The minimums above still say how far each part goes:
  * the row reads them. A spread is a transition of the widths, and only a spread: a resize must not
  * lag.
  */
 .row[data-fit] :is(.name, .slot) {
   flex: none;
-  width: var(--fit-width, auto);
 }
 .row[data-fit-spreading] :is(.name, .slot) {
   transition: width var(--duration-slow) var(--ease-surface);
 }
 /* while the row measures: every part as wide as it wants to be */
+/* over the width the row set on the part itself */
 .row[data-measuring] :is(.name, .slot) {
-  width: auto;
+  width: auto !important;
   transition: none;
 }
 .row[data-measuring] .slot:last-child > * {
