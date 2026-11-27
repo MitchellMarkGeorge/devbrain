@@ -173,6 +173,7 @@ export function TasksBoard({ resolved, onOpen, showProjectPill }: TasksBoardProp
                 <DraggableCard
                   {...card}
                   showProject={showProjectPill}
+                  onOpenEntity={openEntity}
                   // the sheet's task and subtasks start loading before the click
                   onPointerEnter={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
                   onFocus={() => prefetchTaskSheet(queryClient, task.id as TaskId)}

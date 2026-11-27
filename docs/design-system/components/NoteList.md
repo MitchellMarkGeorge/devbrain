@@ -5,8 +5,9 @@ a workspace. It is its own scroller: give it a height to fill (`flex: 1` in a co
 only the rows in view, about ten either side. Rows are `row-height` (48px), so the virtualizer's
 estimate is exact.
 
-`<NoteList ref={list} notes={notes} onOpen={open} onEndReached={fetchNextPage} />`, where `notes`
-are core's `NoteListItem`s as they are (`NoteListRow`: a `NoteRow`'s fields and the `id`).
+`<NoteList ref={list} notes={notes} onOpen={open} onOpenEntity={openEntity} onEndReached={fetchNextPage} />`,
+where `notes` are core's `NoteListItem`s as they are (`NoteListRow`: a `NoteRow`'s fields and the `id`).
+`onOpenEntity` goes to every row, for its pills.
 
 - **Paging.** `onEndReached` fires once the last drawn row comes within `endReachedThreshold` (20)
   of the end, once per length of the list: where a page calls `fetchNextPage()`.

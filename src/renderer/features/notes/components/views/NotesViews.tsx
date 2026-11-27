@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { NoteListItem } from '@common/types';
 import {
@@ -106,10 +106,8 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
                   data-note-id={note.id}
                   role="link"
                   aria-label={note.title || 'Untitled'}
-                  onClick={() => open(note)}
-                  onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-                    if (event.key === 'Enter') open(note);
-                  }}
+                  onOpen={() => open(note)}
+                  onOpenEntity={openEntity}
                 />
               )}
             />
@@ -130,6 +128,7 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
               selected={selected}
               onSelectedChange={setSelected}
               onOpen={open}
+              onOpenEntity={openEntity}
               onEndReached={more}
             />
           </KeyScope>

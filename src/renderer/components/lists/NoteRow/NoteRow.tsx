@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { FileText } from 'lucide-react';
 import type { NoteListItem } from '@common/types';
-import { EntityPill } from '../../entities/EntityPill';
+import { EntityPill, type OpenableEntity } from '../../entities/EntityPill';
 import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
 import { useFormat } from '../../lib/format';
 import { Icon } from '../../ui/Icon';
@@ -18,6 +18,11 @@ export interface NoteRowProps extends Omit<
   'icon' | 'title' | 'excerpt' | 'meta' | 'metaWidth' | 'children'
 > {
   note: NoteRowData;
+  /**
+   * opens what a pill points at, given its summary: the linked task or event, the project. Left
+   * out, a click on those pills does nothing (and still doesn't open the note).
+   */
+  onOpenEntity?: (entity: OpenableEntity) => void;
 }
 
 /**
@@ -27,11 +32,12 @@ export interface NoteRowProps extends Omit<
  * `ListRow`.
  */
 export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow(
-  { note, ...props },
+  { note, onOpenEntity, ...props },
   ref,
 ) {
   const { formatRelative } = useFormat('minute');
-  const pills = note.link || note.project;
+  const { link, project } = note;
+  const pills = link || project;
   return (
     <ListRow
       ref={ref}
@@ -43,14 +49,17 @@ export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow
     >
       {pills && (
         <>
-          {note.link && (
-            <PillHoverCard target={linkTarget(note.link)}>
-              <EntityPill entity={note.link} />
+          {link && (
+            <PillHoverCard target={linkTarget(link)}>
+              <EntityPill entity={link} onClick={onOpenEntity && (() => onOpenEntity(link))} />
             </PillHoverCard>
           )}
-          {note.project && (
-            <PillHoverCard target={{ type: 'project', ...note.project }}>
-              <EntityPill entity={{ type: 'project', ...note.project }} />
+          {project && (
+            <PillHoverCard target={{ type: 'project', ...project }}>
+              <EntityPill
+                entity={{ type: 'project', ...project }}
+                onClick={onOpenEntity && (() => onOpenEntity(project))}
+              />
             </PillHoverCard>
           )}
         </>

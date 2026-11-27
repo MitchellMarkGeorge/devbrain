@@ -217,7 +217,10 @@ export function TaskListFrame(props: TaskListFrameProps) {
       setSubtasksShown(task.id, shown),
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
       actions.setStatus(taskRowsFor([task]), status),
+    onPriorityChange: (task: { id: string }, priority: Parameters<typeof actions.setPriority>[1]) =>
+      actions.setPriority(taskRowsFor([task]), priority),
     onOpen: (task: { id: string }) => openEntity({ id: task.id }),
+    onOpenEntity: openEntity,
     onDueDateChange: (task: { id: string }, date: Date) =>
       actions.setDueDate(taskRowsFor([task]), date),
   };

@@ -173,8 +173,9 @@
   visibility: visible;
 }
 
-/* the status icon is a button that opens the status menu */
-.status {
+/* the status and the priority icons are 24px buttons that open their menus (or the icon alone,
+   `data-readonly`, for a synced task); neither gives way */
+.rowButton {
   flex: none;
   display: grid;
   place-items: center;
@@ -187,14 +188,14 @@
   color: inherit;
   cursor: pointer;
 }
-.status[data-readonly] {
+.rowButton[data-readonly] {
   cursor: default;
 }
-.status:not([data-readonly]):hover,
-.status[data-popup-open] {
+.rowButton:not([data-readonly]):hover,
+.rowButton[data-popup-open] {
   background: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
-.status:focus-visible {
+.rowButton:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
@@ -340,13 +341,6 @@
   margin-left: auto;
 }
 
-/* the priority and the date never give way */
-.priority {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 20px;
-}
 /* 60px: the widest date, "May 2027", so every row's date, priority and pills line up */
 .date {
   position: relative;

@@ -115,8 +115,10 @@ export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectio
                   if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
                 }}
                 onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
+                onPriorityChange={(row, priority) => actions.setPriority(full([row]), priority)}
                 onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
                 onOpen={(row) => openEntity({ id: row.id })}
+                onOpenEntity={openEntity}
               />
             </ContextMenuTrigger>
             <ContextMenuContent>

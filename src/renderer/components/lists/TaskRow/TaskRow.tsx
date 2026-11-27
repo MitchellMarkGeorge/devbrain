@@ -15,16 +15,18 @@ import {
 import { cva } from 'class-variance-authority';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { isFromNestedControl } from '../../lib/nested-control';
 import { Badge } from '../../ui/Badge';
 import { Checkbox } from '../../ui/Checkbox';
-import { EntityPill } from '../../entities/EntityPill';
+import { EntityPill, type OpenableEntity } from '../../entities/EntityPill';
 import { linkTarget, PillHoverCard, subtasksTarget } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
+import { PriorityMenu } from '../../entities/PriorityMenu';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
-import { LinkState, TaskStatus } from '@common/types';
+import { LinkState, TaskPriority, TaskStatus, type SettablePriority } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
 import {
@@ -33,6 +35,7 @@ import {
   isSynced,
   NO_DATE_LABEL,
   isDetached,
+  PRIORITY_LABELS,
   providerOf,
   TASK_STATUS_LABELS,
 } from '../../types';
@@ -98,10 +101,22 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   menuOpen?: boolean;
   defaultMenuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
+  /**
+   * sets the priority: the priority icon becomes the button that opens the `PriorityMenu`. Left
+   * out (or for a synced task, whose priority is its provider's), the icon is drawn alone.
+   */
+  onPriorityChange?: (priority: SettablePriority) => void;
+  /** the priority menu is open at first, for pictures */
+  defaultPriorityMenuOpen?: boolean;
   /** toggles the row's selection (the checkbox) */
   onSelect?: () => void;
   /** opens the task (a click on the row) */
   onOpen?: () => void;
+  /**
+   * opens what a pill points at, given its summary: the parent task, the linked event or note, the
+   * project. Left out, a click on those pills does nothing (and still doesn't open the task).
+   */
+  onOpenEntity?: (entity: OpenableEntity) => void;
   /**
    * sets a due date on a task without one: its blank date slot shows "Set due date" while the row
    * is pointed at or focused. Left out (or for a closed or synced task), the slot stays blank.
@@ -213,15 +228,6 @@ function TreeGuides({ tree }: { tree: TaskRowTree }) {
   );
 }
 
-// clicks on the row's own controls (checkbox, status, pills) don't open the task
-function fromControl(event: MouseEvent<HTMLElement>): boolean {
-  // a click in something the row opened (its status menu, a date picker, its context menu):
-  // portalled elsewhere in the page, but React still bubbles it up to the row
-  if (!event.currentTarget.contains(event.target as Node)) return true;
-  const control = (event.target as Element).closest('button, a, [role="checkbox"], input');
-  return control != null && control !== event.currentTarget;
-}
-
 /**
  * One task in a strokeless list, drawn from core's `TaskListItem`: the status button (opening the
  * `StatusMenu`), the title, its key, parent
@@ -232,6 +238,12 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
  *
  * It binds no keys: the app's keymap opens its status menu (`menuOpen`), selects it (`onSelect`)
  * and opens it (`onOpen`) through `TaskList`.
+ *
+ * A click opens it (`onOpen`) unless it lands on one of its controls (a button, link, checkbox
+ * or input: the status button, its pills, "Set due date") or in something it opened and
+ * portalled elsewhere (the status menu, a date picker, its context menu). Those still bubble to
+ * the row and reach `onClick`, so its controls need no `stopPropagation`. An `onClick` that calls
+ * `event.preventDefault()` keeps it from opening too.
  */
 export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow(
   {
@@ -253,8 +265,11 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     menuOpen: menuOpenProp,
     defaultMenuOpen = false,
     onMenuOpenChange,
+    onPriorityChange,
+    defaultPriorityMenuOpen = false,
     onSelect,
     onOpen,
+    onOpenEntity,
     onDueDateChange,
     className,
     style,
@@ -286,6 +301,15 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
   const status = statusProp ?? (picked && picked.from === task.status ? picked.to : task.status);
   const [menuOpenState, setMenuOpenState] = useState(defaultMenuOpen);
   const menuOpen = menuOpenProp ?? menuOpenState;
+  // the priority menu is the row's own: the list's keys open only the status menu. A pick shows
+  // until core's priority changes, as a status pick does.
+  const [priorityMenuOpen, setPriorityMenuOpen] = useState(defaultPriorityMenuOpen);
+  const [pickedPriority, setPickedPriority] = useState<{
+    from: TaskPriority;
+    to: TaskPriority;
+  } | null>(null);
+  const priority =
+    pickedPriority && pickedPriority.from === task.priority ? pickedPriority.to : task.priority;
   const selected = !!selectedProp;
   const completed = status === TaskStatus.COMPLETED;
   const tone = dueTone(status, task.dueDate, now);
@@ -297,37 +321,67 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
 
   function handleClick(event: MouseEvent<HTMLDivElement>) {
     onClick?.(event);
-    if (!event.defaultPrevented && onOpen && !fromControl(event)) onOpen();
+    if (!event.defaultPrevented && onOpen && !isFromNestedControl(event)) onOpen();
   }
 
   const statusIcon = <StatusIcon status={status} />;
+  const priorityIcon = <PriorityIcon priority={priority} />;
 
   // a synced task's status is its provider's: the icon alone, in the button's place
-  const taskStatus = synced ? (
-    <span className={styles.status} data-readonly="">
-      {statusIcon}
-    </span>
-  ) : (
-    <StatusMenu
-      status={status}
-      open={menuOpen}
-      onOpenChange={setMenuOpen}
-      onStatusChange={(next) => {
-        setPicked({ from: task.status, to: next });
-        onStatusChange?.(next);
-      }}
-      trigger={
-        <button
-          type="button"
-          className={styles.status}
-          tabIndex={-1}
-          aria-label={`Status: ${TASK_STATUS_LABELS[status]}`}
-        >
-          {statusIcon}
-        </button>
-      }
-    />
-  );
+  const taskStatus =
+    synced || !onStatusChange ? (
+      <span className={cn(styles.rowButton, styles.status)} data-readonly="">
+        {statusIcon}
+      </span>
+    ) : (
+      <StatusMenu
+        status={status}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        onStatusChange={(next) => {
+          setPicked({ from: task.status, to: next });
+          onStatusChange(next);
+        }}
+        trigger={
+          <button
+            type="button"
+            className={cn(styles.rowButton, styles.status)}
+            tabIndex={-1}
+            aria-label={`Status: ${TASK_STATUS_LABELS[status]}`}
+          >
+            {statusIcon}
+          </button>
+        }
+      />
+    );
+
+  // a synced task's priority is its provider's, and a row that can't set one draws the icon alone
+  const taskPriority =
+    synced || !onPriorityChange ? (
+      <span className={cn(styles.rowButton, styles.priority)} data-readonly="">
+        {priorityIcon}
+      </span>
+    ) : (
+      <PriorityMenu
+        priority={priority}
+        open={priorityMenuOpen}
+        onOpenChange={setPriorityMenuOpen}
+        onPriorityChange={(next) => {
+          setPickedPriority({ from: task.priority, to: next });
+          onPriorityChange(next);
+        }}
+        trigger={
+          <button
+            type="button"
+            className={cn(styles.rowButton, styles.priority)}
+            tabIndex={-1}
+            aria-label={`Priority: ${PRIORITY_LABELS[priority]}`}
+          >
+            {priorityIcon}
+          </button>
+        }
+      />
+    );
 
   return (
     <div
@@ -341,7 +395,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-join-next={joinNext ? '' : undefined}
       data-state={state}
       data-completed={completed ? '' : undefined}
-      data-menu-open={menuOpen && !synced ? '' : undefined}
+      data-menu-open={(menuOpen || priorityMenuOpen) && !synced ? '' : undefined}
       className={cn(taskRowVariants({ compact }), tree && styles.nested, className)}
       style={tree ? { ...style, ['--depth' as string]: tree.depth } : style}
       onClick={handleClick}
@@ -376,7 +430,10 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           )}
           {parent && (
             <PillHoverCard target={{ type: 'task', ...parent }}>
-              <EntityPill entity={{ type: 'parent', ...parent }} />
+              <EntityPill
+                entity={{ type: 'parent', ...parent }}
+                onClick={onOpenEntity && (() => onOpenEntity(parent))}
+              />
             </PillHoverCard>
           )}
           {subtasks &&
@@ -421,18 +478,19 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         <Pills>
           {link && (
             <PillHoverCard target={linkTarget(link)}>
-              <EntityPill entity={link} />
+              <EntityPill entity={link} onClick={onOpenEntity && (() => onOpenEntity(link))} />
             </PillHoverCard>
           )}
           {project && (
             <PillHoverCard target={{ type: 'project', ...project }}>
-              <EntityPill entity={{ type: 'project', ...project }} />
+              <EntityPill
+                entity={{ type: 'project', ...project }}
+                onClick={onOpenEntity && (() => onOpenEntity(project))}
+              />
             </PillHoverCard>
           )}
         </Pills>
-        <span className={styles.priority}>
-          <PriorityIcon priority={task.priority} />
-        </span>
+        {taskPriority}
         <span
           className={cn(
             styles.date,

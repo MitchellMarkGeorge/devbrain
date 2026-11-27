@@ -105,8 +105,10 @@ export function OverviewTaskSection({
                 tasks={tasks}
                 selectionBar={false}
                 onStatusChange={(row, next) => actions.setStatus(full([row]), next)}
+                onPriorityChange={(row, next) => actions.setPriority(full([row]), next)}
                 onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
                 onOpen={(row) => openEntity({ id: row.id })}
+                onOpenEntity={openEntity}
               />
             </ContextMenuTrigger>
             <ContextMenuContent>

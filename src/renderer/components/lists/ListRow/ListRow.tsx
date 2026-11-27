@@ -1,11 +1,6 @@
-import {
-  forwardRef,
-  type ComponentProps,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-} from 'react';
+import { forwardRef, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
+import { isFromNestedControl } from '../../lib/nested-control';
 import { Checkbox } from '../../ui/Checkbox';
 import styles from './ListRow.module.css';
 
@@ -41,12 +36,6 @@ export interface ListRowProps extends Omit<ComponentProps<'div'>, 'title' | 'onS
   onSelect?: () => void;
   /** opens the item (a click on the row, or Enter) */
   onOpen?: () => void;
-}
-
-// clicks on the row's own controls don't open the item
-function fromControl(event: MouseEvent<HTMLElement>): boolean {
-  const control = (event.target as Element).closest('button, a, [role="checkbox"], input');
-  return control != null && control !== event.currentTarget;
 }
 
 /**
@@ -108,7 +97,7 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
       onKeyDown={handleKeyDown}
       onClick={(event) => {
         onClick?.(event);
-        if (!event.defaultPrevented && onOpen && !fromControl(event)) onOpen();
+        if (!event.defaultPrevented && onOpen && !isFromNestedControl(event)) onOpen();
       }}
       {...props}
     >

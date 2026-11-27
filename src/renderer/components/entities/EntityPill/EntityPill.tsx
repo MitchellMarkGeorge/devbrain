@@ -23,6 +23,13 @@ export type PillEntity =
   | ({ type: 'note' } & Pick<NoteSummary, 'title'>)
   | ({ type: 'task' | 'parent' } & Pick<TaskSummary, 'title' | 'status'>);
 
+/**
+ * What a row hands its `onOpenEntity` when one of its pills is clicked: the summary the pill draws
+ * (`TaskSummary`, `EventSummary`, `NoteSummary`, `ProjectSummary`), whose id says what it is. An
+ * event's `startAt` opens the calendar on its day. The app's `useOpenEntity()` takes one as it is.
+ */
+export type OpenableEntity = { id: string; startAt?: Date | null };
+
 export interface EntityPillProps extends Omit<
   BadgeProps,
   'variant' | 'icon' | 'iconColor' | 'barColor' | 'muted'

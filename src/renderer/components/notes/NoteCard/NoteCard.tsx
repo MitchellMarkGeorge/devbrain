@@ -1,12 +1,13 @@
-import { forwardRef } from 'react';
+import { forwardRef, type KeyboardEvent, type MouseEvent } from 'react';
 import { cva } from 'class-variance-authority';
 import { FileText } from 'lucide-react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import type { NoteListItem } from '@common/types';
-import { EntityPill } from '../../entities/EntityPill';
+import { EntityPill, type OpenableEntity } from '../../entities/EntityPill';
 import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
 import { cn } from '../../lib/cn';
+import { isFromNestedControl } from '../../lib/nested-control';
 import { useFormat } from '../../lib/format';
 import { cardVariants } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
@@ -39,27 +40,42 @@ export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'ti
    * when it is the first section, three in a row (86px, no pill)
    */
   size?: 'default' | 'sm';
+  /**
+   * opens the note: a click on the card (not on its pill), or Enter while the card itself is
+   * focused. A card that is a link (`render={<Link … />}`) needs none.
+   */
+  onOpen?: () => void;
+  /**
+   * opens what its pill points at, given its summary: the linked task or event, else the project.
+   * Left out, a click on the pill does nothing (and still doesn't open the note).
+   */
+  onOpenEntity?: (entity: OpenableEntity) => void;
 }
 
 /**
  * A note as a card, drawn from core's `NoteListItem`: the file icon and edit time ("2h ago"), the title and a `muted-foreground` preview; the
  * time is `subtle-foreground`. Every card in a row has the same height (144px, or 156px with a
  * `link`), so lay them out in a `Grid minColumnWidth="240px"`. `size="sm"` is Home's 86px card,
- * one line each, three in a `HomeCards` row. Opens the note on click (`render={<a href=… />}`).
+ * one line each, three in a `HomeCards` row. Opens the note through `onOpen`, or as a link
+ * (`render={<a href=… />}`).
  */
 export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteCard(
-  { note, size, render, ...props },
+  { note, size, render, onOpen, onOpenEntity, ...props },
   ref,
 ) {
   const { formatRelative } = useFormat('minute');
+  const { link: linked, project } = note;
   const link =
-    size === 'sm' ? null : note.link ? (
-      <PillHoverCard target={linkTarget(note.link)}>
-        <EntityPill entity={note.link} />
+    size === 'sm' ? null : linked ? (
+      <PillHoverCard target={linkTarget(linked)}>
+        <EntityPill entity={linked} onClick={onOpenEntity && (() => onOpenEntity(linked))} />
       </PillHoverCard>
-    ) : note.project ? (
-      <PillHoverCard target={{ type: 'project', ...note.project }}>
-        <EntityPill entity={{ type: 'project', ...note.project }} />
+    ) : project ? (
+      <PillHoverCard target={{ type: 'project', ...project }}>
+        <EntityPill
+          entity={{ type: 'project', ...project }}
+          onClick={onOpenEntity && (() => onOpenEntity(project))}
+        />
       </PillHoverCard>
     ) : null;
   return useRender({
@@ -73,6 +89,13 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
           noteCardVariants({ withLink: link != null, size }),
         ),
         tabIndex: 0,
+        onClick: (event: MouseEvent<HTMLDivElement>) => {
+          if (onOpen && !isFromNestedControl(event)) onOpen();
+        },
+        // Enter on the pill is the pill's: it opens what the pill points at, not the note
+        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+          if (onOpen && event.key === 'Enter' && event.target === event.currentTarget) onOpen();
+        },
         children: (
           <>
             <div className={styles.top}>

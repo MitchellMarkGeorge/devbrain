@@ -141,6 +141,21 @@ export const StatusMenuOpen: Story = {
 };
 
 /**
+ * Given `onPriorityChange`, the priority icon is a button that opens the `PriorityMenu` (High,
+ * Medium, Low, ⇧1–⇧3); a synced task's, or a row's without it, is the icon alone.
+ */
+export const PriorityMenuOpen: Story = {
+  args: { defaultPriorityMenuOpen: true, onPriorityChange: () => {} },
+  decorators: [
+    (Story) => (
+      <div style={{ paddingBottom: 140 }}>
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+/**
  * A row short of room: the pills give way first. They stack, each sliding under the one after it
  * down to its icon; then the last pill of each group shortens its label; only then does the title
  * shorten, and never below 48px. Point at a group of pills to spread that group back out: the pills

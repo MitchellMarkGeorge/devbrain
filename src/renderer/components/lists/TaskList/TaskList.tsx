@@ -17,6 +17,8 @@ import { SIZE, SPACING } from '@renderer/styles/tokens';
 import { SelectionBar } from '../SelectionBar';
 import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';
+import type { SettablePriority } from '@common/types';
+import type { OpenableEntity } from '../../entities/EntityPill';
 import { isSynced } from '../../types';
 import { TaskRow, treeOf, type TaskRowData, type TaskRowTree } from '../TaskRow';
 import styles from './TaskList.module.css';
@@ -110,8 +112,12 @@ export interface TaskListBaseProps extends Omit<
   /** the "more" menu's items in the SelectionBar */
   selectionMenu?: ReactNode;
   onStatusChange?: (task: TaskRowData, status: PickableStatus) => void;
+  /** sets a task's priority from its row's `PriorityMenu`; left out, rows draw the icon alone */
+  onPriorityChange?: (task: TaskRowData, priority: SettablePriority) => void;
   /** opens a task: a click on its row, or Enter */
   onOpen?: (task: TaskRowData) => void;
+  /** opens what a row's pill points at: its parent task, linked event or note, or project */
+  onOpenEntity?: (entity: OpenableEntity) => void;
   /** sets a due date on a task without one (its row's "Set due date") */
   onDueDateChange?: (task: TaskRowData, date: Date) => void;
 }
@@ -215,7 +221,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     compact = false,
     selectionMenu,
     onStatusChange,
+    onPriorityChange,
     onOpen,
+    onOpenEntity,
     onDueDateChange,
     className,
     style,
@@ -468,7 +476,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               showLink={showLink}
               onSelect={() => toggle(id)}
               onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
+              onPriorityChange={
+                onPriorityChange && ((priority) => onPriorityChange(task, priority))
+              }
               onOpen={onOpen && (() => onOpen(task))}
+              onOpenEntity={onOpenEntity}
               onDueDateChange={onDueDateChange && ((date) => onDueDateChange(task, date))}
             />
           );

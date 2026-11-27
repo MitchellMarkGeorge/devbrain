@@ -133,6 +133,7 @@ function HomeTaskRow({
   actions: ReturnType<typeof useTaskActions>;
   onOpen: () => void;
 }) {
+  const openEntity = useOpenEntity();
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -141,7 +142,9 @@ function HomeTaskRow({
             task={task}
             compact
             onOpen={onOpen}
+            onOpenEntity={openEntity}
             onStatusChange={(status) => actions.setStatus([task], status)}
+            onPriorityChange={(priority) => actions.setPriority([task], priority)}
             onDueDateChange={(date) => actions.setDueDate([task], date)}
           />
         }

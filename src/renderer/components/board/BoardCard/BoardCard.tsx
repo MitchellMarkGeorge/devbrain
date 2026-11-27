@@ -3,7 +3,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva } from 'class-variance-authority';
 import { Badge } from '../../ui/Badge';
-import { EntityPill } from '../../entities/EntityPill';
+import { EntityPill, type OpenableEntity } from '../../entities/EntityPill';
 import { linkTarget, PillHoverCard, subtasksTarget } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
@@ -11,6 +11,7 @@ import { SourcePill } from '../../entities/SourcePill';
 import { LinkState, TaskStatus, type TaskListItem } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
+import { isFromNestedControl } from '../../lib/nested-control';
 import { dueTone, isClosed, isDetached, PRIORITY_LABELS, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
@@ -47,15 +48,11 @@ export interface BoardCardProps extends useRender.ComponentProps<'div'> {
    * page) passes `false`: the pill would say the same thing on every card.
    */
   showProject?: boolean;
-}
-
-// clicks on the card's pills open what they link to, not the task
-function fromControl(event: MouseEvent<HTMLElement>): boolean {
-  // a click in something the card opened (its status menu, a date picker, its context menu):
-  // portalled elsewhere in the page, but React still bubbles it up to the card
-  if (!event.currentTarget.contains(event.target as Node)) return true;
-  const control = (event.target as Element).closest('button, a, [role="checkbox"], input');
-  return control != null && control !== event.currentTarget;
+  /**
+   * opens what a pill points at, given its summary: the linked event or note, the project. Left
+   * out, a click on those pills does nothing (and still doesn't open the task).
+   */
+  onOpenEntity?: (entity: OpenableEntity) => void;
 }
 
 /**
@@ -65,12 +62,12 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
-  { task, state, render, onClick, onDueDateChange, showProject = true, ...props },
+  { task, state, render, onClick, onDueDateChange, onOpenEntity, showProject = true, ...props },
   ref,
 ) {
   const { now, formatListDate } = useFormat();
   const done = task.status === TaskStatus.COMPLETED;
-  const { external, subtaskProgress: subtasks } = task;
+  const { external, subtaskProgress: subtasks, link, project } = task;
   const pills = [
     external?.key && (
       <PillHoverCard key="source" target={{ type: 'source', title: task.title, external }}>
@@ -89,14 +86,17 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         </Badge>
       </PillHoverCard>
     ),
-    task.link && (
-      <PillHoverCard key="link" target={linkTarget(task.link)}>
-        <EntityPill entity={task.link} />
+    link && (
+      <PillHoverCard key="link" target={linkTarget(link)}>
+        <EntityPill entity={link} onClick={onOpenEntity && (() => onOpenEntity(link))} />
       </PillHoverCard>
     ),
-    showProject && task.project && (
-      <PillHoverCard key="project" target={{ type: 'project', ...task.project }}>
-        <EntityPill entity={{ type: 'project', ...task.project }} />
+    showProject && project && (
+      <PillHoverCard key="project" target={{ type: 'project', ...project }}>
+        <EntityPill
+          entity={{ type: 'project', ...project }}
+          onClick={onOpenEntity && (() => onOpenEntity(project))}
+        />
       </PillHoverCard>
     ),
   ].filter(Boolean);
@@ -136,7 +136,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         tabIndex: 0,
         children,
         onClick: (event: MouseEvent<HTMLDivElement>) => {
-          if (!fromControl(event)) onClick?.(event);
+          if (!isFromNestedControl(event)) onClick?.(event);
         },
         ...({
           'data-state': state,

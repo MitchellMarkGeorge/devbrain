@@ -80,10 +80,8 @@ export function ProjectNotesTab({ project }: { project: Project }) {
             note={note}
             role="link"
             aria-label={note.title || 'Untitled'}
-            onClick={() => openEntity({ id: note.id })}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') openEntity({ id: note.id });
-            }}
+            onOpen={() => openEntity({ id: note.id })}
+            onOpenEntity={openEntity}
           />
         )}
       />

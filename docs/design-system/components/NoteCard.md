@@ -6,4 +6,5 @@ A note as a card, drawn from core's `NoteListItem` as it is (`note`, typed `Note
 - **Empty note:** a note with no text yet (no `preview`, or only whitespace) says "Empty note" where the preview goes, in `subtle-foreground`, a step quieter than a preview.
 - **Grids:** cards fill equal columns, never narrower than about 240px: three across in wide windows, two in compact ones.
 - **`size="sm"`** (Figma's `NoteCardSmall`): Home's Recent notes, three in a `HomeCards` row 12px apart. 86px, 12px padding and 4px between rows: the icon and edit time, a one-line title and a one-line 12px preview, each ending in "…". No pill.
-- **As a link** (`render={<a href=… />}`, how a page opens the note): it keeps the card's look, with no underline.
+- **Opening it:** `onOpen` opens the note on a click (not on its pill) or on Enter while the card itself is focused; `onOpenEntity` opens what the pill points at, with its summary (pages pass the app's `useOpenEntity()`).
+- **As a link** (`render={<a href=… />}`, Home's small cards, which have no pill): it keeps the card's look, with no underline.

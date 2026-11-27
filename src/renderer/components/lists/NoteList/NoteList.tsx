@@ -16,6 +16,7 @@ import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { SIZE } from '@renderer/styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
+import type { OpenableEntity } from '../../entities/EntityPill';
 import { NoteRow, type NoteRowData } from '../NoteRow';
 import styles from './NoteList.module.css';
 
@@ -35,6 +36,8 @@ export interface NoteListProps<Note extends NoteListRow = NoteListRow> extends O
   endReachedThreshold?: number;
   /** opens a note: a click on its row, or Enter */
   onOpen?: (note: Note) => void;
+  /** opens what a row's pill points at: its linked task or event, or its project */
+  onOpenEntity?: (entity: OpenableEntity) => void;
   /** the selected rows' ids, when controlled */
   selected?: string[];
   /** the rows selected at first, when uncontrolled */
@@ -75,6 +78,7 @@ function NoteListInner<Note extends NoteListRow>(
     onEndReached,
     endReachedThreshold,
     onOpen,
+    onOpenEntity,
     focusedId: focusedIdProp,
     onFocusedIdChange,
     selected: selectedProp,
@@ -223,6 +227,7 @@ function NoteListInner<Note extends NoteListRow>(
               joinNext={on && isSelectedAt(item.index + 1)}
               onSelect={() => toggle(id)}
               onOpen={onOpen && (() => onOpen(note))}
+              onOpenEntity={onOpenEntity}
             />
           );
         })}
