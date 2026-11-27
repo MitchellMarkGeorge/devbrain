@@ -342,3 +342,8 @@
 .tentative {
   opacity: 0.7;
 }
+/* a completed or cancelled task */
+.closed .lineTitle {
+  color: var(--subtle-foreground);
+  text-decoration: line-through;
+}

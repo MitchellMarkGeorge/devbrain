@@ -1,3 +1,4 @@
+import { TaskStatus } from '@common/types';
 import type { CalendarEvent } from '../../types';
 
 /** The Figma file's calendar: the week of Monday 22 June 2026, "now" at 8:46 AM. */
@@ -110,3 +111,27 @@ export const MONTH_EVENTS: CalendarEvent[] = (() => {
   out.push(WEEK_EVENTS[0]);
   return out;
 })();
+
+// a task on its due day: an all-day item with no calendar colour
+const due = (id: string, title: string, day: number, status: TaskStatus): CalendarEvent => ({
+  id,
+  title,
+  start: new Date(2026, 5, day),
+  end: new Date(2026, 5, day + 1),
+  allDay: true,
+  kind: 'task',
+  status,
+});
+
+/** Mock-up: the tasks due in June, drawn on their due day */
+export const TASKS_DUE: CalendarEvent[] = [
+  due('t-rate', 'Add rate limiting to /token', 18, TaskStatus.COMPLETED),
+  due('t-flaky', 'Fix flaky session test', 19, TaskStatus.COMPLETED),
+  due('t-pkce', 'Write PKCE migration guide', 22, TaskStatus.NOT_STARTED),
+  due('t-rfc', 'Review token rotation RFC', 22, TaskStatus.COMPLETED),
+  due('t-refresh', 'Refresh token rotation', 23, TaskStatus.IN_PROGRESS),
+  due('t-audit', 'Audit OAuth scopes', 25, TaskStatus.NOT_STARTED),
+  due('t-jwt', 'Remove legacy JWT middleware', 25, TaskStatus.CANCELLED),
+  due('t-runbook', 'Update on-call runbook', 26, TaskStatus.NOT_STARTED),
+  due('t-ship', 'Ship auth overhaul to staging', 30, TaskStatus.NOT_STARTED),
+];

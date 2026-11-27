@@ -27,7 +27,8 @@ import rrulePlugin from '@fullcalendar/rrule';
 import '@fullcalendar/react/skeleton.css';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
-import type { TaskStatus } from '@common/types';
+import { TaskStatus } from '@common/types';
+import { StatusIcon } from '../../entities/StatusIcon';
 import type { CalendarEvent } from '../../types';
 import { AllDayEvent, EventBlock, NowIndicator } from '../EventBlock';
 import { formatHour, formatShortTime, formatTimeRange, type TimeFormat } from '../calendar-events';
@@ -369,17 +370,42 @@ function EventContent({ arg, timeFormat }: { arg: EventDisplayInfo; timeFormat: 
   const start = event.start!;
   const end = event.end ?? new Date(start.getTime() + 60 * 60 * 1000);
 
+  const task = hints.kind === 'task';
+  const closed =
+    task && (hints.status === TaskStatus.COMPLETED || hints.status === TaskStatus.CANCELLED);
+
   if (arg.view.type === 'dayGridMonth') {
     return (
       <span
-        className={cn(styles.line, hints.tentative && styles.tentative, neutral && styles.neutral)}
+        className={cn(
+          styles.line,
+          hints.tentative && styles.tentative,
+          neutral && styles.neutral,
+          closed && styles.closed,
+        )}
       >
-        <ColourBar color={neutral ? 'var(--muted-foreground)' : color} />
+        {task ? (
+          <StatusIcon status={hints.status ?? TaskStatus.NOT_STARTED} size={12} />
+        ) : (
+          <ColourBar color={neutral ? 'var(--muted-foreground)' : color} />
+        )}
         {!event.allDay && arg.isStart && (
           <span className={styles.lineTime}>{formatShortTime(start, timeFormat)}</span>
         )}
         <span className={styles.lineTitle}>{event.title}</span>
       </span>
+    );
+  }
+
+  if (event.allDay && task) {
+    return (
+      <AllDayEvent
+        title={event.title}
+        kind="task"
+        status={hints.status}
+        tabIndex={-1}
+        className={styles.chip}
+      />
     );
   }
 

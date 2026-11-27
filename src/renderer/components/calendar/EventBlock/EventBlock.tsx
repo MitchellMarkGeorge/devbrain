@@ -105,7 +105,7 @@ export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function E
 export const allDayEventVariants = cva(styles.allDay, {
   variants: {
     /** `out-of-office`: a neutral `muted` chip with a grey bar and `muted-foreground` label */
-    kind: { event: undefined, 'out-of-office': styles.outOfOffice },
+    kind: { event: undefined, 'out-of-office': styles.outOfOffice, task: styles.allDayTask },
   },
   defaultVariants: { kind: 'event' },
 });
@@ -118,6 +118,8 @@ export interface AllDayEventProps
    * bar; any other CSS colour (a synced calendar's `#rrggbb`) is mixed to the same strengths
    */
   color?: Swatch | string;
+  /** a task's status (`task` only): its icon, and a closed task is struck through */
+  status?: TaskStatus;
 }
 
 /**
@@ -125,21 +127,26 @@ export interface AllDayEventProps
  * tint in the light theme) with its bar. Spans the days it covers; the grid positions it.
  */
 export const AllDayEvent = forwardRef<HTMLDivElement, AllDayEventProps>(function AllDayEvent(
-  { title, color = 'green', kind, render, ...props },
+  { title, color = 'green', kind, status = TaskStatus.NOT_STARTED, render, ...props },
   ref,
 ) {
+  const closed = status === TaskStatus.COMPLETED || status === TaskStatus.CANCELLED;
   return useRender({
     ref,
     defaultTagName: 'div',
     render,
     props: mergeProps<'div'>(
       {
-        className: allDayEventVariants({ kind }),
+        className: cn(allDayEventVariants({ kind }), kind === 'task' && closed && styles.closed),
         tabIndex: 0,
-        style: chipColors(color),
+        style: kind === 'task' ? undefined : chipColors(color),
         children: (
           <>
-            <ColourBar color={kind === 'out-of-office' ? 'var(--muted-foreground)' : color} />
+            {kind === 'task' ? (
+              <StatusIcon status={status} size={12} />
+            ) : (
+              <ColourBar color={kind === 'out-of-office' ? 'var(--muted-foreground)' : color} />
+            )}
             <span className={styles.chipTitle}>{title}</span>
           </>
         ),
