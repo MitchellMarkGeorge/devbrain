@@ -217,6 +217,7 @@
  *
  * The priority and the date never give way.
  */
+.content,
 .title,
 .side,
 .pills {
@@ -336,10 +337,9 @@
 }
 
 /*
- * the side: its pills, then the priority and the date, which are one item (`.meta`) so nothing the
- * priority's menu puts beside its button (Base UI's focus guards, while it is open) is an item of
- * the row's line. The side starts at its first part, which takes the room left over: its pills,
- * else the meta. Both are the row's own elements: no control, so nothing is put before them.
+ * the priority and the date, one item after the title and the pills. A row's controls are menu
+ * triggers, and Base UI puts focus guards (hidden spans) beside a trigger while its menu is open:
+ * nothing here is styled by a control's place among its siblings.
  */
 .meta {
   display: flex;
@@ -347,9 +347,45 @@
   align-items: center;
   gap: var(--row-gap);
 }
+/* the side takes the room left over, at its first pill; with no pills, the priority and date do */
 .side > .pills:first-child > :first-child,
-.side > .meta:first-child {
+.row:not(:has(.side > .pills)) .meta {
   margin-left: auto;
+}
+
+/*
+ * PROTOTYPE (`data-layout="grid"`, set by the "Grid prototype" story alone): the row as a grid of
+ * named areas. The checkbox, the status and the priority with the date each have a column and are
+ * placed by name, so none depends on what comes before it; the last column is as wide in every row,
+ * and nothing in it needs an auto margin. The title and the pills share the column between, which
+ * is still one flex line (`.content`): stacking shares room between the title and both groups of
+ * pills by how soon each gives way, which separate grid columns cannot do.
+ */
+.row[data-layout='grid'] {
+  display: grid;
+  grid-template-areas: 'check status content meta';
+  grid-template-columns: var(--check-slot) auto minmax(0, 1fr) auto;
+}
+.row[data-layout='grid'].compact {
+  grid-template-areas: 'status content meta';
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.row[data-layout='grid'] .check {
+  grid-area: check;
+}
+.row[data-layout='grid'] .status {
+  grid-area: status;
+}
+.row[data-layout='grid'] .content {
+  grid-area: content;
+  display: flex;
+  align-items: center;
+  column-gap: var(--row-gap);
+  min-width: 0;
+}
+.row[data-layout='grid'] .meta {
+  grid-area: meta;
+  margin-left: 0;
 }
 
 /* 60px: the widest date, "May 2027", so every row's date, priority and pills line up */
