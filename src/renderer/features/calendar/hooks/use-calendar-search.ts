@@ -11,9 +11,9 @@ import {
 
 /**
  * The calendar page's state from its URL, every missing param filled in, and the function that
- * changes it. Stepping through the calendar's dates replaces the history entry (Back goes to the
- * previous page, not the previous week). `push` adds one: for another view (Back returns to the
- * view before), and with `openedSheet` for the sheet (Back closes it).
+ * changes it. A change replaces the history entry unless it asks to `push` one: the page does for
+ * another date or view (Back returns to the week or view before), and with `openedSheet` for the
+ * sheet (Back closes it).
  */
 export interface SetSearchOptions {
   /** adds a history entry rather than replacing this one */

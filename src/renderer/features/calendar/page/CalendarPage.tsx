@@ -56,7 +56,7 @@ declare module '@tanstack/history' {
  * (`tsk_…`, from the grid, the agenda or an event's linked tasks).
  */
 export function CalendarPage() {
-  const { resolved, setSearch } = useCalendarSearch();
+  const { search, resolved, setSearch } = useCalendarSearch();
   const navigate = calendarRoute.useNavigate();
   const router = useRouter();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
@@ -104,18 +104,15 @@ export function CalendarPage() {
   );
 
   // a day: the date param, left out for today
-  // another view adds a history entry, so Back returns to the view before; a step through the
-  // dates does not
-  const goTo = (day: Date, patch: Partial<CalendarSearch> = {}) =>
-    setSearch(
-      {
-        ...patch,
-        date: DateTime.fromJSDate(day).hasSame(DateTime.fromJSDate(now), 'day')
-          ? undefined
-          : dateParam(day),
-      },
-      { push: patch.view !== undefined && patch.view !== resolved.view },
-    );
+  // another day or view adds a history entry, so Back returns to the week (or view) before
+  const goTo = (day: Date, patch: Partial<CalendarSearch> = {}) => {
+    const date = DateTime.fromJSDate(day).hasSame(DateTime.fromJSDate(now), 'day')
+      ? undefined
+      : dateParam(day);
+    const moved =
+      date !== search.date || (patch.view !== undefined && patch.view !== resolved.view);
+    setSearch({ ...patch, date }, { push: moved });
+  };
 
   const onEventClick = (event: CalendarViewEvent) => {
     // a task due that day: its sheet
@@ -169,7 +166,7 @@ export function CalendarPage() {
             layout={layout}
             onViewChange={(next) => setSearch({ view: next }, { push: next !== resolved.view })}
             onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
-            onToday={() => setSearch({ date: undefined })}
+            onToday={() => setSearch({ date: undefined }, { push: search.date !== undefined })}
             onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
           />
         }

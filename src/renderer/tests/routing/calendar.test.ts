@@ -81,12 +81,11 @@ describe('the calendar page', () => {
     expect(reads).toContainEqual({ start: at(7, 0), end: at(14, 0), calendarIds: ['cal_work'] });
   });
 
-  it('adds a history entry for another view, so Back returns to the view before', async () => {
+  it('adds a history entry for another view or date, so Back returns to the one before', async () => {
     const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-24` });
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
     click(byText(app.container, 'button', 'Month'));
     await eventually(() => expect(page(app.container)?.dataset.view).toBe('month'));
-    // a step through the dates replaces the month's entry
     click(app.container.querySelector('[aria-label="Next month"]'));
     await eventually(() => expect(search(app).get('date')).toBe('2026-07-24'));
     click(byText(app.container, 'button', 'Day'));
@@ -95,6 +94,10 @@ describe('the calendar page', () => {
     app.router.history.back();
     await eventually(() => expect(search(app).get('view')).toBe('month'));
     expect(search(app).get('date')).toBe('2026-07-24');
+    // the step to July was an entry of its own
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('date')).toBe('2026-06-24'));
+    expect(search(app).get('view')).toBe('month');
     app.router.history.back();
     await eventually(() => expect(search(app).get('view')).toBeNull());
     expect(search(app).get('date')).toBe('2026-06-24');
