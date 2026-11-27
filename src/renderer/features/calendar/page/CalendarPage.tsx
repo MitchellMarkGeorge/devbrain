@@ -81,7 +81,7 @@ export function CalendarPage() {
 
   // the sheet pushes an entry when it opens (Back closes it), and replaces it while open
   const openSheet = useCallback(
-    (item: SheetItem) => setSearch(item, { push: resolved.open === undefined }),
+    (item: SheetItem) => setSearch(item, { push: resolved.open === undefined, openedSheet: true }),
     [setSearch, resolved.open],
   );
   const openEvent = useCallback(
@@ -97,20 +97,25 @@ export function CalendarPage() {
       (event: Event) =>
         setSearch(
           { ...openEventSearch(event.id), date: dateParam(event.startAt) },
-          { push: resolved.open === undefined },
+          { push: resolved.open === undefined, openedSheet: true },
         ),
       [setSearch, resolved.open],
     ),
   );
 
   // a day: the date param, left out for today
+  // another view adds a history entry, so Back returns to the view before; a step through the
+  // dates does not
   const goTo = (day: Date, patch: Partial<CalendarSearch> = {}) =>
-    setSearch({
-      ...patch,
-      date: DateTime.fromJSDate(day).hasSame(DateTime.fromJSDate(now), 'day')
-        ? undefined
-        : dateParam(day),
-    });
+    setSearch(
+      {
+        ...patch,
+        date: DateTime.fromJSDate(day).hasSame(DateTime.fromJSDate(now), 'day')
+          ? undefined
+          : dateParam(day),
+      },
+      { push: patch.view !== undefined && patch.view !== resolved.view },
+    );
 
   const onEventClick = (event: CalendarViewEvent) => {
     // a task due that day: its sheet
@@ -162,7 +167,7 @@ export function CalendarPage() {
           <CalendarHeaderEnd
             view={resolved.view}
             layout={layout}
-            onViewChange={(next) => setSearch({ view: next })}
+            onViewChange={(next) => setSearch({ view: next }, { push: next !== resolved.view })}
             onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
             onToday={() => setSearch({ date: undefined })}
             onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
