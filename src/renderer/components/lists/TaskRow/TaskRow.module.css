@@ -51,8 +51,25 @@
    * icon: 44px)
    */
   --guide-start: calc(var(--row-strip) + var(--status-size) / 2);
-  /* how far a line turns right towards a subtask's icon: up to 4px short of it (12px) */
-  --guide-reach: calc(var(--guide-step) - var(--status-size) / 2 - 4px);
+  /*
+   * how far a line turns right towards a subtask's icon: up to 4px short of its glyph (16px), the
+   * gap the stem leaves below a parent's glyph give or take its 2px, so a guide looks the same at
+   * both ends
+   */
+  --guide-reach: calc(var(--guide-step) - var(--status-size) / 2);
+  /*
+   * Where a 1px line is nudged to be centred on a glyph. The glyph is 16px, so its centre is on a
+   * pixel's edge: at 1x a 1px line can only sit beside it, a half pixel right of it (│) or above it
+   * (─). From 2x a half pixel is a whole device pixel, so the lines move onto the centre.
+   */
+  --guide-nudge-x: 0px;
+  --guide-nudge-y: 0px;
+}
+@media (min-resolution: 2dppx) {
+  .nested {
+    --guide-nudge-x: -0.5px;
+    --guide-nudge-y: 0.5px;
+  }
 }
 /* a level in: the status icon moves, the checkbox stays in its column with every other row's */
 .nested .status {
@@ -66,7 +83,7 @@
 }
 .guides > * {
   position: absolute;
-  left: calc(var(--guide-start) + var(--level) * var(--guide-step));
+  left: calc(var(--guide-start) + var(--level) * var(--guide-step) + var(--guide-nudge-x));
   border: 0 solid var(--border-strong);
 }
 /* │ an ancestor's line passing by: it has a later sibling below this row */
@@ -78,8 +95,9 @@
 /* └ the last subtask's: from the top of the row, turning into its status icon */
 .elbow {
   top: 0;
-  height: 50%;
-  width: var(--guide-reach);
+  height: calc(50% + var(--guide-nudge-y));
+  /* its end stays put when the line is nudged */
+  width: calc(var(--guide-reach) - var(--guide-nudge-x));
   border-left-width: 1px;
   border-bottom-width: 1px;
   border-bottom-left-radius: 6px;
@@ -95,9 +113,9 @@
   position: absolute;
   /* from just past the line (inside its border), so the two never overlap */
   left: 0;
-  top: calc(50% - 1px);
+  top: calc(50% - 1px + var(--guide-nudge-y));
   height: 1px;
-  width: calc(var(--guide-reach) - 1px);
+  width: calc(var(--guide-reach) - 1px - var(--guide-nudge-x));
   border-bottom: 1px solid var(--border-strong);
 }
 /* down from the row's own status icon to its first subtask, starting 2px below its glyph */
