@@ -227,6 +227,15 @@
  * The priority and the date never give way.
  */
 .content {
+  /*
+   * The order things give way in, as flex-shrink weights. A flex line shares the room it lacks out
+   * in proportion to them, so with a million between one rank and the next, each rank is used up
+   * (down to its min-width) before the next loses a fraction of a pixel.
+   */
+  --gives-way-first: 1e18;
+  --gives-way-second: 1e12;
+  --gives-way-third: 1e6;
+  --gives-way-last: 1;
   grid-area: content;
   display: flex;
   align-items: center;
@@ -239,7 +248,7 @@
   display: contents;
 }
 .name {
-  flex: 0 1 auto;
+  flex: 0 var(--gives-way-last) auto;
   min-width: var(--name-min);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,8 +261,7 @@
 /* a slot is its pill and the 6px after it; the first to give way, long before the title */
 .slot {
   display: flex;
-  /* each stage gives way a million times sooner than the next, so the next loses nothing meanwhile */
-  flex: 0 1000000000000 auto;
+  flex: 0 var(--gives-way-second) auto;
   min-width: var(--pill-edge);
   /* every slot paints as one layer, in order: each pill over the one before */
   isolation: isolate;
@@ -295,7 +303,7 @@
 }
 /* the last pill of a group is on top: it gives way after the stack, by shortening its label */
 .slot:last-child {
-  flex-shrink: 1000000;
+  flex-shrink: var(--gives-way-third);
   min-width: 34px;
   clip-path: none;
 }
@@ -316,15 +324,15 @@
  * These rules are only the two layouts; the change between them is animated below.
  */
 .row[data-spread] .name {
-  flex-shrink: 1000000000000;
+  flex-shrink: var(--gives-way-second);
 }
 .row[data-spread='title'] .title .slot:not(:has(> [data-keep]):last-child),
 .row[data-spread='side'] .side .slot:not(:has(> [data-keep]):last-child) {
-  flex-shrink: 1;
+  flex-shrink: var(--gives-way-last);
 }
 .row[data-spread='side'] .title .slot:not(:has(> [data-keep]):last-child),
 .row[data-spread='title'] .side .slot:not(:has(> [data-keep]):last-child) {
-  flex-shrink: 1000000000000000000;
+  flex-shrink: var(--gives-way-first);
 }
 
 /*
