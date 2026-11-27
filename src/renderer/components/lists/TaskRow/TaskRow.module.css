@@ -336,12 +336,19 @@
 }
 
 /*
- * the side starts at its first part, which takes the room left over: its pills, else the priority.
- * Not `.priority:first-child`: while its menu is open, Base UI's trigger puts focus guards (hidden
- * spans) on either side of it, and the priority would lose the room and jump to the title.
+ * the side: its pills, then the priority and the date, which are one item (`.meta`) so nothing the
+ * priority's menu puts beside its button (Base UI's focus guards, while it is open) is an item of
+ * the row's line. The side starts at its first part, which takes the room left over: its pills,
+ * else the meta. Both are the row's own elements: no control, so nothing is put before them.
  */
+.meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--row-gap);
+}
 .side > .pills:first-child > :first-child,
-.side > .priority:not(.pills ~ .priority) {
+.side > .meta:first-child {
   margin-left: auto;
 }
 

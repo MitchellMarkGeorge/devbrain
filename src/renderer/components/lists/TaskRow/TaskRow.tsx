@@ -490,26 +490,28 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             </PillHoverCard>
           )}
         </Pills>
-        {taskPriority}
-        <span
-          className={cn(
-            styles.date,
-            tone === 'today' && styles.today,
-            tone === 'overdue' && styles.overdue,
-          )}
-        >
-          {task.dueDate ? (
-            formatListDate(task.dueDate)
-          ) : (
-            <>
-              <span className={styles.noDate}>{NO_DATE_LABEL}</span>
-              {onDueDateChange &&
-                !isClosed(status) &&
-                task.external?.state !== LinkState.SYNCED && (
-                  <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
-                )}
-            </>
-          )}
+        <span className={styles.meta}>
+          {taskPriority}
+          <span
+            className={cn(
+              styles.date,
+              tone === 'today' && styles.today,
+              tone === 'overdue' && styles.overdue,
+            )}
+          >
+            {task.dueDate ? (
+              formatListDate(task.dueDate)
+            ) : (
+              <>
+                <span className={styles.noDate}>{NO_DATE_LABEL}</span>
+                {onDueDateChange &&
+                  !isClosed(status) &&
+                  task.external?.state !== LinkState.SYNCED && (
+                    <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
+                  )}
+              </>
+            )}
+          </span>
         </span>
       </div>
     </div>
