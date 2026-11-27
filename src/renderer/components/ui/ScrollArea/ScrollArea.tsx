@@ -14,7 +14,7 @@ export interface ScrollAreaProps extends BaseScrollArea.Root.Props {
   viewportRef?: Ref<HTMLDivElement>;
   /**
    * more props for the scrolling element, when it is itself a widget: a virtualized list's
-   * `role="grid"`, its `aria-*`, `tabIndex` and focus handlers, a `data-slot` for the router
+   * `role="grid"`, its `aria-*`, `tabIndex` and focus handlers, a `data-slot`
    */
   viewportProps?: Omit<ComponentPropsWithoutRef<'div'>, 'className' | 'children'>;
   /**
@@ -64,6 +64,8 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
           viewportProps?.onBlur?.(event);
         }}
         ref={viewportRef}
+        // what finds a scroller in the page (the router's `PAGE_SCROLLER_SELECTOR`), whatever slot it has
+        data-scroll-viewport=""
         className={styles.viewport}
         // one way only: content reaching past the other edge is cut, not scrolled
         style={{

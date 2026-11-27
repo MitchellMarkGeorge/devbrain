@@ -184,6 +184,53 @@ switch, a delete, quit). It must be kept per workspace: the URL moves to the nex
 a switch starts, before the old one closes. Main reads it back for the window's first route, and the
 index route reads it from the opened workspace's info. Nothing goes over IPC as the user navigates.
 
+## Scrolling
+
+Pages scroll inside `WorkspaceShell`, never the window, and each page has one scroller
+(`docs/design-system/components/Page.md`): a Home or document page's `PageContent`, a list, the
+board, a project's Overview. The rule: **a page is a place, and is as it was left however it is
+gone back to.** Back, a sidebar link, a key (G T) and a search result never disagree about how a
+page is shown, because none of them is asked: its state is kept under the page's path, not under
+the history entry or the way taken to it.
+
+- **Where it scrolled** is the router's scroll restoration, keyed by path (and the visit, below)
+  (`getScrollRestorationKey` in `app/router.tsx`), not by history entry (its default, which only
+  Back and Forward return to). A sheet opened over a page, a filter and a sort change the search,
+  not the path, so the page stays where it is.
+- **A page starts at the top the first time it is shown, never at the last page's place.** After
+  a navigation the router copies the last key's positions to a key with none, for each element at
+  the same place in the DOM (it names an element by its `nth-child` steps, not by what it is), so
+  what stays (the sidebar) stays where it was; a page's scroller would take the last page's, the
+  Notes grid opening as far down as the task list was. The page's scroller
+  (`PAGE_SCROLLER_SELECTOR`, the first `ScrollArea` in the `Page`) is the router's
+  `scrollToTopSelectors`, which spares it the copy and scrolls it to the top unless the router
+  restored a place of its own for it.
+- **Two scrollers at the same place are named apart.** The router puts a saved place back on
+  whatever is at that place in the DOM. The Tasks list and the grouped list draw their scroller at
+  the same place, under the one path, so the grouped list would open as far down as the list was;
+  each `TaskList` in `TaskListFrame` carries its own `data-scroll-restoration-id` (`task-list`,
+  `grouped-task-list`), which the router keeps a place under instead. Name a new view's scroller
+  the same way when it takes another's place in the DOM. (The board, the cards, and a project's
+  tabs draw theirs elsewhere. The calendar's week and day grids share one, which keeps the same
+  hours in view.)
+- **Its view and filters** are its search as it was last shown, without what opens a sheet
+  (`open`, `occurrence`, `sheet`): the root layout keeps them by path (`app/page-searches.tsx`),
+  and `AppSidebar`'s links and the keys that go to a page use it (`search` as a function on the
+  links, read as the link is followed, so never a step behind the page drawn).
+
+Both last until another workspace is shown: one switched back to starts afresh, its pages at
+their tops and in their own views. The router's saved places can't be dropped, so the scroll key
+carries which visit to a workspace this is (`visit`, which goes up as a navigation crosses into
+another workspace, after the router has saved the last page under the old one), and the old keys
+are never asked for again; the root layout drops the searches it kept. Two limits:
+
+- The router restores a place once, as the page renders. A page whose content arrives later is
+  shorter then, and stops short of where it was: a list changed to from the board.
+- A history entry keeps its own URL, so Back to an older entry of a section shows the filters it
+  had then, not its latest.
+
+`e2e/flows/scrolling.spec.ts` checks it in the built app; jsdom doesn't scroll.
+
 ## TanStack Router behaviours relied on
 
 Checked against `@tanstack/react-router` 1.170.46 in `src/renderer/tests/routing/tanstack-behaviour.test.ts`;
@@ -206,6 +253,13 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | Each history entry has its index (`__TSR_index`); `history.length` counts the entries after it until a new navigation    | Typed, not described              | `useHistoryPosition`: the window bar's arrows, a detail page's Back          |
 | A preload's location has no history index (`__TSR_index`)                                                                | No                                | Nothing yet: don't read the history index in a preload                       |
 | Memory history runs no blockers on Back and Forward                                                                      | No                                | Nothing yet: test a navigation blocker with hash history, not memory history |
+| Scroll restoration names an element by its DOM path, or by its `data-scroll-restoration-id`                              | No                                | Naming the task lists apart (`TaskListFrame`)                                |
+| It copies the last key's positions to a key with none, but not to `scrollToTopSelectors`'s elements                      | No                                | A page first shown never at the last one's place                             |
+| It restores what it saved for a key (`getScrollRestorationKey`) before scrolling `scrollToTopSelectors`'s to the top     | No                                | A page gone back to by any way being where it was left                       |
+| A `Link`'s `search` function is called as the link is followed (and preloaded), not only as it renders                   | Partly (functional `search`)      | The sidebar's links reading each page's last search as it is now             |
+
+The scroll restoration rows need a browser that scrolls, so `e2e/flows/scrolling.spec.ts` checks
+them in the built app instead; jsdom doesn't scroll.
 
 An earlier exploration (1.170.46 too) saw a sibling's pending component never show; with the
 router's `defaultPendingComponent` it does here, so no pending bar of our own was needed.

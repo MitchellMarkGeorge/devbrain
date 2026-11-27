@@ -50,19 +50,29 @@ const FOOTER: NavPage[] = [
  * Settings and Help as icons (Help opens the keyboard shortcuts, as `?` does). The workspace menu,
  * search and New are in the title bar (`AppLayout` gives them to the shell).
  */
-export function AppSidebar() {
+export interface AppSidebarProps {
+  /** a page's search as it was last shown (the root layout keeps them), by its path */
+  searchOf: (pathname: string) => Record<string, unknown> | undefined;
+}
+
+export function AppSidebar({ searchOf }: AppSidebarProps) {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const matchRoute = useMatchRoute();
   const run = useRunCommand();
   const isActive = (page: NavPage) =>
     Boolean(matchRoute({ to: page.to, params: { workspaceId }, fuzzy: true }));
+  // a section's link goes back to it as it was left: its view and filters (and the router puts it
+  // back where it was scrolled). Read as the
+  // link is followed, not as it's drawn, so it's never a step behind the page shown
+  const link = (page: NavPage) => (
+    <Link
+      to={page.to}
+      params={{ workspaceId }}
+      search={() => searchOf(page.to.replace('$workspaceId', workspaceId)) ?? {}}
+    />
+  );
   const item = (page: NavPage) => (
-    <SidebarItem
-      key={page.to}
-      icon={page.icon}
-      active={isActive(page)}
-      render={<Link to={page.to} params={{ workspaceId }} />}
-    >
+    <SidebarItem key={page.to} icon={page.icon} active={isActive(page)} render={link(page)}>
       {page.label}
     </SidebarItem>
   );
@@ -73,7 +83,7 @@ export function AppSidebar() {
       label={page.label}
       tooltipSide="top"
       active={isActive(page)}
-      render={<Link to={page.to} params={{ workspaceId }} />}
+      render={link(page)}
     />
   );
   return (

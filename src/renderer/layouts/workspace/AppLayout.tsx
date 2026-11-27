@@ -11,6 +11,7 @@ import { useAppCommands } from './hooks/use-app-commands';
 import { useMenuCommands } from './hooks/use-menu-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
+import { usePageSearches } from '@renderer/app/page-searches';
 import { PillCardsProvider } from '@renderer/shared/components/PillCards';
 
 /**
@@ -19,7 +20,9 @@ import { PillCardsProvider } from '@renderer/shared/components/PillCards';
  * (for the app menu), and the page. Each page declares its own title and actions (its `Page`'s), so
  * the layout holds nothing of the page's; it gives the pills in the page's rows their hover cards
  * (`PillCardsProvider`). While the settings are open the sidebar is
- * theirs (`SettingsSidebar`), whose Back to app returns to the last page outside them.
+ * theirs (`SettingsSidebar`), whose Back to app returns to the last page outside them; otherwise
+ * `AppSidebar`, whose links (and the keys that go to a page) show each section with its search as it was
+ * last shown.
  */
 export function AppLayout() {
   const router = useRouter();
@@ -40,7 +43,9 @@ export function AppLayout() {
   const openSearch = useOpenSearch();
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
-  useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
+  // a section's sidebar link and its key go back to it as it was left (its view and filters)
+  const searchOf = usePageSearches();
+  useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar(), searchOf });
   // import and export, as commands, for the app menu; then the menu's commands, from main
   useTransferCommands();
   useMenuCommands();
@@ -54,7 +59,9 @@ export function AppLayout() {
   return (
     <WorkspaceShell
       controlsRef={shell}
-      sidebar={inSettings ? <SettingsSidebar onBack={backToApp} /> : <AppSidebar />}
+      sidebar={
+        inSettings ? <SettingsSidebar onBack={backToApp} /> : <AppSidebar searchOf={searchOf} />
+      }
       onBack={() => {
         if (position.canGoBack) router.history.back();
       }}

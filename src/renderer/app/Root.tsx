@@ -5,6 +5,7 @@ import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, FormatProvider, Logomark, AppShell, ToastProvider } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ModalProvider } from './modals';
+import { PageSearchesProvider } from './page-searches';
 import { useUndoStack } from '@renderer/keyboard';
 import { useSwitchingWorkspace } from './hooks/use-switching-workspace';
 
@@ -21,7 +22,7 @@ const RouterDevtools = import.meta.env.DEV
 
 /**
  * The window: toasts, the date formats (`FormatProvider`, in the settings' time format), dialogs
- * (`useModals`) and the page. The formats are here rather than in the workspace layout as dialogs
+ * (`useModals`), each page's last search (`usePageSearches`) and the page. The formats are here rather than in the workspace layout as dialogs
  * render here, outside the page. Dialogs and the undo stack belong to the workspace open, so
  * they're dropped as soon as a switch to another starts (`useSwitchingWorkspace`); the splash is
  * `/app/$workspaceId`'s pending component. The keyboard layer is around all of it (`AppWindow`),
@@ -42,7 +43,9 @@ export function RootLayout() {
     <ToastProvider>
       <FormatProvider timeFormat={timeFormat}>
         <ModalProvider closed={switching}>
-          <Outlet />
+          <PageSearchesProvider>
+            <Outlet />
+          </PageSearchesProvider>
         </ModalProvider>
       </FormatProvider>
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (

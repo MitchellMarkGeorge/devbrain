@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { workspaceIdOfPage } from '@common/types';
 import type { events as appEvents, ipc as appIpc, trpc as appTrpc } from '@renderer/ipc';
 import { routeTree } from '@renderer/routeTree.gen';
-import { PAGE_SCROLL_SELECTOR } from '@renderer/components';
+import { PAGE_SCROLLER_SELECTOR } from '@renderer/components';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { PagePending } from './PagePending';
 import { RouteErrorPage } from './RouteErrorPage';
@@ -31,6 +31,9 @@ export function createAppRouter({
   history: RouterHistory;
   context: RouterContext;
 }) {
+  // which visit to a workspace this is, in the scroll keys: the router's saved places can't be
+  // dropped, so a workspace switched back to asks for them under a new key and starts at the top
+  let visit = 0;
   const router = createRouter({
     routeTree,
     history,
@@ -46,11 +49,21 @@ export function createAppRouter({
     defaultPendingComponent: PagePending,
     defaultNotFoundComponent: NotFoundPage,
     defaultErrorComponent: RouteErrorPage,
-    // pages scroll inside WorkspaceShell, not the window: the router restores every element that
-    // scrolled (a document page's scroller, a list, the project Overview), and scrolls a Home or
-    // document page's scroller (PageContent's) to the top on a new page
+    // pages scroll inside WorkspaceShell, not the window (docs/renderer/routing.md, "Scrolling").
+    // What scrolled is kept per path, not per history entry, so a page gone back to by any way
+    // (Back, the sidebar, a link) is where it was left, until the workspace is left; the page's
+    // scroller starts at the top on a page not shown before, never taking the last page's place
     scrollRestoration: true,
-    scrollToTopSelectors: [PAGE_SCROLL_SELECTOR],
+    getScrollRestorationKey: (location) => `${location.pathname}#${visit}`,
+    scrollToTopSelectors: [PAGE_SCROLLER_SELECTOR],
+  });
+  // after the router's own listener (set up in createRouter), which saves the last page under
+  // the visit it was shown in
+  router.subscribe('onBeforeLoad', ({ fromLocation, toLocation }) => {
+    if (!fromLocation) return;
+    if (workspaceIdOfPage(fromLocation.pathname) !== workspaceIdOfPage(toLocation.pathname)) {
+      visit += 1;
+    }
   });
 
   return router;
