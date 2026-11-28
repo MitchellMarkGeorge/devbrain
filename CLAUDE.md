@@ -143,9 +143,9 @@ and the hook does the rest. `docs/renderer/routing.md` ("Sheets") is the design 
 - Everything about sheets lives in `src/renderer/sheets`, not in a feature, as several features'
   pages show them; the param's schema helper is `shared/lib/sheet.ts`.
 - A sheet's content (`TaskSheet`, `NoteSheet`, `EventSheet`) draws a `SheetHeader` and a
-  `SheetBody`, loads its own data, and opens a linked item in the same sheet through
-  `useSheetNavigation()`. `EntitySheet` picks the content by the id's
-  prefix: a new kind of sheet is added there.
+  `SheetBody`, loads its own data, and opens a linked item in the same sheet through its `sheet`
+  prop (`show`, `close`, `accepts`), passed down as a prop, not through a context. `EntitySheet`
+  picks the content by the id's prefix: a new kind of sheet is added there.
 - A change to how sheets behave is covered in `src/renderer/tests/routing` (×, Esc, Back after a
   close, another item, a link-opened sheet).
 

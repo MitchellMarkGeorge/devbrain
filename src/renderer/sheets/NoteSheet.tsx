@@ -18,7 +18,7 @@ import {
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from './use-sheet-navigation';
+import type { SheetNavigation } from './types';
 import { EventStrip } from './EventStrip';
 import { ProjectPill } from '@renderer/features/tasks/components/menus/pickers';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
@@ -32,6 +32,8 @@ export interface NoteSheetProps {
   occurrence?: string;
   /** the note was just started from this sheet (an event's "+ Add a note"): the caret goes in its body */
   created?: boolean;
+  /** the sheet it is drawn in: to show a linked item in it, or close it */
+  sheet: SheetNavigation;
 }
 
 /**
@@ -43,9 +45,8 @@ export interface NoteSheetProps {
  * soon, its times and place, Join), "Type / for blocks · Notes save as you type" under the body,
  * and, where the page's sheet shows events (the calendar), "‹ Event" back to the event.
  */
-export function NoteSheet({ noteId, occurrence, created = false }: NoteSheetProps) {
+export function NoteSheet({ noteId, occurrence, created = false, sheet }: NoteSheetProps) {
   const openEntity = useOpenEntity();
-  const sheet = useSheetNavigation();
   const query = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
   const note = query.data && query.data.archivedAt === null ? query.data : undefined;
   const eventId = note?.linkedEventId ?? null;

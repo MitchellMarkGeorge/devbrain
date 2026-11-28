@@ -52,7 +52,7 @@ import {
 import { repeatText } from '@renderer/features/calendar/lib/repeat';
 import { EventLinkedTasks } from './EventLinkedTasks';
 import { EventNoteSection } from './EventNoteSection';
-import { useSheetNavigation } from './use-sheet-navigation';
+import type { SheetNavigation } from './types';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import {
@@ -75,6 +75,8 @@ export interface EventSheetProps {
   eventId: EventId;
   /** for an expanded occurrence of a series: its start (ISO, the calendar's `occurrence` param) */
   occurrence?: string;
+  /** the sheet it is drawn in: to show a linked item in it, or close it */
+  sheet: SheetNavigation;
 }
 
 /**
@@ -84,7 +86,7 @@ export interface EventSheetProps {
  * synced (Google) event is read-only, with your response. Its note and its linked tasks open in
  * the same sheet, each a history entry of its own.
  */
-export function EventSheet({ eventId, occurrence }: EventSheetProps) {
+export function EventSheet({ eventId, occurrence, sheet }: EventSheetProps) {
   // a deleted event is gone for good: no retries, so a delete's refetch settles at once
   const query = useQuery({
     ...trpc.events.get.queryOptions({ id: eventId }),
@@ -102,6 +104,7 @@ export function EventSheet({ eventId, occurrence }: EventSheetProps) {
             key={`${query.data.id}@${occurrence ?? ''}`}
             target={{ event: query.data, occurrenceStart }}
             calendars={calendars}
+            sheet={sheet}
           />
         ) : query.isError ? (
           <Text tone="muted">
@@ -128,11 +131,11 @@ function retryUnlessGone(failures: number, error: unknown): boolean {
 interface BodyProps {
   target: EventTarget;
   calendars: readonly Calendar[];
+  sheet: SheetNavigation;
 }
 
 /** The sheet's body for a loaded event. */
-function EventSheetBody({ target, calendars }: BodyProps) {
-  const sheet = useSheetNavigation();
+function EventSheetBody({ target, calendars, sheet }: BodyProps) {
   // another event in the sheet: the row an edit of one occurrence made, a new series
   const showEvent = (id: EventId, occurrence?: Date) =>
     sheet.show(id, { occurrence: occurrence?.toISOString() });
@@ -306,7 +309,7 @@ function EventSheetBody({ target, calendars }: BodyProps) {
         series={occurrence !== null}
         onSave={(description) => edit({ description })}
       />
-      <EventNoteSection event={event} occurrence={target.occurrenceStart} />
+      <EventNoteSection event={event} occurrence={target.occurrenceStart} sheet={sheet} />
       <EventLinkedTasks eventId={event.id} onOpenTask={(id) => sheet.show(id)} />
       <ItemMentionsSection targetId={event.id} />
       {!synced && (

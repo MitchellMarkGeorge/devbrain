@@ -207,9 +207,9 @@ task's page, and on the calendar an event, a task due or an event's note.
   `render()` draws `EntitySheet` (beside it in `sheets/`), which docks the sheet in the shell's
   column or floats it in a compact window, keeps it mounted while it slides out, and draws the
   content of the item's kind: `TaskSheet`, `NoteSheet` or `EventSheet`, each a `SheetHeader` and
-  a `SheetBody` loading its own data. Content shows another item in the same sheet with
-  `useSheetNavigation()` (an event's linked task, its note, a note's "‹ Event"), asking
-  `accepts(id)` first where the page may not show that kind.
+  a `SheetBody` loading its own data. Content shows another item in the same sheet through its
+  `sheet` prop, which `EntitySheet` gives it and it passes down (an event's linked task, its
+  note, a note's "‹ Event"), asking `accepts(id)` first where the page may not show that kind.
 - **Everything is a history entry.** Showing an item pushes one; another item pushes another (the
   item already shown adds none); closing pushes one without the param. ×, Esc and a click
   outside a floating sheet are the same close. So Back undoes one step at a time, a close

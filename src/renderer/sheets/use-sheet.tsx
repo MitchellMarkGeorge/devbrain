@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { EntitySheet } from './EntitySheet';
 import { sheetKindOf, type SheetId, type SheetKind } from '@renderer/shared/lib/sheet';
-import type { SheetItem, SheetNavigation, ShowSheetOptions } from './use-sheet-navigation';
+import type { SheetItem, SheetNavigation, ShowSheetOptions } from './types';
 
 /** What a page tells `useSheet`: its sheet's params, as its own route's schema read them. */
 export interface UseSheetOptions<I extends SheetId> {

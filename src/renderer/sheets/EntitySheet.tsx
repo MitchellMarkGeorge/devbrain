@@ -3,11 +3,7 @@ import { Sheet, SheetContent, useWorkspaceShell } from '@renderer/components';
 import { EventSheet } from './EventSheet';
 import { NoteSheet } from './NoteSheet';
 import { TaskSheet } from './TaskSheet';
-import {
-  SheetNavigationProvider,
-  type SheetItem,
-  type SheetNavigation,
-} from './use-sheet-navigation';
+import type { SheetItem, SheetNavigation } from './types';
 import { sheetKindOf } from '@renderer/shared/lib/sheet';
 
 export interface EntitySheetProps {
@@ -39,30 +35,33 @@ export function EntitySheet({ item, open, navigation, onClosed }: EntitySheetPro
   if (!floating && !sheetContainer) return null;
   const { id } = item;
   return (
-    <SheetNavigationProvider value={navigation}>
-      <Sheet
-        open={open}
-        variant={floating ? 'overlay' : 'docked'}
-        onOpenChange={(next) => {
-          if (!next) navigation.close();
-        }}
-        onOpenChangeComplete={(next) => {
-          if (!next) onClosed();
-        }}
+    <Sheet
+      open={open}
+      variant={floating ? 'overlay' : 'docked'}
+      onOpenChange={(next) => {
+        if (!next) navigation.close();
+      }}
+      onOpenChangeComplete={(next) => {
+        if (!next) onClosed();
+      }}
+    >
+      <SheetContent
+        container={floating ? undefined : sheetContainer}
+        data-testid={`${sheetKindOf(id)}-sheet`}
       >
-        <SheetContent
-          container={floating ? undefined : sheetContainer}
-          data-testid={`${sheetKindOf(id)}-sheet`}
-        >
-          {isId('task', id) ? (
-            <TaskSheet taskId={id} />
-          ) : isId('note', id) ? (
-            <NoteSheet noteId={id} occurrence={item.occurrence} created={item.created} />
-          ) : isId('event', id) ? (
-            <EventSheet eventId={id} occurrence={item.occurrence} />
-          ) : null}
-        </SheetContent>
-      </Sheet>
-    </SheetNavigationProvider>
+        {isId('task', id) ? (
+          <TaskSheet taskId={id} sheet={navigation} />
+        ) : isId('note', id) ? (
+          <NoteSheet
+            noteId={id}
+            occurrence={item.occurrence}
+            created={item.created}
+            sheet={navigation}
+          />
+        ) : isId('event', id) ? (
+          <EventSheet eventId={id} occurrence={item.occurrence} sheet={navigation} />
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }

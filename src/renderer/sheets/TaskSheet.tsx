@@ -28,7 +28,7 @@ import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from './use-sheet-navigation';
+import type { SheetNavigation } from './types';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import {
   DatePill,
@@ -45,13 +45,15 @@ import { TaskSubtasksSection } from '@renderer/features/tasks/components/section
 
 export interface TaskSheetProps {
   taskId: TaskId;
+  /** the sheet it is drawn in: to show a linked item in it, or close it */
+  sheet: SheetNavigation;
 }
 
 /**
  * A task in the sheet beside a page (`?sheet=tsk_…`, Figma `7175:31599`): the board, a note's
  * page and the calendar draw it in their `EntitySheet`. Its ⤢ opens the task's page.
  */
-export function TaskSheet({ taskId }: TaskSheetProps) {
+export function TaskSheet({ taskId, sheet }: TaskSheetProps) {
   const openEntity = useOpenEntity();
   const queryClient = useQueryClient();
   // drawn at once from the board's own row while the task itself loads, so moving from one task
@@ -68,7 +70,7 @@ export function TaskSheet({ taskId }: TaskSheetProps) {
       </SheetHeader>
       <SheetBody>
         {query.data ? (
-          <TaskSheetBody task={query.data} />
+          <TaskSheetBody task={query.data} sheet={sheet} />
         ) : query.isError ? (
           <Text tone="muted">
             {ipcErrorCode(query.error) === 'not_found'
@@ -120,9 +122,8 @@ function SheetTitle({ task }: { task: Task }) {
 
 // the linked event or note, as a pill that opens it: an event in this sheet where the page's sheet
 // shows events (the calendar), else in the calendar's
-function LinkRow({ task }: { task: Task }) {
+function LinkRow({ task, sheet }: { task: Task; sheet: SheetNavigation }) {
   const openEntity = useOpenEntity();
-  const sheet = useSheetNavigation();
   const event = useQuery({
     ...trpc.events.get.queryOptions({ id: task.linkedEventId! }),
     enabled: task.linkedEventId !== null,
@@ -164,7 +165,7 @@ function LinkRow({ task }: { task: Task }) {
 }
 
 /** The sheet's body for a loaded task. */
-function TaskSheetBody({ task }: { task: TaskListItem }) {
+function TaskSheetBody({ task, sheet }: { task: TaskListItem; sheet: SheetNavigation }) {
   const actions = useTaskActions();
   const { formatDate, formatRelative } = useFormat('minute');
   const openUrl = useMutation(trpc.workspace.openUrl.mutationOptions());
@@ -240,7 +241,7 @@ function TaskSheetBody({ task }: { task: TaskListItem }) {
             </DetailRow>
           </>
         )}
-        <LinkRow task={task} />
+        <LinkRow task={task} sheet={sheet} />
       </DetailRows>
       {synced && external && (
         <div className={styles.syncHint}>

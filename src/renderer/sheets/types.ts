@@ -1,4 +1,3 @@
-import { createContext, useContext, type ReactNode } from 'react';
 import type { SheetId } from '@renderer/shared/lib/sheet';
 
 /** What a sheet shows: the item's id, and for one occurrence of a repeating event its start. */
@@ -17,7 +16,10 @@ export interface ShowSheetOptions {
   created?: boolean;
 }
 
-/** What a page, or a sheet's own content, may do with the page's sheet. */
+/**
+ * What a page, or a sheet's own content, may do with the page's sheet. `EntitySheet` hands it to
+ * the content as its `sheet` prop, to show a linked item in the same sheet or close it.
+ */
 export interface SheetNavigation {
   /** whether this page's sheet shows items of this id's kind (the page lists them) */
   accepts: (id: SheetId) => boolean;
@@ -31,26 +33,4 @@ export interface SheetNavigation {
    * for an item that is gone (deleted), whose entry isn't worth returning to.
    */
   close: (options?: { replace?: boolean }) => void;
-}
-
-const SheetNavigationContext = createContext<SheetNavigation | null>(null);
-
-/** Gives a sheet's content its `useSheetNavigation` (`EntitySheet` does). */
-export function SheetNavigationProvider({
-  value,
-  children,
-}: {
-  value: SheetNavigation;
-  children: ReactNode;
-}) {
-  return (
-    <SheetNavigationContext.Provider value={value}>{children}</SheetNavigationContext.Provider>
-  );
-}
-
-/** The sheet this content is drawn in: to show a linked item in it, or close it. */
-export function useSheetNavigation(): SheetNavigation {
-  const navigation = useContext(SheetNavigationContext);
-  if (!navigation) throw new Error('useSheetNavigation needs a sheet around it (useSheet)');
-  return navigation;
 }

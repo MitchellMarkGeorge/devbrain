@@ -19,7 +19,7 @@ import {
 import { ipc, trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from './use-sheet-navigation';
+import type { SheetNavigation } from './types';
 import { noteTasksQuery, tasksSummary } from '@renderer/features/notes/api/queries';
 import { useNoteActions } from '@renderer/features/notes/hooks/use-note-actions';
 import {
@@ -45,13 +45,15 @@ export function eventNoteQuery(eventId: Event['id']) {
 export function EventNoteSection({
   event,
   occurrence,
+  sheet,
 }: {
   event: Pick<Event, 'id' | 'title'>;
   /** the occurrence the sheet shows, which the note's strip then names */
   occurrence?: Date;
+  /** the sheet it is drawn in: to show a linked item in it, or close it */
+  sheet: SheetNavigation;
 }) {
   const { formatDate } = useFormat();
-  const sheet = useSheetNavigation();
   const openEntity = useOpenEntity();
   const showError = useMutationErrorToast('Couldn’t start the note');
   const [starting, setStarting] = useState(false);
