@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
 import { EventResponse, LinkState, Provider } from '@common/types';
+import { queryClient, queryInvalidator } from '@renderer/ipc';
 import { FakeMain, workspace } from './fake-main';
 import { fakeCalendar, fakeEvent, FakeCalendar } from './fake-calendar';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
@@ -59,6 +60,15 @@ const events = (title: string) =>
   ].filter((el) => el.textContent?.includes(title));
 const eventEl = (title: string): HTMLElement | undefined => events(title)[0];
 const search = (app: { path(): string }) => new URL(app.path(), 'http://x').searchParams;
+// how many times a calendar's events were read for the week of Monday 22 June
+const weekReads = (main: FakeMain, calendarId: string) =>
+  main
+    .callsTo('events.listForCalendar')
+    .map((call) => call.input as { start: Date; calendarIds?: string[] })
+    .filter(
+      (input) =>
+        input.start.getTime() === MONDAY.getTime() && input.calendarIds?.[0] === calendarId,
+    ).length;
 
 describe('the calendar page', () => {
   it('draws the week the URL names, reading each visible calendar for that range', async () => {
@@ -79,6 +89,89 @@ describe('the calendar page', () => {
     // and the weeks either side, so ‹ and › draw at once
     expect(reads).toContainEqual({ start: at(-7, 0), end: MONDAY, calendarIds: ['cal_work'] });
     expect(reads).toContainEqual({ start: at(7, 0), end: at(14, 0), calendarIds: ['cal_work'] });
+  });
+
+  it('reads the range once, and draws a change core reports whatever else is cached', async () => {
+    const calendar = store();
+    const main = mainWith(calendar);
+    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-24` });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    // the loader and the page share one read of each calendar's week
+    expect(weekReads(main, 'cal_work')).toBe(1);
+    expect(weekReads(main, 'cal_home')).toBe(1);
+
+    // what React Query drops after a while: every query nothing on screen reads. The grid's own
+    // must not be among them, or a change would have nothing to refetch
+    for (const query of queryClient.getQueryCache().getAll()) {
+      if (query.getObserversCount() === 0) queryClient.getQueryCache().remove(query);
+    }
+    calendar.events.push(fakeEvent('evt_retro', 'Retro', at(2, 15)));
+    await queryInvalidator.onChanged(['event']);
+    await eventually(() => expect(eventEl('Retro')).toBeDefined());
+    expect(weekReads(main, 'cal_work')).toBe(2);
+  });
+
+  it('draws each calendar’s answer to a change as it comes, with the skeleton while one lasts', async () => {
+    const calendar = store();
+    const main = mainWith(calendar);
+    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-24` });
+    await eventually(() => expect(eventEl('Gym')).toBeDefined());
+
+    // from here Personal answers only when released
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    main.routes.set('events.listForCalendar', async (args) => {
+      const { start, end, calendarIds } = args as { start: Date; end: Date; calendarIds: string[] };
+      if (calendarIds[0] === 'cal_home') await held;
+      return [calendar.listForCalendar(start, end, calendarIds), []];
+    });
+    calendar.events.push(
+      fakeEvent('evt_retro', 'Retro', at(2, 15)),
+      fakeEvent('evt_dentist', 'Dentist', at(3, 8), { calendarId: 'cal_home' as never }),
+    );
+    const refetched = queryInvalidator.onChanged(['event']);
+    await eventually(() => expect(weekReads(main, 'cal_work')).toBe(2));
+    // Work has answered and is drawn; Personal's events stay as they were
+    await eventually(() => expect(eventEl('Retro')).toBeDefined());
+    expect(eventEl('Gym')).toBeDefined();
+    expect(eventEl('Dentist')).toBeUndefined();
+    // the read has lasted: the skeleton
+    await eventually(() =>
+      expect(document.querySelector('[data-testid="calendar-loading"]')).not.toBeNull(),
+    );
+    release();
+    await refetched;
+    await eventually(() => expect(eventEl('Dentist')).toBeDefined());
+    expect(eventEl('Retro')).toBeDefined();
+    await eventually(() =>
+      expect(document.querySelector('[data-testid="calendar-loading"]')).toBeNull(),
+    );
+  });
+
+  it('keeps what it drew while a range not read before loads, its series repeating into it', async () => {
+    const calendar = store();
+    const main = mainWith(calendar);
+    const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-24` });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    expect(events('Daily Standup')).toHaveLength(7);
+
+    // the month's reads (the week's and its neighbours' are a week long) wait to be released
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    main.routes.set('events.listForCalendar', async (args) => {
+      const { start, end, calendarIds } = args as { start: Date; end: Date; calendarIds: string[] };
+      if (end.getTime() - start.getTime() > 8 * 86_400_000) await held;
+      return [calendar.listForCalendar(start, end, calendarIds), []];
+    });
+    calendar.events.push(fakeEvent('evt_offsite', 'Offsite', at(-14, 10)));
+    click(byText(app.container, 'button', 'Month'));
+    await eventually(() => expect(page(app.container)?.dataset.view).toBe('month'));
+    // the week's events stand in: the series is on the month's other days already
+    await eventually(() => expect(events('Daily Standup').length).toBeGreaterThan(7));
+    expect(eventEl('Design Review')).toBeDefined();
+    expect(eventEl('Offsite')).toBeUndefined();
+    release();
+    await eventually(() => expect(eventEl('Offsite')).toBeDefined());
   });
 
   it('adds a history entry for another view or date, so Back returns to the one before', async () => {

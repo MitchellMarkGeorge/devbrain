@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { EventKind, EventResponse, EventStatus } from '@common/types';
-import { toEventInput, toEventSource } from '@renderer/shared/lib/calendar';
+import { toEventInput } from '@renderer/shared/lib/calendar';
 import { WORK, allDaySeries, event, id, timedSeries } from '../../fixtures/calendar';
 
 // toEventInput against docs/calendar/fullcalendar-adapter.md, and the rewrites of provider lines
@@ -169,12 +169,16 @@ describe('toEventInput', () => {
     expect('rrule' in input).toBe(false);
   });
 
-  it("sets color only when the event's own colour is valid and not the calendar's", () => {
+  it("colours the event with its own colour, or else its calendar's, when valid", () => {
     const at = { id: id('e'), startAt: new Date(), endAt: new Date() };
     expect(toEventInput(event({ ...at, color: '#ff0000' }), WORK).color).toBe('#ff0000');
-    expect('color' in toEventInput(event({ ...at, color: '#22C55E' }), WORK)).toBe(false);
-    expect('color' in toEventInput(event({ ...at, color: 'red;}' }), WORK)).toBe(false);
-    expect('color' in toEventInput(event(at), WORK)).toBe(false);
+    // the calendar's, when the event has none or an unsafe one
+    expect(toEventInput(event(at), WORK).color).toBe('#22c55e');
+    expect(toEventInput(event({ ...at, color: 'red;}' }), WORK).color).toBe('#22c55e');
+    expect(toEventInput(event({ ...at, color: '#22C55E' }), WORK).color).toBe('#22c55e');
+    // neither is a colour: left out, never set to something a style could not take
+    expect('color' in toEventInput(event(at), { ...WORK, color: 'url(x)' })).toBe(false);
+    expect('color' in toEventInput(event(at), { ...WORK, color: null })).toBe(false);
   });
 
   it('makes a synced event read-only and leaves a local one to the calendar', () => {
@@ -216,22 +220,5 @@ describe('toEventInput', () => {
     expect(
       toEventInput(event({ ...at, response: EventResponse.TENTATIVE }), WORK).extendedProps,
     ).toMatchObject({ kind: 'event', tentative: true });
-  });
-});
-
-describe('toEventSource', () => {
-  it('colours the source by the calendar and maps what load returns', async () => {
-    const one = event({ id: id('e'), startAt: new Date(), endAt: new Date() });
-    const source = toEventSource(WORK, async () => [one]) as {
-      id: string;
-      color?: string;
-      events: (info: object) => Promise<unknown[]>;
-    };
-    expect(source).toMatchObject({ id: 'cal_work', color: '#22c55e' });
-    await expect(source.events({ start: new Date(), end: new Date() })).resolves.toEqual([
-      toEventInput(one, WORK),
-    ]);
-    const unsafe = toEventSource({ ...WORK, color: 'url(x)' }, async () => []);
-    expect('color' in (unsafe as object)).toBe(false);
   });
 });

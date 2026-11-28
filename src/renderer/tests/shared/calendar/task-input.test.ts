@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TaskStatus } from '@common/types';
-import { TASKS_SOURCE_ID, toTaskInput, toTaskSource } from '@renderer/shared/lib/calendar';
+import { toTaskInput, toTaskInputs } from '@renderer/shared/lib/calendar';
 import { fakeTask } from '../../routing/fake-tasks';
 
 // A task due on a day as FullCalendar input (docs/calendar/fullcalendar-adapter.md, "Tasks").
@@ -21,20 +21,12 @@ describe('toTaskInput', () => {
   });
 });
 
-describe('toTaskSource', () => {
-  it('reads the range FullCalendar asks for, and leaves out a task with no due date', async () => {
-    const ranges: { start: Date; end: Date }[] = [];
-    const source = toTaskSource((range) => {
-      ranges.push(range);
-      return Promise.resolve([
-        fakeTask('tsk_dated', 'Dated', { dueDate: new Date(2026, 5, 24) }),
-        fakeTask('tsk_undated', 'Undated'),
-      ]);
-    }) as { id: string; events: (info: never) => Promise<{ id: string }[]> };
-    const range = { start: new Date(2026, 5, 22), end: new Date(2026, 5, 29) };
-    const inputs = await source.events(range as never);
-    expect(source.id).toBe(TASKS_SOURCE_ID);
-    expect(ranges).toEqual([range]);
+describe('toTaskInputs', () => {
+  it('leaves out a task with no due date', () => {
+    const inputs = toTaskInputs([
+      fakeTask('tsk_dated', 'Dated', { dueDate: new Date(2026, 5, 24) }),
+      fakeTask('tsk_undated', 'Undated'),
+    ]);
     expect(inputs.map((input) => input.id)).toEqual(['tsk_dated']);
   });
 });

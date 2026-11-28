@@ -1,15 +1,12 @@
 import {
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
 import FullCalendar, {
-  type CalendarApi,
   type CalendarRef,
   type DateSelectInfo,
   type DayCellInfo,
@@ -17,7 +14,6 @@ import FullCalendar, {
   type EventClickInfo,
   type EventDisplayInfo,
   type EventInput,
-  type EventSourceInput,
 } from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/react/daygrid';
 import interactionPlugin from '@fullcalendar/react/interaction';
@@ -110,17 +106,17 @@ export interface CalendarViewSelection {
   allDay: boolean;
 }
 
-export interface CalendarViewHandle {
-  /** FullCalendar's API, for `refetchEvents()` when the data changes */
-  getApi(): CalendarApi;
-}
-
 export interface CalendarViewProps {
   view: CalendarViewMode;
   /** a day in the range shown: the week, the day or the month */
   date: Date;
-  /** FullCalendar event sources, one per visible calendar, coloured by it */
-  eventSources: EventSourceInput[];
+  /**
+   * What is drawn, as FullCalendar event input: every event (and task) that may occur in the
+   * range shown, each with its own `color`. FullCalendar repeats a series (`rrule`) over the range
+   * itself. Pass the same objects for events that did not change: it compares the array item by
+   * item, takes the same items as no change, and otherwise keeps an event's element by its `id`.
+   */
+  events: EventInput[];
   /** the first column: 1 for Monday (default), 0 for Sunday */
   firstDay?: 0 | 1;
   timeFormat?: TimeFormat;
@@ -144,8 +140,6 @@ export interface CalendarViewProps {
   onSelect?: (selection: CalendarViewSelection) => void;
   /** a month date or "+N more": opens that day */
   onDayClick?: (day: Date) => void;
-  /** while event sources fetch: show the skeleton */
-  onLoading?: (loading: boolean) => void;
   className?: string;
   style?: CSSProperties;
 }
@@ -206,34 +200,29 @@ const THEME = {
 /**
  * The calendar's week, day and month views: FullCalendar, drawn as the design system. Timed events
  * are `EventBlock`s (compact under 40px), all-day ones `AllDayEvent` chips, month events one line
- * each. Presentational: the page passes the event sources and drives `view` and `date`.
+ * each. Presentational: the page passes the events and drives `view` and `date`.
  */
-export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(function CalendarView(
-  {
-    view,
-    date,
-    eventSources,
-    firstDay = 1,
-    timeFormat = '12',
-    hideWeekends = false,
-    now,
-    startHour = 0,
-    endHour = 24,
-    scrollToHour = 8,
-    maxEvents = 3,
-    selectedEventId,
-    allDayLabel = 'All day',
-    onEventClick,
-    onSelect,
-    onDayClick,
-    onLoading,
-    className,
-    style,
-  },
-  ref,
-) {
+export function CalendarView({
+  view,
+  date,
+  events,
+  firstDay = 1,
+  timeFormat = '12',
+  hideWeekends = false,
+  now,
+  startHour = 0,
+  endHour = 24,
+  scrollToHour = 8,
+  maxEvents = 3,
+  selectedEventId,
+  allDayLabel = 'All day',
+  onEventClick,
+  onSelect,
+  onDayClick,
+  className,
+  style,
+}: CalendarViewProps) {
   const calendarRef = useRef<CalendarRef>(null);
-  useImperativeHandle(ref, () => ({ getApi: () => calendarRef.current!.getApi() }), []);
   const [viewRef, monthFits] = useMonthFits(maxEvents);
 
   // `initialView` and `initialDate` are read once: later changes go through the API. Compared
@@ -317,7 +306,9 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         weekends={!hideWeekends}
         now={now}
         nowIndicator
-        eventSources={eventSources}
+        // one array, and always one: FullCalendar then changes it in place, keeping each event's
+        // element by its id (given `eventSources` as well, a change here would drop those)
+        events={events}
         editable={false}
         selectable={onSelect != null}
         selectMirror={false}
@@ -327,7 +318,6 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         navLinks={onDayClick != null}
         navLinkDayClick={onDayClick ? (day: Date) => onDayClick(day) : undefined}
         moreLinkClick={onDayClick ? handleMoreLinkClick : 'popover'}
-        loading={onLoading}
         // the week and day views: one 48px row per hour
         slotDuration="01:00:00"
         snapDuration="00:15:00"
@@ -363,7 +353,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
       />
     </div>
   );
-});
+}
 
 function EventContent({ arg, timeFormat }: { arg: EventDisplayInfo; timeFormat: TimeFormat }) {
   const { event } = arg;

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { EventSourceInput } from '@fullcalendar/react';
+import type { EventInput } from '@fullcalendar/react';
 import { CalendarView, calendarEventInput } from '../../calendar/CalendarView';
 import type { CalendarEvent } from '../../types';
 import { CalendarScreen } from './CalendarScreen';
@@ -14,9 +14,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const sources = (events: CalendarEvent[]): EventSourceInput[] => [
-  { events: events.map(calendarEventInput) },
-];
+const inputs = (events: CalendarEvent[]): EventInput[] => events.map(calendarEventInput);
 
 /** Figma "Calendar (week)" (7158:13273) */
 export const Week: Story = {
@@ -26,7 +24,7 @@ export const Week: Story = {
         view="week"
         date={NOW}
         now={NOW}
-        eventSources={sources(WEEK_EVENTS)}
+        events={inputs(WEEK_EVENTS)}
         startHour={8}
         endHour={24}
       />
@@ -43,7 +41,7 @@ export const WeekFocusTentativeOutOfOffice: Story = {
         view="week"
         date={NOW}
         now={NOW}
-        eventSources={sources(WEEK_EVENTS_MORE)}
+        events={inputs(WEEK_EVENTS_MORE)}
         startHour={8}
         endHour={24}
       />
@@ -59,7 +57,7 @@ export const Day: Story = {
         view="day"
         date={NOW}
         now={NOW}
-        eventSources={sources(WEEK_EVENTS)}
+        events={inputs(WEEK_EVENTS)}
         startHour={8}
         endHour={24}
       />
@@ -75,18 +73,15 @@ export const Month: Story = {
         view="month"
         date={NOW}
         now={NOW}
-        eventSources={sources(MONTH_EVENTS)}
+        events={inputs(MONTH_EVENTS)}
         onDayClick={() => {}}
       />
     </CalendarScreen>
   ),
 };
 
-// the tasks are a source of their own beside the calendars', as the page would add one
-const withTasks = (events: CalendarEvent[]): EventSourceInput[] => [
-  ...sources(events),
-  { id: 'tasks', events: TASKS_DUE.map(calendarEventInput) },
-];
+// the tasks due follow the calendars' events, as the page passes them
+const withTasks = (events: CalendarEvent[]): EventInput[] => inputs([...events, ...TASKS_DUE]);
 
 /** The tasks due each day in the week's all-day row, under the all-day events */
 export const WeekWithTasks: Story = {
@@ -97,7 +92,7 @@ export const WeekWithTasks: Story = {
         view="week"
         date={NOW}
         now={NOW}
-        eventSources={withTasks(WEEK_EVENTS)}
+        events={withTasks(WEEK_EVENTS)}
         startHour={8}
         endHour={24}
       />
@@ -114,7 +109,7 @@ export const MonthWithTasks: Story = {
         view="month"
         date={NOW}
         now={NOW}
-        eventSources={withTasks(MONTH_EVENTS)}
+        events={withTasks(MONTH_EVENTS)}
         onDayClick={() => {}}
       />
     </CalendarScreen>

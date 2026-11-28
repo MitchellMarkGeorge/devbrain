@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { EventSourceInput } from '@fullcalendar/react';
+import type { EventInput } from '@fullcalendar/react';
 import type { CalendarId, EventId } from '@common/ids';
 import { EventKind, EventStatus, TaskStatus, type Calendar, type Event } from '@common/types';
 import { toEventInput } from '@renderer/shared/lib/calendar';
@@ -7,10 +7,8 @@ import type { CalendarEvent } from '../../types';
 import { MONTH_EVENTS, NOW, WEEK_EVENTS, WEEK_EVENTS_MORE } from '../../screens/Calendar/data';
 import { CalendarView, calendarEventInput } from './CalendarView';
 
-/** The events as one source, coloured by their own swatch names */
-const source = (events: CalendarEvent[]): EventSourceInput[] => [
-  { events: events.map(calendarEventInput) },
-];
+/** The events as FullCalendar input, coloured by their own swatch names */
+const inputs = (events: CalendarEvent[]): EventInput[] => events.map(calendarEventInput);
 
 const at = (day: number, h: number, m = 0) => new Date(2026, 5, day, h, m);
 
@@ -36,7 +34,7 @@ const meta = {
     view: 'week',
     date: NOW,
     now: NOW,
-    eventSources: source(WEEK_EVENTS),
+    events: inputs(WEEK_EVENTS),
     startHour: 8,
     endHour: 24,
   },
@@ -60,7 +58,7 @@ export const Day: Story = { args: { view: 'day' } };
 
 /** June 2026: all-day events first, "+2 more" on the 22nd, other months' days dimmed */
 export const Month: Story = {
-  args: { view: 'month', eventSources: source(MONTH_EVENTS), onDayClick: () => {} },
+  args: { view: 'month', events: inputs(MONTH_EVENTS), onDayClick: () => {} },
   decorators: [
     (Story) => (
       <div style={{ height: 760 }}>
@@ -75,7 +73,7 @@ export const Month: Story = {
  * three lines, each cell shows as many as it fits and "+N more", and the month doesn't scroll.
  */
 export const MonthShort: Story = {
-  args: { view: 'month', eventSources: source(MONTH_EVENTS), onDayClick: () => {} },
+  args: { view: 'month', events: inputs(MONTH_EVENTS), onDayClick: () => {} },
   decorators: [
     (Story) => (
       <div style={{ height: 540 }}>
@@ -88,12 +86,12 @@ export const MonthShort: Story = {
 /** Focus time (dashed, neutral), a tentative "Maybe" and a day out of office */
 export const FocusTentativeOutOfOffice: Story = {
   name: 'Focus time, tentative, out of office',
-  args: { eventSources: source(WEEK_EVENTS_MORE) },
+  args: { events: inputs(WEEK_EVENTS_MORE) },
 };
 
 /** A task on the grid, and overlapping events side by side */
 export const TaskAndOverlaps: Story = {
-  args: { eventSources: source([...WEEK_EVENTS, ...OVERLAPS]) },
+  args: { events: inputs([...WEEK_EVENTS, ...OVERLAPS]) },
 };
 
 /** The event whose sheet is open */
@@ -173,22 +171,19 @@ const STANDUP_MOVED = event({
   originalStartAt: at(24, 9, 30),
 });
 
-const SERIES_SOURCES: EventSourceInput[] = [
-  {
-    color: WORK.color,
-    events: [STANDUP, STANDUP_MOVED].map((e) => toEventInput(e, WORK)),
-  },
-  { events: WEEK_EVENTS.filter((e) => !e.id.startsWith('standup')).map(calendarEventInput) },
+const SERIES_EVENTS: EventInput[] = [
+  ...[STANDUP, STANDUP_MOVED].map((e) => toEventInput(e, WORK)),
+  ...WEEK_EVENTS.filter((e) => !e.id.startsWith('standup')).map(calendarEventInput),
 ];
 
 /**
  * A series from `toEventInput`: Monday, Tuesday and Thursday at 9:30 from the rule, Wednesday's
  * moved to 11:30, nothing on Friday
  */
-export const RecurringSeries: Story = { args: { eventSources: SERIES_SOURCES } };
+export const RecurringSeries: Story = { args: { events: SERIES_EVENTS } };
 
 /** The same series across the month */
 export const RecurringSeriesMonth: Story = {
-  args: { view: 'month', eventSources: SERIES_SOURCES },
+  args: { view: 'month', events: SERIES_EVENTS },
   decorators: Month.decorators,
 };

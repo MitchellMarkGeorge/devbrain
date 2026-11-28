@@ -1,4 +1,4 @@
-import type { EventInput, EventSourceFuncInfo, EventSourceInput } from '@fullcalendar/react';
+import type { EventInput } from '@fullcalendar/react';
 import { hexColorSchema } from '@common/color';
 import {
   EventKind,
@@ -36,23 +36,24 @@ export interface EventInputProps extends CalendarViewEventProps {
  * - a series master: `rrule` (see recurrence.ts) and `duration`, `groupId` itself; one whose rule
  *   rrule cannot read is drawn as its first occurrence, a one-off.
  *
- * `color` is set only when the event's own colour (a valid `#rrggbb`) differs from the
- * calendar's, which colours its source. `editable` is false for a synced event and otherwise
- * left to the calendar. Display hints go in `extendedProps`, for CalendarView.
+ * `color` is the event's own colour, or else its calendar's, when that is a valid `#rrggbb`; with
+ * neither it is left out, and the event is drawn in the theme's colour. `editable` is false for a
+ * synced event and otherwise left to the calendar. Display hints go in `extendedProps`, for
+ * CalendarView.
  *
  * A property with no value is left out rather than set to `undefined`: FullCalendar refines
  * every key present, so `groupId: undefined` would become the group "undefined" shared by every
  * one-off event, and `color: undefined` the colour "undefined".
  */
 export function toEventInput(event: Event, calendar: Calendar): EventInput {
-  const own = parseColor(event.color);
+  const color = parseColor(event.color) ?? parseColor(calendar.color);
   const input: EventInput = {
     id: event.id,
     title: event.title,
     allDay: event.allDay,
     extendedProps: eventProps(event),
   };
-  if (own && own !== parseColor(calendar.color)) input.color = own;
+  if (color) input.color = color;
   if (event.external) input.editable = false;
 
   const rule = event.recurrenceRule
@@ -76,26 +77,6 @@ export function toEventInput(event: Event, calendar: Calendar): EventInput {
     input.end = event.endAt;
   }
   return input;
-}
-
-/**
- * A calendar as a FullCalendar event source, coloured by the calendar (a theme colour when its
- * colour is not a valid `#rrggbb`). `load` fetches the range's events, normally
- * `listForCalendar(start, end, { calendarIds: [calendar.id] })`.
- */
-export function toEventSource(
-  calendar: Calendar,
-  load: (range: { start: Date; end: Date }) => Promise<Event[]>,
-): EventSourceInput {
-  const color = parseColor(calendar.color);
-  return {
-    id: calendar.id,
-    ...(color && { color }),
-    events: async (info: EventSourceFuncInfo) => {
-      const events = await load({ start: info.start, end: info.end });
-      return events.map((event) => toEventInput(event, calendar));
-    },
-  };
 }
 
 function eventProps(event: Event): EventInputProps {

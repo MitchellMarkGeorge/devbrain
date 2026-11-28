@@ -1,6 +1,6 @@
 import { act, createElement, createRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import FullCalendar, { type CalendarRef } from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/react/daygrid';
 import timeGridPlugin from '@fullcalendar/react/timegrid';
@@ -11,6 +11,7 @@ import {
   resolveCalendarSearch,
   type CalendarViewParam,
 } from '@renderer/features/calendar/api/search';
+import { agendaRange } from '@renderer/features/calendar/api/queries';
 import {
   monthTitle,
   neighbouringRanges,
@@ -209,7 +210,7 @@ function fullCalendarRange(view: CalendarViewParam, date: Date, options: Calenda
   const { activeStart, activeEnd } = calendar.current!.getApi().view;
   act(() => root.unmount());
   el.remove();
-  return [dateParam(activeStart), dateParam(activeEnd)];
+  return { start: activeStart, end: activeEnd };
 }
 
 describe('the visible range agrees with FullCalendar', () => {
@@ -230,10 +231,61 @@ describe('the visible range agrees with FullCalendar', () => {
       }`, () => {
         for (const anchor of anchors) {
           expect(days(visibleRange(view, day(anchor), option)), anchor).toEqual(
-            fullCalendarRange(view, day(anchor), option),
+            days(fullCalendarRange(view, day(anchor), option)),
           );
         }
       });
     }
   }
+
+  // Where the clocks go forward at 00:00 the day starts at 01:00, and a range counted in days from
+  // it would end (or start) an hour late on days that do have a midnight: an event in that hour
+  // would not be read. Each zone with the day its midnight is skipped, in 2026.
+  describe('to the instant, where a day has no midnight', () => {
+    const originalTz = process.env.TZ;
+    afterEach(() => {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    });
+    const instants = (range: { start: Date; end: Date }) => [
+      range.start.toISOString(),
+      range.end.toISOString(),
+    ];
+    const skipped: [zone: string, year: number, month: number, day: number][] = [
+      ['America/Santiago', 2026, 9, 6],
+      ['Asia/Beirut', 2026, 3, 29],
+      ['Africa/Cairo', 2026, 4, 24],
+      ['America/Havana', 2026, 3, 8],
+      // the clocks change at 2:00: every day has a midnight
+      ['America/Toronto', 2026, 3, 8],
+    ];
+    for (const [zone, year, month, dayOfMonth] of skipped) {
+      it(zone, () => {
+        process.env.TZ = zone;
+        // the day itself, the days around it, and a week either side (its neighbouring ranges)
+        for (const offset of [-7, -1, 0, 1, 7]) {
+          const anchor = new Date(year, month - 1, dayOfMonth + offset);
+          for (const view of views) {
+            for (const option of options) {
+              if (view === 'day' && option.hideWeekends) continue;
+              const label = `${view} ${dateParam(anchor)} ${JSON.stringify(option)}`;
+              expect(instants(visibleRange(view, anchor, option)), label).toEqual(
+                instants(fullCalendarRange(view, anchor, option)),
+              );
+            }
+          }
+        }
+      });
+    }
+
+    it('steps to the start of a day, and the agenda ends at one', () => {
+      process.env.TZ = 'America/Santiago';
+      // Saturday 5 September 2026, the day before the one that starts at 01:00
+      const saturday = new Date(2026, 8, 5);
+      const sunday = stepDate('day', saturday, 1);
+      expect(sunday.getHours()).toBe(1);
+      expect(stepDate('day', sunday, 1)).toEqual(new Date(2026, 8, 7));
+      expect(agendaRange(sunday).end).toEqual(new Date(2026, 8, 8));
+    });
+  });
 });

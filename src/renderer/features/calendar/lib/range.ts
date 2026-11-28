@@ -3,7 +3,7 @@ import type { AppSettings } from '@common/types';
 import type { CalendarViewParam } from '../api/search';
 
 // The calendar's ranges, from the URL's view and date and the settings: what FullCalendar shows for
-// them (and so asks its event sources for), the neighbouring ranges the page prefetches, and where
+// them (and so what the page reads), the neighbouring ranges the page prefetches, and where
 // ‹ and › go. In local time, as FullCalendar's `timeZone: 'local'` is.
 
 export interface CalendarRangeOptions {
@@ -31,21 +31,32 @@ export function rangeOptionsOf(
   };
 }
 
-/** The first day of the week `date` is in, at midnight. */
+/**
+ * The start of the day `days` after (or before) the day `from` is in. Adding days keeps the time
+ * of day, and a day does not always start at midnight: where the clocks go forward at 00:00
+ * (Santiago, Beirut, Cairo, Havana) that day starts at 01:00, and the days counted from it would
+ * start at 01:00 too. So each day's start is taken on its own.
+ */
+function startOfDay(from: DateTime, days = 0): DateTime {
+  return from.plus({ days }).startOf('day');
+}
+
+/** The first day of the week `date` is in, at the start of that day. */
 export function startOfWeek(date: Date, firstDay: 0 | 1): DateTime {
   const day = DateTime.fromJSDate(date).startOf('day');
   // luxon's weekday: Monday 1 … Sunday 7; FullCalendar's firstDay: Sunday 0, Monday 1
   const back = (day.weekday - (firstDay === 0 ? 7 : 1) + 7) % 7;
-  return day.minus({ days: back });
+  return startOfDay(day, -back);
 }
 
 const isWeekend = (day: DateTime) => day.weekday >= 6;
 
 /**
- * The days FullCalendar shows (its `activeRange`), which its event sources are asked for: the
+ * The days FullCalendar shows (its `activeRange`), which the page reads the events and tasks of: the
  * week or day, or the month's weeks from the one with the 1st to the one with its last day
- * (`fixedWeekCount` off). Hidden weekends are trimmed off either end, as FullCalendar does (a
- * test checks the two agree).
+ * (`fixedWeekCount` off). Hidden weekends are trimmed off either end, as FullCalendar does. Both
+ * ends are the start of a day, to the instant FullCalendar uses (a test checks the two agree,
+ * also where a day has no midnight).
  */
 export function visibleRange(
   view: CalendarViewParam,
@@ -57,23 +68,23 @@ export function visibleRange(
   let end: DateTime;
   if (view === 'day') {
     start = day;
-    end = day.plus({ days: 1 });
+    end = startOfDay(day, 1);
   } else if (view === 'week') {
     start = startOfWeek(date, firstDay);
-    end = start.plus({ days: 7 });
+    end = startOfDay(start, 7);
   } else {
     // the month's first and last days shown: a week whose only days in the month are hidden
     // weekends is left out
-    let first = day.startOf('month');
-    let last = day.endOf('month').startOf('day');
-    while (hideWeekends && isWeekend(first)) first = first.plus({ days: 1 });
-    while (hideWeekends && isWeekend(last)) last = last.minus({ days: 1 });
+    let first: DateTime = day.startOf('month');
+    let last: DateTime = day.endOf('month').startOf('day');
+    while (hideWeekends && isWeekend(first)) first = startOfDay(first, 1);
+    while (hideWeekends && isWeekend(last)) last = startOfDay(last, -1);
     start = startOfWeek(first.toJSDate(), firstDay);
-    end = startOfWeek(last.toJSDate(), firstDay).plus({ days: 7 });
+    end = startOfDay(startOfWeek(last.toJSDate(), firstDay), 7);
   }
   if (hideWeekends && view !== 'day') {
-    while (isWeekend(start)) start = start.plus({ days: 1 });
-    while (isWeekend(end.minus({ days: 1 }))) end = end.minus({ days: 1 });
+    while (isWeekend(start)) start = startOfDay(start, 1);
+    while (isWeekend(startOfDay(end, -1))) end = startOfDay(end, -1);
   }
   return { start: start.toJSDate(), end: end.toJSDate() };
 }
@@ -85,7 +96,7 @@ export function stepDate(view: CalendarViewParam, date: Date, direction: -1 | 1)
     view === 'month'
       ? { months: direction }
       : { days: view === 'week' ? 7 * direction : direction };
-  return day.plus(unit).toJSDate();
+  return day.plus(unit).startOf('day').toJSDate();
 }
 
 /** The ranges before and after the one shown, which the page prefetches. */

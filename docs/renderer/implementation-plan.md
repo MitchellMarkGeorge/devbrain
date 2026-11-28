@@ -930,7 +930,7 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
   interaction under its subpaths) and `@fullcalendar/rrule`, with `temporal-polyfill`, pinned (see
   the adapter spec). Its CSS is plain files, bundled with the app's.
 - **A design-system component wraps it**: `components/calendar/CalendarView`, with a guide and
-  stories, per `CLAUDE.md`. It stays presentational. It takes FullCalendar event sources and
+  stories, per `CLAUDE.md`. It stays presentational. It takes the events as FullCalendar input and
   callbacks, and holds all the theming:
   - Classes for FullCalendar's `…Class` options, set from tokens to match the `TimeGrid` and
     `MonthGrid` guides: 48px hours, the 60px gutter, the red now line and today disc, `border` lines.
@@ -948,13 +948,12 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
   from the URL: `view` → `timeGridWeek` / `timeGridDay` / `dayGridMonth`, `date` →
   `initialDate`/`gotoDate`; FullCalendar's own header toolbar is off. `datesSet` doesn't write the
   URL back, so the two can't loop.
-- **Data**: one FullCalendar event source per visible calendar (coloured by the calendar, as the
-  spec says), whose `events(info)` function calls
-  `queryClient.query(trpc.events.listForCalendar.queryOptions({ start, end, calendarIds }))`
-  and maps with `toEventInput`. Reading through React Query keeps the invalidator in charge: when
-  core reports `event` or `calendar` changes, a `refetchEvents()` follows from a
-  `queryClient.getQueryCache().subscribe` on those keys. The read may fetch older Google history
-  first; FullCalendar's `loading` callback shows the skeleton.
+- **Data**: the page loads the range it shows (`visibleRange`) with hooks, as any page does
+  (`useCalendarItems`): one `events.listForCalendar` query per visible calendar in a `useQueries`,
+  mapped with `toEventInput` (coloured by the calendar, as the spec says) and handed to
+  `CalendarView` as one `events` array. FullCalendar fetches nothing. The queries have an
+  observer, so the invalidator refetches them when core reports `event` or `calendar` changes.
+  The read may fetch older Google history first; the page shows the skeleton while it lasts.
 - **Right panel** (wide windows only, per the README): mini `Calendar` (sets `date`) and
   `CalendarAgenda` for today and tomorrow, mixing events (`occurrencesBetween`) and tasks due
   (`tasks.list` with `dueOn`).
@@ -1491,13 +1490,14 @@ linkedTaskId } })`), separate from the task's event or note link.
      as a menu and Today as an icon, so the two sides never meet and the month is never cut.
      Another date or view pushes a history entry (Back returns to the week or view before), as
      the sheet does (Back closes it).
-   - Each visible calendar's source reads `events.listForCalendar` for its own calendar through
-     `queryClient.query` (`staleTime: Infinity`, so only the invalidator makes it stale); a
-     subscription to the query cache calls `refetchEvents()` once when any of them is
-     invalidated. A source object lives as long as its calendar's colour, so hiding one calendar
-     doesn't refetch the others. The loader primes the range shown without waiting for it; the
-     ranges either side are prefetched. FullCalendar's `loading` shows a skeleton strip after
-     150ms.
+   - `useCalendarItems` reads `events.listForCalendar` for each visible calendar in one
+     `useQueries` (`staleTime: Infinity`, so only the invalidator makes it stale) and gives
+     `CalendarView` the events as one array; FullCalendar loads nothing itself. A change refetches
+     every query and the grid draws each answer as it comes; a range not read before
+     is stood in for by the one shown before. The loader primes the range shown without waiting
+     for it; the ranges either side are prefetched. A read that lasts 150ms shows a skeleton
+     strip. (Until Nov 2026 FullCalendar's event source functions did the reading, refetched from
+     a subscription to the query cache: see the adapter note's "Fetching" for why not.)
    - The right panel shows in wide windows while no sheet is open (the sheet takes its column).
      The agenda reads every visible calendar for today and tomorrow in one call and expands it
      with `occurrencesBetween`; tasks due come from `tasks.list` with `dueOn`, after the events.
