@@ -9,9 +9,9 @@ import type { DayRange } from '../lib/range';
 /**
  * What the grid draws for a range, as FullCalendar event input: every visible calendar's events,
  * each calendar its own query, and with `showTasks` the tasks due in the range, after them. The
- * page loads them itself (one `useQueries` for the calendars, a query for the tasks) and hands FullCalendar the array, so the query
- * invalidator keeps the grid fresh as it does any other page: a query the grid shows is refetched
- * when core reports a change it reads.
+ * page loads them itself (one `useQueries` for the calendars, a query for the tasks) and hands
+ * FullCalendar the array, so the query invalidator keeps the grid fresh as it does any other
+ * page: a query the grid shows is refetched when core reports a change it reads.
  *
  * - While a range not yet read loads, the range shown before stands in for it (its series already
  *   repeat into the new one), so a step never draws an empty grid first.
