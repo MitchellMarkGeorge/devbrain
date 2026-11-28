@@ -53,10 +53,11 @@ export function useSheet<I extends SheetId>({
   const navigate = useNavigate();
 
   // the item stays mounted once `sheet` leaves the URL, until its sheet has slid out
-  const [shown, setShown] = useState<SheetItem | undefined>(() =>
+  const [drawnItem, setDrawnItem] = useState<SheetItem | undefined>(() =>
     id ? { id, occurrence } : undefined,
   );
-  if (id && (shown?.id !== id || shown.occurrence !== occurrence)) setShown({ id, occurrence });
+  if (id && (drawnItem?.id !== id || drawnItem.occurrence !== occurrence))
+    setDrawnItem({ id, occurrence });
   // the item just created here, so its sheet can say so; forgotten with the page, never in the URL
   const [created, setCreated] = useState<SheetId>();
 
@@ -88,15 +89,17 @@ export function useSheet<I extends SheetId>({
     (options: { replace?: boolean } = {}) => navigateToItem(undefined, options.replace),
     [navigateToItem],
   );
+  // `id` is the URL's, read again on every render: the sheet is open while the URL names an item.
+  // `drawnItem` differs only as it closes, when it still holds the item for the sheet to slide out with
   const open = id !== undefined;
   const onClosed = useCallback(() => {
-    if (!open) setShown(undefined);
+    if (!open) setDrawnItem(undefined);
   }, [open]);
 
   const navigation = useMemo(() => ({ accepts, show, close }), [accepts, show, close]);
   const item = useMemo(
-    () => (shown ? { ...shown, created: shown.id === created } : undefined),
-    [shown, created],
+    () => (drawnItem ? { ...drawnItem, created: drawnItem.id === created } : undefined),
+    [drawnItem, created],
   );
   const render = useCallback(
     () => <EntitySheet item={item} open={open} navigation={navigation} onClosed={onClosed} />,
