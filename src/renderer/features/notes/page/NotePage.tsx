@@ -22,7 +22,7 @@ import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import { noteRoute } from '../api/route-api';
 import { NOTE_PAGE_SHEET_KINDS } from '../api/search';
 import { useNoteActions } from '../hooks/use-note-actions';

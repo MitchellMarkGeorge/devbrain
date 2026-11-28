@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { EntitySheet } from '../components/EntitySheet';
-import { sheetKindOf, type SheetId, type SheetKind } from '../lib/sheet';
+import { EntitySheet } from './EntitySheet';
+import { sheetKindOf, type SheetId, type SheetKind } from '@renderer/shared/lib/sheet';
 import type { SheetItem, SheetNavigation, ShowSheetOptions } from './use-sheet-navigation';
 
 /** What a page tells `useSheet`: its sheet's params, as its own route's schema read them. */
@@ -60,7 +60,8 @@ export function useSheet<I extends SheetId>({
   // the item just created here, so its sheet can say so; forgotten with the page, never in the URL
   const [created, setCreated] = useState<SheetId>();
 
-  const write = useCallback(
+  // puts an item (or none) in the URL's `sheet` and `occurrence`, leaving the page's other params
+  const navigateToItem = useCallback(
     (item: SheetItem | undefined, replace = false) =>
       void navigate({
         to: '.',
@@ -79,13 +80,13 @@ export function useSheet<I extends SheetId>({
       if (!accepts(next)) return;
       if (next === id && options.occurrence === occurrence) return;
       if (options.created) setCreated(next);
-      write({ id: next, occurrence: options.occurrence });
+      navigateToItem({ id: next, occurrence: options.occurrence });
     },
-    [accepts, id, occurrence, write],
+    [accepts, id, occurrence, navigateToItem],
   );
   const close = useCallback(
-    (options: { replace?: boolean } = {}) => write(undefined, options.replace),
-    [write],
+    (options: { replace?: boolean } = {}) => navigateToItem(undefined, options.replace),
+    [navigateToItem],
   );
   const open = id !== undefined;
   const onClosed = useCallback(() => {

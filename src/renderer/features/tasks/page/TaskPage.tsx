@@ -20,7 +20,7 @@ import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '../api/queries';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import { taskRoute } from '../api/route-api';
 import { TASK_PAGE_SHEET_KINDS } from '../api/search';
 import { TaskDetailMenu } from '../components/detail/TaskDetailMenu';

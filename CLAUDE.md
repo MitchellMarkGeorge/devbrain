@@ -127,7 +127,7 @@ for pages.
 ## Sheets
 
 A page shows a task, a note or an event beside itself with `useSheet`
-(`src/renderer/shared/hooks/use-sheet.tsx`). The page defines the params, as it does its others,
+(`src/renderer/sheets/use-sheet.tsx`). The page defines the params, as it does its others,
 and the hook does the rest. `docs/renderer/routing.md` ("Sheets") is the design note.
 
 - The URL's `sheet` param holds the item's id, and the prefix says its kind. The route's schema
@@ -140,9 +140,11 @@ and the hook does the rest. `docs/renderer/routing.md` ("Sheets") is the design 
   one, and keep nothing about a sheet in the history's state.
 - A page that can't show a sheet doesn't read the param (it is left out of the schema, or of what
   the page resolves); nothing navigates to remove it.
+- Everything about sheets lives in `src/renderer/sheets`, not in a feature, as several features'
+  pages show them; the param's schema helper is `shared/lib/sheet.ts`.
 - A sheet's content (`TaskSheet`, `NoteSheet`, `EventSheet`) draws a `SheetHeader` and a
   `SheetBody`, loads its own data, and opens a linked item in the same sheet through
-  `useSheetNavigation()`. `EntitySheet` (`shared/components`) picks the content by the id's
+  `useSheetNavigation()`. `EntitySheet` picks the content by the id's
   prefix: a new kind of sheet is added there.
 - A change to how sheets behave is covered in `src/renderer/tests/routing` (×, Esc, Back after a
   close, another item, a link-opened sheet).
@@ -207,11 +209,15 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
   - `page/`: the page components a route renders (`TasksPage`, `TaskPage`), and a style module
     only they use;
   - `hooks/`: its `use-*` hooks;
-  - `components/`: the pieces of its pages: dialogs, sheets, menus and views, in subfolders by
-    part (`create/`, `detail/`, `menus/`, `sheet/`, `views/`);
+  - `components/`: the pieces of its pages: dialogs, menus and views, in subfolders by
+    part (`create/`, `detail/`, `menus/`, `views/`);
   - `lib/`: plain functions with no React (grouping, ranges, parsing).
     A feature may import another's `api`, `hooks` or `components` (tasks' menus are used across
     pages); when something is used by many, move it to `shared` instead.
+- `sheets/`: the sheets beside a page, which several features' pages show: `useSheet`,
+  `EntitySheet`, and the content for each kind (`TaskSheet`, `NoteSheet`, `EventSheet` and their
+  pieces). Like a layout it builds on the features, so it may import their `api`, `hooks`,
+  `components` and `lib`; `shared` never imports it or a feature.
 - `shared/`: `hooks/`, `lib/` (including `workspace/` and `calendar/`), `components/` (app
   components that need IPC or the router; plain UI goes in `src/renderer/components`) and `api/`.
 - `components/`, `editor/`, `keyboard/`, `ipc/`, `routes/`, `styles/`, `assets/`: as described in

@@ -1,5 +1,5 @@
 import { PageContent, PageToolbar } from '@renderer/components';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import { TasksBoard } from './board/TasksBoard';
 import { TasksGroups } from './group/TasksGroups';
 import { TasksList } from './list/TasksList';

@@ -36,17 +36,32 @@ import { trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { writeSaveToCache, useEditorAutosave } from '@renderer/shared/hooks/use-autosave';
-import { dayText, useEventActions } from '../../hooks/use-event-actions';
-import { seriesOccurrenceOf, type EventPatch, type EventTarget } from '../../lib/occurrence';
-import { meetingUrlOf } from '../create/CreateEventDialog';
-import { CalendarPill, DayPill, RepeatPill, TimePill } from '../pickers';
-import { repeatText } from '../../lib/repeat';
+import { dayText, useEventActions } from '@renderer/features/calendar/hooks/use-event-actions';
+import {
+  seriesOccurrenceOf,
+  type EventPatch,
+  type EventTarget,
+} from '@renderer/features/calendar/lib/occurrence';
+import { meetingUrlOf } from '@renderer/features/calendar/components/create/CreateEventDialog';
+import {
+  CalendarPill,
+  DayPill,
+  RepeatPill,
+  TimePill,
+} from '@renderer/features/calendar/components/pickers';
+import { repeatText } from '@renderer/features/calendar/lib/repeat';
 import { EventLinkedTasks } from './EventLinkedTasks';
 import { EventNoteSection } from './EventNoteSection';
-import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet-navigation';
+import { useSheetNavigation } from './use-sheet-navigation';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
-import { moveEnd, moveStart, moveToDay, shownTiming, zoneAbbreviation } from '../../lib/timing';
+import {
+  moveEnd,
+  moveStart,
+  moveToDay,
+  shownTiming,
+  zoneAbbreviation,
+} from '@renderer/features/calendar/lib/timing';
 import styles from './EventSheet.module.css';
 
 export const RESPONSE_LABELS: Record<EventResponse, string> = {

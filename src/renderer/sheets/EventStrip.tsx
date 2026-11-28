@@ -5,9 +5,9 @@ import { Button, ColourBar, resolveColor, useFormat } from '@renderer/components
 import { eventCountdown } from '@renderer/components/event-text';
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import { seriesOccurrenceOf } from '../../lib/occurrence';
-import { repeatText } from '../../lib/repeat';
-import { shownTiming } from '../../lib/timing';
+import { seriesOccurrenceOf } from '@renderer/features/calendar/lib/occurrence';
+import { repeatText } from '@renderer/features/calendar/lib/repeat';
+import { shownTiming } from '@renderer/features/calendar/lib/timing';
 import styles from './EventStrip.module.css';
 
 export interface EventStripProps {

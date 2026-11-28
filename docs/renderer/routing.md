@@ -200,11 +200,11 @@ task's page, and on the calendar an event, a task due or an event's note.
   to clear the param. A page that has a sheet in some states only leaves it out of what it
   resolves (`resolveTasksSearch` reads `sheet` on the board alone).
 - **One hook does the rest.** The page tells `useSheet` what its schema read:
-  `useSheet({ id: search.sheet, kinds: KINDS })` (`shared/hooks/use-sheet.tsx`; the calendar adds
+  `useSheet({ id: search.sheet, kinds: KINDS })` (`src/renderer/sheets/use-sheet.tsx`; the calendar adds
   `occurrence`). It gets back `sheet.show(id)` to open an item, `sheet.close()`, the state
   (`id`, `open`) and `sheet.render()`, which it draws. The page names no sheet component and does
   no navigating: the hook writes the params with a navigate TanStack types across routes, and
-  `render()` draws `EntitySheet` (`shared/components`), which docks the sheet in the shell's
+  `render()` draws `EntitySheet` (beside it in `sheets/`), which docks the sheet in the shell's
   column or floats it in a compact window, keeps it mounted while it slides out, and draws the
   content of the item's kind: `TaskSheet`, `NoteSheet` or `EventSheet`, each a `SheetHeader` and
   a `SheetBody` loading its own data. Content shows another item in the same sheet with

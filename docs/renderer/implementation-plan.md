@@ -1365,7 +1365,7 @@ page that needs them.
    C1–C3. As built (`src/renderer/features/tasks`):
    - Layout: the shared data and actions at the folder's root (`queries.ts`, `search.ts`,
      `loaders.ts`, `use-task-actions.ts`, `use-tasks-search.ts`); `views/` the Tasks page with
-     `list/`, `group/` and `board/`; `sheet/` the board's task sheet; `detail/` the task page;
+     `list/`, `group/` and `board/`; `detail/` the task page;
      `sections/` the description, subtasks and task note both of those show; `create/` the
      Create task dialog; `menus/` the row menu and the property pickers.
    - Search params are snake case (`group_by`, `due_date`, `not_started`), resolved against
@@ -1420,7 +1420,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      tasks too, read alongside the note: the tasks pill under the title needs them.
    - Sheets beside a page, as the board's: on the note page, a task in its Tasks section opens in
      the task sheet (`?sheet=tsk_…`); on the task page, the task note card and "+ Add a task note"
-     open the note in `NoteSheet` (`features/notes/sheet`, `?sheet=nte_…`): its title, "Edited …",
+     open the note in `NoteSheet` (`src/renderer/sheets`, `?sheet=nte_…`): its title, "Edited …",
      project and body, saved with the note page's editor and autosave. Back closes either; ⤢ opens
      the full page. The board's task sheet still opens the note's page (the task is the sheet).
      The task note dialog (dropped in milestone 4) is not coming back.
@@ -1479,7 +1479,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - Layout: `search.ts` (the params) and `range.ts` (the range a view and date show, checked
      against FullCalendar's own `activeRange`, weekends hidden or not, the week from Monday or
      Sunday), `queries.ts`, `loaders.ts` and `use-event-sources.ts` at the folder's root;
-     `header/` the header and the Filter menu; `panel/` the right panel; `sheet/` the event sheet;
+     `header/` the header and the Filter menu; `panel/` the right panel; the event sheet is in `src/renderer/sheets`;
      `edit/` the occurrence-scope logic (`occurrence.ts`, pure and tested) and its dialog;
      `create/` the New event dialog; `pickers.tsx` the day, time, repeat and calendar pills both
      use.

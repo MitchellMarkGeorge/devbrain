@@ -28,15 +28,20 @@ import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet-navigation';
+import { useSheetNavigation } from './use-sheet-navigation';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
-import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
-import { isSynced, listedTask } from '../../api/queries';
-import { useTaskActions } from '../../hooks/use-task-actions';
+import {
+  DatePill,
+  PriorityPill,
+  ProjectPill,
+  StatusPill,
+} from '@renderer/features/tasks/components/menus/pickers';
+import { isSynced, listedTask } from '@renderer/features/tasks/api/queries';
+import { useTaskActions } from '@renderer/features/tasks/hooks/use-task-actions';
 import styles from './TaskSheet.module.css';
-import { TaskDescription } from '../sections/TaskDescription';
-import { TaskNoteSection } from '../sections/TaskNoteSection';
-import { TaskSubtasksSection } from '../sections/TaskSubtasksSection';
+import { TaskDescription } from '@renderer/features/tasks/components/sections/TaskDescription';
+import { TaskNoteSection } from '@renderer/features/tasks/components/sections/TaskNoteSection';
+import { TaskSubtasksSection } from '@renderer/features/tasks/components/sections/TaskSubtasksSection';
 
 export interface TaskSheetProps {
   taskId: TaskId;

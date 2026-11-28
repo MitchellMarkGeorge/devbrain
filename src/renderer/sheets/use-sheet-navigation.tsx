@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { SheetId } from '../lib/sheet';
+import type { SheetId } from '@renderer/shared/lib/sheet';
 
 /** What a sheet shows: the item's id, and for one occurrence of a repeating event its start. */
 export interface SheetItem<I extends SheetId = SheetId> {

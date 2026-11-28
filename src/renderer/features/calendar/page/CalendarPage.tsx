@@ -16,7 +16,7 @@ import {
   PageToolbar,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import {
   defaultDurationMinutes,
   draftForDay,

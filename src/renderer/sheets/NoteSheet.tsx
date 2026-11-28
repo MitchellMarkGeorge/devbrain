@@ -18,12 +18,12 @@ import {
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet-navigation';
-import { EventStrip } from '@renderer/features/calendar/components/sheet/EventStrip';
+import { useSheetNavigation } from './use-sheet-navigation';
+import { EventStrip } from './EventStrip';
 import { ProjectPill } from '@renderer/features/tasks/components/menus/pickers';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
-import { NoteEditor } from '../detail/NoteEditor';
-import { useNoteActions } from '../../hooks/use-note-actions';
+import { NoteEditor } from '@renderer/features/notes/components/detail/NoteEditor';
+import { useNoteActions } from '@renderer/features/notes/hooks/use-note-actions';
 import styles from './NoteSheet.module.css';
 
 export interface NoteSheetProps {

@@ -1,14 +1,14 @@
 import { isId } from '@common/ids';
 import { Sheet, SheetContent, useWorkspaceShell } from '@renderer/components';
-import { EventSheet } from '@renderer/features/calendar/components/sheet/EventSheet';
-import { NoteSheet } from '@renderer/features/notes/components/sheet/NoteSheet';
-import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
+import { EventSheet } from './EventSheet';
+import { NoteSheet } from './NoteSheet';
+import { TaskSheet } from './TaskSheet';
 import {
   SheetNavigationProvider,
   type SheetItem,
   type SheetNavigation,
-} from '../hooks/use-sheet-navigation';
-import { sheetKindOf } from '../lib/sheet';
+} from './use-sheet-navigation';
+import { sheetKindOf } from '@renderer/shared/lib/sheet';
 
 export interface EntitySheetProps {
   /** the item to draw: the URL's, or the last one while its sheet slides out */
@@ -29,7 +29,7 @@ export interface EntitySheetProps {
  * it has slid out.
  *
  * This is the one place that names the sheets' components: the content is picked here by the
- * id's prefix. It is why this file, alone in `shared`, imports from the features.
+ * id's prefix.
  */
 export function EntitySheet({ item, open, navigation, onClosed }: EntitySheetProps) {
   const { size, sheetContainer } = useWorkspaceShell();
