@@ -17,7 +17,7 @@ import {
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { EntitySheet } from '@renderer/shared/components/EntitySheet';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet, type SheetParams } from '@renderer/shared/hooks/use-sheet';
 import { NoteSheet } from '@renderer/features/notes/components/sheet/NoteSheet';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
 import {
@@ -72,10 +72,18 @@ export function CalendarPage() {
   const duration = defaultDurationMinutes(settings);
 
   // the sheet: each item shown in it is a history entry of its own, and so is closing it
+  const writeSheet = useCallback(
+    (
+      params: SheetParams<NonNullable<CalendarSearch['sheet']>>,
+      { replace }: { replace: boolean },
+    ) => setSearch(params, { push: !replace }),
+    [setSearch],
+  );
   const sheet = useSheet({
     id: resolved.sheet,
     occurrence: resolved.occurrence,
     kinds: CALENDAR_SHEET_KINDS,
+    write: writeSheet,
   });
   const showInSheet = sheet.show;
   const openEvent = useCallback(
@@ -176,7 +184,7 @@ export function CalendarPage() {
           isId('event', item.id) ? (
             <EventSheet eventId={item.id} occurrence={item.occurrence} />
           ) : isId('note', item.id) ? (
-            <NoteSheet noteId={item.id} occurrence={item.occurrence} />
+            <NoteSheet noteId={item.id} occurrence={item.occurrence} created={item.created} />
           ) : (
             <TaskSheet taskId={item.id} />
           )

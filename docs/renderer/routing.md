@@ -198,7 +198,9 @@ task's page, and on the calendar an event, a task due or an event's note.
   bad param, and a route with no sheet has no `sheet` in its schema, so its page never reads one:
   nothing navigates to clear the param. A page that has a sheet in some states only leaves it out
   of what it resolves (`resolveTasksSearch` reads `sheet` on the board alone).
-- **One hook, one component.** A page calls `useSheet({ id, kinds })` (`shared/hooks/use-sheet.tsx`)
+- **One hook, one component.** A page calls `useSheet({ id, kinds, write })` (`shared/hooks/use-sheet.tsx`),
+  `write` being its own route's navigate setting the sheet's params, so the write is typed against
+  the route's search,
   and draws `<EntitySheet sheet={sheet}>` (`shared/components`), giving it the content for an
   item: `TaskSheet`, `NoteSheet` or `EventSheet`, which draw a `SheetHeader` and a `SheetBody`
   and load their own data. `EntitySheet` docks it in the shell's column or floats it in a compact

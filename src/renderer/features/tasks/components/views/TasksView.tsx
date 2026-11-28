@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
+import type { TaskId } from '@common/ids';
 import { PageContent, PageToolbar } from '@renderer/components';
 import { EntitySheet } from '@renderer/shared/components/EntitySheet';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet, type SheetParams } from '@renderer/shared/hooks/use-sheet';
 import { TasksBoard } from './board/TasksBoard';
 import { TasksGroups } from './group/TasksGroups';
 import { TasksList } from './list/TasksList';
@@ -26,7 +28,12 @@ export interface TasksViewProps {
 export function TasksView({ showProjectPill = true }: TasksViewProps) {
   const { search, resolved, setSearch } = useTasksSearch();
   // a card opens in the sheet beside the board (`resolved.sheet` is the board's alone)
-  const sheet = useSheet({ id: resolved.sheet, kinds: TASKS_SHEET_KINDS });
+  const writeSheet = useCallback(
+    ({ sheet }: SheetParams<TaskId>, { replace }: { replace: boolean }) =>
+      setSearch({ sheet }, { push: !replace }),
+    [setSearch],
+  );
+  const sheet = useSheet({ id: resolved.sheet, kinds: TASKS_SHEET_KINDS, write: writeSheet });
   return (
     <>
       <PageToolbar

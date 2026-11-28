@@ -1,6 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRouterState } from '@tanstack/react-router';
 import type { Editor } from '@tiptap/react';
 import { ChevronLeft } from 'lucide-react';
 import type { NoteId } from '@common/ids';
@@ -31,6 +30,8 @@ export interface NoteSheetProps {
   noteId: NoteId;
   /** for the note of a repeating event, opened from one occurrence: that occurrence's start (ISO) */
   occurrence?: string;
+  /** the note was just started from this sheet (an event's "+ Add a note"): the caret goes in its body */
+  created?: boolean;
 }
 
 /**
@@ -42,7 +43,7 @@ export interface NoteSheetProps {
  * soon, its times and place, Join), "Type / for blocks · Notes save as you type" under the body,
  * and, where the page's sheet shows events (the calendar), "‹ Event" back to the event.
  */
-export function NoteSheet({ noteId, occurrence }: NoteSheetProps) {
+export function NoteSheet({ noteId, occurrence, created = false }: NoteSheetProps) {
   const openEntity = useOpenEntity();
   const sheet = useSheetNavigation();
   const query = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
@@ -67,7 +68,7 @@ export function NoteSheet({ noteId, occurrence }: NoteSheetProps) {
       </SheetHeader>
       <SheetBody>
         {note ? (
-          <NoteSheetBody key={note.id} note={note} occurrence={occurrence} />
+          <NoteSheetBody key={note.id} note={note} occurrence={occurrence} created={created} />
         ) : query.isError || query.data ? (
           <Text tone="muted">
             {query.data || ipcErrorCode(query.error) === 'not_found'
@@ -126,11 +127,17 @@ function lowerFirst(text: string): string {
 }
 
 /** The sheet's body for a loaded note. */
-function NoteSheetBody({ note, occurrence }: { note: NoteListItem; occurrence?: string }) {
+function NoteSheetBody({
+  note,
+  occurrence,
+  created,
+}: {
+  note: NoteListItem;
+  occurrence?: string;
+  created: boolean;
+}) {
   const actions = useNoteActions();
   const { formatRelative } = useFormat('minute');
-  // a note just started (an event's "+ Add a note") takes the caret at once
-  const created = useRouterState({ select: (state) => state.location.state.newNote === true });
   return (
     <>
       {note.linkedEventId && (
@@ -156,6 +163,7 @@ function NoteSheetBody({ note, occurrence }: { note: NoteListItem; occurrence?: 
       <div className={styles.body}>
         <NoteEditor
           noteId={note.id}
+          // a note just started takes the caret at once
           onReady={created ? (editor: Editor) => editor.commands.focus('end') : undefined}
         />
       </div>

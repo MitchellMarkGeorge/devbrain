@@ -1,4 +1,4 @@
-import { useEffect, useRef, type FocusEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, type FocusEvent, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { Editor } from '@tiptap/react';
@@ -24,7 +24,7 @@ import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
 import { EntitySheet } from '@renderer/shared/components/EntitySheet';
-import { useSheet } from '@renderer/shared/hooks/use-sheet';
+import { useSheet, type SheetParams } from '@renderer/shared/hooks/use-sheet';
 import { noteRoute } from '../api/route-api';
 import { NOTE_PAGE_SHEET_KINDS } from '../api/search';
 import { useNoteActions } from '../hooks/use-note-actions';
@@ -75,7 +75,13 @@ function NotePageContent({ note }: { note: NoteListItem }) {
 
   // a task made from the note, in the sheet beside the page (?sheet=tsk_…)
   const search = noteRoute.useSearch();
-  const sheet = useSheet({ id: search.sheet, kinds: NOTE_PAGE_SHEET_KINDS });
+  const navigateHere = noteRoute.useNavigate();
+  const writeSheet = useCallback(
+    ({ sheet }: SheetParams<TaskId>, { replace }: { replace: boolean }) =>
+      void navigateHere({ search: (previous) => ({ ...previous, sheet }), replace }),
+    [navigateHere],
+  );
+  const sheet = useSheet({ id: search.sheet, kinds: NOTE_PAGE_SHEET_KINDS, write: writeSheet });
   const editor = useRef<Editor | null>(null);
 
   // a note just created opens with its empty title focused, to name it
