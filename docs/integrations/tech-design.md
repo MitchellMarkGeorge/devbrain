@@ -341,7 +341,7 @@ New table `calendars`: one per calendar events belong to.
 | `visible`                | boolean   | Shown in the calendar view; hiding syncs and removes nothing                |
 | `createdAt`, `updatedAt` | timestamp |                                                                             |
 
-Unique on (`sourceId`, `externalId`). Each calendar is one FullCalendar event source with its own colour.
+Unique on (`sourceId`, `externalId`). Each calendar colours its events in the calendar view, read one calendar at a time.
 
 Changes to `events`:
 

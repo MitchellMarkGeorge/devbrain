@@ -1,17 +1,17 @@
-import type { QueryClient } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import type { CalendarId } from '@common/ids';
 import type { TaskListItem } from '@common/types';
-import { trpc } from '@renderer/ipc';
+import { ipc, trpc } from '@renderer/ipc';
 import type { DayRange } from '../lib/range';
 
-// The calendar page's reads, as React Query options, so the route's loader, FullCalendar's event
-// sources and the agenda share one cache entry per range, which the query invalidator keeps fresh.
+// The calendar page's reads, as React Query options, so the route's loader, the grid and the
+// agenda share one cache entry per range, which the query invalidator keeps fresh.
 
 /**
- * One calendar's events over a range: what its FullCalendar event source reads. Never stale by
- * time (FullCalendar asks again only when the range changes or the data did), but invalidated, and
- * so fetched again, when core reports an `event` or `calendar` change.
+ * One calendar's events over a range: what the grid reads for each visible calendar
+ * (`useCalendarItems`). Never stale by time, but invalidated, and so fetched again while the grid
+ * shows it, when core reports an `event` or `calendar` change.
  */
 export function calendarEventsQuery(calendarId: CalendarId, range: DayRange) {
   return {
@@ -22,21 +22,6 @@ export function calendarEventsQuery(calendarId: CalendarId, range: DayRange) {
     }),
     staleTime: Infinity,
   };
-}
-
-/** Whether a cached query is one of `calendarEventsQuery`'s. */
-export function isCalendarEventsKey(queryKey: readonly unknown[]): boolean {
-  const [path] = queryKey;
-  return Array.isArray(path) && path[0] === 'events' && path[1] === 'listForCalendar';
-}
-
-/** Reads a calendar's events for FullCalendar: the cached ones while fresh, else a fetch. */
-export function readCalendarEvents(
-  queryClient: QueryClient,
-  calendarId: CalendarId,
-  range: DayRange,
-) {
-  return queryClient.query(calendarEventsQuery(calendarId, range));
 }
 
 /** Today and tomorrow, from local midnight: the agenda's days. */
@@ -60,44 +45,35 @@ export function tasksDueQuery(day: Date) {
   });
 }
 
-/**
- * A page of the tasks due in a range, by due date: what the grid's tasks source reads. Like
- * `calendarEventsQuery`, never stale by time, and fetched again when core reports a change the
- * task list shows.
- */
-export function tasksDueBetweenQuery(range: DayRange, cursor?: string) {
-  return {
-    ...trpc.tasks.list.queryOptions({
-      // `dueAfter` is exclusive: a task due at the range's first midnight is in it
-      filter: { dueAfter: new Date(range.start.getTime() - 1), dueBefore: range.end },
-      sort: { sortBy: 'dueDate', direction: 'asc' },
-      limit: TASKS_DUE_PAGE,
-      ...(cursor !== undefined && { cursor }),
-    }),
-    staleTime: Infinity,
-  };
-}
-
 // core's largest page
 const TASKS_DUE_PAGE = 200;
 
-/** Whether a cached query is a read of the task list, as `tasksDueBetweenQuery`'s are. */
-export function isTaskListKey(queryKey: readonly unknown[]): boolean {
-  const [path] = queryKey;
-  return Array.isArray(path) && path[0] === 'tasks' && path[1] === 'list';
-}
-
-/** Reads every task due in a range for FullCalendar, page by page: cached pages while fresh. */
-export async function readTasksDue(
-  queryClient: QueryClient,
-  range: DayRange,
-): Promise<TaskListItem[]> {
-  const tasks: TaskListItem[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await queryClient.query(tasksDueBetweenQuery(range, cursor));
-    tasks.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor !== undefined);
-  return tasks;
+/**
+ * Every task due in a range, by due date: what the grid reads when it shows tasks. `tasks.list`
+ * page after page as one query (a range with more than a page is rare), as the tasks page's
+ * `groupTasksQuery` is: a plain query, so the grid holds it in one `useQueries` with the
+ * calendars'. Its key starts with `tasks.list`'s, so a change the task list shows refetches it.
+ * Like `calendarEventsQuery`, never stale by time.
+ */
+export function tasksDueBetweenQuery(range: DayRange) {
+  const input = {
+    // `dueAfter` is exclusive: a task due at the range's first midnight is in it
+    filter: { dueAfter: new Date(range.start.getTime() - 1), dueBefore: range.end },
+    sort: { sortBy: 'dueDate' as const, direction: 'asc' as const },
+    limit: TASKS_DUE_PAGE,
+  };
+  return queryOptions({
+    queryKey: [...trpc.tasks.list.queryKey(input), { pages: 'all' }],
+    queryFn: async (): Promise<TaskListItem[]> => {
+      const tasks: TaskListItem[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await ipc.tasks.list.query({ ...input, cursor });
+        tasks.push(...page.items);
+        cursor = page.nextCursor;
+      } while (cursor !== null);
+      return tasks;
+    },
+    staleTime: Infinity,
+  });
 }

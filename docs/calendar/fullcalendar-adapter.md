@@ -1,6 +1,6 @@
 # FullCalendar adapter
 
-How the calendar view turns the events `EventService.listForCalendar` returns into FullCalendar event input. The event model (feature 16b, see [the tech design](../integrations/tech-design.md)) stores events in the shape this needs. The adapter is `src/renderer/shared/lib/calendar`: `toEventInput(event, calendar)` and `toEventSource(calendar, load)` in `event-input.ts`, and the rule string in `recurrence.ts`, tested in `src/renderer/tests/shared/calendar`. Reading a rule and expanding it (`seriesRule`, `occurrenceStarts`, `occurrencesBetween`) is `src/common/recurrence.ts`, which core's occurrence edits use too, so core accepts exactly the occurrences the calendar draws. `CalendarView` ([its guide](../design-system/components/CalendarView.md)) draws the result.
+How the calendar view turns the events `EventService.listForCalendar` returns into FullCalendar event input. The event model (feature 16b, see [the tech design](../integrations/tech-design.md)) stores events in the shape this needs. The adapter is `src/renderer/shared/lib/calendar`: `toEventInput(event, calendar)` in `event-input.ts`, and the rule string in `recurrence.ts`, tested in `src/renderer/tests/shared/calendar`. Reading a rule and expanding it (`seriesRule`, `occurrenceStarts`, `occurrencesBetween`) is `src/common/recurrence.ts`, which core's occurrence edits use too, so core accepts exactly the occurrences the calendar draws. `CalendarView` ([its guide](../design-system/components/CalendarView.md)) draws the result.
 
 FullCalendar is 7.1.3, pinned: `@fullcalendar/react` (which has the `timegrid`, `daygrid` and `interaction` plugins under subpaths, and is built on `@full-ui/headless-calendar` and `temporal-polyfill` 1.0.6) and `@fullcalendar/rrule`. 7.1.3 rather than the newest 7.1.4, which, with the polyfill version it requires, was two days old when this was written; move up once they have settled. The v6 packages (`@fullcalendar/core` as a calendar, `timegrid`, `daygrid`, `interaction`, `luxon3`) are not used: v7 has no separate view or Luxon plugins, and `@fullcalendar/core` is now types only.
 
@@ -85,7 +85,7 @@ A timed line is the instant's local time in the series' zone (`timeZone`, or the
 ### On every event
 
 - **No `undefined` values.** FullCalendar refines every key the input has, so `groupId: undefined` becomes the group `"undefined"`, shared by every one-off event, and `color: undefined` the colour `"undefined"`. A property without a value is left out.
-- **Colour**: one FullCalendar event source per visible calendar, coloured by `calendar.color` (`toEventSource`). An event sets `color` only when `e.color` is a valid colour other than its calendar's.
+- **Colour**: `color` is `e.color` when that is a valid colour, else `calendar.color` when that is; with neither it is left out and the theme's colour shows. Every event carries its own, since they all reach FullCalendar as one array.
 - **`editable: false` for a synced event** (`e.external`); a local one leaves it to the calendar's `editable`, which is off until dragging is designed (an event's `editable: true` would override it).
 - **Display hints in `extendedProps`**, which `CalendarView` reads and turns into its own classes: `kind` (`'focus'`, `'out-of-office'` or `'event'`), `tentative` (`status` tentative or `response` tentative), `declined` (`response` declined: dimmed) and `meeting` (a `meetingUrl`). Out of office is drawn as a neutral chip all-day and as focus time when timed, not as a background event.
 - **`extendedProps`** also carry what a click needs: `calendarId`, `external` (provider and URL), `seriesId`, `originalStartAt`, `response` and `recurring` (a series master, whose clicked start is the occurrence's).
@@ -97,15 +97,22 @@ A timed line is the instant's local time in the series' zone (`timeZone`, or the
 
 ## Fetching
 
-Each calendar source's `events(info)` function calls `listForCalendar(info.start, info.end, { calendarIds: [calendar.id] })` over IPC and maps the result; `toEventSource(calendar, load)` builds the source around such a `load`. Series are fetched loosely (any that started before the range ends); rrule.js decides which occurrences fall in view, and a series that has ended yields none.
+The page loads what it draws, and FullCalendar fetches nothing: `useCalendarItems` (`src/renderer/features/calendar/hooks`) reads `listForCalendar(start, end, { calendarIds: [calendar.id] })` for each visible calendar in one `useQueries`, maps the rows with `toEventInput`, and `CalendarView` hands FullCalendar the lot as its `events` array. Series are fetched loosely (any that started before the range ends); rrule.js decides which occurrences fall in view, and a series that has ended yields none.
+
+- **The range** is `visibleRange(view, date, options)` (`features/calendar/lib/range.ts`): the days FullCalendar shows for the URL's view and date, to the instant. A test compares the two, also in zones where a day has no midnight (the clocks go forward at 00:00, so the day starts at 01:00).
+- **Freshness** is the query invalidator's, as on any page: the grid's queries have an observer, so a change core reports to a route they read refetches them. (FullCalendar's event source functions were used before: nothing observed their reads, which React Query then dropped after five minutes, and a change after that reached nothing.)
+- **One change of the grid per change.** Every query refetches and each answers on its own; the hook keeps the array it returned until the last has. A step, or a calendar hidden or recoloured, is drawn at once.
+- **A range not read before** is stood in for by the one shown before it (`placeholderData`), whose series FullCalendar repeats into the new range, until its own rows arrive. The ranges either side are prefetched, and the loader starts the first.
+- **The same objects for the same rows.** FullCalendar compares `events` item by item, so the input made for a query's rows is kept while the query holds them. Given a changed array it resets its one source in place (`RESET_RAW_EVENTS`), keeping an event's element by its `id`; a series' occurrences are expanded, and drawn, again. This holds only while `events` is the one source: never pass `eventSources` beside it.
+- **Loading**: a strip of skeleton once any of the reads has lasted 150ms.
 
 ## Tasks
 
 A task with a due date is drawn on that day, beside the events, when the workspace's `calendar.showTasks` is on (the Filter menu's **Tasks**). It is one of the workspace's own settings, in its manifest (`workspace.setSetting`), not the settings file: each workspace has its own, and it is on until unticked. Tasks are not events: nothing is stored for them, and they have no calendar.
 
-- **One more source**, after the calendars' (`toTaskSource`, id `tasks`). Its `events(info)` reads `tasks.list` with `dueAfter`/`dueBefore` around `info.start` and `info.end`, by due date, every page (`readTasksDue`). Completed and cancelled tasks are included; archived ones never are.
+- **One more query**, beside the calendars' (`tasksDueBetweenQuery`): `tasks.list` with `dueAfter`/`dueBefore` around the range, by due date, every page in the one query (as the tasks page's `groupTasksQuery` pages). Its inputs follow the events' in the array. Completed and cancelled tasks are included; archived ones never are.
 - **`toTaskInput`**: `id` the task's (`tsk_…`, which is how a click tells a task from an event and opens the task sheet), `allDay: true`, `start` the local day the due date falls on as text, `editable: false`, and `extendedProps` `{ kind: 'task', status }`. No colour: `CalendarView` draws the status icon in place of the bar.
-- **Freshness**: the reads are `tasks.list` queries, so the query invalidator refetches them on any change the task list shows, and the page then calls `refetchEvents()` as it does for the calendars' reads.
+- **Freshness**: the query's key starts with `tasks.list`'s, so the query invalidator refetches it on any change the task list shows.
 - **Start date** is not drawn: a task is on its due day only.
 
 ## Example

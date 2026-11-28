@@ -3,7 +3,7 @@ import type { AppSettings } from '@common/types';
 import type { CalendarViewParam } from '../api/search';
 
 // The calendar's ranges, from the URL's view and date and the settings: what FullCalendar shows for
-// them (and so asks its event sources for), the neighbouring ranges the page prefetches, and where
+// them (and so what the page reads), the neighbouring ranges the page prefetches, and where
 // ‹ and › go. In local time, as FullCalendar's `timeZone: 'local'` is.
 
 export interface CalendarRangeOptions {
@@ -52,7 +52,7 @@ export function startOfWeek(date: Date, firstDay: 0 | 1): DateTime {
 const isWeekend = (day: DateTime) => day.weekday >= 6;
 
 /**
- * The days FullCalendar shows (its `activeRange`), which its event sources are asked for: the
+ * The days FullCalendar shows (its `activeRange`), which the page reads the events and tasks of: the
  * week or day, or the month's weeks from the one with the 1st to the one with its last day
  * (`fixedWeekCount` off). Hidden weekends are trimmed off either end, as FullCalendar does. Both
  * ends are the start of a day, to the instant FullCalendar uses (a test checks the two agree,
@@ -75,8 +75,8 @@ export function visibleRange(
   } else {
     // the month's first and last days shown: a week whose only days in the month are hidden
     // weekends is left out
-    let first = day.startOf('month');
-    let last = day.endOf('month').startOf('day');
+    let first: DateTime = day.startOf('month');
+    let last: DateTime = day.endOf('month').startOf('day');
     while (hideWeekends && isWeekend(first)) first = startOfDay(first, 1);
     while (hideWeekends && isWeekend(last)) last = startOfDay(last, -1);
     start = startOfWeek(first.toJSDate(), firstDay);

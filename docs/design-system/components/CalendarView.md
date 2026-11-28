@@ -4,7 +4,7 @@ The calendar's week, day and month views: [FullCalendar](https://fullcalendar.io
 (`@fullcalendar/react` with its `timegrid`, `daygrid` and `interaction` plugins, and
 `@fullcalendar/rrule`), themed to the design system and
 drawing its events with `EventBlock` and `AllDayEvent`. It replaces the hand-made `TimeGrid` and
-`MonthGrid`, whose look it keeps. Presentational: the page passes event sources and callbacks and
+`MonthGrid`, whose look it keeps. Presentational: the page passes the events and callbacks and
 drives `view` and `date`; FullCalendar's own header toolbar is off.
 
 ## Week and day
@@ -77,14 +77,21 @@ Events are focusable and open on Enter when `onEventClick` is set.
 ## Props
 
 `view` (`'week' | 'day' | 'month'`), `date` (a day in the range; later changes call
-`changeView`), `eventSources` (FullCalendar `EventSourceInput[]`), `firstDay` (1 Monday, 0 Sunday,
+`changeView`, in the commit that brought the range's `events`), `events` (FullCalendar
+`EventInput[]`: every event and task that may occur in the range, each with its own `color`; see
+below), `firstDay` (1 Monday, 0 Sunday,
 from `firstDayOfWeek`), `timeFormat` (`'12' | '24'`: "9:00 – 10:00 AM" or "09:00 – 10:00", hour
 labels "8 AM" or "08:00"), `hideWeekends` (FullCalendar's `weekends: false`), `now`, `startHour`/
 `endHour` (0–24), `scrollToHour` (8), `maxEvents` (3), `selectedEventId`, `allDayLabel`,
 `onEventClick(event, info)` (the occurrence clicked: its `id`, `groupId`, `start` as drawn,
 `end`, `allDay` and `props`), `onSelect({ start, end, allDay })` (a drag on empty grid, or a click,
-which selects one 15-minute slot or one day; selecting is off without it), `onDayClick(day)`,
-`onLoading(loading)`. The ref's `getApi()` returns FullCalendar's API, for `refetchEvents()`.
+which selects one 15-minute slot or one day; selecting is off without it), `onDayClick(day)`.
+
+`events` is the one way events reach FullCalendar: the component loads nothing, and takes no
+`eventSources`. FullCalendar compares the array item by item: the same objects are no change, and
+for a changed array it keeps each event's element by its `id` and draws the rest again (a series'
+occurrences are always drawn again). So keep the input object of an event that did not change, as
+the page's `useCalendarItems` does.
 
 `calendarEventInput(event)` turns a `CalendarEvent` (the shape the stories and screens use) into
 FullCalendar input.

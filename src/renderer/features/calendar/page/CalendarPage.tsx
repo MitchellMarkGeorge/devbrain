@@ -11,7 +11,6 @@ import {
   useFormat,
   useWorkspaceShell,
   type CalendarViewEvent,
-  type CalendarViewHandle,
   type CalendarViewSelection,
   Page,
   PageToolbar,
@@ -30,12 +29,12 @@ import {
   headerLayout,
 } from '../components/header/CalendarHeader';
 import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
-import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
+import { neighbouringRanges, rangeOptionsOf, stepDate, visibleRange } from '../lib/range';
 import { openEventSearch, type CalendarSearch } from '../api/search';
 import { EventSheet } from '../components/sheet/EventSheet';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
 import { calendarRoute } from '../api/route-api';
-import { useDelayedLoading, useEventSources, usePrefetchRanges } from '../hooks/use-event-sources';
+import { useCalendarItems, usePrefetchRanges } from '../hooks/use-calendar-items';
 import styles from './CalendarPage.module.css';
 
 type SheetItem = Pick<CalendarSearch, 'open' | 'occurrence'>;
@@ -63,7 +62,6 @@ export function CalendarPage() {
   const calendars = useSuspenseQuery(trpc.calendars.list.queryOptions()).data;
   const { size } = useWorkspaceShell();
   const { now } = useFormat('minute');
-  const view = useRef<CalendarViewHandle>(null);
   // the toolbar steps down as it narrows (beside the sidebar and the sheet)
   const toolbar = useRef<HTMLDivElement>(null);
   const layout = headerLayout(useWidth(toolbar));
@@ -72,13 +70,16 @@ export function CalendarPage() {
   // the workspace's own setting (the Filter's "Tasks"), on until it is unticked
   const workspace = useSuspenseQuery(trpc.workspaces.current.queryOptions()).data;
   const showTasks = workspace?.settings.calendar.showTasks ?? true;
-  const sources = useEventSources(calendars, view, showTasks);
+  const { events, loading } = useCalendarItems(
+    calendars,
+    visibleRange(resolved.view, resolved.date, options),
+    showTasks,
+  );
   usePrefetchRanges(
     calendars,
     neighbouringRanges(resolved.view, resolved.date, options),
     showTasks,
   );
-  const [loading, onLoading] = useDelayedLoading();
   const duration = defaultDurationMinutes(settings);
 
   // An item in the sheet is a history entry of its own, as on the tasks board: Back returns to the
@@ -185,10 +186,9 @@ export function CalendarPage() {
             </div>
           )}
           <CalendarView
-            ref={view}
             view={resolved.view}
             date={resolved.date}
-            eventSources={sources}
+            events={events}
             firstDay={options.firstDay}
             hideWeekends={options.hideWeekends}
             timeFormat={settings.general.timeFormat}
@@ -198,7 +198,6 @@ export function CalendarPage() {
               createEvent(draftFromSelection(selection, duration))
             }
             onDayClick={(day) => goTo(day, { view: 'day' })}
-            onLoading={onLoading}
           />
         </div>
         {size === 'wide' && !sheetOpen && (
