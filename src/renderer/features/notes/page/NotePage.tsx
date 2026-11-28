@@ -24,6 +24,7 @@ import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { useSheet } from '@renderer/shared/hooks/use-sheet';
 import { noteRoute } from '../api/route-api';
+import { NOTE_PAGE_SHEET_KINDS } from '../api/search';
 import { useNoteActions } from '../hooks/use-note-actions';
 import { NoteDetailMenu } from '../components/detail/NoteDetailMenu';
 import { NoteEditor } from '../components/detail/NoteEditor';
@@ -71,7 +72,8 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   const trashed = note.archivedAt !== null;
 
   // a task made from the note, in the sheet beside the page (?sheet=tsk_…)
-  const sheet = useSheet();
+  const search = noteRoute.useSearch();
+  const sheet = useSheet({ id: search.sheet, kinds: NOTE_PAGE_SHEET_KINDS });
   const editor = useRef<Editor | null>(null);
 
   // a note just created opens with its empty title focused, to name it

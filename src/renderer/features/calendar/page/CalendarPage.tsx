@@ -30,7 +30,7 @@ import {
 } from '../components/header/CalendarHeader';
 import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
 import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
-import { openEventSearch, type CalendarSearch } from '../api/search';
+import { CALENDAR_SHEET_KINDS, openEventSearch, type CalendarSearch } from '../api/search';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
 import { useDelayedLoading, useEventSources, usePrefetchRanges } from '../hooks/use-event-sources';
 import styles from './CalendarPage.module.css';
@@ -68,7 +68,11 @@ export function CalendarPage() {
   const duration = defaultDurationMinutes(settings);
 
   // the sheet: each item shown in it is a history entry of its own, and so is closing it
-  const sheet = useSheet();
+  const sheet = useSheet({
+    id: resolved.sheet,
+    occurrence: resolved.occurrence,
+    kinds: CALENDAR_SHEET_KINDS,
+  });
   const showInSheet = sheet.show;
   const openEvent = useCallback(
     (id: EventId, occurrence?: Date) => showInSheet(id, { occurrence: occurrence?.toISOString() }),
@@ -143,7 +147,7 @@ export function CalendarPage() {
             firstDay={options.firstDay}
             hideWeekends={options.hideWeekends}
             timeFormat={settings.general.timeFormat}
-            selectedEventId={sheet.id}
+            selectedEventId={resolved.sheet}
             onEventClick={onEventClick}
             onSelect={(selection: CalendarViewSelection) =>
               createEvent(draftFromSelection(selection, duration))

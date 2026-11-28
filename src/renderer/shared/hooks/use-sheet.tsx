@@ -1,21 +1,26 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { useMatches, useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { EntitySheet } from '../components/EntitySheet';
-import { sheetKindOf, sheetKindsOf, type SheetId } from '../lib/sheet';
+import { sheetKindOf, type SheetId, type SheetKind } from '../lib/sheet';
 import type { SheetItem, SheetNavigation, ShowSheetOptions } from './use-sheet-navigation';
 
-export interface UseSheetOptions {
+/** What a page tells `useSheet`: its sheet's params, as its own route's schema read them. */
+export interface UseSheetOptions<I extends SheetId> {
   /**
-   * False while the page is in a state with no sheet (the tasks views off the board): the param is
-   * not read, so no sheet shows whatever the URL says.
+   * The route's `sheet` param: the item to show. Undefined in a state of the page with no sheet,
+   * whatever the URL says (the tasks views off the board).
    */
-  enabled?: boolean;
+  id: I | undefined;
+  /** the calendar's `occurrence` param: the occurrence of a repeating event that was opened */
+  occurrence?: string;
+  /** the kinds the page's sheet shows: the list its schema gave `sheetParam` */
+  kinds: readonly SheetKind[];
 }
 
 /** A page's sheet: how the page opens an item in it, and the sheet itself to draw. */
-export interface PageSheet extends SheetNavigation {
-  /** the item the URL names, when the page shows it */
-  id: SheetId | undefined;
+export interface PageSheet<I extends SheetId = SheetId> extends SheetNavigation {
+  /** the item the URL names */
+  id: I | undefined;
   /** whether the sheet is open (it may still be drawn, sliding out, when not) */
   open: boolean;
   /** The sheet, to draw in the page: `{sheet.render()}`. Nothing while there is none. */
@@ -23,32 +28,29 @@ export interface PageSheet extends SheetNavigation {
 }
 
 /**
- * The sheet beside a page, driven by the URL's `sheet` param: all a page with a sheet needs.
+ * The sheet beside a page. The page owns its search params, so it says what its sheet holds (the
+ * `sheet` param its schema read, and the kinds that schema takes); the hook does the rest.
  *
  * ```tsx
- * const sheet = useSheet();
+ * const search = taskRoute.useSearch();
+ * const sheet = useSheet({ id: search.sheet, kinds: TASK_PAGE_SHEET_KINDS });
  * …
- * <Card onClick={() => sheet.show(task.id)} />
+ * <Card onClick={() => sheet.show(note.id)} />
  * {sheet.render()}
  * ```
  *
- * The page's route says which kinds of item its sheet shows (`SHEET_KINDS_BY_ROUTE`), and the
- * sheet draws the content of the item's kind, so a page names no sheet component. Every page
- * behaves alike: showing an item pushes a history entry, another item pushes another, and closing
- * (×, Esc, a click outside a floating sheet) pushes one without the param. Back therefore undoes
- * each step, a close included, however the sheet was opened; nothing is kept in the history's
- * state. The page's other params are left as they are.
+ * `render()` draws the sheet with the content of the item's kind, so a page names no sheet
+ * component. Every page behaves alike: showing an item pushes a history entry, another item pushes
+ * another, and closing (×, Esc, a click outside a floating sheet) pushes one without the param.
+ * Back therefore undoes each step, a close included, however the sheet was opened; nothing is kept
+ * in the history's state. The page's other params are left as they are.
  */
-export function useSheet({ enabled = true }: UseSheetOptions = {}): PageSheet {
+export function useSheet<I extends SheetId>({
+  id,
+  occurrence,
+  kinds,
+}: UseSheetOptions<I>): PageSheet<I> {
   const navigate = useNavigate();
-  // the page's route: the innermost one matched
-  const routeId = useMatches({ select: (matches) => matches[matches.length - 1]?.routeId });
-  const kinds = sheetKindsOf(routeId);
-  // as the page's own schema read them: an id of a kind it doesn't show is already gone
-  const search = useSearch({ strict: false });
-  const id = enabled ? search.sheet : undefined;
-  // the occurrence an event, or its note, is of; a task has none
-  const occurrence = id && sheetKindOf(id) !== 'task' ? search.occurrence : undefined;
 
   // the item stays mounted once `sheet` leaves the URL, until its sheet has slid out
   const [shown, setShown] = useState<SheetItem | undefined>(() =>

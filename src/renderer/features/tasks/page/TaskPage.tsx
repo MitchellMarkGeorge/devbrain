@@ -22,6 +22,7 @@ import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '../api/queries';
 import { useSheet } from '@renderer/shared/hooks/use-sheet';
 import { taskRoute } from '../api/route-api';
+import { TASK_PAGE_SHEET_KINDS } from '../api/search';
 import { TaskDetailMenu } from '../components/detail/TaskDetailMenu';
 import { TaskNoteSection } from '../components/sections/TaskNoteSection';
 import { TaskDescription } from '../components/sections/TaskDescription';
@@ -69,7 +70,8 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   const trashed = task.archivedAt !== null;
 
   // the task note in the sheet beside the page (?sheet=nte_…)
-  const sheet = useSheet();
+  const search = taskRoute.useSearch();
+  const sheet = useSheet({ id: search.sheet, kinds: TASK_PAGE_SHEET_KINDS });
 
   const parentQuery = useQuery({
     ...trpc.tasks.get.queryOptions({ id: task.parentTaskId! }),

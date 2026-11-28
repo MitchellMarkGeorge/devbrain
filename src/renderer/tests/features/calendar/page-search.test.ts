@@ -90,6 +90,17 @@ describe('the search schema', () => {
     // the params sheets had before `sheet`: an older link or saved last page opens with no sheet
     expect(calendarSearchSchema.parse({ sheet: 'note', open: 'evt_standup' })).toEqual({});
   });
+
+  it('reads the occurrence with an event or its note in the sheet, not with a task', () => {
+    const occurrence = '2026-06-24T13:00:00.000Z';
+    const today = new Date(2026, 5, 24);
+    const resolve = (sheet: string | undefined) =>
+      resolveCalendarSearch({ sheet: sheet as never, occurrence }, SETTINGS, today).occurrence;
+    expect(resolve('evt_standup')).toBe(occurrence);
+    expect(resolve('nte_review')).toBe(occurrence);
+    expect(resolve('tsk_guide')).toBeUndefined();
+    expect(resolve(undefined)).toBeUndefined();
+  });
 });
 
 const MONDAY: CalendarRangeOptions = { firstDay: 1, hideWeekends: false };

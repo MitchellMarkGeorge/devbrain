@@ -3,7 +3,7 @@ import { useSheet } from '@renderer/shared/hooks/use-sheet';
 import { TasksBoard } from './board/TasksBoard';
 import { TasksGroups } from './group/TasksGroups';
 import { TasksList } from './list/TasksList';
-import { CLEAR_FILTERS } from '../../api/search';
+import { CLEAR_FILTERS, TASKS_SHEET_KINDS } from '../../api/search';
 import { TasksToolbarEnd, TasksToolbarStart } from './TasksToolbar';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
 
@@ -23,8 +23,8 @@ export interface TasksViewProps {
  */
 export function TasksView({ showProjectPill = true }: TasksViewProps) {
   const { search, resolved, setSearch } = useTasksSearch();
-  // a card opens in the sheet beside the board; the list and the group view have none
-  const sheet = useSheet({ enabled: resolved.view === 'board' });
+  // a card opens in the sheet beside the board (`resolved.sheet` is the board's alone)
+  const sheet = useSheet({ id: resolved.sheet, kinds: TASKS_SHEET_KINDS });
   return (
     <>
       <PageToolbar

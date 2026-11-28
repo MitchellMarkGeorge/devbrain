@@ -126,19 +126,20 @@ for pages.
 
 ## Sheets
 
-A page shows a task, a note or an event beside itself with `useSheet()`
-(`src/renderer/shared/hooks/use-sheet.tsx`): `sheet.show(id)` to open an item, `{sheet.render()}`
-to draw the sheet. It names no search param and no sheet component of its own.
-`docs/renderer/routing.md` ("Sheets") is the design note.
+A page shows a task, a note or an event beside itself with `useSheet`
+(`src/renderer/shared/hooks/use-sheet.tsx`). The page defines the params, as it does its others,
+and the hook does the rest. `docs/renderer/routing.md` ("Sheets") is the design note.
 
-- The URL's `sheet` param holds the item's id, and the prefix says its kind. Which pages have a
-  sheet, and the kinds each shows, is one table: `SHEET_KINDS_BY_ROUTE` (`shared/lib/sheet.ts`). A
-  new page with a sheet is a row there and `sheet: sheetParam('<its route>')` in its schema; don't
-  add another param for a sheet. The calendar's `occurrence` is the only companion.
+- The URL's `sheet` param holds the item's id, and the prefix says its kind. The route's schema
+  lists the kinds its page shows (`sheet: sheetParam(KINDS)`); don't add another param for a sheet.
+  The calendar's `occurrence` is the only companion.
+- The page gives the hook what its schema read, `useSheet({ id: search.sheet, kinds: KINDS })`,
+  opens an item with `sheet.show(id)` and draws `{sheet.render()}`. It imports no sheet component
+  and navigates nowhere itself.
 - Showing an item, showing another and closing each push a history entry. Never go Back to close
   one, and keep nothing about a sheet in the history's state.
-- A page that can't show a sheet doesn't read the param (its route isn't in the table, or it calls
-  `useSheet({ enabled: false })`); nothing navigates to remove it.
+- A page that can't show a sheet doesn't read the param (it is left out of the schema, or of what
+  the page resolves); nothing navigates to remove it.
 - A sheet's content (`TaskSheet`, `NoteSheet`, `EventSheet`) draws a `SheetHeader` and a
   `SheetBody`, loads its own data, and opens a linked item in the same sheet through
   `useSheetNavigation()`. The content for a kind is named once, in

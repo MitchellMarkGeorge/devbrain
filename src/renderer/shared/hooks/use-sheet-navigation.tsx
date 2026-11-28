@@ -20,7 +20,7 @@ export interface ShowSheetOptions {
 
 /** What a page, or a sheet's own content, may do with the page's sheet. */
 export interface SheetNavigation {
-  /** whether this page's sheet shows items of this id's kind (`SHEET_KINDS_BY_ROUTE`) */
+  /** whether this page's sheet shows items of this id's kind (the page lists them) */
   accepts: (id: SheetId) => boolean;
   /**
    * Shows an item in the sheet, as a history entry of its own. The item already shown adds none,
