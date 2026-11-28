@@ -9,8 +9,6 @@ import { SettingsSidebar } from './SettingsSidebar';
 import { useTransferCommands } from '@renderer/features/settings/hooks/use-transfers';
 import { useAppCommands } from './hooks/use-app-commands';
 import { useMenuCommands } from './hooks/use-menu-commands';
-import { SheetContentsProvider } from '@renderer/shared/hooks/use-sheet-navigation';
-import { SHEET_CONTENTS } from './sheet-contents';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
 import { PillCardsProvider } from '@renderer/shared/components/PillCards';
@@ -69,12 +67,9 @@ export function AppLayout() {
       onSearch={openSearch}
       create={<CreateMenu />}
     >
-      {/* what a page's sheet draws for a task, a note or an event (useSheet) */}
-      <SheetContentsProvider value={SHEET_CONTENTS}>
-        <PillCardsProvider>
-          <Outlet />
-        </PillCardsProvider>
-      </SheetContentsProvider>
+      <PillCardsProvider>
+        <Outlet />
+      </PillCardsProvider>
     </WorkspaceShell>
   );
 }

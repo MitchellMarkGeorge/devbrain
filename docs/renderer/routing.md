@@ -207,9 +207,7 @@ task's page, and on the calendar an event, a task due or an event's note.
   `render()` draws `EntitySheet` (`shared/components`), which docks the sheet in the shell's
   column or floats it in a compact window, keeps it mounted while it slides out, and draws the
   content of the item's kind: `TaskSheet`, `NoteSheet` or `EventSheet`, each a `SheetHeader` and
-  a `SheetBody` loading its own data. Those are the features' components, which `shared` doesn't
-  import, so the workspace layout gives them (`layouts/workspace/sheet-contents.tsx`,
-  `SheetContentsProvider`). Content shows another item in the same sheet with
+  a `SheetBody` loading its own data. Content shows another item in the same sheet with
   `useSheetNavigation()` (an event's linked task, its note, a note's "‹ Event"), asking
   `accepts(id)` first where the page may not show that kind.
 - **Everything is a history entry.** Showing an item pushes one; another item pushes another (the

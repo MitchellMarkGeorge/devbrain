@@ -1,8 +1,10 @@
 import { isId } from '@common/ids';
 import { Sheet, SheetContent, useWorkspaceShell } from '@renderer/components';
+import { EventSheet } from '@renderer/features/calendar/components/sheet/EventSheet';
+import { NoteSheet } from '@renderer/features/notes/components/sheet/NoteSheet';
+import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
 import {
   SheetNavigationProvider,
-  useSheetContents,
   type SheetItem,
   type SheetNavigation,
 } from '../hooks/use-sheet-navigation';
@@ -24,11 +26,13 @@ export interface EntitySheetProps {
  * windows, floating over the page in compact ones. One sheet stays open as its item changes, so
  * moving from an event to its note swaps the content rather than sliding a second sheet in. ×,
  * Esc and a click outside a floating sheet all close it the same way, and it stays mounted until
- * it has slid out. The content is the item's kind's (`SheetContents`).
+ * it has slid out.
+ *
+ * This is the one place that names the sheets' components: the content is picked here by the
+ * id's prefix. It is why this file, alone in `shared`, imports from the features.
  */
 export function EntitySheet({ item, open, navigation, onClosed }: EntitySheetProps) {
   const { size, sheetContainer } = useWorkspaceShell();
-  const contents = useSheetContents();
   const floating = size === 'compact';
   if (!item) return null;
   // on a first render the shell hasn't mounted its column yet: the sheet joins it a moment later
@@ -50,13 +54,13 @@ export function EntitySheet({ item, open, navigation, onClosed }: EntitySheetPro
           container={floating ? undefined : sheetContainer}
           data-testid={`${sheetKindOf(id)}-sheet`}
         >
-          {isId('task', id)
-            ? contents.task({ ...item, id })
-            : isId('note', id)
-              ? contents.note({ ...item, id })
-              : isId('event', id)
-                ? contents.event({ ...item, id })
-                : null}
+          {isId('task', id) ? (
+            <TaskSheet taskId={id} />
+          ) : isId('note', id) ? (
+            <NoteSheet noteId={id} occurrence={item.occurrence} created={item.created} />
+          ) : isId('event', id) ? (
+            <EventSheet eventId={id} occurrence={item.occurrence} />
+          ) : null}
         </SheetContent>
       </Sheet>
     </SheetNavigationProvider>

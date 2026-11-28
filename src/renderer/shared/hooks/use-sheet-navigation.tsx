@@ -1,5 +1,4 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { EventId, NoteId, TaskId } from '@common/ids';
 import type { SheetId } from '../lib/sheet';
 
 /** What a sheet shows: the item's id, and for one occurrence of a repeating event its start. */
@@ -54,33 +53,4 @@ export function useSheetNavigation(): SheetNavigation {
   const navigation = useContext(SheetNavigationContext);
   if (!navigation) throw new Error('useSheetNavigation needs a sheet around it (useSheet)');
   return navigation;
-}
-
-/**
- * What a sheet draws for each kind of item: its `SheetHeader` and `SheetBody`. The workspace
- * layout gives them (`layouts/workspace/sheet-contents.tsx`), as they are the features' own
- * components, which `shared` doesn't import.
- */
-export interface SheetContents {
-  task: (item: SheetItem<TaskId>) => ReactNode;
-  note: (item: SheetItem<NoteId>) => ReactNode;
-  event: (item: SheetItem<EventId>) => ReactNode;
-}
-
-const SheetContentsContext = createContext<SheetContents | null>(null);
-
-export function SheetContentsProvider({
-  value,
-  children,
-}: {
-  value: SheetContents;
-  children: ReactNode;
-}) {
-  return <SheetContentsContext.Provider value={value}>{children}</SheetContentsContext.Provider>;
-}
-
-export function useSheetContents(): SheetContents {
-  const contents = useContext(SheetContentsContext);
-  if (!contents) throw new Error('A sheet needs the workspace layout’s SheetContentsProvider');
-  return contents;
 }

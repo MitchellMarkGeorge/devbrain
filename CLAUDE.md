@@ -142,8 +142,8 @@ and the hook does the rest. `docs/renderer/routing.md` ("Sheets") is the design 
   the page resolves); nothing navigates to remove it.
 - A sheet's content (`TaskSheet`, `NoteSheet`, `EventSheet`) draws a `SheetHeader` and a
   `SheetBody`, loads its own data, and opens a linked item in the same sheet through
-  `useSheetNavigation()`. The content for a kind is named once, in
-  `layouts/workspace/sheet-contents.tsx`.
+  `useSheetNavigation()`. `EntitySheet` (`shared/components`) picks the content by the id's
+  prefix: a new kind of sheet is added there.
 - A change to how sheets behave is covered in `src/renderer/tests/routing` (×, Esc, Back after a
   close, another item, a link-opened sheet).
 
