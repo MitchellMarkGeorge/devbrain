@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient, noop } from '@tanstack/react-query';
 import type { EventInput } from '@fullcalendar/react';
 import type { Calendar, Event } from '@common/types';
@@ -48,12 +48,16 @@ export function useCalendarItems(
     placeholderData: () => queryClient.getQueryData(tasksDueBetweenQuery(before).queryKey),
   });
 
+  // a range's tasks may be cached from when they were shown; the same inputs while the query
+  // holds the same rows, as the events' are
+  const tasks = showTasks ? taskResult.data : undefined;
+  const taskItems = useMemo(() => toTaskInputs(tasks ?? []), [tasks]);
+
   const next = [
     ...visible.flatMap((calendar, index) =>
       eventInputs(eventResults[index].data ?? NO_EVENTS, calendar),
     ),
-    // a range's tasks may be cached from when they were shown
-    ...taskInputs((showTasks ? taskResult.data : undefined) ?? NO_TASKS),
+    ...taskItems,
   ];
   const results = showTasks ? [...eventResults, taskResult] : eventResults;
   // rows already drawn for this range are being read again (a change was reported)
@@ -70,14 +74,14 @@ export function useCalendarItems(
 }
 
 const NO_EVENTS: Event[] = [];
-const NO_TASKS: Parameters<typeof toTaskInputs>[0] = [];
 
 const sameRange = (a: DayRange, b: DayRange) =>
   a.start.getTime() === b.start.getTime() && a.end.getTime() === b.end.getTime();
 
-// The input made for a query's rows, kept while the query holds them: FullCalendar compares the
-// array it is given item by item, and a new object for an unchanged event would have it parse and
-// lay out every event again on each render.
+// The input made for a calendar's rows, kept while its query holds them: FullCalendar compares
+// the array it is given item by item, and a new object for an unchanged event would have it parse
+// and lay out every event again on each render. (The tasks' are a `useMemo`; the calendars vary
+// in number, which a hook's dependencies cannot.)
 const eventInputCache = new WeakMap<
   readonly Event[],
   { color: string | null; inputs: EventInput[] }
@@ -87,13 +91,6 @@ function eventInputs(events: readonly Event[], calendar: Calendar): EventInput[]
   if (cached && cached.color === calendar.color) return cached.inputs;
   const inputs = events.map((event) => toEventInput(event, calendar));
   eventInputCache.set(events, { color: calendar.color, inputs });
-  return inputs;
-}
-
-const taskInputCache = new WeakMap<Parameters<typeof toTaskInputs>[0], EventInput[]>();
-function taskInputs(tasks: Parameters<typeof toTaskInputs>[0]): EventInput[] {
-  let inputs = taskInputCache.get(tasks);
-  if (!inputs) taskInputCache.set(tasks, (inputs = toTaskInputs(tasks)));
   return inputs;
 }
 
