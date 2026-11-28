@@ -42,7 +42,8 @@ export function readCalendarEvents(
 /** Today and tomorrow, from local midnight: the agenda's days. */
 export function agendaRange(today: Date): DayRange {
   const start = DateTime.fromJSDate(today).startOf('day');
-  return { start: start.toJSDate(), end: start.plus({ days: 2 }).toJSDate() };
+  // each end the start of its own day: one need not start at midnight (see `visibleRange`)
+  return { start: start.toJSDate(), end: start.plus({ days: 2 }).startOf('day').toJSDate() };
 }
 
 /** The agenda's events: every visible calendar's, today and tomorrow. */
