@@ -337,7 +337,7 @@ describe('the calendar page', () => {
     await eventually(() => expect(menu()).not.toBeNull());
     click(byText(menu()!, '[role="menuitemcheckbox"]', 'Tasks'));
     await eventually(() =>
-      expect(main.callsTo('workspace.setState').map((call) => call.input)).toEqual([
+      expect(main.callsTo('workspace.setSetting').map((call) => call.input)).toEqual([
         { path: 'calendar.showTasks', value: false },
       ]),
     );

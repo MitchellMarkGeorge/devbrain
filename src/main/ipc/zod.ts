@@ -40,7 +40,7 @@ function pathSchemas(schema: z.ZodObject, prefix: string): [string, z.ZodType][]
 
 /**
  * The input of a route that writes one value by its dot path (`settings.set`,
- * `workspace.setState`): `{ path, value }`, where the path picks the part of `schema` the value is
+ * `workspace.setSetting`): `{ path, value }`, where the path picks the part of `schema` the value is
  * checked against, and a path outside it is refused. `Update` is the union of each path with its
  * value's type, which the caller builds from the schema's type.
  */

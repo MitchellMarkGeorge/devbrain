@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import type { z } from 'zod';
 import type { WorkspaceId } from '@common/ids';
-import { defaultWorkspaceState, type WorkspaceInfo } from '@common/types';
+import { defaultWorkspaceSettings, type WorkspaceInfo } from '@common/types';
 import { workspaceRegistrySchema, type registryEntrySchema } from './schema';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
@@ -50,7 +50,7 @@ export function describeWorkspace(entry: RegistryEntry): WorkspaceInfo {
     createdAt: own?.createdAt ?? entry.createdAt ?? databaseCreatedAt(entry.path),
     lastOpenedAt: entry.lastOpenedAt,
     lastPage: own?.lastPage ?? null,
-    state: own?.state ?? defaultWorkspaceState(),
+    settings: own?.settings ?? defaultWorkspaceSettings(),
   };
 }
 
@@ -104,7 +104,7 @@ export function moveDetailsToManifests(
           color,
           createdAt,
           lastPage: null,
-          state: defaultWorkspaceState(),
+          settings: defaultWorkspaceSettings(),
         });
       }
     } catch (error) {

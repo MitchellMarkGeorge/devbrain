@@ -5,17 +5,17 @@ import { isId, type WorkspaceId } from '@common/ids';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
 import {
-  defaultWorkspaceState,
+  defaultWorkspaceSettings,
   lastPageSchema,
-  workspaceStateSchema,
+  workspaceSettingsSchema,
   type WorkspaceInfo,
-  type WorkspaceState,
+  type WorkspaceSettings,
 } from '@common/types';
 import { withDefaults } from '../settings/defaults';
 
 // What a workspace says about itself, kept in its folder: its id, name, colour, creation time, the
-// page the app was on when it last closed, and its `state` (what the app remembers for it, such as
-// whether the calendar shows tasks). One file for everything that is the workspace's own, as the
+// page the app was on when it last closed, and its own `settings` (such as whether the calendar
+// shows tasks). One file for everything that is the workspace's own, as the
 // DevBrain folder's settings.json is for what every workspace shares.
 // This is the only place they are stored, so they move with the folder to another computer
 // (WorkspaceService.import), and a lost workspaces.json, which keeps only where each folder is
@@ -34,23 +34,23 @@ const manifestSchema = z.object({
   // added after version 1, so optional; an older DevBrain drops it when it rewrites the manifest.
   // A bad value is dropped alone, never the manifest with the name and colour
   lastPage: lastPageSchema.nullable().optional().catch(null),
-  // added after version 1 too, and read by `stateOf`
-  state: z.unknown().optional(),
+  // added after version 1 too, and read by `settingsOf`
+  settings: z.unknown().optional(),
 });
 
 export type WorkspaceManifest = Pick<
   WorkspaceInfo,
-  'id' | 'name' | 'color' | 'createdAt' | 'lastPage' | 'state'
+  'id' | 'name' | 'color' | 'createdAt' | 'lastPage' | 'settings'
 >;
 
 /**
- * The state a manifest holds: every value it lacks is the default (a manifest written before the
+ * The settings a manifest holds: every value it lacks is the default (a manifest written before the
  * value was added), and one with a wrong value is the defaults whole, never the manifest with the
  * name and colour.
  */
-function stateOf(stored: unknown): WorkspaceState {
-  const defaults = defaultWorkspaceState();
-  const parsed = workspaceStateSchema.safeParse(withDefaults(stored, defaults));
+function settingsOf(stored: unknown): WorkspaceSettings {
+  const defaults = defaultWorkspaceSettings();
+  const parsed = workspaceSettingsSchema.safeParse(withDefaults(stored, defaults));
   return parsed.success ? parsed.data : defaults;
 }
 
@@ -62,7 +62,7 @@ function toManifestJson(info: WorkspaceManifest): string {
     color: info.color,
     createdAt: info.createdAt,
     lastPage: info.lastPage,
-    state: info.state,
+    settings: info.settings,
   };
   return JSON.stringify(manifest, null, 2);
 }
@@ -97,13 +97,13 @@ export function readManifest(folder: string): WorkspaceManifest | null {
   }
   const parsed = manifestSchema.safeParse(json);
   if (!parsed.success) return null;
-  const { id, name, color, createdAt, lastPage, state } = parsed.data;
+  const { id, name, color, createdAt, lastPage, settings } = parsed.data;
   return {
     id: id as WorkspaceId,
     name,
     color,
     createdAt,
     lastPage: lastPage ?? null,
-    state: stateOf(state),
+    settings: settingsOf(settings),
   };
 }

@@ -1,4 +1,4 @@
-import { defaultWorkspaceState } from '@common/types';
+import { defaultWorkspaceSettings } from '@common/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -456,7 +456,7 @@ describe('workspace manifest', () => {
       color: '#ec4899',
       createdAt: info.createdAt,
       lastPage: null,
-      state: defaultWorkspaceState(),
+      settings: defaultWorkspaceSettings(),
     });
     expect(readManifest(info.path)).toEqual({
       id: info.id,
@@ -464,7 +464,7 @@ describe('workspace manifest', () => {
       color: '#ec4899',
       createdAt: info.createdAt,
       lastPage: null,
-      state: defaultWorkspaceState(),
+      settings: defaultWorkspaceSettings(),
     });
   });
 
@@ -492,7 +492,7 @@ describe('workspace manifest', () => {
       name: 'Personal',
       color: '#ec4899',
       lastPage: null,
-      state: defaultWorkspaceState(),
+      settings: defaultWorkspaceSettings(),
     });
   });
 
@@ -569,7 +569,7 @@ describe('workspace manifest', () => {
         color: '#22c55e',
         createdAt: 1_700_000_000_000,
         lastPage: null,
-        state: defaultWorkspaceState(),
+        settings: defaultWorkspaceSettings(),
       });
       const registry = JSON.parse(await fs.readFile(path.join(root, REGISTRY_FILE), 'utf8'));
       expect(registry[id]).toEqual({ id, path: folder, lastOpenedAt: null });
@@ -587,7 +587,7 @@ describe('workspace manifest', () => {
         color: '#000000',
         createdAt: 1,
         lastPage: null,
-        state: defaultWorkspaceState(),
+        settings: defaultWorkspaceSettings(),
       });
 
       expect(moveDetailsToManifests(hereRoot)).toEqual([id]);

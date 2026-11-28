@@ -79,27 +79,31 @@ describe('Show in Finder', () => {
     expect(desktop.openFolder).toHaveBeenCalledWith(workspace.info.path);
   });
 
-  it("writes one value of the open workspace's state, checked against its schema", async () => {
+  it("writes one of the open workspace's own settings, checked against its schema", async () => {
     expect(
       code(
-        await call('workspace.setState', { path: 'calendar.showTasks', value: false }, 'mutation'),
+        await call(
+          'workspace.setSetting',
+          { path: 'calendar.showTasks', value: false },
+          'mutation',
+        ),
       ),
     ).toBe('no_workspace_open');
     const workspace = await openWorkspace();
     expect(
-      await call('workspace.setState', { path: 'calendar.showTasks', value: false }, 'mutation'),
+      await call('workspace.setSetting', { path: 'calendar.showTasks', value: false }, 'mutation'),
     ).toMatchObject({
       ok: true,
-      data: { id: workspace.info.id, state: { calendar: { showTasks: false } } },
+      data: { id: workspace.info.id, settings: { calendar: { showTasks: false } } },
       changed: ['workspace'],
     });
-    expect(devBrain.currentWorkspace?.info.state.calendar.showTasks).toBe(false);
-    // a wrong value and a path outside the state are refused before core
+    expect(devBrain.currentWorkspace?.info.settings.calendar.showTasks).toBe(false);
+    // a wrong value and a path outside its settings are refused before core
     for (const input of [
       { path: 'calendar.showTasks', value: 'yes' },
       { path: 'name', value: 'Renamed' },
     ]) {
-      expect((await call('workspace.setState', input, 'mutation')).ok).toBe(false);
+      expect((await call('workspace.setSetting', input, 'mutation')).ok).toBe(false);
     }
   });
 

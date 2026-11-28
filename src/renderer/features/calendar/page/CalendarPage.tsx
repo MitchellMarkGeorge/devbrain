@@ -69,9 +69,9 @@ export function CalendarPage() {
   const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
-  // the workspace's own choice (the Filter's "Tasks"), on until it is unticked
+  // the workspace's own setting (the Filter's "Tasks"), on until it is unticked
   const workspace = useSuspenseQuery(trpc.workspaces.current.queryOptions()).data;
-  const showTasks = workspace?.state.calendar.showTasks ?? true;
+  const showTasks = workspace?.settings.calendar.showTasks ?? true;
   const sources = useEventSources(calendars, view, showTasks);
   usePrefetchRanges(
     calendars,

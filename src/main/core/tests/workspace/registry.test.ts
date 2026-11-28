@@ -1,4 +1,4 @@
-import { defaultWorkspaceState } from '@common/types';
+import { defaultWorkspaceSettings } from '@common/types';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -91,14 +91,16 @@ const makeInfo = (id: string, overrides: Partial<WorkspaceInfo> = {}): Workspace
   createdAt: 1_700_000_000_000,
   lastOpenedAt: null,
   lastPage: null,
-  state: defaultWorkspaceState(),
+  settings: defaultWorkspaceSettings(),
   ...overrides,
 });
 
 // a registry from before manifests, with each workspace's details in its entry (the last page was
 // never kept there)
 const entryOf = (info: WorkspaceInfo) =>
-  Object.fromEntries(Object.entries(info).filter(([key]) => key !== 'lastPage' && key !== 'state'));
+  Object.fromEntries(
+    Object.entries(info).filter(([key]) => key !== 'lastPage' && key !== 'settings'),
+  );
 const registryOf = (...infos: WorkspaceInfo[]): WorkspaceRegistry =>
   Object.fromEntries(infos.map((info) => [info.id, entryOf(info)])) as WorkspaceRegistry;
 

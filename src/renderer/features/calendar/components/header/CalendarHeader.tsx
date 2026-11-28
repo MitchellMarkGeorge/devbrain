@@ -27,7 +27,7 @@ import {
 import { usePlatformWords } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { useSetWorkspaceState } from '@renderer/shared/hooks/use-set-workspace-state';
+import { useSetWorkspaceSetting } from '@renderer/shared/hooks/use-set-workspace-setting';
 import { monthTitle } from '../../lib/range';
 import type { CalendarViewParam } from '../../api/search';
 import styles from './CalendarHeader.module.css';
@@ -209,8 +209,8 @@ export function filterGroups(calendars: readonly Calendar[]): Calendar[][] {
  * "Filter: All calendars" (Figma `7424:42573`): every calendar with a tick while it shows, by
  * where it comes from ("On this Mac", "On this PC" or "On this computer" by platform, "Google ·
  * mitchell@acme.com"), then Tasks (the tasks due each day), then Show all. Core keeps each
- * calendar's visibility (`calendars.setVisible`) and the workspace's state whether tasks show
- * (`workspace.setState`, `calendar.showTasks`), not the URL.
+ * calendar's visibility (`calendars.setVisible`) and the workspace's own settings whether tasks show
+ * (`workspace.setSetting`, `calendar.showTasks`), not the URL.
  */
 export function CalendarFilterMenu({
   calendars,
@@ -229,8 +229,8 @@ export function CalendarFilterMenu({
   const setVisible = useMutation(
     trpc.calendars.setVisible.mutationOptions({ onError: (e) => showError(e) }),
   );
-  const setState = useSetWorkspaceState();
-  const setShowTasks = (value: boolean) => void setState({ path: 'calendar.showTasks', value });
+  const setSetting = useSetWorkspaceSetting();
+  const setShowTasks = (value: boolean) => void setSetting({ path: 'calendar.showTasks', value });
   const groups = filterGroups(calendars);
   const listed = groups.flat();
   // something is hidden: the Filter draws pressed wherever its value doesn't show
