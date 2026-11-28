@@ -19,7 +19,7 @@ import {
 import { ipc, trpc } from '@renderer/ipc';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet';
+import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet-navigation';
 import { noteTasksQuery, tasksSummary } from '@renderer/features/notes/api/queries';
 import { useNoteActions } from '@renderer/features/notes/hooks/use-note-actions';
 import {

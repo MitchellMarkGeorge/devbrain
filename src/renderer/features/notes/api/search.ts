@@ -43,11 +43,10 @@ export const notesSearchSchema = z.object({
 
 export type NotesSearch = z.infer<typeof notesSearchSchema>;
 
-/** What the note page's sheet shows: a task made from the note. */
-export const NOTE_PAGE_SHEET_KINDS = ['task'] as const;
-
 /** The note page's search params: the task made from the note that is open in the sheet. */
-export const notePageSearchSchema = z.object({ sheet: sheetParam(NOTE_PAGE_SHEET_KINDS) });
+export const notePageSearchSchema = z.object({
+  sheet: sheetParam('/app/$workspaceId/notes/$noteId'),
+});
 
 export type NotePageSearch = z.infer<typeof notePageSearchSchema>;
 export type NoteView = (typeof NOTE_VIEWS)[number];

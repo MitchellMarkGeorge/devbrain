@@ -193,26 +193,30 @@ task's page, and on the calendar an event, a task due or an event's note.
 - **One param.** `sheet` holds the id of the item shown, and the id's prefix says what it is
   (`?sheet=tsk_…`, `nte_…`, `evt_…`). The calendar adds `occurrence`, the start of the occurrence
   of a repeating event that was opened, kept when the sheet moves to that event's note.
-- **Each route says what its sheet shows.** Its search schema declares
-  `sheet: sheetParam(KINDS)` (`shared/lib/sheet.ts`). An id of another kind is dropped like any
-  bad param, and a route with no sheet has no `sheet` in its schema, so its page never reads one:
-  nothing navigates to clear the param. A page that has a sheet in some states only leaves it out
-  of what it resolves (`resolveTasksSearch` reads `sheet` on the board alone).
-- **One hook, one component.** A page calls `useSheet({ id, kinds, write })` (`shared/hooks/use-sheet.tsx`),
-  `write` being its own route's navigate setting the sheet's params, so the write is typed against
-  the route's search,
-  and draws `<EntitySheet sheet={sheet}>` (`shared/components`), giving it the content for an
-  item: `TaskSheet`, `NoteSheet` or `EventSheet`, which draw a `SheetHeader` and a `SheetBody`
-  and load their own data. `EntitySheet` docks it in the shell's column or floats it in a compact
-  window, and keeps it mounted while it slides out. Content shows another item in the same sheet
-  with `useSheetNavigation()` (an event's linked task, its note, a note's "‹ Event"), asking
-  `accepts(id)` first where the page may not show that kind.
+- **One table says which pages have a sheet.** `SHEET_KINDS_BY_ROUTE` (`shared/lib/sheet.ts`)
+  lists each route with a sheet and the kinds its page shows. The route's schema takes its param
+  from it (`sheet: sheetParam('/app/$workspaceId/calendar')`), so an id of another kind is dropped
+  like any bad param, and a route not listed has no `sheet` in its schema: its page never reads
+  one, and nothing navigates to clear it. A page with a sheet in some states only says when
+  (`useSheet({ enabled })`: the tasks views on the board alone).
+- **One hook.** A page calls `useSheet()` (`shared/hooks/use-sheet.tsx`), opens an item with
+  `sheet.show(id)` and draws `{sheet.render()}`. That is all: the page names no param, no kinds
+  and no sheet component. The hook reads the page's kinds from the table by the route matched,
+  and writes the params with a navigate TanStack types across routes. `render()` draws
+  `EntitySheet` (`shared/components`), which docks the sheet in the shell's column or floats it in
+  a compact window, keeps it mounted while it slides out, and draws the content of the item's
+  kind: `TaskSheet`, `NoteSheet` or `EventSheet`, each a `SheetHeader` and a `SheetBody` loading
+  its own data. Those are the features' components, which `shared` doesn't import, so the
+  workspace layout gives them (`layouts/workspace/sheet-contents.tsx`, `SheetContentsProvider`).
+  Content shows another item in the same sheet with `useSheetNavigation()` (an event's linked
+  task, its note, a note's "‹ Event"), asking `accepts(id)` first where the page may not show that
+  kind.
 - **Everything is a history entry.** Showing an item pushes one; another item pushes another (the
   item already shown adds none); closing pushes one without the param. ×, Esc and a click
   outside a floating sheet are the same close. So Back undoes one step at a time, a close
   included: open A, open B, ×, Back shows B again. It makes no difference how the sheet was
   opened (a click, a link, a reopened last page), and nothing about it is kept in the history's
-  state. The one exception is deleting the event shown: its entry is replaced, since there is
+  state (a note just created in a sheet is remembered by the hook, to put the caret in it). The one exception is deleting the event shown: its entry is replaced, since there is
   nothing to return to.
 - **The page's other params are the page's.** A filter or another week keeps the sheet; the
   toolbar's own rule (replace) or the calendar's (push) applies, and the sheet closes the same way

@@ -16,10 +16,7 @@ import {
   PageToolbar,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { EntitySheet } from '@renderer/shared/components/EntitySheet';
-import { useSheet, type SheetParams } from '@renderer/shared/hooks/use-sheet';
-import { NoteSheet } from '@renderer/features/notes/components/sheet/NoteSheet';
-import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
+import { useSheet } from '@renderer/shared/hooks/use-sheet';
 import {
   defaultDurationMinutes,
   draftForDay,
@@ -33,8 +30,7 @@ import {
 } from '../components/header/CalendarHeader';
 import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
 import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
-import { CALENDAR_SHEET_KINDS, openEventSearch, type CalendarSearch } from '../api/search';
-import { EventSheet } from '../components/sheet/EventSheet';
+import { openEventSearch, type CalendarSearch } from '../api/search';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
 import { useDelayedLoading, useEventSources, usePrefetchRanges } from '../hooks/use-event-sources';
 import styles from './CalendarPage.module.css';
@@ -72,19 +68,7 @@ export function CalendarPage() {
   const duration = defaultDurationMinutes(settings);
 
   // the sheet: each item shown in it is a history entry of its own, and so is closing it
-  const writeSheet = useCallback(
-    (
-      params: SheetParams<NonNullable<CalendarSearch['sheet']>>,
-      { replace }: { replace: boolean },
-    ) => setSearch(params, { push: !replace }),
-    [setSearch],
-  );
-  const sheet = useSheet({
-    id: resolved.sheet,
-    occurrence: resolved.occurrence,
-    kinds: CALENDAR_SHEET_KINDS,
-    write: writeSheet,
-  });
+  const sheet = useSheet();
   const showInSheet = sheet.show;
   const openEvent = useCallback(
     (id: EventId, occurrence?: Date) => showInSheet(id, { occurrence: occurrence?.toISOString() }),
@@ -159,7 +143,7 @@ export function CalendarPage() {
             firstDay={options.firstDay}
             hideWeekends={options.hideWeekends}
             timeFormat={settings.general.timeFormat}
-            selectedEventId={resolved.sheet}
+            selectedEventId={sheet.id}
             onEventClick={onEventClick}
             onSelect={(selection: CalendarViewSelection) =>
               createEvent(draftFromSelection(selection, duration))
@@ -179,17 +163,7 @@ export function CalendarPage() {
           />
         )}
       </div>
-      <EntitySheet sheet={sheet}>
-        {(item) =>
-          isId('event', item.id) ? (
-            <EventSheet eventId={item.id} occurrence={item.occurrence} />
-          ) : isId('note', item.id) ? (
-            <NoteSheet noteId={item.id} occurrence={item.occurrence} created={item.created} />
-          ) : (
-            <TaskSheet taskId={item.id} />
-          )
-        }
-      </EntitySheet>
+      {sheet.render()}
     </Page>
   );
 }

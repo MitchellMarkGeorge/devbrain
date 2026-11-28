@@ -1,5 +1,4 @@
-import { useCallback, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import type { NoteId } from '@common/ids';
+import { useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import type { TaskListItem, TaskSummary } from '@common/types';
@@ -21,11 +20,8 @@ import { useConfirmRestore } from '@renderer/shared/hooks/use-confirm-restore';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '../api/queries';
-import { EntitySheet } from '@renderer/shared/components/EntitySheet';
-import { useSheet, type SheetParams } from '@renderer/shared/hooks/use-sheet';
+import { useSheet } from '@renderer/shared/hooks/use-sheet';
 import { taskRoute } from '../api/route-api';
-import { TASK_PAGE_SHEET_KINDS } from '../api/search';
-import { NoteSheet } from '@renderer/features/notes/components/sheet/NoteSheet';
 import { TaskDetailMenu } from '../components/detail/TaskDetailMenu';
 import { TaskNoteSection } from '../components/sections/TaskNoteSection';
 import { TaskDescription } from '../components/sections/TaskDescription';
@@ -73,14 +69,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
   const trashed = task.archivedAt !== null;
 
   // the task note in the sheet beside the page (?sheet=nte_…)
-  const search = taskRoute.useSearch();
-  const navigateHere = taskRoute.useNavigate();
-  const writeSheet = useCallback(
-    ({ sheet }: SheetParams<NoteId>, { replace }: { replace: boolean }) =>
-      void navigateHere({ search: (previous) => ({ ...previous, sheet }), replace }),
-    [navigateHere],
-  );
-  const sheet = useSheet({ id: search.sheet, kinds: TASK_PAGE_SHEET_KINDS, write: writeSheet });
+  const sheet = useSheet();
 
   const parentQuery = useQuery({
     ...trpc.tasks.get.queryOptions({ id: task.parentTaskId! }),
@@ -177,7 +166,7 @@ function TaskPageContent({ task }: { task: TaskListItem }) {
           </Inert>
         </Stack>
       </PageContent>
-      <EntitySheet sheet={sheet}>{(item) => <NoteSheet noteId={item.id} />}</EntitySheet>
+      {sheet.render()}
     </Page>
   );
 }

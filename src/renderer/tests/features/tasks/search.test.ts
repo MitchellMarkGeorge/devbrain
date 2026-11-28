@@ -93,13 +93,6 @@ describe('tasksSearchSchema', () => {
 });
 
 describe('resolveTasksSearch', () => {
-  it('reads the sheet on the board alone', () => {
-    const sheet = 'tsk_1' as never;
-    expect(resolveTasksSearch({ view: 'board', sheet }, SETTINGS).sheet).toBe('tsk_1');
-    expect(resolveTasksSearch({ view: 'list', sheet }, SETTINGS).sheet).toBeUndefined();
-    expect(resolveTasksSearch({ view: 'group', sheet }, SETTINGS).sheet).toBeUndefined();
-  });
-
   it('fills a missing param from the settings', () => {
     const resolved = resolveTasksSearch({}, SETTINGS);
     expect(resolved).toMatchObject({

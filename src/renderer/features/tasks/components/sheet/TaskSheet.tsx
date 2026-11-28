@@ -28,7 +28,7 @@ import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet';
+import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet-navigation';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
 import { isSynced, listedTask } from '../../api/queries';

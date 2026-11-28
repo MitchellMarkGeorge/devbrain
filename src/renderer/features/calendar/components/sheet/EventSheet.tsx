@@ -43,7 +43,7 @@ import { CalendarPill, DayPill, RepeatPill, TimePill } from '../pickers';
 import { repeatText } from '../../lib/repeat';
 import { EventLinkedTasks } from './EventLinkedTasks';
 import { EventNoteSection } from './EventNoteSection';
-import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet';
+import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet-navigation';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { moveEnd, moveStart, moveToDay, shownTiming, zoneAbbreviation } from '../../lib/timing';
