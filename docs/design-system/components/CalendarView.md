@@ -77,7 +77,7 @@ Events are focusable and open on Enter when `onEventClick` is set.
 ## Props
 
 `view` (`'week' | 'day' | 'month'`), `date` (a day in the range; later changes call
-`changeView`, in the commit that brought the range's `events`), `events` (FullCalendar
+`changeView`), `events` (FullCalendar
 `EventInput[]`: every event and task that may occur in the range, each with its own `color`; see
 below), `firstDay` (1 Monday, 0 Sunday,
 from `firstDayOfWeek`), `timeFormat` (`'12' | '24'`: "9:00 – 10:00 AM" or "09:00 – 10:00", hour

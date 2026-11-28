@@ -1,6 +1,6 @@
 import {
   useCallback,
-  useLayoutEffect,
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -228,12 +228,10 @@ export function CalendarView({
   // `initialView` and `initialDate` are read once: later changes go through the API. Compared
   // with what was last applied rather than skipped on mount, as StrictMode runs the effect twice
   // on mount, and a `changeView` then lands while FullCalendar measures its first layout (a
-  // "ResizeObserver loop" error). A layout effect, so the range moves in the commit that brought
-  // its `events` (FullCalendar takes those as it renders): never a frame of the range before with
-  // the next one's events
+  // "ResizeObserver loop" error)
   const time = date.getTime();
   const applied = useRef({ view, time });
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (applied.current.view === view && applied.current.time === time) return;
     applied.current = { view, time };
     calendarRef.current?.getApi().changeView(FULLCALENDAR_VIEW[view], new Date(time));
