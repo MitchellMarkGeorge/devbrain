@@ -17,8 +17,9 @@ import type { DayRange } from '../lib/range';
  *   repeat into the new one), so a step never draws an empty grid first.
  * - A change refetches every query, and each answers on its own: the grid draws each answer as it
  *   comes. That is cheap: FullCalendar keeps an event's element by its id.
- * - An input is made once for the rows a query returned and its calendar's colour, so a render
- *   that changed neither hands FullCalendar the same objects, which it takes as no change.
+ * - The inputs are made again only when a query's rows or the calendars changed (`useMemo`), so
+ *   any other render hands FullCalendar the same objects, which it takes as no change. Otherwise
+ *   it would parse every event and repeat every series again on each render.
  *
  * `loading` is true once a read has lasted a moment, so a cached one never flashes the skeleton.
  */
@@ -28,61 +29,58 @@ export function useCalendarItems(
   showTasks: boolean,
 ): { events: EventInput[]; loading: boolean } {
   const queryClient = useQueryClient();
-  const visible = calendars.filter((calendar) => calendar.visible);
+  const visible = useMemo(() => calendars.filter((calendar) => calendar.visible), [calendars]);
 
   // the range shown before this one, whose rows stand in while this one's load
   const [ranges, setRanges] = useState({ shown: range, before: range });
   if (!sameRange(ranges.shown, range)) setRanges({ shown: range, before: ranges.shown });
   const before = sameRange(ranges.shown, range) ? ranges.before : ranges.shown;
 
-  const eventResults = useQueries({
+  const { rows, fetching } = useQueries({
     queries: visible.map((calendar) => ({
       ...calendarEventsQuery(calendar.id, range),
       placeholderData: () =>
         queryClient.getQueryData(calendarEventsQuery(calendar.id, before).queryKey),
     })),
+    combine: rowsOf,
   });
+  // made again only when a calendar's rows, or the calendars, changed
+  const eventItems = useMemo(
+    () =>
+      visible.flatMap((calendar, index) =>
+        (rows[index] ?? []).map((event) => toEventInput(event, calendar)),
+      ),
+    [rows, visible],
+  );
   const taskResult = useQuery({
     ...tasksDueBetweenQuery(range),
     enabled: showTasks,
     placeholderData: () => queryClient.getQueryData(tasksDueBetweenQuery(before).queryKey),
   });
 
-  // a range's tasks may be cached from when they were shown; the same inputs while the query
-  // holds the same rows, as the events' are
+  // a range's tasks may be cached from when they were shown
   const tasks = showTasks ? taskResult.data : undefined;
   const taskItems = useMemo(() => toTaskInputs(tasks ?? []), [tasks]);
 
-  const events = [
-    ...visible.flatMap((calendar, index) =>
-      eventInputs(eventResults[index].data ?? NO_EVENTS, calendar),
-    ),
-    ...taskItems,
-  ];
-  const results = showTasks ? [...eventResults, taskResult] : eventResults;
-  const loading = useDelayed(results.some((result) => result.isFetching));
+  const events = useMemo(() => [...eventItems, ...taskItems], [eventItems, taskItems]);
+  const loading = useDelayed(fetching || (showTasks && taskResult.isFetching));
   return { events, loading };
 }
-
-const NO_EVENTS: Event[] = [];
 
 const sameRange = (a: DayRange, b: DayRange) =>
   a.start.getTime() === b.start.getTime() && a.end.getTime() === b.end.getTime();
 
-// The input made for a calendar's rows, kept while its query holds them: FullCalendar compares
-// the array it is given item by item, and a new object for an unchanged event would have it parse
-// and lay out every event again on each render. (The tasks' are a `useMemo`; the calendars vary
-// in number, which a hook's dependencies cannot.)
-const eventInputCache = new WeakMap<
-  readonly Event[],
-  { color: string | null; inputs: EventInput[] }
->();
-function eventInputs(events: readonly Event[], calendar: Calendar): EventInput[] {
-  const cached = eventInputCache.get(events);
-  if (cached && cached.color === calendar.color) return cached.inputs;
-  const inputs = events.map((event) => toEventInput(event, calendar));
-  eventInputCache.set(events, { color: calendar.color, inputs });
-  return inputs;
+/**
+ * What the grid needs of the calendars' queries: each one's rows, and whether any is being read.
+ * `useQueries` keeps the object it returned, and each part of it, while that part is equal to the
+ * one before: `rows` is the same array until a query's rows change, whatever `fetching` does. So
+ * the inputs made from it are too.
+ */
+function rowsOf(results: readonly { data: Event[] | undefined; isFetching: boolean }[]) {
+  return {
+    rows: results.map((result) => result.data),
+    fetching: results.some((result) => result.isFetching),
+  };
 }
 
 /** `on`, once it has been on for `delay` ms. */
