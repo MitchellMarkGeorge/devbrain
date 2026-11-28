@@ -15,8 +15,8 @@ import type { DayRange } from '../lib/range';
  *
  * - While a range not yet read loads, the range shown before stands in for it (its series already
  *   repeat into the new one), so a step never draws an empty grid first.
- * - A change refetches every query, and each answers on its own: the grid keeps what it shows
- *   until the last has, and changes once.
+ * - A change refetches every query, and each answers on its own: the grid draws each answer as it
+ *   comes. That is cheap: FullCalendar keeps an event's element by its id.
  * - An input is made once for the rows a query returned and its calendar's colour, so a render
  *   that changed neither hands FullCalendar the same objects, which it takes as no change.
  *
@@ -53,22 +53,13 @@ export function useCalendarItems(
   const tasks = showTasks ? taskResult.data : undefined;
   const taskItems = useMemo(() => toTaskInputs(tasks ?? []), [tasks]);
 
-  const next = [
+  const events = [
     ...visible.flatMap((calendar, index) =>
       eventInputs(eventResults[index].data ?? NO_EVENTS, calendar),
     ),
     ...taskItems,
   ];
   const results = showTasks ? [...eventResults, taskResult] : eventResults;
-  // rows already drawn for this range are being read again (a change was reported)
-  const refetching = results.some(
-    (result) => result.isFetching && result.data !== undefined && !result.isPlaceholderData,
-  );
-  // what the queries are of: a step, or a calendar hidden or recoloured, is drawn at once
-  const of = `${range.start.getTime()}-${range.end.getTime()}|${showTasks}|${visible
-    .map((calendar) => `${calendar.id}:${calendar.color ?? ''}`)
-    .join()}`;
-  const events = useHeld(next, of, refetching);
   const loading = useDelayed(results.some((result) => result.isFetching));
   return { events, loading };
 }
@@ -93,20 +84,6 @@ function eventInputs(events: readonly Event[], calendar: Calendar): EventInput[]
   eventInputCache.set(events, { color: calendar.color, inputs });
   return inputs;
 }
-
-/**
- * `next`, except while `hold` is set and `of` is what it was: then the items last returned. The
- * array returned is the same one until an item changes.
- */
-function useHeld(next: EventInput[], of: string, hold: boolean): EventInput[] {
-  const [shown, setShown] = useState({ of, items: next });
-  if (shown.of === of && (hold || sameItems(shown.items, next))) return shown.items;
-  setShown({ of, items: next });
-  return next;
-}
-
-const sameItems = (a: readonly unknown[], b: readonly unknown[]) =>
-  a.length === b.length && a.every((item, index) => item === b[index]);
 
 /** `on`, once it has been on for `delay` ms. */
 function useDelayed(on: boolean, delay = 150): boolean {

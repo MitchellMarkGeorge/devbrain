@@ -1493,7 +1493,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - `useCalendarItems` reads `events.listForCalendar` for each visible calendar in one
      `useQueries` (`staleTime: Infinity`, so only the invalidator makes it stale) and gives
      `CalendarView` the events as one array; FullCalendar loads nothing itself. A change refetches
-     every query and the grid changes once, when the last has answered; a range not read before
+     every query and the grid draws each answer as it comes; a range not read before
      is stood in for by the one shown before. The loader primes the range shown without waiting
      for it; the ranges either side are prefetched. A read that lasts 150ms shows a skeleton
      strip. (Until Nov 2026 FullCalendar's event source functions did the reading, refetched from

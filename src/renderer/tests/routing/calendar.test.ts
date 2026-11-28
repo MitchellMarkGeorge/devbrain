@@ -111,7 +111,7 @@ describe('the calendar page', () => {
     expect(weekReads(main, 'cal_work')).toBe(2);
   });
 
-  it('changes the grid once for a change, when every calendar has answered', async () => {
+  it('draws each calendar’s answer to a change as it comes, with the skeleton while one lasts', async () => {
     const calendar = store();
     const main = mainWith(calendar);
     startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-24` });
@@ -131,10 +131,10 @@ describe('the calendar page', () => {
     );
     const refetched = queryInvalidator.onChanged(['event']);
     await eventually(() => expect(weekReads(main, 'cal_work')).toBe(2));
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    // Work has answered, but the grid waits for Personal
-    expect(eventEl('Retro')).toBeUndefined();
+    // Work has answered and is drawn; Personal's events stay as they were
+    await eventually(() => expect(eventEl('Retro')).toBeDefined());
     expect(eventEl('Gym')).toBeDefined();
+    expect(eventEl('Dentist')).toBeUndefined();
     // the read has lasted: the skeleton
     await eventually(() =>
       expect(document.querySelector('[data-testid="calendar-loading"]')).not.toBeNull(),
