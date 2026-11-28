@@ -50,12 +50,13 @@ declare module '@tanstack/history' {
 /**
  * The calendar (`/app/$workspaceId/calendar`, Figma `7158:13273` week, `7158:13856` day,
  * `7158:18439` month): the header (the month, the calendar filter, the view, ‹ Today ›, New
- * Event) over `CalendarView`, driven by the URL's `view` and `date`; the mini calendar and agenda
+ * Event) over `CalendarView`, driven by the URL's `view` and `date`, with the tasks due on each
+ * day beside the events (the Filter's "Tasks"); the mini calendar and agenda
  * at the right in wide windows; and the sheet at `?open=`, an event's (`evt_…`) or a task's
- * (`tsk_…`, from the agenda or an event's linked tasks).
+ * (`tsk_…`, from the grid, the agenda or an event's linked tasks).
  */
 export function CalendarPage() {
-  const { resolved, setSearch } = useCalendarSearch();
+  const { search, resolved, setSearch } = useCalendarSearch();
   const navigate = calendarRoute.useNavigate();
   const router = useRouter();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
@@ -68,15 +69,26 @@ export function CalendarPage() {
   const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
-  const sources = useEventSources(calendars, view);
-  usePrefetchRanges(calendars, neighbouringRanges(resolved.view, resolved.date, options));
+  // the workspace's own setting (the Filter's "Tasks"), on until it is unticked
+  const workspace = useSuspenseQuery(trpc.workspaces.current.queryOptions()).data;
+  const showTasks = workspace?.settings.calendar.showTasks ?? true;
+  const sources = useEventSources(calendars, view, showTasks);
+  usePrefetchRanges(
+    calendars,
+    neighbouringRanges(resolved.view, resolved.date, options),
+    showTasks,
+  );
   const [loading, onLoading] = useDelayedLoading();
   const duration = defaultDurationMinutes(settings);
 
-  // the sheet pushes an entry when it opens (Back closes it), and replaces it while open
+  // An item in the sheet is a history entry of its own, as on the tasks board: Back returns to the
+  // item before, then closes the sheet. The item already shown adds none.
   const openSheet = useCallback(
-    (item: SheetItem) => setSearch(item, { push: resolved.open === undefined }),
-    [setSearch, resolved.open],
+    (item: SheetItem) => {
+      const shown = item.open === search.open && item.occurrence === search.occurrence;
+      setSearch({ ...item, sheet: undefined }, { push: !shown, openedSheet: true });
+    },
+    [setSearch, search.open, search.occurrence],
   );
   const openEvent = useCallback(
     (id: EventId, occurrence?: Date) => openSheet(openEventSearch(id, occurrence)),
@@ -91,22 +103,26 @@ export function CalendarPage() {
       (event: Event) =>
         setSearch(
           { ...openEventSearch(event.id), date: dateParam(event.startAt) },
-          { push: resolved.open === undefined },
+          { push: true, openedSheet: true },
         ),
-      [setSearch, resolved.open],
+      [setSearch],
     ),
   );
 
   // a day: the date param, left out for today
-  const goTo = (day: Date, patch: Partial<CalendarSearch> = {}) =>
-    setSearch({
-      ...patch,
-      date: DateTime.fromJSDate(day).hasSame(DateTime.fromJSDate(now), 'day')
-        ? undefined
-        : dateParam(day),
-    });
+  // another day or view adds a history entry, so Back returns to the week (or view) before
+  const goTo = (day: Date, patch: Partial<CalendarSearch> = {}) => {
+    const date = DateTime.fromJSDate(day).hasSame(DateTime.fromJSDate(now), 'day')
+      ? undefined
+      : dateParam(day);
+    const moved =
+      date !== search.date || (patch.view !== undefined && patch.view !== resolved.view);
+    setSearch({ ...patch, date }, { push: moved });
+  };
 
   const onEventClick = (event: CalendarViewEvent) => {
+    // a task due that day: its sheet
+    if (isId('task', event.id)) return openTask(event.id);
     const { recurring } = event.props as Partial<EventInputProps>;
     // a series' expanded occurrence is named by its start in the series
     openEvent(event.id as EventId, recurring ? event.start : undefined);
@@ -142,14 +158,21 @@ export function CalendarPage() {
        */}
       <PageToolbar
         ref={toolbar}
-        start={<CalendarHeaderStart date={resolved.date} calendars={calendars} layout={layout} />}
+        start={
+          <CalendarHeaderStart
+            date={resolved.date}
+            calendars={calendars}
+            showTasks={showTasks}
+            layout={layout}
+          />
+        }
         end={
           <CalendarHeaderEnd
             view={resolved.view}
             layout={layout}
-            onViewChange={(next) => setSearch({ view: next })}
+            onViewChange={(next) => setSearch({ view: next }, { push: next !== resolved.view })}
             onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
-            onToday={() => setSearch({ date: undefined })}
+            onToday={() => setSearch({ date: undefined }, { push: search.date !== undefined })}
             onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
           />
         }
@@ -169,7 +192,7 @@ export function CalendarPage() {
             firstDay={options.firstDay}
             hideWeekends={options.hideWeekends}
             timeFormat={settings.general.timeFormat}
-            selectedEventId={isId('event', resolved.open ?? '') ? resolved.open : undefined}
+            selectedEventId={resolved.open}
             onEventClick={onEventClick}
             onSelect={(selection: CalendarViewSelection) =>
               createEvent(draftFromSelection(selection, duration))
@@ -196,7 +219,7 @@ export function CalendarPage() {
           open={sheetOpen}
           onClose={closeSheet}
           onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
-          onShowEvent={(id, at) => setSearch(openEventSearch(id, at))}
+          onShowEvent={openEvent}
           onOpenTask={openTask}
           noteView={resolved.eventNote}
           onOpenNote={openEventNote}

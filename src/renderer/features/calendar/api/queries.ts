@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import type { CalendarId } from '@common/ids';
+import type { TaskListItem } from '@common/types';
 import { trpc } from '@renderer/ipc';
 import type { DayRange } from '../lib/range';
 
@@ -56,4 +57,46 @@ export function tasksDueQuery(day: Date) {
     sort: { sortBy: 'priority', direction: 'desc' },
     limit: 50,
   });
+}
+
+/**
+ * A page of the tasks due in a range, by due date: what the grid's tasks source reads. Like
+ * `calendarEventsQuery`, never stale by time, and fetched again when core reports a change the
+ * task list shows.
+ */
+export function tasksDueBetweenQuery(range: DayRange, cursor?: string) {
+  return {
+    ...trpc.tasks.list.queryOptions({
+      // `dueAfter` is exclusive: a task due at the range's first midnight is in it
+      filter: { dueAfter: new Date(range.start.getTime() - 1), dueBefore: range.end },
+      sort: { sortBy: 'dueDate', direction: 'asc' },
+      limit: TASKS_DUE_PAGE,
+      ...(cursor !== undefined && { cursor }),
+    }),
+    staleTime: Infinity,
+  };
+}
+
+// core's largest page
+const TASKS_DUE_PAGE = 200;
+
+/** Whether a cached query is a read of the task list, as `tasksDueBetweenQuery`'s are. */
+export function isTaskListKey(queryKey: readonly unknown[]): boolean {
+  const [path] = queryKey;
+  return Array.isArray(path) && path[0] === 'tasks' && path[1] === 'list';
+}
+
+/** Reads every task due in a range for FullCalendar, page by page: cached pages while fresh. */
+export async function readTasksDue(
+  queryClient: QueryClient,
+  range: DayRange,
+): Promise<TaskListItem[]> {
+  const tasks: TaskListItem[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await queryClient.query(tasksDueBetweenQuery(range, cursor));
+    tasks.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return tasks;
 }

@@ -80,6 +80,18 @@ export const AllDay: Story = {
   ),
 };
 
+/** Tasks on the day they are due: the status icon in place of the bar, a closed one struck through */
+export const AllDayTask: Story = {
+  render: () => (
+    <div style={{ display: 'grid', gap: 8, width: 240 }}>
+      <AllDayEvent title="Write PKCE migration guide" kind="task" />
+      <AllDayEvent title="Refresh token rotation" kind="task" status={TaskStatus.IN_PROGRESS} />
+      <AllDayEvent title="Review token rotation RFC" kind="task" status={TaskStatus.COMPLETED} />
+      <AllDayEvent title="Remove legacy JWT middleware" kind="task" status={TaskStatus.CANCELLED} />
+    </div>
+  ),
+};
+
 /** A slice of a day column: hour lines, two events and the red now line */
 export const InDayColumn: Story = {
   decorators: [],

@@ -27,9 +27,11 @@ import rrulePlugin from '@fullcalendar/rrule';
 import '@fullcalendar/react/skeleton.css';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
-import type { TaskStatus } from '@common/types';
+import { TaskStatus } from '@common/types';
+import { StatusIcon } from '../../entities/StatusIcon';
 import type { CalendarEvent } from '../../types';
 import { AllDayEvent, EventBlock, NowIndicator } from '../EventBlock';
+import { calendarEventOrder } from './event-order';
 import { formatHour, formatShortTime, formatTimeRange, type TimeFormat } from '../calendar-events';
 import styles from './CalendarView.module.css';
 
@@ -72,11 +74,12 @@ const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
  */
 export interface CalendarViewEventProps {
   /**
-   * `event` (default), a `task` scheduled on the grid (its status icon), `focus` time (neutral,
-   * dashed) or `out-of-office` (a neutral all-day chip; a timed one is drawn as focus time)
+   * `event` (default), a `task` (its status icon in place of the colour bar: all-day on the day
+   * it is due, or scheduled on the grid), `focus` time (neutral, dashed) or `out-of-office` (a
+   * neutral all-day chip; a timed one is drawn as focus time)
    */
   kind?: 'event' | 'task' | 'focus' | 'out-of-office';
-  /** a scheduled task's status */
+  /** a task's status: its icon, and a completed or cancelled one is struck through */
   status?: TaskStatus;
   /** the event is tentative, or you answered "maybe": dashed at 70% */
   tentative?: boolean;
@@ -132,7 +135,7 @@ export interface CalendarViewProps {
   scrollToHour?: number;
   /** events listed in a month day before "+N more" (3) */
   maxEvents?: number;
-  /** the event shown as selected (its sheet is open) */
+  /** the event or task shown as selected (its sheet is open) */
   selectedEventId?: string;
   /** the label of the all-day row's gutter */
   allDayLabel?: ReactNode;
@@ -353,6 +356,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         moreLinkContent={(arg: { num: number }) => `+${arg.num} more`}
         views={{ dayGridMonth: { expandRows: true } }}
         eventDisplay="block"
+        eventOrder={calendarEventOrder}
         eventContent={eventContent}
         eventClass={eventClass}
         {...THEME}
@@ -369,17 +373,42 @@ function EventContent({ arg, timeFormat }: { arg: EventDisplayInfo; timeFormat: 
   const start = event.start!;
   const end = event.end ?? new Date(start.getTime() + 60 * 60 * 1000);
 
+  const task = hints.kind === 'task';
+  const closed =
+    task && (hints.status === TaskStatus.COMPLETED || hints.status === TaskStatus.CANCELLED);
+
   if (arg.view.type === 'dayGridMonth') {
     return (
       <span
-        className={cn(styles.line, hints.tentative && styles.tentative, neutral && styles.neutral)}
+        className={cn(
+          styles.line,
+          hints.tentative && styles.tentative,
+          neutral && styles.neutral,
+          closed && styles.closed,
+        )}
       >
-        <ColourBar color={neutral ? 'var(--muted-foreground)' : color} />
+        {task ? (
+          <StatusIcon status={hints.status ?? TaskStatus.NOT_STARTED} size={12} />
+        ) : (
+          <ColourBar color={neutral ? 'var(--muted-foreground)' : color} />
+        )}
         {!event.allDay && arg.isStart && (
           <span className={styles.lineTime}>{formatShortTime(start, timeFormat)}</span>
         )}
         <span className={styles.lineTitle}>{event.title}</span>
       </span>
+    );
+  }
+
+  if (event.allDay && task) {
+    return (
+      <AllDayEvent
+        title={event.title}
+        kind="task"
+        status={hints.status}
+        tabIndex={-1}
+        className={styles.chip}
+      />
     );
   }
 

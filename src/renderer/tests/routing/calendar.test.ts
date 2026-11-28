@@ -81,6 +81,29 @@ describe('the calendar page', () => {
     expect(reads).toContainEqual({ start: at(7, 0), end: at(14, 0), calendarIds: ['cal_work'] });
   });
 
+  it('adds a history entry for another view or date, so Back returns to the one before', async () => {
+    const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-24` });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    click(byText(app.container, 'button', 'Month'));
+    await eventually(() => expect(page(app.container)?.dataset.view).toBe('month'));
+    click(app.container.querySelector('[aria-label="Next month"]'));
+    await eventually(() => expect(search(app).get('date')).toBe('2026-07-24'));
+    click(byText(app.container, 'button', 'Day'));
+    await eventually(() => expect(search(app).get('view')).toBe('day'));
+
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('view')).toBe('month'));
+    expect(search(app).get('date')).toBe('2026-07-24');
+    // the step to July was an entry of its own
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('date')).toBe('2026-06-24'));
+    expect(search(app).get('view')).toBe('month');
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('view')).toBeNull());
+    expect(search(app).get('date')).toBe('2026-06-24');
+    await eventually(() => expect(page(app.container)?.dataset.view).toBe('week'));
+  });
+
   it('switches view and steps through the range in the URL, Today removing the date', async () => {
     const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-24` });
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
@@ -115,6 +138,23 @@ describe('the calendar page', () => {
     app.router.history.back();
     await eventually(() => expect(search(app).get('open')).toBeNull());
     await eventually(() => expect(sheet()).toBeNull());
+  });
+
+  it('gives each item opened in the sheet a history entry, so Back returns to the one before', async () => {
+    const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-22` });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    click(eventEl('Design Review')!);
+    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    click(eventEl('Gym')!);
+    await eventually(() => expect(search(app).get('open')).toBe('evt_gym'));
+    // the item already shown adds no entry
+    click(eventEl('Gym')!);
+    await eventually(() => expect(search(app).get('open')).toBe('evt_gym'));
+
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('open')).toBeNull());
   });
 
   it('opens an occurrence of a series with its start, and asks which events an edit changes', async () => {
@@ -281,6 +321,45 @@ describe('the calendar page', () => {
         'Write PKCE migration guide',
       ),
     );
+  });
+
+  it('draws a task on the day it is due, opens its sheet, and hides tasks for the workspace from the filter', async () => {
+    const tasks = new FakeTasks([
+      fakeTask('tsk_guide', 'Write PKCE migration guide', { dueDate: at(1, 0) }),
+      fakeTask('tsk_later', 'Ship auth overhaul', { dueDate: at(9, 0) }),
+      fakeTask('tsk_someday', 'Tidy the runbook'),
+    ]);
+    const main = mainWith(store(), tasks);
+    const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22` });
+    await eventually(() => expect(eventEl('Write PKCE migration guide')).toBeDefined());
+    // the week's tasks only: Monday 22 up to Monday 29
+    expect(eventEl('Ship auth overhaul')).toBeUndefined();
+    expect(eventEl('Tidy the runbook')).toBeUndefined();
+    expect(
+      main.callsTo('tasks.list').map((call) => (call.input as { filter: unknown }).filter),
+    ).toContainEqual({ dueAfter: new Date(MONDAY.getTime() - 1), dueBefore: at(7, 0) });
+
+    click(eventEl('Write PKCE migration guide')!);
+    await eventually(() => expect(search(app).get('open')).toBe('tsk_guide'));
+    await eventually(() =>
+      expect(
+        document.querySelector('[data-testid="task-sheet"] input[aria-label="Title"]'),
+      ).toHaveProperty('value', 'Write PKCE migration guide'),
+    );
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('open')).toBeNull());
+
+    click(byText(app.container, 'button', 'Filter'));
+    const menu = () => document.querySelector<HTMLElement>('[data-testid="calendar-filter"]');
+    await eventually(() => expect(menu()).not.toBeNull());
+    click(byText(menu()!, '[role="menuitemcheckbox"]', 'Tasks'));
+    await eventually(() =>
+      expect(main.callsTo('workspace.setSetting').map((call) => call.input)).toEqual([
+        { path: 'calendar.showTasks', value: false },
+      ]),
+    );
+    await eventually(() => expect(eventEl('Write PKCE migration guide')).toBeUndefined());
+    expect(eventEl('Design Review')).toBeDefined();
   });
 
   it('hides a calendar from the filter, through core', async () => {

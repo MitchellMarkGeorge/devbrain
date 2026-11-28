@@ -111,6 +111,7 @@ type Filter = {
   noDueDate?: boolean;
   noteId?: NoteId | null;
   dueBefore?: Date;
+  dueAfter?: Date;
   eventId?: string | null;
   dueOn?: Date;
 };
@@ -208,6 +209,8 @@ export class FakeTasks {
         (filter.noteId === undefined || task.linkedNoteId === filter.noteId) &&
         (filter.dueBefore === undefined ||
           (task.dueDate !== null && task.dueDate < filter.dueBefore)) &&
+        (filter.dueAfter === undefined ||
+          (task.dueDate !== null && task.dueDate > filter.dueAfter)) &&
         (filter.eventId === undefined || task.linkedEventId === filter.eventId) &&
         (filter.dueOn === undefined ||
           (task.dueDate !== null && sameDay(task.dueDate, filter.dueOn))),

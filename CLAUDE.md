@@ -124,6 +124,31 @@ Opening one closes the sidebar's drawer (`useModalShown`, in `AppLayout`).
 Components in `src/renderer/components` stay controlled (`open`, `onOpenChange`); `useModals` is
 for pages.
 
+## Settings
+
+A setting is stored in one of two files, each with its own schema in `src/common/types`, defaults,
+a typed write by dot path and a change event. It lives in exactly one of them: a global setting is
+never overridden per workspace.
+
+- **The settings file** (`settings.json` in the DevBrain folder; `appSettingsSchema`,
+  `SettingsService`, `settings.get`/`settings.set`, `useSetSetting`): how DevBrain behaves in every
+  workspace (theme, time format, default views). Shown in Settings under **All workspaces**.
+- **The workspace's manifest** (`workspace.json` in its folder; `WorkspaceService`,
+  `workspaces.current`): the workspace's identity (name, colour) and its own `settings`
+  (`workspaceSettingsSchema`, `WorkspaceService.setSetting`, `workspace.setSetting`,
+  `useSetWorkspaceSetting`), such as whether its calendar shows tasks. They move with the folder.
+
+Choosing where a new one goes:
+
+- It depends on the workspace's content (what shows, its accounts): the workspace's settings. It
+  is how the user likes the app anywhere: the settings file.
+- One set once goes in Settings, under **Current workspace** or **All workspaces**. One changed
+  while looking at a page (a Filter's tick) is changed on that page, and need not be listed in
+  Settings.
+- A property of one row (a calendar's visibility) stays a column on that row.
+- A manifest value added after version 1 is optional when read and falls back to its default; a
+  wrong one never costs the workspace its name (`settingsOf` in `manifest.ts`).
+
 ## IPC
 
 The renderer reaches core through the typed tRPC router in `src/main/ipc`, run over Electron IPC.

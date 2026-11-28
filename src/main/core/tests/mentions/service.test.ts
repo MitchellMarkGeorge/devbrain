@@ -1,3 +1,4 @@
+import { defaultWorkspaceSettings } from '@common/types';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -35,6 +36,7 @@ beforeEach(async () => {
     createdAt: Date.now(),
     lastOpenedAt: null,
     lastPage: null,
+    settings: defaultWorkspaceSettings(),
   };
   workspace = await Workspace.create(info, WORKSPACE_OPTIONS);
   changes = [];

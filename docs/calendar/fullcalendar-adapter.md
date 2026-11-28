@@ -99,6 +99,15 @@ A timed line is the instant's local time in the series' zone (`timeZone`, or the
 
 Each calendar source's `events(info)` function calls `listForCalendar(info.start, info.end, { calendarIds: [calendar.id] })` over IPC and maps the result; `toEventSource(calendar, load)` builds the source around such a `load`. Series are fetched loosely (any that started before the range ends); rrule.js decides which occurrences fall in view, and a series that has ended yields none.
 
+## Tasks
+
+A task with a due date is drawn on that day, beside the events, when the workspace's `calendar.showTasks` is on (the Filter menu's **Tasks**). It is one of the workspace's own settings, in its manifest (`workspace.setSetting`), not the settings file: each workspace has its own, and it is on until unticked. Tasks are not events: nothing is stored for them, and they have no calendar.
+
+- **One more source**, after the calendars' (`toTaskSource`, id `tasks`). Its `events(info)` reads `tasks.list` with `dueAfter`/`dueBefore` around `info.start` and `info.end`, by due date, every page (`readTasksDue`). Completed and cancelled tasks are included; archived ones never are.
+- **`toTaskInput`**: `id` the task's (`tsk_…`, which is how a click tells a task from an event and opens the task sheet), `allDay: true`, `start` the local day the due date falls on as text, `editable: false`, and `extendedProps` `{ kind: 'task', status }`. No colour: `CalendarView` draws the status icon in place of the bar.
+- **Freshness**: the reads are `tasks.list` queries, so the query invalidator refetches them on any change the task list shows, and the page then calls `refetchEvents()` as it does for the calendars' reads.
+- **Start date** is not drawn: a task is on its due day only.
+
 ## Example
 
 A weekday standup at 9:00 Toronto time, with Wednesday's moved to 10:00 and Friday's cancelled. `listForCalendar` for Mon Oct 5 to Sun Oct 11 returns the master (with `exdates` Wed 9:00 and Fri 9:00) and Wednesday's occurrence row, which map to:

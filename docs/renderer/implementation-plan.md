@@ -267,9 +267,11 @@ moves with the folder to another computer. Main saves it, and the renderer only 
 from `useHistoryPosition` (the entry's `__TSR_index` against `router.history.length`), which
 everything that offers Back uses rather than TanStack's experimental `useCanGoBack`. Back and
 Forward to another workspace's page open it again under the splash; rapid Back and Forward end with
-the last navigation's workspace open (`WorkspaceService` serialises opens, in order). Search-param changes that only reflect UI state (a toolbar value,
-the calendar's date) navigate with `replace: true`, so Back goes to the previous _page_, not the
-previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
+the last navigation's workspace open (`WorkspaceService` serialises opens, in order). Search-param changes that only reflect UI state (a toolbar value)
+navigate with `replace: true`, so Back goes to the previous _page_, not the
+previous filter; opening a sheet (`open=…`) pushes, so Back closes it, and so does moving through
+the calendar (‹ and ›, Today, a day picked, Month, Week or Day), so Back returns to the week or
+view before.
 
 ## Search params
 
@@ -1488,8 +1490,8 @@ linkedTaskId } })`), separate from the task's event or note link.
      header narrows (beside the sidebar, the window bar and the sheet; `headerLayout`): the short
      month and Filter without its value, then Filter and New Event as icons, then the view switch
      as a menu and Today as an icon, so the two sides never meet and the month is never cut.
-     Moving through the calendar replaces the history entry; the sheet pushes one (Back closes
-     it).
+     Another date or view pushes a history entry (Back returns to the week or view before), as
+     the sheet does (Back closes it).
    - Each visible calendar's source reads `events.listForCalendar` for its own calendar through
      `queryClient.query` (`staleTime: Infinity`, so only the invalidator makes it stale); a
      subscription to the query cache calls `refetchEvents()` once when any of them is

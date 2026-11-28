@@ -1,3 +1,4 @@
+import { defaultWorkspaceSettings } from '@common/types';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -659,6 +660,7 @@ describe('IntegrationService — workspaces', () => {
     createdAt: Date.now(),
     lastOpenedAt: null,
     lastPage: null,
+    settings: defaultWorkspaceSettings(),
   });
 
   beforeEach(async () => {

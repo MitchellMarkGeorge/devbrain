@@ -9,6 +9,7 @@ import type {
   IpcResult,
 } from '@common/ipc/types';
 import {
+  defaultWorkspaceSettings,
   LinkState,
   type Mention,
   type AppSettings,
@@ -61,6 +62,7 @@ export function workspace(
     createdAt: 1_700_000_000_000,
     lastOpenedAt: null,
     lastPage: null,
+    settings: defaultWorkspaceSettings(),
     ...extra,
   };
 }
@@ -612,6 +614,17 @@ export class FakeMain {
           1,
         );
         return [undefined, ['workspace']];
+      }
+      case 'workspace.setSetting': {
+        // one of the open workspace's own settings, by its dot path
+        const found = this.workspaces.find((w) => w.id === this.open)!;
+        const keys = (args.path as string).split('.');
+        const settings = structuredClone(found.settings) as unknown as Record<string, unknown>;
+        let node = settings;
+        for (const key of keys.slice(0, -1)) node = node[key] as Record<string, unknown>;
+        node[keys[keys.length - 1]] = args.value;
+        found.settings = settings as unknown as FakeWorkspace['settings'];
+        return [this.info(this.open), ['workspace']];
       }
       case 'workspace.showInFolder':
         return [undefined, []];

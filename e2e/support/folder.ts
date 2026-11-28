@@ -86,6 +86,7 @@ export interface ManifestJson {
   name: string;
   color: string;
   lastPage?: string;
+  settings?: { calendar: { showTasks: boolean } };
 }
 
 export interface RegistryEntryJson {

@@ -142,16 +142,29 @@
 }
 /* on white the 900 tile would swallow dark text: the light theme uses the swatch's 15% tint */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) .allDay:not(.outOfOffice) {
+  :root:not([data-theme='dark']) .allDay:not(.outOfOffice, .allDayTask) {
     background: linear-gradient(var(--chip-tint), var(--chip-tint)), var(--background);
   }
 }
-:root[data-theme='light'] .allDay:not(.outOfOffice) {
+:root[data-theme='light'] .allDay:not(.outOfOffice, .allDayTask) {
   background: linear-gradient(var(--chip-tint), var(--chip-tint)), var(--background);
 }
 .outOfOffice {
   background: var(--muted);
   color: var(--muted-foreground);
+}
+/* a task due that day: no calendar colour, its status icon in place of the bar */
+.allDayTask {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  background: var(--background);
+  color: var(--foreground);
+}
+.allDayTask:hover {
+  background: var(--accent);
+}
+.allDayTask.closed {
+  color: var(--subtle-foreground);
+  text-decoration: line-through;
 }
 
 /* the current time across today's column */
