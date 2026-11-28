@@ -184,6 +184,48 @@ switch, a delete, quit). It must be kept per workspace: the URL moves to the nex
 a switch starts, before the old one closes. Main reads it back for the window's first route, and the
 index route reads it from the opened workspace's info. Nothing goes over IPC as the user navigates.
 
+## Sheets
+
+A sheet is the panel beside a page that shows a task, a note or an event without leaving the page:
+a card on the tasks board (and a project's Tasks tab), a task on a note's page, the task note on a
+task's page, and on the calendar an event, a task due or an event's note.
+
+- **One param.** `sheet` holds the id of the item shown, and the id's prefix says what it is
+  (`?sheet=tsk_…`, `nte_…`, `evt_…`). The calendar adds `occurrence`, the start of the occurrence
+  of a repeating event that was opened, kept when the sheet moves to that event's note.
+- **Each page defines its own sheet params.** Its route's search schema declares
+  `sheet: sheetParam(KINDS)` (`shared/lib/sheet.ts`), `KINDS` being the kinds its page shows,
+  beside the page's other params. An id of another kind is dropped like any bad param, and a
+  route with no sheet has no `sheet` in its schema, so its page never reads one: nothing navigates
+  to clear the param. A page that has a sheet in some states only leaves it out of what it
+  resolves (`resolveTasksSearch` reads `sheet` on the board alone).
+- **One hook does the rest.** The page tells `useSheet` what its schema read:
+  `useSheet({ id: search.sheet, kinds: KINDS })` (`src/renderer/sheets/use-sheet.tsx`; the calendar adds
+  `occurrence`). It gets back `sheet.show(id)` to open an item, `sheet.close()`, the state
+  (`id`, `open`) and `sheet.render()`, which it draws. The page names no sheet component and does
+  no navigating: the hook writes the params with a navigate TanStack types across routes, and
+  `render()` draws `EntitySheet` (beside it in `sheets/`), which docks the sheet in the shell's
+  column or floats it in a compact window, keeps it mounted while it slides out, and draws the
+  content of the item's kind: `TaskSheet`, `NoteSheet` or `EventSheet`, each a `SheetHeader` and
+  a `SheetBody` loading its own data. Content shows another item in the same sheet through its
+  `sheet` prop, which `EntitySheet` gives it and it passes down (an event's linked task, its
+  note, a note's "‹ Event"), asking `accepts(id)` first where the page may not show that kind.
+- **Everything is a history entry.** Showing an item pushes one; another item pushes another (the
+  item already shown adds none); closing pushes one without the param. ×, Esc and a click
+  outside a floating sheet are the same close. So Back undoes one step at a time, a close
+  included: open A, open B, ×, Back shows B again. It makes no difference how the sheet was
+  opened (a click, a link, a reopened last page), and nothing about it is kept in the history's
+  state (a note just created in a sheet is remembered by the hook, to put the caret in it). The one exception is deleting the event shown: its entry is replaced, since there is
+  nothing to return to.
+- **The page's other params are the page's.** A filter or another week keeps the sheet; the
+  toolbar's own rule (replace) or the calendar's (push) applies, and the sheet closes the same way
+  after.
+- **Links.** An event has no page, so `entityLink` opens it at `/calendar?date=…&sheet=evt_…`,
+  without an occurrence. Loaders never depend on `sheet` (`loaderDeps` leaves it out), so opening
+  one reloads nothing.
+- Params sheets had before (`open`, `note`, the calendar's `sheet=note`) are read by no schema: a
+  last page saved with one opens without its sheet.
+
 ## TanStack Router behaviours relied on
 
 Checked against `@tanstack/react-router` 1.170.46 in `src/renderer/tests/routing/tanstack-behaviour.test.ts`;

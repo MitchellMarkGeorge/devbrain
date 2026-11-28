@@ -1,5 +1,4 @@
 import { useState, type KeyboardEvent } from 'react';
-import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ExternalLink, Folder } from 'lucide-react';
 import type { TaskId } from '@common/ids';
@@ -13,9 +12,7 @@ import {
   PriorityIcon,
   ReadOnlyRow,
   resolveColor,
-  Sheet,
   SheetBody,
-  SheetContent,
   SheetDivider,
   SheetHeader,
   SheetItemTitle,
@@ -26,51 +23,38 @@ import {
   TASK_STATUS_LABELS,
   Text,
   useFormat,
-  useWorkspaceShell,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
+import type { SheetNavigation } from './types';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
-import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
-import { isSynced, listedTask } from '../../api/queries';
-import { useTaskActions } from '../../hooks/use-task-actions';
+import {
+  DatePill,
+  PriorityPill,
+  ProjectPill,
+  StatusPill,
+} from '@renderer/features/tasks/components/menus/pickers';
+import { isSynced, listedTask } from '@renderer/features/tasks/api/queries';
+import { useTaskActions } from '@renderer/features/tasks/hooks/use-task-actions';
 import styles from './TaskSheet.module.css';
-import { TaskDescription } from '../sections/TaskDescription';
-import { TaskNoteSection } from '../sections/TaskNoteSection';
-import { TaskSubtasksSection } from '../sections/TaskSubtasksSection';
-
-declare module '@tanstack/history' {
-  interface HistoryState {
-    /** the board opened the sheet with this entry: Back (and the sheet's close) goes back to it */
-    openedSheet?: boolean;
-  }
-}
+import { TaskDescription } from '@renderer/features/tasks/components/sections/TaskDescription';
+import { TaskNoteSection } from '@renderer/features/tasks/components/sections/TaskNoteSection';
+import { TaskSubtasksSection } from '@renderer/features/tasks/components/sections/TaskSubtasksSection';
 
 export interface TaskSheetProps {
   taskId: TaskId;
-  /** false while it slides out: the page keeps it mounted until `onClosed` */
-  open: boolean;
-  /** closes the sheet (removes `open` from the URL) */
-  onClose: () => void;
-  /** it has finished sliding out, and can be unmounted */
-  onClosed: () => void;
+  /** the sheet it is drawn in: to show a linked item in it, or close it */
+  sheet: SheetNavigation;
 }
 
 /**
- * The task sheet over the board (`?open=tsk_…`, Figma `7175:31599`): docked beside the board in
- * wide and medium windows (the shell's sheet column), floating in compact ones. Its ⤢ opens the
- * task's page. Closing goes back when the board pushed the sheet's entry, so Back and × agree;
- * a sheet opened from a link closes in place.
+ * A task in the sheet beside a page (`?sheet=tsk_…`, Figma `7175:31599`): the board, a note's
+ * page and the calendar draw it in their `EntitySheet`. Its ⤢ opens the task's page.
  */
-export function TaskSheet({ taskId, open, onClose, onClosed }: TaskSheetProps) {
-  const router = useRouter();
-  const { size, sheetContainer } = useWorkspaceShell();
-  // docked, it's portalled into the shell's sheet column, which slides open while it's open
-  const floating = size === 'compact';
+export function TaskSheet({ taskId, sheet }: TaskSheetProps) {
   const openEntity = useOpenEntity();
-  const openedHere = useRouterState({ select: (state) => state.location.state.openedSheet });
   const queryClient = useQueryClient();
   // drawn at once from the board's own row while the task itself loads, so moving from one task
   // to another never flashes the skeleton
@@ -79,47 +63,29 @@ export function TaskSheet({ taskId, open, onClose, onClosed }: TaskSheetProps) {
     placeholderData: () => listedTask(queryClient, taskId),
   });
 
-  const close = () => {
-    if (openedHere) router.history.back();
-    else onClose();
-  };
-
-  // on a first render the shell hasn't mounted its column yet: the sheet joins it a moment later
-  if (!floating && !sheetContainer) return null;
   return (
-    <Sheet
-      open={open}
-      variant={floating ? 'overlay' : 'docked'}
-      onOpenChange={(next) => {
-        if (!next) close();
-      }}
-      onOpenChangeComplete={(next) => {
-        if (!next) onClosed();
-      }}
-    >
-      <SheetContent container={floating ? undefined : sheetContainer} data-testid="task-sheet">
-        <SheetHeader onOpenAsPage={query.data ? () => openEntity({ id: taskId }) : undefined}>
-          Task
-        </SheetHeader>
-        <SheetBody>
-          {query.data ? (
-            <TaskSheetBody task={query.data} />
-          ) : query.isError ? (
-            <Text tone="muted">
-              {ipcErrorCode(query.error) === 'not_found'
-                ? 'This task was deleted, or moved to the trash.'
-                : 'This task couldn’t be loaded.'}
-            </Text>
-          ) : (
-            <Stack gap="3" aria-busy>
-              <Skeleton height={20} width="70%" />
-              <Skeleton height={16} width="50%" />
-              <Skeleton height={16} width="60%" />
-            </Stack>
-          )}
-        </SheetBody>
-      </SheetContent>
-    </Sheet>
+    <>
+      <SheetHeader onOpenAsPage={query.data ? () => openEntity({ id: taskId }) : undefined}>
+        Task
+      </SheetHeader>
+      <SheetBody>
+        {query.data ? (
+          <TaskSheetBody task={query.data} sheet={sheet} />
+        ) : query.isError ? (
+          <Text tone="muted">
+            {ipcErrorCode(query.error) === 'not_found'
+              ? 'This task was deleted, or moved to the trash.'
+              : 'This task couldn’t be loaded.'}
+          </Text>
+        ) : (
+          <Stack gap="3" aria-busy>
+            <Skeleton height={20} width="70%" />
+            <Skeleton height={16} width="50%" />
+            <Skeleton height={16} width="60%" />
+          </Stack>
+        )}
+      </SheetBody>
+    </>
   );
 }
 
@@ -154,8 +120,9 @@ function SheetTitle({ task }: { task: Task }) {
   );
 }
 
-// the linked event or note, as a pill that opens it
-function LinkRow({ task }: { task: Task }) {
+// the linked event or note, as a pill that opens it: an event in this sheet where the page's sheet
+// shows events (the calendar), else in the calendar's
+function LinkRow({ task, sheet }: { task: Task; sheet: SheetNavigation }) {
   const openEntity = useOpenEntity();
   const event = useQuery({
     ...trpc.events.get.queryOptions({ id: task.linkedEventId! }),
@@ -172,7 +139,11 @@ function LinkRow({ task }: { task: Task }) {
         <EntityPill
           interactive
           entity={{ type: 'event', title: linked.title, color: linked.color }}
-          onClick={() => openEntity({ id: linked.id, startAt: linked.startAt })}
+          onClick={() =>
+            sheet.accepts(linked.id)
+              ? sheet.show(linked.id)
+              : openEntity({ id: linked.id, startAt: linked.startAt })
+          }
         />
       </DetailRow>
     );
@@ -194,7 +165,7 @@ function LinkRow({ task }: { task: Task }) {
 }
 
 /** The sheet's body for a loaded task. */
-function TaskSheetBody({ task }: { task: TaskListItem }) {
+function TaskSheetBody({ task, sheet }: { task: TaskListItem; sheet: SheetNavigation }) {
   const actions = useTaskActions();
   const { formatDate, formatRelative } = useFormat('minute');
   const openUrl = useMutation(trpc.workspace.openUrl.mutationOptions());
@@ -270,7 +241,7 @@ function TaskSheetBody({ task }: { task: TaskListItem }) {
             </DetailRow>
           </>
         )}
-        <LinkRow task={task} />
+        <LinkRow task={task} sheet={sheet} />
       </DetailRows>
       {synced && external && (
         <div className={styles.syncHint}>

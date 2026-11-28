@@ -12,14 +12,12 @@ import {
 /**
  * The calendar page's state from its URL, every missing param filled in, and the function that
  * changes it. A change replaces the history entry unless it asks to `push` one: the page does for
- * another date or view (Back returns to the week or view before), and with `openedSheet` for the
- * sheet (Back closes it).
+ * another date or view (Back returns to the week or view before). The sheet's own changes are
+ * `useSheet`'s, which push.
  */
 export interface SetSearchOptions {
   /** adds a history entry rather than replacing this one */
   push?: boolean;
-  /** with `push`: the entry is the sheet's, which its close button goes back from */
-  openedSheet?: boolean;
 }
 
 export function useCalendarSearch(): {
@@ -36,10 +34,6 @@ export function useCalendarSearch(): {
       navigate({
         search: (previous) => ({ ...previous, ...patch }),
         replace: !options.push,
-        state:
-          options.push && options.openedSheet
-            ? (previous) => ({ ...previous, openedSheet: true })
-            : undefined,
       }),
     [navigate],
   );

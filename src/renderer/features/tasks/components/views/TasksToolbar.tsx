@@ -268,7 +268,7 @@ export function TasksToolbarEnd({
             setSearch({
               // back from the board to the list as it was: grouped, if the URL still says how
               view: layout === 'board' ? 'board' : search.group_by ? 'group' : 'list',
-              open: undefined,
+              sheet: undefined,
             }),
         }}
         groupBy={

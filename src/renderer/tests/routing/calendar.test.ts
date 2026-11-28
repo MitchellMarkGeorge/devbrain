@@ -10,7 +10,8 @@ import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The calendar page (/app/$workspaceId/calendar) over a fake main's calendars and events: the
 // URL drives the view and the range read, the filter writes each calendar's visibility, and the
-// sheet at ?open= shows an event (or a task), edits it, and asks which occurrences for a series.
+// sheet at ?sheet= shows an event (or a task, or the event's note), edits it, and asks which
+// occurrences for a series.
 
 const WORK = 'wsp_work' as WorkspaceId;
 
@@ -50,6 +51,21 @@ function store() {
 const page = (container: HTMLElement) =>
   container.querySelector<HTMLElement>('[data-testid="calendar-page"]');
 const sheet = () => document.querySelector<HTMLElement>('[data-testid="event-sheet"]');
+const noteSheet = () => document.querySelector<HTMLElement>('[data-testid="note-sheet"]');
+const strip = () => document.querySelector<HTMLElement>('[data-testid="event-strip"]');
+// whichever sheet is on screen, and its ×
+const openSheet = () => document.querySelector<HTMLElement>('[data-sheet]');
+const closeButton = () =>
+  openSheet()?.querySelector<HTMLElement>('button[aria-label="Close"]') ?? null;
+const pressEscape = (target: EventTarget = document.body) =>
+  target.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'Escape',
+      code: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
 // FullCalendar draws each event as a button in its day's list
 const events = (title: string) =>
   [
@@ -121,7 +137,7 @@ describe('the calendar page', () => {
     const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-22` });
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
     click(eventEl('Design Review')!);
-    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
     expect(search(app).get('occurrence')).toBeNull();
     await eventually(() =>
       expect(sheet()?.querySelector('input[aria-label="Title"]')).toHaveProperty(
@@ -136,7 +152,7 @@ describe('the calendar page', () => {
     // a drag in it selects text rather than swiping it away
     expect(sheet()!.hasAttribute('data-base-ui-swipe-ignore')).toBe(true);
     app.router.history.back();
-    await eventually(() => expect(search(app).get('open')).toBeNull());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
     await eventually(() => expect(sheet()).toBeNull());
   });
 
@@ -144,17 +160,102 @@ describe('the calendar page', () => {
     const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-22` });
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
     click(eventEl('Design Review')!);
-    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
     click(eventEl('Gym')!);
-    await eventually(() => expect(search(app).get('open')).toBe('evt_gym'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_gym'));
     // the item already shown adds no entry
     click(eventEl('Gym')!);
-    await eventually(() => expect(search(app).get('open')).toBe('evt_gym'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_gym'));
 
     app.router.history.back();
-    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
     app.router.history.back();
-    await eventually(() => expect(search(app).get('open')).toBeNull());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
+  });
+
+  it('closes with × or Esc as an entry of its own, whatever was opened before, and Back reopens it', async () => {
+    for (const close of [() => click(closeButton()), () => pressEscape()]) {
+      const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-22` });
+      await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+      click(eventEl('Design Review')!);
+      await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+      click(eventEl('Gym')!);
+      await eventually(() => expect(search(app).get('sheet')).toBe('evt_gym'));
+      await eventually(() => expect(closeButton()).not.toBeNull());
+      const entries = app.router.history.length;
+      close();
+      // closed, not back at the event before
+      await eventually(() => expect(search(app).get('sheet')).toBeNull());
+      await eventually(() => expect(openSheet()).toBeNull());
+      expect(app.router.history.length).toBe(entries + 1);
+      app.router.history.back();
+      await eventually(() => expect(search(app).get('sheet')).toBe('evt_gym'));
+      app.router.history.back();
+      await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+      app.router.history.back();
+      await eventually(() => expect(search(app).get('sheet')).toBeNull());
+      stopApps();
+    }
+  });
+
+  it('closes a sheet opened from a link the same way', async () => {
+    const app = startApp(mainWith(store()), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_review`,
+    });
+    await eventually(() => expect(closeButton()).not.toBeNull());
+    click(closeButton());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
+    expect(app.router.history.length).toBe(2);
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+  });
+
+  it('keeps the sheet through another week or view, and closes it for good after', async () => {
+    const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-22` });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    click(eventEl('Design Review')!);
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+    click(app.container.querySelector('[aria-label="Next week"]'));
+    await eventually(() => expect(search(app).get('date')).toBe('2026-06-29'));
+    expect(search(app).get('sheet')).toBe('evt_review');
+    await eventually(() => expect(closeButton()).not.toBeNull());
+    click(closeButton());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
+    expect(search(app).get('date')).toBe('2026-06-29');
+    // Back undoes the close, then the week
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+    expect(search(app).get('date')).toBe('2026-06-29');
+  });
+
+  it('opens a task’s linked event in the same sheet, keeping the view', async () => {
+    const tasks = new FakeTasks([
+      fakeTask('tsk_guide', 'Write PKCE migration guide', {
+        dueDate: at(1, 0),
+        linkedEventId: 'evt_review' as never,
+      }),
+    ]);
+    const app = startApp(mainWith(store(), tasks), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&view=day&sheet=tsk_guide`,
+    });
+    const taskSheet = () => document.querySelector<HTMLElement>('[data-testid="task-sheet"]');
+    await eventually(() => expect(byText(taskSheet()!, 'button', 'Design Review')).not.toBeNull());
+    click(byText(taskSheet()!, 'button', 'Design Review'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+    expect(search(app).get('view')).toBe('day');
+  });
+
+  it('ignores an id its sheet doesn’t show, and the params sheets had before', async () => {
+    const app = startApp(mainWith(store()), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=prj_auth&open=evt_review`,
+    });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    // the bad id leaves the URL; the older param is no param of the page's, so it is never read
+    expect(search(app).get('sheet')).toBeNull();
+    expect(openSheet()).toBeNull();
+    click(eventEl('Gym')!);
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_gym'));
+    await eventually(() => expect(sheet()?.textContent).toContain('Delete event'));
   });
 
   it('opens an occurrence of a series with its start, and asks which events an edit changes', async () => {
@@ -162,7 +263,7 @@ describe('the calendar page', () => {
     const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22` });
     await eventually(() => expect(events('Daily Standup')).toHaveLength(7));
     click(events('Daily Standup')[2]);
-    await eventually(() => expect(search(app).get('open')).toBe('evt_standup'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_standup'));
     expect(new Date(search(app).get('occurrence')!)).toEqual(at(2, 9));
 
     const locationInput = () =>
@@ -188,7 +289,7 @@ describe('the calendar page', () => {
     });
     // the sheet moves to the occurrence's own row
     await eventually(() =>
-      expect(search(app).get('open')).toBe(`evt_standup_${at(2, 9).getTime()}`),
+      expect(search(app).get('sheet')).toBe(`evt_standup_${at(2, 9).getTime()}`),
     );
   });
 
@@ -203,7 +304,7 @@ describe('the calendar page', () => {
     const calendar = store();
     const main = mainWith(calendar);
     copyingReads(main, calendar);
-    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review` });
+    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_review` });
     await eventually(() => expect(descriptionOf()).toBeTruthy());
     const editor = (descriptionOf() as unknown as { editor: Editor }).editor;
 
@@ -231,7 +332,7 @@ describe('the calendar page', () => {
     const main = mainWith(calendar);
     copyingReads(main, calendar);
     startApp(main, {
-      url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_standup&occurrence=${at(2, 9).toISOString()}`,
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_standup&occurrence=${at(2, 9).toISOString()}`,
     });
     await eventually(() => expect(descriptionOf()).toBeTruthy());
     const element = descriptionOf()!;
@@ -262,7 +363,7 @@ describe('the calendar page', () => {
   it('deletes a one-off event after confirming, closing the sheet', async () => {
     const main = mainWith(store());
     const app = startApp(main, {
-      url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review`,
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_review`,
     });
     await eventually(() => expect(sheet()?.textContent).toContain('Delete event'));
     click(byText(sheet()!, 'button', 'Delete event'));
@@ -270,7 +371,7 @@ describe('the calendar page', () => {
     click(byText(document.body, 'button', 'Delete Event'));
     await eventually(() => expect(main.callsTo('events.delete')).toHaveLength(1));
     expect(main.callsTo('events.delete')[0].input).toEqual({ id: 'evt_review' });
-    await eventually(() => expect(search(app).get('open')).toBeNull());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
     await eventually(() => expect(eventEl('Design Review')).toBeUndefined());
   });
 
@@ -295,7 +396,7 @@ describe('the calendar page', () => {
       }),
     );
     const main = mainWith(calendar);
-    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_allhands` });
+    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_allhands` });
     await eventually(() => expect(sheet()?.textContent).toContain('Engineering All-hands'));
     expect(sheet()!.textContent).toContain('Google Calendar · Engineering');
     expect(sheet()!.textContent).toContain('Going');
@@ -309,10 +410,10 @@ describe('the calendar page', () => {
     );
   });
 
-  it('shows the task sheet for ?open=tsk_…', async () => {
+  it('shows the task sheet for ?sheet=tsk_…', async () => {
     const tasks = new FakeTasks([fakeTask('tsk_guide', 'Write PKCE migration guide')]);
     startApp(mainWith(store(), tasks), {
-      url: `/app/${WORK}/calendar?open=tsk_guide`,
+      url: `/app/${WORK}/calendar?sheet=tsk_guide`,
     });
     const taskSheet = () => document.querySelector('[data-testid="task-sheet"]');
     await eventually(() =>
@@ -340,14 +441,14 @@ describe('the calendar page', () => {
     ).toContainEqual({ dueAfter: new Date(MONDAY.getTime() - 1), dueBefore: at(7, 0) });
 
     click(eventEl('Write PKCE migration guide')!);
-    await eventually(() => expect(search(app).get('open')).toBe('tsk_guide'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('tsk_guide'));
     await eventually(() =>
       expect(
         document.querySelector('[data-testid="task-sheet"] input[aria-label="Title"]'),
       ).toHaveProperty('value', 'Write PKCE migration guide'),
     );
     app.router.history.back();
-    await eventually(() => expect(search(app).get('open')).toBeNull());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
 
     click(byText(app.container, 'button', 'Filter'));
     const menu = () => document.querySelector<HTMLElement>('[data-testid="calendar-filter"]');
@@ -380,7 +481,7 @@ describe('the calendar page', () => {
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
   });
 
-  it('opens the event’s note in the sheet from its card, and goes back to the event', async () => {
+  it('opens the event’s note in the sheet from its card, under the meeting, and goes back to the event', async () => {
     const tasks = new FakeTasks(
       [],
       [],
@@ -388,54 +489,135 @@ describe('the calendar page', () => {
     );
     tasks.contents.set('nte_review', 'Decided: ship the revamp.');
     const app = startApp(mainWith(store(), tasks), {
-      url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review`,
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_review`,
     });
     const note = () => document.querySelector<HTMLElement>('[data-testid="event-note"]');
     await eventually(() => expect(note()?.textContent).toContain('Design Review notes'));
     click(byText(note()!, '[role="button"], button', 'Design Review notes'));
-    await eventually(() => expect(search(app).get('sheet')).toBe('note'));
-    const view = () => document.querySelector<HTMLElement>('[data-testid="event-note-view"]');
-    await eventually(() => expect(view()?.textContent).toContain('Decided: ship the revamp.'));
-    expect(view()!.textContent).toContain('Design Review');
-    expect(view()!.querySelector('input[aria-label="Note title"]')).toHaveProperty(
+    // the note is the sheet's item, as an entry of its own
+    await eventually(() => expect(search(app).get('sheet')).toBe('nte_review'));
+    await eventually(() => expect(noteSheet()?.textContent).toContain('Decided: ship the revamp.'));
+    expect(sheet()).toBeNull();
+    // the meeting, over the note
+    await eventually(() => expect(strip()?.textContent).toContain('Design Review'));
+    expect(strip()!.textContent).toContain('Room 4B');
+    expect(byText(strip()!, 'button', 'Join')).not.toBeNull();
+    expect(noteSheet()!.querySelector('input[aria-label="Title"]')).toHaveProperty(
       'value',
       'Design Review notes',
     );
-    click(byText(sheet()!, 'button', 'Event'));
-    await eventually(() => expect(search(app).get('sheet')).toBeNull());
-    expect(search(app).get('open')).toBe('evt_review');
-    await eventually(() => expect(view()).toBeNull());
+    expect(noteSheet()!.textContent).toContain('Notes save as you type');
+    click(byText(noteSheet()!, 'button', 'Event'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_review'));
+    await eventually(() => expect(sheet()?.textContent).toContain('Delete event'));
+    // each step was an entry: Back is the note again
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('sheet')).toBe('nte_review'));
   });
 
-  it('starts the event’s note from its empty state, or with N', async () => {
-    for (const how of ['button', 'key'] as const) {
-      const main = mainWith(store());
-      const app = startApp(main, {
-        url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review&sheet=note`,
-      });
-      const view = () => document.querySelector<HTMLElement>('[data-testid="event-note-view"]');
-      await eventually(() => expect(view()?.textContent).toContain('No note for this meeting yet'));
-      if (how === 'button') click(byText(view()!, 'button', 'Start Note'));
-      else {
-        document.body.dispatchEvent(
-          new KeyboardEvent('keydown', { key: 'n', code: 'KeyN', bubbles: true, cancelable: true }),
-        );
-      }
-      await eventually(() => expect(main.callsTo('notes.create')).toHaveLength(1));
-      expect(main.callsTo('notes.create')[0].input).toEqual({
-        title: 'Design Review notes',
-        linkedEventId: 'evt_review',
-      });
-      // the note opens in place, not on its own page
-      await eventually(() =>
-        expect(view()?.querySelector('input[aria-label="Note title"]')).toHaveProperty(
-          'value',
-          'Design Review notes',
-        ),
+  it('closes the whole sheet from the event’s note, however the event was opened', async () => {
+    const tasks = () =>
+      new FakeTasks(
+        [],
+        [],
+        [fakeNote('nte_review', 'Design Review notes', { linkedEventId: 'evt_review' as never })],
       );
-      expect(app.path()).toContain('/calendar?');
-      stopApps();
-    }
+    // the event clicked in the grid, then its note
+    const app = startApp(mainWith(store(), tasks()), {
+      url: `/app/${WORK}/calendar?date=2026-06-22`,
+    });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    click(eventEl('Design Review')!);
+    const note = () => document.querySelector<HTMLElement>('[data-testid="event-note"]');
+    await eventually(() => expect(note()?.textContent).toContain('Design Review notes'));
+    click(byText(note()!, '[role="button"], button', 'Design Review notes'));
+    await eventually(() => expect(noteSheet()).not.toBeNull());
+    click(closeButton());
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
+    await eventually(() => expect(openSheet()).toBeNull());
+    stopApps();
+
+    // the note opened from a link
+    const linked = startApp(mainWith(store(), tasks()), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=nte_review`,
+    });
+    await eventually(() => expect(noteSheet()).not.toBeNull());
+    click(closeButton());
+    await eventually(() => expect(search(linked).get('sheet')).toBeNull());
+    await eventually(() => expect(openSheet()).toBeNull());
+  });
+
+  it('names the occurrence the note was opened from in its strip, and how a series repeats without one', async () => {
+    const tasks = () =>
+      new FakeTasks(
+        [],
+        [],
+        [fakeNote('nte_standup', 'Standup notes', { linkedEventId: 'evt_standup' as never })],
+      );
+    const occurrence = at(2, 9).toISOString();
+    const app = startApp(mainWith(store(), tasks()), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_standup&occurrence=${occurrence}`,
+    });
+    const note = () => document.querySelector<HTMLElement>('[data-testid="event-note"]');
+    await eventually(() => expect(note()?.textContent).toContain('Standup notes'));
+    click(byText(note()!, '[role="button"], button', 'Standup notes'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('nte_standup'));
+    // the occurrence goes with the note, and comes back with "‹ Event"
+    expect(search(app).get('occurrence')).toBe(occurrence);
+    await eventually(() => expect(strip()?.textContent).toContain('Daily Standup'));
+    expect(strip()!.textContent).not.toContain('Every day');
+    click(byText(noteSheet()!, 'button', 'Event'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('evt_standup'));
+    expect(search(app).get('occurrence')).toBe(occurrence);
+    stopApps();
+
+    // from a link there is no occurrence: the strip says when the series repeats
+    startApp(mainWith(store(), tasks()), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=nte_standup`,
+    });
+    await eventually(() => expect(strip()?.textContent).toContain('Every day'));
+  });
+
+  it('starts the event’s note from "Add a note", in the sheet with the caret in its body', async () => {
+    const main = mainWith(store());
+    const app = startApp(main, {
+      url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_review`,
+    });
+    const note = () => document.querySelector<HTMLElement>('[data-testid="event-note"]');
+    await eventually(() => expect(byText(note()!, 'button', 'Add a note')).not.toBeNull());
+    click(byText(note()!, 'button', 'Add a note'));
+    await eventually(() => expect(main.callsTo('notes.create')).toHaveLength(1));
+    expect(main.callsTo('notes.create')[0].input).toEqual({
+      title: 'Design Review notes',
+      linkedEventId: 'evt_review',
+    });
+    // the note opens in the sheet, not on its own page
+    await eventually(() => expect(search(app).get('sheet')).toMatch(/^nte_/));
+    expect(app.path()).toContain('/calendar?');
+    await eventually(() =>
+      expect(noteSheet()?.querySelector('input[aria-label="Title"]')).toHaveProperty(
+        'value',
+        'Design Review notes',
+      ),
+    );
+    await eventually(() =>
+      expect(document.activeElement?.closest('[role="textbox"][aria-label="Note"]')).not.toBeNull(),
+    );
+  });
+
+  it('links an existing note as the event’s from the section’s Link', async () => {
+    const tasks = new FakeTasks([], [], [fakeNote('nte_loose', 'Loose notes')]);
+    const main = mainWith(store(), tasks);
+    startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22&sheet=evt_review` });
+    const note = () => document.querySelector<HTMLElement>('[data-testid="event-note"]');
+    await eventually(() => expect(byText(note()!, 'button', 'Link')).not.toBeNull());
+    click(byText(note()!, 'button', 'Link'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Loose notes')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Loose notes'));
+    await eventually(() => expect(note()?.textContent).toContain('Loose notes'));
+    expect(byText(note()!, 'button', 'Add a note')).toBeNull();
   });
 
   it('creates an event from New Event', async () => {

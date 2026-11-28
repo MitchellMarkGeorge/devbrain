@@ -442,7 +442,7 @@ describe('the note page', () => {
     const { app } = notePage();
     const list = await openTasks();
     click(list.querySelector('[data-task-id="tsk_pkce"]'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}?open=tsk_pkce`));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}?sheet=tsk_pkce`));
     await eventually(() =>
       expect(
         document.querySelector<HTMLInputElement>(
@@ -459,5 +459,16 @@ describe('the note page', () => {
     expect(app.container.querySelector('[data-testid="note-page"]')).not.toBeNull();
     app.router.history.back();
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}`));
+    // × closes it with an entry of its own, as on the board: Back shows the task again
+    app.router.history.forward();
+    const close = () =>
+      document.querySelector<HTMLElement>('[data-testid="task-sheet"] button[aria-label="Close"]');
+    await eventually(() => expect(close()).not.toBeNull());
+    const entries = app.router.history.length;
+    click(close());
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}`));
+    expect(app.router.history.length).toBe(entries + 1);
+    app.router.history.back();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}?sheet=tsk_pkce`));
   });
 });

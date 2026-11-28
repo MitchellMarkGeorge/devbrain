@@ -41,7 +41,7 @@ export function entityLink(workspaceId: WorkspaceId, entity: EntityRef) {
       params: { workspaceId },
       search: {
         date: entity.startAt ? dateParam(entity.startAt) : undefined,
-        open: id,
+        sheet: id,
       },
     });
   return null;

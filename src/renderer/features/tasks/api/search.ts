@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
-import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
+import { isId, type ProjectId, type TaskId } from '@common/ids';
 import { TaskPriority, TaskStatus, type AppSettings } from '@common/types';
 import type { ipc } from '@renderer/ipc';
 import { multiParam } from '@renderer/shared/lib/search-params';
+import { sheetParam } from '@renderer/shared/lib/sheet';
 
 // The tasks page's search params (docs/renderer/implementation-plan.md, "Search params"): snake
 // case names and values, each `.optional().catch(undefined)`, so a bad value drops that one field
@@ -15,7 +16,6 @@ import { multiParam } from '@renderer/shared/lib/search-params';
 
 const optional = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
 
-const taskId = z.custom<TaskId>((value) => isId('task', value), 'Not a task id');
 const projectId = z.custom<ProjectId>((value) => isId('project', value), 'Not a project id');
 
 export const TASK_VIEWS = ['list', 'group', 'board'] as const;
@@ -34,6 +34,9 @@ export const PRIORITY_FILTERS = ['high', 'medium', 'low', 'none'] as const;
 export const DUE_FILTERS = ['overdue', 'today', 'week', 'none'] as const;
 export const SOURCE_FILTERS = ['local', 'external'] as const;
 
+/** What the board's sheet shows. */
+export const TASKS_SHEET_KINDS = ['task'] as const;
+
 export const tasksSearchSchema = z.object({
   view: optional(z.enum(TASK_VIEWS)),
   /** the group view's grouping; project by default */
@@ -49,15 +52,14 @@ export const tasksSearchSchema = z.object({
   /** core's `origin`: synced from an integration, or not */
   source: optional(z.enum(SOURCE_FILTERS)),
   /** the task in the board's sheet */
-  open: optional(taskId),
+  sheet: sheetParam(TASKS_SHEET_KINDS),
 });
 
 export type TasksSearch = z.infer<typeof tasksSearchSchema>;
 
-const noteId = z.custom<NoteId>((value) => isId('note', value), 'Not a note id');
-
 /** The task page's search params: its task note, open in the sheet. */
-export const taskPageSearchSchema = z.object({ note: optional(noteId) });
+export const TASK_PAGE_SHEET_KINDS = ['note'] as const;
+export const taskPageSearchSchema = z.object({ sheet: sheetParam(TASK_PAGE_SHEET_KINDS) });
 
 export type TaskPageSearch = z.infer<typeof taskPageSearchSchema>;
 export type TaskView = (typeof TASK_VIEWS)[number];
@@ -127,7 +129,8 @@ export interface ResolvedTasksSearch {
   project: readonly ProjectFilter[];
   due: DueFilter | undefined;
   source: SourceFilter | undefined;
-  open: TaskId | undefined;
+  /** the task in the sheet: the board's alone, so the other views read none */
+  sheet: TaskId | undefined;
 }
 
 export function resolveTasksSearch(
@@ -135,8 +138,9 @@ export function resolveTasksSearch(
   settings: Pick<AppSettings, 'tasks'>,
 ): ResolvedTasksSearch {
   const sort = search.sort ?? SORT_PARAM[settings.tasks.defaultSort];
+  const view = search.view ?? settings.tasks.defaultView;
   return {
-    view: search.view ?? settings.tasks.defaultView,
+    view,
     groupBy: search.group_by ?? 'project',
     sort,
     dir: search.dir ?? DEFAULT_DIRECTION[sort],
@@ -145,7 +149,7 @@ export function resolveTasksSearch(
     project: search.project ?? [],
     due: search.due,
     source: search.source,
-    open: search.open,
+    sheet: view === 'board' ? search.sheet : undefined,
   };
 }
 

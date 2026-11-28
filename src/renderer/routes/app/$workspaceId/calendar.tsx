@@ -4,7 +4,7 @@ import { calendarLoaderDeps, loadCalendar } from '@renderer/features/calendar/ap
 import { calendarSearchSchema } from '@renderer/features/calendar/api/search';
 
 // The calendar: week, day or month from the URL (?view=month&date=2026-06-22), and the sheet at
-// ?open=evt_… (with ?occurrence= for one of a series) or ?open=tsk_….
+// ?sheet=evt_… (with ?occurrence= for one of a series), ?sheet=tsk_… or ?sheet=nte_….
 export const Route = createFileRoute('/app/$workspaceId/calendar')({
   validateSearch: calendarSearchSchema,
   loaderDeps: calendarLoaderDeps,

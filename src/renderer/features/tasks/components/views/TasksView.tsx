@@ -1,11 +1,9 @@
-import { useState } from 'react';
-import type { TaskId } from '@common/ids';
 import { PageContent, PageToolbar } from '@renderer/components';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import { TasksBoard } from './board/TasksBoard';
 import { TasksGroups } from './group/TasksGroups';
 import { TasksList } from './list/TasksList';
-import { TaskSheet } from '../sheet/TaskSheet';
-import { CLEAR_FILTERS } from '../../api/search';
+import { CLEAR_FILTERS, TASKS_SHEET_KINDS } from '../../api/search';
 import { TasksToolbarEnd, TasksToolbarStart } from './TasksToolbar';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
 
@@ -25,11 +23,8 @@ export interface TasksViewProps {
  */
 export function TasksView({ showProjectPill = true }: TasksViewProps) {
   const { search, resolved, setSearch } = useTasksSearch();
-  // a card opens the sheet with an entry of its own, marked so the sheet's close goes back to it
-  const openSheet = (open: TaskId) => setSearch({ open }, { push: true, openedSheet: true });
-  // the sheet's task stays mounted once `open` leaves the URL, until the sheet has slid out
-  const [sheetTask, setSheetTask] = useState(resolved.open);
-  if (resolved.open && resolved.open !== sheetTask) setSheetTask(resolved.open);
+  // a card opens in the sheet beside the board (`resolved.sheet` is the board's alone)
+  const sheet = useSheet({ id: resolved.sheet, kinds: TASKS_SHEET_KINDS });
   return (
     <>
       <PageToolbar
@@ -38,7 +33,7 @@ export function TasksView({ showProjectPill = true }: TasksViewProps) {
       />
       <PageContent layout="list" data-testid="page" data-view={resolved.view}>
         {resolved.view === 'board' ? (
-          <TasksBoard resolved={resolved} onOpen={openSheet} showProjectPill={showProjectPill} />
+          <TasksBoard resolved={resolved} onOpen={sheet.show} showProjectPill={showProjectPill} />
         ) : resolved.view === 'group' ? (
           <TasksGroups
             resolved={resolved}
@@ -55,14 +50,7 @@ export function TasksView({ showProjectPill = true }: TasksViewProps) {
           />
         )}
       </PageContent>
-      {resolved.view === 'board' && sheetTask && (
-        <TaskSheet
-          taskId={sheetTask}
-          open={resolved.open !== undefined}
-          onClose={() => setSearch({ open: undefined })}
-          onClosed={() => setSheetTask(undefined)}
-        />
-      )}
+      {sheet.render()}
     </>
   );
 }

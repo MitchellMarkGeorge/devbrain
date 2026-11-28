@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type FocusEvent, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { Editor } from '@tiptap/react';
@@ -22,8 +22,9 @@ import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
-import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import { noteRoute } from '../api/route-api';
+import { NOTE_PAGE_SHEET_KINDS } from '../api/search';
 import { useNoteActions } from '../hooks/use-note-actions';
 import { NoteDetailMenu } from '../components/detail/NoteDetailMenu';
 import { NoteEditor } from '../components/detail/NoteEditor';
@@ -34,7 +35,7 @@ import styles from '../components/detail/NotePage.module.css';
  * A note's page (`/app/$workspaceId/notes/$noteId`, Figma `7158:16387`, `7158:16863`): the title
  * (renamed as it's left), "Edited …", the pills (project, link, the tasks made from it and what
  * mentions it, each list in a popover), then the body in the rich text editor (saved as you type).
- * A task opens in the task sheet beside the page (`?open=tsk_…`). The star and the "…" menu are
+ * A task opens in the task sheet beside the page (`?sheet=tsk_…`). The star and the "…" menu are
  * in the header. A note in the trash (opened
  * from Trash) is shown read-only under a "This note is in the trash" bar until it is restored. The
  * route's loader has the note and its markdown before the first frame; a note deleted while it is
@@ -70,17 +71,9 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   // opened from Trash: shown as it is, read-only, until it's restored
   const trashed = note.archivedAt !== null;
 
-  // a task made from the note, in the sheet beside the page (?open=tsk_…), with an entry of its
-  // own, so Back closes it; it stays mounted once `open` leaves the URL, until it has slid out
-  const { open } = noteRoute.useSearch();
-  const navigateHere = noteRoute.useNavigate();
-  const [sheetTask, setSheetTask] = useState(open);
-  if (open && open !== sheetTask) setSheetTask(open);
-  const openTask = (id: TaskId) =>
-    navigateHere({
-      search: (previous) => ({ ...previous, open: id }),
-      state: (previous) => ({ ...previous, openedSheet: true }),
-    });
+  // a task made from the note, in the sheet beside the page (?sheet=tsk_…)
+  const search = noteRoute.useSearch();
+  const sheet = useSheet({ id: search.sheet, kinds: NOTE_PAGE_SHEET_KINDS });
   const editor = useRef<Editor | null>(null);
 
   // a note just created opens with its empty title focused, to name it
@@ -172,7 +165,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
                 actions={actions}
                 onNewTask={newTask}
                 onLinkTask={linkTask}
-                onOpenTask={openTask}
+                onOpenTask={sheet.show}
               />
             </div>
           </div>
@@ -188,14 +181,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
           </div>
         </Inert>
       </PageContent>
-      {sheetTask && (
-        <TaskSheet
-          taskId={sheetTask}
-          open={open !== undefined}
-          onClose={() => navigateHere({ search: (previous) => ({ ...previous, open: undefined }) })}
-          onClosed={() => setSheetTask(undefined)}
-        />
-      )}
+      {sheet.render()}
     </Page>
   );
 }

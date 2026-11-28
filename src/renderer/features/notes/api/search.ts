@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
-import { isId, type ProjectId, type TaskId } from '@common/ids';
+import { isId, type ProjectId } from '@common/ids';
 import { NOTE_LINK_KINDS } from '@common/types';
 import type { ipc } from '@renderer/ipc';
 import { multiParam } from '@renderer/shared/lib/search-params';
+import { sheetParam } from '@renderer/shared/lib/sheet';
 
 // The notes page's search params (docs/renderer/implementation-plan.md, "Search params ›
 // /app/notes"): snake case names and values, each `.optional().catch(undefined)`, so a bad value
@@ -42,10 +43,11 @@ export const notesSearchSchema = z.object({
 
 export type NotesSearch = z.infer<typeof notesSearchSchema>;
 
-const taskId = z.custom<TaskId>((value) => isId('task', value), 'Not a task id');
+/** What the note page's sheet shows: a task made from the note. */
+export const NOTE_PAGE_SHEET_KINDS = ['task'] as const;
 
 /** The note page's search params: the task made from the note that is open in the sheet. */
-export const notePageSearchSchema = z.object({ open: optional(taskId) });
+export const notePageSearchSchema = z.object({ sheet: sheetParam(NOTE_PAGE_SHEET_KINDS) });
 
 export type NotePageSearch = z.infer<typeof notePageSearchSchema>;
 export type NoteView = (typeof NOTE_VIEWS)[number];

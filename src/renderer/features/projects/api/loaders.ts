@@ -45,7 +45,7 @@ export const parseProjectParams = {
 
 /** What the project page's loader depends on: everything but the board's sheet. */
 export function projectLoaderDeps({ search }: { search: ProjectSearch }): ProjectSearch {
-  return { ...search, open: undefined };
+  return { ...search, sheet: undefined };
 }
 
 /**

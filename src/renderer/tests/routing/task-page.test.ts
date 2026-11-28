@@ -522,7 +522,7 @@ describe('the task page', () => {
     );
     click(byText(app.container, 'button', 'PKCE design notes'));
     await eventually(() =>
-      expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}?note=nte_pkce`),
+      expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}?sheet=nte_pkce`),
     );
     let editor: HTMLElement | null = null;
     await eventually(() => {
@@ -539,6 +539,18 @@ describe('the task page', () => {
       ]),
     );
     expect(app.container.querySelector('[data-testid="task-page"]')).not.toBeNull();
+    // a task's note has no meeting over it, and no way back to an event
+    const sheet = document.querySelector<HTMLElement>('[data-testid="note-sheet"]')!;
+    expect(sheet.querySelector('[data-testid="event-strip"]')).toBeNull();
+    expect(byText(sheet, 'button', 'Event')).toBeNull();
+    expect(sheet.textContent).not.toContain('Notes save as you type');
+    // × closes it with an entry of its own; Back shows the note again
+    click(sheet.querySelector('button[aria-label="Close"]'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}`));
+    app.router.history.back();
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}?sheet=nte_pkce`),
+    );
   });
 
   it('opens a new task note in the sheet', async () => {
@@ -549,7 +561,7 @@ describe('the task page', () => {
       expect(byText(app.container, 'button', 'Add a task note')).not.toBeNull(),
     );
     click(byText(app.container, 'button', 'Add a task note'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/${lone.id}?note=nte_new1`));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/${lone.id}?sheet=nte_new1`));
     expect(main.callsTo('notes.create').map((call) => call.input)).toEqual([
       { title: 'Lone task', linkedTaskId: lone.id, projectId: null },
     ]);

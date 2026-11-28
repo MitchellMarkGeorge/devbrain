@@ -4,7 +4,7 @@ import { loadNote, parseNoteParams } from '@renderer/features/notes/api/loaders'
 import { notePageSearchSchema } from '@renderer/features/notes/api/search';
 
 // A note's page; a missing or deleted note is its not-found. A task made from it opens in the
-// sheet at ?open=tsk_….
+// sheet at ?sheet=tsk_….
 export const Route = createFileRoute('/app/$workspaceId/notes/$noteId')({
   params: parseNoteParams,
   validateSearch: notePageSearchSchema,

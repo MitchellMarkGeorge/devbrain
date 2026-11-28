@@ -1,8 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useRouter } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
-import { isId, type EventId, type TaskId } from '@common/ids';
+import { isId, type EventId } from '@common/ids';
 import type { Event } from '@common/types';
 import { dateParam, type EventInputProps } from '@renderer/shared/lib/calendar';
 import {
@@ -17,7 +16,7 @@ import {
   PageToolbar,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
+import { useSheet } from '@renderer/sheets/use-sheet';
 import {
   defaultDurationMinutes,
   draftForDay,
@@ -31,34 +30,21 @@ import {
 } from '../components/header/CalendarHeader';
 import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
 import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
-import { openEventSearch, type CalendarSearch } from '../api/search';
-import { EventSheet } from '../components/sheet/EventSheet';
+import { CALENDAR_SHEET_KINDS, openEventSearch, type CalendarSearch } from '../api/search';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
-import { calendarRoute } from '../api/route-api';
 import { useDelayedLoading, useEventSources, usePrefetchRanges } from '../hooks/use-event-sources';
 import styles from './CalendarPage.module.css';
-
-type SheetItem = Pick<CalendarSearch, 'open' | 'occurrence'>;
-
-declare module '@tanstack/history' {
-  interface HistoryState {
-    /** the event sheet showed its note with this entry: "‹ Event" goes back to the event */
-    openedEventNote?: boolean;
-  }
-}
 
 /**
  * The calendar (`/app/$workspaceId/calendar`, Figma `7158:13273` week, `7158:13856` day,
  * `7158:18439` month): the header (the month, the calendar filter, the view, ‹ Today ›, New
  * Event) over `CalendarView`, driven by the URL's `view` and `date`, with the tasks due on each
  * day beside the events (the Filter's "Tasks"); the mini calendar and agenda
- * at the right in wide windows; and the sheet at `?open=`, an event's (`evt_…`) or a task's
- * (`tsk_…`, from the grid, the agenda or an event's linked tasks).
+ * at the right in wide windows; and the sheet at `?sheet=`: an event (`evt_…`), a task (`tsk_…`,
+ * from the grid, the agenda or an event's linked tasks) or an event's note (`nte_…`).
  */
 export function CalendarPage() {
   const { search, resolved, setSearch } = useCalendarSearch();
-  const navigate = calendarRoute.useNavigate();
-  const router = useRouter();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const calendars = useSuspenseQuery(trpc.calendars.list.queryOptions()).data;
   const { size } = useWorkspaceShell();
@@ -81,30 +67,21 @@ export function CalendarPage() {
   const [loading, onLoading] = useDelayedLoading();
   const duration = defaultDurationMinutes(settings);
 
-  // An item in the sheet is a history entry of its own, as on the tasks board: Back returns to the
-  // item before, then closes the sheet. The item already shown adds none.
-  const openSheet = useCallback(
-    (item: SheetItem) => {
-      const shown = item.open === search.open && item.occurrence === search.occurrence;
-      setSearch({ ...item, sheet: undefined }, { push: !shown, openedSheet: true });
-    },
-    [setSearch, search.open, search.occurrence],
-  );
+  // the sheet: each item shown in it is a history entry of its own, and so is closing it
+  const sheet = useSheet({
+    id: resolved.sheet,
+    occurrence: resolved.occurrence,
+    kinds: CALENDAR_SHEET_KINDS,
+  });
+  const showInSheet = sheet.show;
   const openEvent = useCallback(
-    (id: EventId, occurrence?: Date) => openSheet(openEventSearch(id, occurrence)),
-    [openSheet],
-  );
-  const openTask = useCallback(
-    (id: TaskId) => openSheet({ open: id, occurrence: undefined }),
-    [openSheet],
+    (id: EventId, occurrence?: Date) => showInSheet(id, { occurrence: occurrence?.toISOString() }),
+    [showInSheet],
   );
   const createEvent = useCreateEvent(
     useCallback(
       (event: Event) =>
-        setSearch(
-          { ...openEventSearch(event.id), date: dateParam(event.startAt) },
-          { push: true, openedSheet: true },
-        ),
+        setSearch({ ...openEventSearch(event.id), date: dateParam(event.startAt) }, { push: true }),
       [setSearch],
     ),
   );
@@ -122,33 +99,11 @@ export function CalendarPage() {
 
   const onEventClick = (event: CalendarViewEvent) => {
     // a task due that day: its sheet
-    if (isId('task', event.id)) return openTask(event.id);
+    if (isId('task', event.id)) return sheet.show(event.id);
     const { recurring } = event.props as Partial<EventInputProps>;
     // a series' expanded occurrence is named by its start in the series
     openEvent(event.id as EventId, recurring ? event.start : undefined);
   };
-
-  // the sheet stays mounted once `open` leaves the URL, until it has slid out
-  const [sheet, setSheet] = useState<SheetItem>({
-    open: resolved.open,
-    occurrence: resolved.occurrence?.toISOString(),
-  });
-  const occurrence = resolved.occurrence?.toISOString();
-  if (resolved.open && (resolved.open !== sheet.open || occurrence !== sheet.occurrence)) {
-    setSheet({ open: resolved.open, occurrence });
-  }
-  const closeSheet = () => setSearch({ open: undefined, occurrence: undefined, sheet: undefined });
-  // the event's note in the sheet: an entry of its own, so Back (and "‹ Event") return to the event
-  const openEventNote = () =>
-    navigate({
-      search: (previous) => ({ ...previous, sheet: 'note' as const }),
-      state: (previous) => ({ ...previous, openedEventNote: true }),
-    });
-  const closeEventNote = () => {
-    if (router.state.location.state.openedEventNote) router.history.back();
-    else setSearch({ sheet: undefined });
-  };
-  const sheetOpen = resolved.open !== undefined;
 
   return (
     <Page title="Calendar">
@@ -192,7 +147,7 @@ export function CalendarPage() {
             firstDay={options.firstDay}
             hideWeekends={options.hideWeekends}
             timeFormat={settings.general.timeFormat}
-            selectedEventId={resolved.open}
+            selectedEventId={resolved.sheet}
             onEventClick={onEventClick}
             onSelect={(selection: CalendarViewSelection) =>
               createEvent(draftFromSelection(selection, duration))
@@ -201,39 +156,18 @@ export function CalendarPage() {
             onLoading={onLoading}
           />
         </div>
-        {size === 'wide' && !sheetOpen && (
+        {size === 'wide' && !sheet.open && (
           <CalendarSidePanel
             date={resolved.date}
             firstDay={options.firstDay}
             calendars={calendars}
             onDateChange={(day) => goTo(day)}
             onOpenEvent={openEvent}
-            onOpenTask={openTask}
+            onOpenTask={sheet.show}
           />
         )}
       </div>
-      {sheet.open && isId('event', sheet.open) && (
-        <EventSheet
-          eventId={sheet.open}
-          occurrence={sheet.occurrence ? new Date(sheet.occurrence) : undefined}
-          open={sheetOpen}
-          onClose={closeSheet}
-          onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
-          onShowEvent={openEvent}
-          onOpenTask={openTask}
-          noteView={resolved.eventNote}
-          onOpenNote={openEventNote}
-          onCloseNote={closeEventNote}
-        />
-      )}
-      {sheet.open && isId('task', sheet.open) && (
-        <TaskSheet
-          taskId={sheet.open}
-          open={sheetOpen}
-          onClose={closeSheet}
-          onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
-        />
-      )}
+      {sheet.render()}
     </Page>
   );
 }

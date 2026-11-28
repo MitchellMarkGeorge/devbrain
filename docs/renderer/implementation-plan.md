@@ -73,7 +73,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Entity components                  | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title' \| 'status' \| …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs the shared types and enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes).                                                                                                                                                           |
 | Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. On their pages, a task's note (`?note=`) and a note's tasks (`?open=`) open in the same docked sheet.                                                                                                                                                                                                                                                                                                                                                                   |
+| Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` beside their list, addressed by the `sheet` search param (routing.md, "Sheets"). On their pages, a task's note and a note's tasks open in the same docked sheet, by the same param.                                                                                                                                                                                                                                                                                                                                                               |
 | Workspaces in the URL              | **Built (milestones 1–2).** Every page in a workspace is under `/app/$workspaceId`, and `/app/$workspaceId` opens the workspace its URL names when it isn't open. Main picks the window's first URL (the last workspace, or its last page); the renderer never decides which workspace to open. Switching is navigating; Back and Forward across workspaces reopen them. See [routing.md](routing.md).                                                                                                                                                                                                                                                                                            |
 | Splash                             | **Built.** `/app/$workspaceId`'s pending component, shown `SPLASH_DELAY_MS` (50ms) into an open: at startup and on a switch, never for a load that opens nothing (a reload, onboarding, Back from Create workspace). The open takes 600ms at least, so a quick one doesn't flicker. The old page stays mounted, hidden, under it; its queries don't refetch, as the invalidator removes their data; the route remounts on a new workspace (`remountDeps`). No boot route: startup is the same flow on the first load.                                                                                                                                                                             |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. The sidebar's Help item opens the keyboard shortcuts; Welcome's "What's a workspace?" link has nothing behind it yet and is drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -124,13 +124,13 @@ __root                         toasts, splash (in place of the page), DevBrain u
     │                          its errorComponent says why an open failed
     ├── /                      index: redirect to the last page or the landing page
     ├── /home
-    ├── /tasks                 ?view=list|group|board, filters, sort, ?open=tsk_…
+    ├── /tasks                 ?view=list|group|board, filters, sort, ?sheet=tsk_…
     │   └── /$taskId
     ├── /projects              ?view=list|card, filters, sort
     │   └── /$projectId        ?tab=overview|tasks|notes
     ├── /notes                 ?view=list|card, filters, sort
     │   └── /$noteId
-    ├── /calendar              ?view=week|month|day, ?date=YYYY-MM-DD, ?open=evt_…|tsk_…
+    ├── /calendar              ?view=week|month|day, ?date=YYYY-MM-DD, ?sheet=evt_…|tsk_…|nte_…
     ├── /trash                 ?tab=all|projects|tasks|notes
     ├── /integrations          redirect to /settings/integrations (it was its own page until Nov 2026)
     └── /settings              a page per section, with the settings' own sidebar (routing.md)
@@ -268,8 +268,8 @@ everything that offers Back uses rather than TanStack's experimental `useCanGoBa
 Forward to another workspace's page open it again under the splash; rapid Back and Forward end with
 the last navigation's workspace open (`WorkspaceService` serialises opens, in order). Search-param changes that only reflect UI state (a toolbar value)
 navigate with `replace: true`, so Back goes to the previous _page_, not the
-previous filter; opening a sheet (`open=…`) pushes, so Back closes it, and so does moving through
-the calendar (‹ and ›, Today, a day picked, Month, Week or Day), so Back returns to the week or
+previous filter; showing an item in a sheet (`sheet=…`) and closing it both push (routing.md,
+"Sheets"), and so does moving through the calendar (‹ and ›, Today, a day picked, Month, Week or Day), so Back returns to the week or
 view before.
 
 ## Search params
@@ -307,7 +307,7 @@ export const tasksSearch = z.object({
 | `project`  | `prj_…` \| `none`                                                                         | "Filter by project" menu (`7175:25639`)                                                                             |
 | `due`      | `overdue` \| `today` \| `week` \| `none`                                                  | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call                                                                |
 | `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                                     |
-| `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                                        |
+| `sheet`    | `tsk_…`                                                                                   | the task sheet beside the board (`7175:31599`); read on the board alone                                             |
 
 `priority` and `project` (and the notes page's `project`) hold several values, "any of
 these": a list in the URL, or one value alone as older links have it (`multiParam`,
@@ -333,13 +333,12 @@ chip, one value, every type when missing), `edited` (`today` \| `week` \| `month
 
 ### `/app/calendar`
 
-| Param        | Values                               | Notes                                                                                                                                                                                            |
-| ------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `view`       | `week` (default) \| `month` \| `day` | default from `settings.calendar.defaultView`                                                                                                                                                     |
-| `date`       | `YYYY-MM-DD`                         | the anchor day, default today. The visible range is derived from `view` + `date` + `firstDayOfWeek`, so month, year and week all come from one param and can never disagree. "Today" removes it. |
-| `open`       | `evt_…` \| `tsk_…`                   | the item in the sheet. Ids are prefixed, so one param covers both the events and the tasks due that the agenda shows; the sheet picks its body from the prefix.                                  |
-| `occurrence` | ISO datetime                         | with `open=evt_…` of a series: which occurrence was clicked (its `originalStartAt`), needed to edit "this event" vs "all events" (`7424:43188`)                                                  |
-| `sheet`      | `note`                               | with `open=evt_…`: the sheet shows the event's note, where meeting notes are taken (`7410:34948`, `7411:34597`)                                                                                  |
+| Param        | Values                               | Notes                                                                                                                                                                                                                 |
+| ------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `view`       | `week` (default) \| `month` \| `day` | default from `settings.calendar.defaultView`                                                                                                                                                                          |
+| `date`       | `YYYY-MM-DD`                         | the anchor day, default today. The visible range is derived from `view` + `date` + `firstDayOfWeek`, so month, year and week all come from one param and can never disagree. "Today" removes it.                      |
+| `sheet`      | `evt_…` \| `tsk_…` \| `nte_…`        | the item in the sheet. Ids are prefixed, so one param covers the events, the tasks due that the agenda shows, and an event's note; the sheet picks its content from the prefix.                                       |
+| `occurrence` | ISO datetime                         | with `sheet=evt_…` of a series: which occurrence was clicked (its `originalStartAt`), needed to edit "this event" vs "all events" (`7424:43188`). Kept with `sheet=nte_…`, so the note's strip names that occurrence. |
 
 **Calendar filters are not search params.** "Filter: All calendars" (`7424:42573`) toggles which
 calendars show, and core already persists that per calendar (`calendars.setVisible`) and applies
@@ -592,7 +591,7 @@ menu show default glyphs"): `resolveEntity` reads `tasks.get` / `projects.get` /
 `events.get` from the cache and subscribes so pills re-render when the query settles. Every page
 with a `RichTextEditor` passes `onOpenEntity={useOpenEntity()}`, which navigates to `entityLink` (`shared/lib/entities.ts`), by type: task →
 `/app/tasks/$id`, project → `/app/projects/$id`, note → `/app/notes/$id`, event →
-`/app/calendar?date=…&open=evt_…`. The same `useOpenEntity` serves search results and pills;
+`/app/calendar?date=…&sheet=evt_…`. The same `useOpenEntity` serves search results and pills;
 the sidebar's recents and favorites are links to the same `entityLink`.
 
 ## App-wide pieces
@@ -844,7 +843,7 @@ composition in `screens/Tasks`.
   group, creating with the group's project or status). Collapsed state per group in
   `localStorage`.
 - **Board**: a `BoardColumn` per status (Not started, In progress, Completed; Cancelled hidden
-  unless filtered), `BoardCard`s, dashed "Add task". Clicking a card sets `?open=tsk_…`, showing
+  unless filtered), `BoardCard`s, dashed "Add task". Clicking a card sets `?sheet=tsk_…`, showing
   the **task sheet** (`7175:31599`) docked beside the board (floating in compact windows, as
   the old test bench's `SheetPage` did with `shell.sheetContainer`); its ⤢ goes to `/app/tasks/$taskId`.
   Drag between columns → `tasks.updateStatus` (optimistic), with dnd-kit (`@dnd-kit/core`), by
@@ -869,7 +868,7 @@ Figma `7158:6266` and variants (`7158:7794` subtask, `7158:8195` note, `7158:864
 - **Subtasks** `DetailSection` with `TaskList subtasks` and "+ Add" (`tasks.createSubtask`);
   promote/demote from the row menu.
 - **Task note** card (`TaskNoteCard`) → the note in the docked sheet beside the page
-  (`NoteSheet`, `?note=nte_…`), its ⤢ the note's page. Figma's task note dialog (`7412:37391`)
+  (`NoteSheet`, `?sheet=nte_…`), its ⤢ the note's page. Figma's task note dialog (`7412:37391`)
   was dropped: editing in a dialog fought its menus. With no note: "+ Add a task note" creates one
   linked to the task and opens it in the sheet.
 - **Header**: `PageFavoriteButton` (`tasks.setFavorite`), `PageMenuButton` with the README's order:
@@ -913,7 +912,7 @@ tasks), `7158:17380`, `7158:17899`, `7421:36683`, `7527:51820` (menu), `7175:411
   saves and the last wins; the page ignores the content refetch its own save triggers (the editor
   already ignores a `value` equal to what it last sent).
 - **Tasks section** (`DetailSection` "Tasks"): `tasks.list({ filter: { noteId } })`, each task
-  opening in the task sheet beside the note (`?open=tsk_…`), "Link Task" (picker →
+  opening in the task sheet beside the note (`?sheet=tsk_…`), "Link Task" (picker →
   `tasks.updateLinks`), "+ New Task" (create dialog with `linkedNoteId`). Slash menu
   "Task" creates a linked task too.
 - Menu: Link to ›, Change project ›, Duplicate (C2), Show in Finder (C4), Copy as Markdown (C3),
@@ -958,14 +957,14 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
 - **Right panel** (wide windows only, per the README): mini `Calendar` (sets `date`) and
   `CalendarAgenda` for today and tomorrow, mixing events (`occurrencesBetween`) and tasks due
   (`tasks.list` with `dueOn`).
-- **Event sheet** (`?open=evt_…`, from `eventClick`; for an expanded occurrence `occurrence` is its
+- **Event sheet** (`?sheet=evt_…`, from `eventClick`; for an expanded occurrence `occurrence` is its
   start): date, time, repeats, calendar, location, meeting link (Join → `workspace.openUrl`),
   description, event note (inline `RichTextEditor` in the sheet, "Open full view" → the note page),
   linked tasks. Edits → `events.update`, or for a series the "This event / This and following / All
   events" dialog → the routes in the adapter spec's table. Google events are read-only
   (`editable: false`) with the RSVP shown (`response`). Events have no page of their own: the sheet
   is the event's detail view.
-- **Task sheet** (`?open=tsk_…` from the agenda): the same task sheet as the board.
+- **Task sheet** (`?sheet=tsk_…` from the agenda): the same task sheet as the board.
 - **Creating**: New Event dialog; `select` on an empty slot (`interaction` plugin) opens it with
   that range, or `defaultEventDuration` for a click. Dragging and resizing events is not in the
   design; leave `editable` off for now. FullCalendar supports it and the spec covers the
@@ -1250,7 +1249,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   matches are ranked and cut; this replaces R1's `status`, `color` and `external` fields, and ⌘K
   and the "@" menu read them from `entity` (⌘K draws an event with no colour of its own in its
   calendar's). The pickers of events, notes and tasks (Link to ›, Make subtask of ›, a note's task
-  links, the event sheet's Link Existing Note) list what they loaded while nothing is typed, then
+  links, the event sheet's Link, for an existing note) list what they loaded while nothing is typed, then
   ask `search.search` for their type (`usePickerSearch`, `PickerSearchFilter`, `pickerRows`,
   `src/renderer/features/search/components/picker-search.tsx`): 120ms after typing pauses, keeping
   the loaded rows until the first search answers, "Searching…" rather than "no matches" until it
@@ -1366,7 +1365,7 @@ page that needs them.
    C1–C3. As built (`src/renderer/features/tasks`):
    - Layout: the shared data and actions at the folder's root (`queries.ts`, `search.ts`,
      `loaders.ts`, `use-task-actions.ts`, `use-tasks-search.ts`); `views/` the Tasks page with
-     `list/`, `group/` and `board/`; `sheet/` the board's task sheet; `detail/` the task page;
+     `list/`, `group/` and `board/`; `detail/` the task page;
      `sections/` the description, subtasks and task note both of those show; `create/` the
      Create task dialog; `menus/` the row menu and the property pickers.
    - Search params are snake case (`group_by`, `due_date`, `not_started`), resolved against
@@ -1420,8 +1419,8 @@ linkedTaskId } })`), separate from the task's event or note link.
      failed read leaves the pill to load on its own. The note page's loader awaits the note's
      tasks too, read alongside the note: the tasks pill under the title needs them.
    - Sheets beside a page, as the board's: on the note page, a task in its Tasks section opens in
-     the task sheet (`?open=tsk_…`); on the task page, the task note card and "+ Add a task note"
-     open the note in `NoteSheet` (`features/notes/sheet`, `?note=nte_…`): its title, "Edited …",
+     the task sheet (`?sheet=tsk_…`); on the task page, the task note card and "+ Add a task note"
+     open the note in `NoteSheet` (`src/renderer/sheets`, `?sheet=nte_…`): its title, "Edited …",
      project and body, saved with the note page's editor and autosave. Back closes either; ⤢ opens
      the full page. The board's task sheet still opens the note's page (the task is the sheet).
      The task note dialog (dropped in milestone 4) is not coming back.
@@ -1480,7 +1479,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - Layout: `search.ts` (the params) and `range.ts` (the range a view and date show, checked
      against FullCalendar's own `activeRange`, weekends hidden or not, the week from Monday or
      Sunday), `queries.ts`, `loaders.ts` and `use-event-sources.ts` at the folder's root;
-     `header/` the header and the Filter menu; `panel/` the right panel; `sheet/` the event sheet;
+     `header/` the header and the Filter menu; `panel/` the right panel; the event sheet is in `src/renderer/sheets`;
      `edit/` the occurrence-scope logic (`occurrence.ts`, pure and tested) and its dialog;
      `create/` the New event dialog; `pickers.tsx` the day, time, repeat and calendar pills both
      use.
@@ -1512,16 +1511,18 @@ linkedTaskId } })`), separate from the task's event or note link.
      the adapter spec.
    - The event note is the note whose `linkedEventId` is the event (for a series, the series',
      not one occurrence's). The sheet's Event note shows its card (`TaskNoteCard`: title, tasks,
-     date), or "+ Add a note"; either turns the sheet itself into the note (`?sheet=note`, an entry
-     of its own, so Back and "‹ Event" return to the event): a strip naming the meeting (how soon,
-     its times and place, Join), the note's title and its body in the note page's `NoteEditor`,
-     saved as typed, with ⤢ to the note's page and "Type / for blocks · Notes save as you type"
-     under it. With no note yet: "No note for this meeting yet", Start Note (or N, which the view
-     takes over from New note while it shows) and Link Existing Note (a searchable menu of the 50
-     notes edited last). Linked tasks are `tasks.list({ filter: { eventId } })`; "+ Add" opens
+     date), which opens the note in the sheet as an item of its own (`?sheet=nte_…`, keeping
+     `occurrence`): `NoteSheet`, the same sheet a task page shows its task note in, which for a
+     note linked to an event adds a strip naming the meeting (`EventStrip`: how soon, its times
+     and place, Join; for a series opened with no occurrence, how it repeats), "‹ Event" back to
+     the event and "Type / for blocks · Notes save as you type" under the body. With no note yet:
+     "+ Add a note" creates one named after the event and opens it with the caret in its body, and
+     the section's "Link" makes an existing note the event's (a searchable menu of the 50 notes
+     edited last). Figma's empty state in the sheet (`7411:34597`: Start Note, or N) is not
+     built: a note that doesn't exist has no id for the URL to name. Linked tasks are `tasks.list({ filter: { eventId } })`; "+ Add" opens
      Create task linked to the event (linking an existing task, Figma's "Link a task", needs a
      task picker and is left for later).
-   - `?open=tsk_…` shows the board's `TaskSheet`. The sheet's `events.get` doesn't retry
+   - `?sheet=tsk_…` shows the board's `TaskSheet`. The sheet's `events.get` doesn't retry
      `not_found`, so a delete's refetch settles at once and the sheet closes.
    - A slot click opens New event for `defaultEventDuration`, a drag for its range, a month or
      all-day click for that day; New Event starts at the next hour today (9:00 on another day).
