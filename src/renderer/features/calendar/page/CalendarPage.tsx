@@ -81,10 +81,14 @@ export function CalendarPage() {
   const [loading, onLoading] = useDelayedLoading();
   const duration = defaultDurationMinutes(settings);
 
-  // the sheet pushes an entry when it opens (Back closes it), and replaces it while open
+  // An item in the sheet is a history entry of its own, as on the tasks board: Back returns to the
+  // item before, then closes the sheet. The item already shown adds none.
   const openSheet = useCallback(
-    (item: SheetItem) => setSearch(item, { push: resolved.open === undefined, openedSheet: true }),
-    [setSearch, resolved.open],
+    (item: SheetItem) => {
+      const shown = item.open === search.open && item.occurrence === search.occurrence;
+      setSearch({ ...item, sheet: undefined }, { push: !shown, openedSheet: true });
+    },
+    [setSearch, search.open, search.occurrence],
   );
   const openEvent = useCallback(
     (id: EventId, occurrence?: Date) => openSheet(openEventSearch(id, occurrence)),
@@ -99,9 +103,9 @@ export function CalendarPage() {
       (event: Event) =>
         setSearch(
           { ...openEventSearch(event.id), date: dateParam(event.startAt) },
-          { push: resolved.open === undefined, openedSheet: true },
+          { push: true, openedSheet: true },
         ),
-      [setSearch, resolved.open],
+      [setSearch],
     ),
   );
 
@@ -215,7 +219,7 @@ export function CalendarPage() {
           open={sheetOpen}
           onClose={closeSheet}
           onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
-          onShowEvent={(id, at) => setSearch(openEventSearch(id, at))}
+          onShowEvent={openEvent}
           onOpenTask={openTask}
           noteView={resolved.eventNote}
           onOpenNote={openEventNote}

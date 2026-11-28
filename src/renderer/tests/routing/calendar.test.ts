@@ -140,6 +140,23 @@ describe('the calendar page', () => {
     await eventually(() => expect(sheet()).toBeNull());
   });
 
+  it('gives each item opened in the sheet a history entry, so Back returns to the one before', async () => {
+    const app = startApp(mainWith(store()), { url: `/app/${WORK}/calendar?date=2026-06-22` });
+    await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+    click(eventEl('Design Review')!);
+    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    click(eventEl('Gym')!);
+    await eventually(() => expect(search(app).get('open')).toBe('evt_gym'));
+    // the item already shown adds no entry
+    click(eventEl('Gym')!);
+    await eventually(() => expect(search(app).get('open')).toBe('evt_gym'));
+
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('open')).toBe('evt_review'));
+    app.router.history.back();
+    await eventually(() => expect(search(app).get('open')).toBeNull());
+  });
+
   it('opens an occurrence of a series with its start, and asks which events an edit changes', async () => {
     const main = mainWith(store());
     const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-22` });
