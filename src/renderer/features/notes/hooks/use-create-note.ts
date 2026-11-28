@@ -6,7 +6,7 @@ import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 
 declare module '@tanstack/history' {
   interface HistoryState {
-    /** the note was just created: its page focuses the empty title */
+    /** the note was just created: its page focuses the empty title, its sheet the body */
     newNote?: boolean;
   }
 }

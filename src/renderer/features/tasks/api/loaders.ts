@@ -20,7 +20,7 @@ export function today(): Date {
 
 /** The filters a list's loader depends on: everything but the sheet, so opening it reloads nothing. */
 export function tasksLoaderDeps({ search }: { search: TasksSearch }): TasksSearch {
-  return { ...search, open: undefined };
+  return { ...search, sheet: undefined };
 }
 
 /**

@@ -8,8 +8,6 @@ import { resolveTasksSearch, type ResolvedTasksSearch, type TasksSearch } from '
 export interface SetTasksSearchOptions {
   /** a new history entry (Back undoes it); a toolbar change replaces the entry */
   push?: boolean;
-  /** marks the entry as the one that opened the board's sheet, so its close goes Back */
-  openedSheet?: boolean;
 }
 
 /** The tasks views' state from the URL, and the function that changes it. */
@@ -55,7 +53,7 @@ export function useTasksSearch(): TasksSearchState {
 /**
  * The tasks page's state from its URL, every missing param filled from the settings, and the
  * function that changes it. A toolbar change replaces the history entry (Back goes to the
- * previous page, not the previous filter); opening the sheet pushes one (Back closes it).
+ * previous page, not the previous filter). The board's sheet is `useSheet`'s, which pushes.
  */
 export function useTasksRouteSearch(): TasksSearchState {
   const search = tasksRoute.useSearch();
@@ -66,9 +64,6 @@ export function useTasksRouteSearch(): TasksSearchState {
       navigate({
         search: (previous) => ({ ...previous, ...patch }),
         replace: !options.push,
-        ...(options.openedSheet && {
-          state: (previous) => ({ ...previous, openedSheet: true }),
-        }),
       }),
     [navigate],
   );

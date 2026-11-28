@@ -28,9 +28,6 @@ export function ProjectTasksTab({ project }: { project: Project }) {
       navigate({
         search: (previous) => ({ ...previous, ...rest }),
         replace: !options.push,
-        ...(options.openedSheet && {
-          state: (previous) => ({ ...previous, openedSheet: true }),
-        }),
       });
     },
     [navigate],

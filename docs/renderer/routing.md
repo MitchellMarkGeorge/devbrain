@@ -184,6 +184,43 @@ switch, a delete, quit). It must be kept per workspace: the URL moves to the nex
 a switch starts, before the old one closes. Main reads it back for the window's first route, and the
 index route reads it from the opened workspace's info. Nothing goes over IPC as the user navigates.
 
+## Sheets
+
+A sheet is the panel beside a page that shows a task, a note or an event without leaving the page:
+a card on the tasks board (and a project's Tasks tab), a task on a note's page, the task note on a
+task's page, and on the calendar an event, a task due or an event's note.
+
+- **One param.** `sheet` holds the id of the item shown, and the id's prefix says what it is
+  (`?sheet=tsk_…`, `nte_…`, `evt_…`). The calendar adds `occurrence`, the start of the occurrence
+  of a repeating event that was opened, kept when the sheet moves to that event's note.
+- **Each route says what its sheet shows.** Its search schema declares
+  `sheet: sheetParam(KINDS)` (`shared/lib/sheet.ts`). An id of another kind is dropped like any
+  bad param, and a route with no sheet has no `sheet` in its schema, so its page never reads one:
+  nothing navigates to clear the param. A page that has a sheet in some states only leaves it out
+  of what it resolves (`resolveTasksSearch` reads `sheet` on the board alone).
+- **One hook, one component.** A page calls `useSheet({ id, kinds })` (`shared/hooks/use-sheet.tsx`)
+  and draws `<EntitySheet sheet={sheet}>` (`shared/components`), giving it the content for an
+  item: `TaskSheet`, `NoteSheet` or `EventSheet`, which draw a `SheetHeader` and a `SheetBody`
+  and load their own data. `EntitySheet` docks it in the shell's column or floats it in a compact
+  window, and keeps it mounted while it slides out. Content shows another item in the same sheet
+  with `useSheetNavigation()` (an event's linked task, its note, a note's "‹ Event"), asking
+  `accepts(id)` first where the page may not show that kind.
+- **Everything is a history entry.** Showing an item pushes one; another item pushes another (the
+  item already shown adds none); closing pushes one without the param. ×, Esc and a click
+  outside a floating sheet are the same close. So Back undoes one step at a time, a close
+  included: open A, open B, ×, Back shows B again. It makes no difference how the sheet was
+  opened (a click, a link, a reopened last page), and nothing about it is kept in the history's
+  state. The one exception is deleting the event shown: its entry is replaced, since there is
+  nothing to return to.
+- **The page's other params are the page's.** A filter or another week keeps the sheet; the
+  toolbar's own rule (replace) or the calendar's (push) applies, and the sheet closes the same way
+  after.
+- **Links.** An event has no page, so `entityLink` opens it at `/calendar?date=…&sheet=evt_…`,
+  without an occurrence. Loaders never depend on `sheet` (`loaderDeps` leaves it out), so opening
+  one reloads nothing.
+- Params sheets had before (`open`, `note`, the calendar's `sheet=note`) are read by no schema: a
+  last page saved with one opens without its sheet.
+
 ## TanStack Router behaviours relied on
 
 Checked against `@tanstack/react-router` 1.170.46 in `src/renderer/tests/routing/tanstack-behaviour.test.ts`;

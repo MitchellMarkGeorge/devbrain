@@ -34,7 +34,7 @@ its description, and an event can have an **event note**, for the meeting's note
 ordinary note, named after its task or event, and linked to it:
 
 - **Add a task note** on a task's page.
-- **Start Note** on an event, to write while the meeting happens. See
+- **Add a note** on an event, to write while the meeting happens. See
   [meeting notes](/docs/calendar/#meeting-notes).
 
 A note is linked to at most one task or one event this way. **Link to** in a note's **…** menu

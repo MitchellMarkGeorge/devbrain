@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
-import { isId, type EventId, type TaskId } from '@common/ids';
+import { isId, type EventId } from '@common/ids';
 import type { AppSettings } from '@common/types';
+import { sheetParam, type SheetId } from '@renderer/shared/lib/sheet';
 
 // The calendar page's search params (docs/renderer/implementation-plan.md, "Search params ›
 // /app/calendar"), each `.optional().catch(undefined)`, so a bad value drops that one field back to
@@ -20,21 +21,20 @@ const day = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((value) => DateTime.fromISO(value).isValid, 'Not a date');
 
-const sheetItem = z.custom<EventId | TaskId>(
-  (value) => isId('event', value) || isId('task', value),
-  'Not an event or task id',
-);
+/** What the calendar's sheet shows: an event, a task due (the agenda lists both), an event's note. */
+export const CALENDAR_SHEET_KINDS = ['event', 'task', 'note'] as const;
 
 export const calendarSearchSchema = z.object({
   view: optional(z.enum(CALENDAR_VIEWS)),
   /** the anchor day: the range shown is the week, day or month it falls in */
   date: optional(day),
-  /** the event or task in the sheet: the agenda lists both, and the prefix says which */
-  open: optional(sheetItem),
-  /** with `open=evt_…` of a series: the clicked occurrence's start in it (ISO) */
+  /** the event, task or note in the sheet: the id's prefix says which */
+  sheet: sheetParam(CALENDAR_SHEET_KINDS),
+  /**
+   * with `sheet=evt_…` of a series: the clicked occurrence's start in it (ISO); kept with
+   * `sheet=nte_…`, the event's note opened from that occurrence
+   */
   occurrence: optional(z.iso.datetime({ offset: true })),
-  /** with `open=evt_…`: the sheet shows the event's note (Figma `7410:34948`) */
-  sheet: optional(z.enum(['note'])),
 });
 
 export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
@@ -46,10 +46,9 @@ export interface ResolvedCalendarSearch {
   date: Date;
   /** the date param was missing: the page follows today */
   isToday: boolean;
-  open: EventId | TaskId | undefined;
-  occurrence: Date | undefined;
-  /** the sheet shows the open event's note */
-  eventNote: boolean;
+  sheet: SheetId<(typeof CALENDAR_SHEET_KINDS)[number]> | undefined;
+  /** the occurrence the sheet's event, or its note, is of (ISO); none with a task */
+  occurrence: string | undefined;
 }
 
 export function resolveCalendarSearch(
@@ -64,12 +63,8 @@ export function resolveCalendarSearch(
     view: search.view ?? settings.calendar.defaultView,
     date,
     isToday: search.date === undefined,
-    open: search.open,
-    occurrence:
-      search.occurrence && isId('event', search.open ?? '')
-        ? new Date(search.occurrence)
-        : undefined,
-    eventNote: search.sheet === 'note' && isId('event', search.open ?? ''),
+    sheet: search.sheet,
+    occurrence: search.sheet && !isId('task', search.sheet) ? search.occurrence : undefined,
   };
 }
 
@@ -77,6 +72,6 @@ export function resolveCalendarSearch(
 export function openEventSearch(
   id: EventId,
   occurrence?: Date,
-): Pick<CalendarSearch, 'open' | 'occurrence' | 'sheet'> {
-  return { open: id, occurrence: occurrence?.toISOString(), sheet: undefined };
+): Pick<CalendarSearch, 'sheet' | 'occurrence'> {
+  return { sheet: id, occurrence: occurrence?.toISOString() };
 }

@@ -5,7 +5,7 @@ import { FakeMain, workspace } from './fake-main';
 import { fakeTask, FakeTasks } from './fake-tasks';
 import { click, eventually, menuItem, rightClick, startApp, stopApps } from './harness';
 
-// The tasks board (?view=board): a column per status, and the task sheet at ?open=tsk_….
+// The tasks board (?view=board): a column per status, and the task sheet at ?sheet=tsk_….
 
 const WORK = 'wsp_work' as WorkspaceId;
 
@@ -128,7 +128,7 @@ describe('the board', () => {
     const { app } = board();
     await eventually(() => expect(card('Plan the launch')).toBeDefined());
     card('Plan the launch')!.click();
-    await eventually(() => expect(app.path()).toContain('open=tsk_plan'));
+    await eventually(() => expect(app.path()).toContain('sheet=tsk_plan'));
     const sheet = () => document.querySelector('[data-testid="task-sheet"]');
     await eventually(() =>
       expect(sheet()?.querySelector('input[aria-label="Title"]')).toHaveProperty(
@@ -137,8 +137,75 @@ describe('the board', () => {
       ),
     );
     app.router.history.back();
-    await eventually(() => expect(app.path()).not.toContain('open='));
+    await eventually(() => expect(app.path()).not.toContain('sheet='));
     await eventually(() => expect(sheet()).toBeNull());
+  });
+
+  it('closes the sheet with × or Esc after another card, as an entry of its own', async () => {
+    const sheet = () => document.querySelector<HTMLElement>('[data-testid="task-sheet"]');
+    const title = () =>
+      sheet()?.querySelector<HTMLInputElement>('input[aria-label="Title"]')?.value;
+    for (const how of ['button', 'key'] as const) {
+      const { app } = board();
+      await eventually(() => expect(card('Plan the launch')).toBeDefined());
+      card('Plan the launch')!.click();
+      await eventually(() => expect(title()).toBe('Plan the launch'));
+      card('Build the page')!.click();
+      await eventually(() => expect(title()).toBe('Build the page'));
+      // the card already shown adds no entry
+      const entries = app.router.history.length;
+      card('Build the page')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(app.router.history.length).toBe(entries);
+
+      if (how === 'button') click(sheet()!.querySelector('button[aria-label="Close"]'));
+      else press(document.body, 'Escape');
+      // closed, not back at the card before
+      await eventually(() => expect(app.path()).not.toContain('sheet='));
+      await eventually(() => expect(sheet()).toBeNull());
+      expect(app.router.history.length).toBe(entries + 1);
+      // Back undoes the close, then each card
+      app.router.history.back();
+      await eventually(() => expect(app.path()).toContain('sheet=tsk_build'));
+      app.router.history.back();
+      await eventually(() => expect(app.path()).toContain('sheet=tsk_plan'));
+      stopApps();
+    }
+  });
+
+  it('keeps the sheet through a toolbar change, and closes the same way after', async () => {
+    const { app } = board();
+    await eventually(() => expect(card('Plan the launch')).toBeDefined());
+    card('Plan the launch')!.click();
+    await eventually(() => expect(app.path()).toContain('sheet=tsk_plan'));
+    const sheet = () => document.querySelector<HTMLElement>('[data-testid="task-sheet"]');
+    await eventually(() => expect(sheet()).not.toBeNull());
+    // a filter, as the toolbar writes one: in place of this entry
+    await app.router.navigate({
+      to: '.',
+      search: (previous: object) => ({ ...previous, status: 'all' }),
+      replace: true,
+    } as never);
+    await eventually(() => expect(app.path()).toContain('status=all'));
+    expect(app.path()).toContain('sheet=tsk_plan');
+    click(sheet()!.querySelector('button[aria-label="Close"]'));
+    await eventually(() => expect(app.path()).not.toContain('sheet='));
+    expect(app.path()).toContain('status=all');
+    app.router.history.back();
+    await eventually(() => expect(app.path()).toContain('sheet=tsk_plan'));
+    expect(app.path()).toContain('status=all');
+  });
+
+  it('shows no sheet in the list, whatever the URL says, or for a param sheets had before', async () => {
+    const sheet = () => document.querySelector('[data-sheet]');
+    const list = board(`/app/${WORK}/tasks?view=list&sheet=tsk_plan`);
+    await eventually(() => expect(list.app.text()).toContain('Plan the launch'));
+    expect(sheet()).toBeNull();
+    stopApps();
+    const older = board(`/app/${WORK}/tasks?view=board&open=tsk_plan`);
+    await eventually(() => expect(card('Plan the launch')).toBeDefined());
+    expect(sheet()).toBeNull();
+    expect(older.app.router.state.location.search).not.toHaveProperty('sheet');
   });
 
   it('moves a card to another column from the keyboard, setting its status', async () => {

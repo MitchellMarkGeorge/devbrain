@@ -30,12 +30,12 @@ describe('entityLink', () => {
     expect(entityLink(WS, { id: 'evt_1', startAt: new Date(2026, 6, 1, 10) })).toEqual({
       to: '/app/$workspaceId/calendar',
       params: { workspaceId: WS },
-      search: { date: '2026-07-01', open: 'evt_1' },
+      search: { date: '2026-07-01', sheet: 'evt_1' },
     });
     expect(entityLink(WS, { id: 'evt_1' })).toEqual({
       to: '/app/$workspaceId/calendar',
       params: { workspaceId: WS },
-      search: { date: undefined, open: 'evt_1' },
+      search: { date: undefined, sheet: 'evt_1' },
     });
   });
 

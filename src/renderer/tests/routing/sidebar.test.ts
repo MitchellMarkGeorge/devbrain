@@ -55,7 +55,7 @@ describe('the sidebar', () => {
     await eventually(() => expect(link('Ship OAuth')).toBeTruthy());
     expect(link('Ship OAuth')!.getAttribute('href')).toBe(`/app/${WORK}/tasks/tsk_oauth`);
     expect(link('Standup')!.getAttribute('href')).toBe(
-      `/app/${WORK}/calendar?date=2026-07-01&open=evt_standup`,
+      `/app/${WORK}/calendar?date=2026-07-01&sheet=evt_standup`,
     );
     click(link('Ship OAuth')!);
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/tsk_oauth`));

@@ -124,6 +124,26 @@ Opening one closes the sidebar's drawer (`useModalShown`, in `AppLayout`).
 Components in `src/renderer/components` stay controlled (`open`, `onOpenChange`); `useModals` is
 for pages.
 
+## Sheets
+
+A page shows a task, a note or an event beside itself with `useSheet` and `EntitySheet`
+(`src/renderer/shared`), not with a `Sheet` and a search param of its own.
+`docs/renderer/routing.md` ("Sheets") is the design note.
+
+- The URL's `sheet` param holds the item's id, and the prefix says its kind. The route's schema
+  lists the kinds its page shows (`sheet: sheetParam(KINDS)`); don't add another param for a sheet.
+  The calendar's `occurrence` is the only companion.
+- Showing an item, showing another and closing each push a history entry (`sheet.show`,
+  `sheet.close`). Never go Back to close one, and keep nothing about a sheet in the history's
+  state.
+- A page that can't show a sheet doesn't read the param (it is left out of the schema, or of what
+  the page resolves); nothing navigates to remove it.
+- A sheet's content (`TaskSheet`, `NoteSheet`, `EventSheet`) draws a `SheetHeader` and a
+  `SheetBody`, loads its own data, and opens a linked item in the same sheet through
+  `useSheetNavigation()`.
+- A change to how sheets behave is covered in `src/renderer/tests/routing` (×, Esc, Back after a
+  close, another item, a link-opened sheet).
+
 ## Settings
 
 A setting is stored in one of two files, each with its own schema in `src/common/types`, defaults,

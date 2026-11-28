@@ -39,7 +39,7 @@ describe('tasksSearchSchema', () => {
         project: ['prj_1', 'none'],
         due: 'week',
         source: 'external',
-        open: 'tsk_1',
+        sheet: 'tsk_1',
       }),
     ).toEqual({
       view: 'group',
@@ -51,7 +51,7 @@ describe('tasksSearchSchema', () => {
       project: ['prj_1', 'none'],
       due: 'week',
       source: 'external',
-      open: 'tsk_1',
+      sheet: 'tsk_1',
     });
   });
 
@@ -80,7 +80,7 @@ describe('tasksSearchSchema', () => {
         sort: 'dueDate',
         status: 'open',
         project: 'tsk_not_a_project',
-        open: 'prj_not_a_task',
+        sheet: 'prj_not_a_task',
         priority: 3,
       }),
     ).toEqual({ status: 'open' });
@@ -93,6 +93,13 @@ describe('tasksSearchSchema', () => {
 });
 
 describe('resolveTasksSearch', () => {
+  it('reads the sheet on the board alone', () => {
+    const sheet = 'tsk_1' as never;
+    expect(resolveTasksSearch({ view: 'board', sheet }, SETTINGS).sheet).toBe('tsk_1');
+    expect(resolveTasksSearch({ view: 'list', sheet }, SETTINGS).sheet).toBeUndefined();
+    expect(resolveTasksSearch({ view: 'group', sheet }, SETTINGS).sheet).toBeUndefined();
+  });
+
   it('fills a missing param from the settings', () => {
     const resolved = resolveTasksSearch({}, SETTINGS);
     expect(resolved).toMatchObject({

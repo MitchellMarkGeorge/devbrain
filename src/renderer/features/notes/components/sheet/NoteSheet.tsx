@@ -1,12 +1,13 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter, useRouterState } from '@tanstack/react-router';
+import { useRouterState } from '@tanstack/react-router';
+import type { Editor } from '@tiptap/react';
+import { ChevronLeft } from 'lucide-react';
 import type { NoteId } from '@common/ids';
 import type { Note, NoteListItem } from '@common/types';
 import {
-  Sheet,
+  Button,
   SheetBody,
-  SheetContent,
   SheetDivider,
   SheetHeader,
   SheetItemTitle,
@@ -14,89 +15,80 @@ import {
   Stack,
   Text,
   useFormat,
-  useWorkspaceShell,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
+import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet';
+import { EventStrip } from '@renderer/features/calendar/components/sheet/EventStrip';
 import { ProjectPill } from '@renderer/features/tasks/components/menus/pickers';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { NoteEditor } from '../detail/NoteEditor';
 import { useNoteActions } from '../../hooks/use-note-actions';
 import styles from './NoteSheet.module.css';
 
-declare module '@tanstack/history' {
-  interface HistoryState {
-    /** the page opened the note sheet with this entry: Back (and the sheet's close) goes back */
-    openedNoteSheet?: boolean;
-  }
-}
-
 export interface NoteSheetProps {
   noteId: NoteId;
-  /** false while it slides out: the page keeps it mounted until `onClosed` */
-  open: boolean;
-  /** closes the sheet (removes its param from the URL) */
-  onClose: () => void;
-  /** it has finished sliding out, and can be unmounted */
-  onClosed: () => void;
+  /** for the note of a repeating event, opened from one occurrence: that occurrence's start (ISO) */
+  occurrence?: string;
 }
 
 /**
- * A note in the docked sheet beside a page (a task page's task note, Figma's event note in the
- * sheet `7410:34948`): its title, "Edited …", its project, and its body in the rich text editor,
- * saved as it's typed as on the note's page. Its ⤢ opens the note's page. Floating in compact
- * windows. Closing goes back when the page pushed the sheet's entry, so Back and × agree.
+ * A note in the sheet beside a page (`?sheet=nte_…`): a task page's task note, and on the
+ * calendar an event's note (Figma `7410:34948`). Its title, "Edited …", its project, and its body
+ * in the rich text editor, saved as it's typed as on the note's page; its ⤢ opens that page.
+ *
+ * The note of an event is the same sheet with the meeting over it: a strip naming the event (how
+ * soon, its times and place, Join), "Type / for blocks · Notes save as you type" under the body,
+ * and, where the page's sheet shows events (the calendar), "‹ Event" back to the event.
  */
-export function NoteSheet({ noteId, open, onClose, onClosed }: NoteSheetProps) {
-  const router = useRouter();
-  const { size, sheetContainer } = useWorkspaceShell();
-  const floating = size === 'compact';
+export function NoteSheet({ noteId, occurrence }: NoteSheetProps) {
   const openEntity = useOpenEntity();
-  const openedHere = useRouterState({ select: (state) => state.location.state.openedNoteSheet });
+  const sheet = useSheetNavigation();
   const query = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
+  const note = query.data && query.data.archivedAt === null ? query.data : undefined;
+  const eventId = note?.linkedEventId ?? null;
 
-  const close = () => {
-    if (openedHere) router.history.back();
-    else onClose();
-  };
-
-  // on a first render the shell hasn't mounted its column yet: the sheet joins it a moment later
-  if (!floating && !sheetContainer) return null;
   return (
-    <Sheet
-      open={open}
-      variant={floating ? 'overlay' : 'docked'}
-      onOpenChange={(next) => {
-        if (!next) close();
-      }}
-      onOpenChangeComplete={(next) => {
-        if (!next) onClosed();
-      }}
-    >
-      <SheetContent container={floating ? undefined : sheetContainer} data-testid="note-sheet">
-        <SheetHeader onOpenAsPage={query.data ? () => openEntity({ id: noteId }) : undefined}>
-          Note
-        </SheetHeader>
-        <SheetBody>
-          {query.data && query.data.archivedAt === null ? (
-            <NoteSheetBody key={query.data.id} note={query.data} />
-          ) : query.isError || query.data ? (
-            <Text tone="muted">
-              {query.data || ipcErrorCode(query.error) === 'not_found'
-                ? 'This note was deleted, or moved to the trash.'
-                : 'This note couldn’t be loaded.'}
-            </Text>
-          ) : (
-            <Stack gap="3" aria-busy>
-              <Skeleton height={20} width="70%" />
-              <Skeleton height={16} width="40%" />
-              <Skeleton height={16} width="90%" />
-            </Stack>
-          )}
-        </SheetBody>
-      </SheetContent>
-    </Sheet>
+    <>
+      <SheetHeader onOpenAsPage={query.data ? () => openEntity({ id: noteId }) : undefined}>
+        {eventId && sheet.accepts(eventId) ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            icon={ChevronLeft}
+            onClick={() => sheet.show(eventId, { occurrence })}
+          >
+            Event
+          </Button>
+        ) : (
+          'Note'
+        )}
+      </SheetHeader>
+      <SheetBody>
+        {note ? (
+          <NoteSheetBody key={note.id} note={note} occurrence={occurrence} />
+        ) : query.isError || query.data ? (
+          <Text tone="muted">
+            {query.data || ipcErrorCode(query.error) === 'not_found'
+              ? 'This note was deleted, or moved to the trash.'
+              : 'This note couldn’t be loaded.'}
+          </Text>
+        ) : (
+          <Stack gap="3" aria-busy>
+            <Skeleton height={20} width="70%" />
+            <Skeleton height={16} width="40%" />
+            <Skeleton height={16} width="90%" />
+          </Stack>
+        )}
+      </SheetBody>
+      {eventId && (
+        <div className={styles.footer}>
+          <span>Type / for blocks</span>
+          <span>Notes save as you type</span>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -134,11 +126,19 @@ function lowerFirst(text: string): string {
 }
 
 /** The sheet's body for a loaded note. */
-function NoteSheetBody({ note }: { note: NoteListItem }) {
+function NoteSheetBody({ note, occurrence }: { note: NoteListItem; occurrence?: string }) {
   const actions = useNoteActions();
   const { formatRelative } = useFormat('minute');
+  // a note just started (an event's "+ Add a note") takes the caret at once
+  const created = useRouterState({ select: (state) => state.location.state.newNote === true });
   return (
     <>
+      {note.linkedEventId && (
+        <EventStrip
+          eventId={note.linkedEventId}
+          occurrence={occurrence ? new Date(occurrence) : undefined}
+        />
+      )}
       <Stack gap="1">
         <SheetTitle key={note.title} note={note} />
         <Text size="xs" tone="subtle">
@@ -154,7 +154,10 @@ function NoteSheetBody({ note }: { note: NoteListItem }) {
       </div>
       <SheetDivider />
       <div className={styles.body}>
-        <NoteEditor noteId={note.id} />
+        <NoteEditor
+          noteId={note.id}
+          onReady={created ? (editor: Editor) => editor.commands.focus('end') : undefined}
+        />
       </div>
       <ItemMentionsSection targetId={note.id} />
     </>

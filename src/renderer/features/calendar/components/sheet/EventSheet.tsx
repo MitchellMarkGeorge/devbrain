@@ -1,10 +1,8 @@
 import { useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   CalendarDays,
-  ChevronLeft,
   CircleCheck,
   Clock,
   ExternalLink,
@@ -13,7 +11,7 @@ import {
   Trash2,
   Video,
 } from 'lucide-react';
-import type { EventId, TaskId } from '@common/ids';
+import type { EventId } from '@common/ids';
 import { EventResponse, type Calendar, type Event } from '@common/types';
 import {
   Button,
@@ -24,9 +22,7 @@ import {
   Icon,
   ReadOnlyRow,
   resolveColor,
-  Sheet,
   SheetBody,
-  SheetContent,
   SheetDivider,
   SheetHeader,
   SheetItemTitle,
@@ -35,7 +31,6 @@ import {
   SyncedBadge,
   Text,
   useFormat,
-  useWorkspaceShell,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { WorkspaceRichTextEditor } from '@renderer/shared/components/WorkspaceRichTextEditor';
@@ -47,9 +42,8 @@ import { meetingUrlOf } from '../create/CreateEventDialog';
 import { CalendarPill, DayPill, RepeatPill, TimePill } from '../pickers';
 import { repeatText } from '../../lib/repeat';
 import { EventLinkedTasks } from './EventLinkedTasks';
-import { EventNoteSection, eventNoteQuery } from './EventNoteSection';
-import { EventNoteFooter, EventNoteView } from './EventNoteView';
-import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
+import { EventNoteSection } from './EventNoteSection';
+import { useSheetNavigation } from '@renderer/shared/hooks/use-sheet';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { ItemMentionsSection } from '@renderer/shared/components/ItemMentions';
 import { moveEnd, moveStart, moveToDay, shownTiming, zoneAbbreviation } from '../../lib/timing';
@@ -64,112 +58,51 @@ export const RESPONSE_LABELS: Record<EventResponse, string> = {
 
 export interface EventSheetProps {
   eventId: EventId;
-  /** for an expanded occurrence of a series: its start */
-  occurrence?: Date;
-  /** false while it slides out: the page keeps it mounted until `onClosed` */
-  open: boolean;
-  /** closes the sheet (removes `open` from the URL) */
-  onClose: () => void;
-  onClosed: () => void;
-  /** shows another event in the sheet: the row an edit of one occurrence made, a new series */
-  onShowEvent: (id: EventId, occurrence?: Date) => void;
-  onOpenTask: (id: TaskId) => void;
-  /** the sheet shows the event's note (`?sheet=note`) */
-  noteView?: boolean;
-  /** shows the event's note in the sheet: its card, "+ Add a note" */
-  onOpenNote: () => void;
-  /** back to the event from its note: "‹ Event" */
-  onCloseNote: () => void;
+  /** for an expanded occurrence of a series: its start (ISO, the calendar's `occurrence` param) */
+  occurrence?: string;
 }
 
 /**
- * The event sheet (`?open=evt_…`, Figma `7175:30140`): the event's detail view, as events have
- * no page of their own. Docked in the shell's sheet column in wide and medium windows, floating in
- * compact ones. A local event is edited in place; one of a series asks which occurrences each
- * change applies to. A synced (Google) event is read-only, with your response. With `noteView`, it
- * shows the event's note instead (`EventNoteView`), with "‹ Event" back to the event.
+ * An event in the sheet beside the calendar (`?sheet=evt_…`, Figma `7175:30140`): the event's
+ * detail view, as events have no page of their own, drawn in the page's `EntitySheet`. A local
+ * event is edited in place; one of a series asks which occurrences each change applies to. A
+ * synced (Google) event is read-only, with your response. Its note and its linked tasks open in
+ * the same sheet, each a history entry of its own.
  */
-export function EventSheet({
-  eventId,
-  occurrence,
-  open,
-  onClose,
-  onClosed,
-  onShowEvent,
-  onOpenTask,
-  noteView = false,
-  onOpenNote,
-  onCloseNote,
-}: EventSheetProps) {
-  const router = useRouter();
-  const { size, sheetContainer } = useWorkspaceShell();
-  const floating = size === 'compact';
-  const openedHere = useRouterState({ select: (state) => state.location.state.openedSheet });
+export function EventSheet({ eventId, occurrence }: EventSheetProps) {
   // a deleted event is gone for good: no retries, so a delete's refetch settles at once
   const query = useQuery({
     ...trpc.events.get.queryOptions({ id: eventId }),
     retry: retryUnlessGone,
   });
   const calendars = useQuery(trpc.calendars.list.queryOptions()).data ?? [];
-  const note = useQuery({ ...eventNoteQuery(eventId), enabled: noteView }).data?.items[0];
-  const openEntity = useOpenEntity();
+  const occurrenceStart = occurrence ? new Date(occurrence) : undefined;
 
-  const close = () => {
-    if (openedHere) router.history.back();
-    else onClose();
-  };
-
-  if (!floating && !sheetContainer) return null;
   return (
-    <Sheet
-      open={open}
-      variant={floating ? 'overlay' : 'docked'}
-      onOpenChange={(next) => {
-        if (!next) close();
-      }}
-      onOpenChangeComplete={(next) => {
-        if (!next) onClosed();
-      }}
-    >
-      <SheetContent container={floating ? undefined : sheetContainer} data-testid="event-sheet">
-        {noteView ? (
-          <SheetHeader onOpenAsPage={note ? () => openEntity({ id: note.id }) : undefined}>
-            <Button size="xs" variant="ghost" icon={ChevronLeft} onClick={onCloseNote}>
-              Event
-            </Button>
-          </SheetHeader>
+    <>
+      <SheetHeader>Event</SheetHeader>
+      <SheetBody>
+        {query.data ? (
+          <EventSheetBody
+            key={`${query.data.id}@${occurrence ?? ''}`}
+            target={{ event: query.data, occurrenceStart }}
+            calendars={calendars}
+          />
+        ) : query.isError ? (
+          <Text tone="muted">
+            {ipcErrorCode(query.error) === 'not_found'
+              ? 'This event was deleted.'
+              : 'This event couldn’t be loaded.'}
+          </Text>
         ) : (
-          <SheetHeader>Event</SheetHeader>
+          <Stack gap="3" aria-busy>
+            <Skeleton height={20} width="70%" />
+            <Skeleton height={16} width="50%" />
+            <Skeleton height={16} width="60%" />
+          </Stack>
         )}
-        <SheetBody>
-          {query.data ? (
-            <EventSheetBody
-              key={`${query.data.id}@${occurrence?.getTime() ?? ''}`}
-              target={{ event: query.data, occurrenceStart: occurrence }}
-              calendars={calendars}
-              onShowEvent={onShowEvent}
-              onOpenTask={onOpenTask}
-              onDeleted={onClose}
-              noteView={noteView}
-              onOpenNote={onOpenNote}
-            />
-          ) : query.isError ? (
-            <Text tone="muted">
-              {ipcErrorCode(query.error) === 'not_found'
-                ? 'This event was deleted.'
-                : 'This event couldn’t be loaded.'}
-            </Text>
-          ) : (
-            <Stack gap="3" aria-busy>
-              <Skeleton height={20} width="70%" />
-              <Skeleton height={16} width="50%" />
-              <Skeleton height={16} width="60%" />
-            </Stack>
-          )}
-        </SheetBody>
-        {noteView && note && <EventNoteFooter />}
-      </SheetContent>
-    </Sheet>
+      </SheetBody>
+    </>
   );
 }
 
@@ -180,23 +113,14 @@ function retryUnlessGone(failures: number, error: unknown): boolean {
 interface BodyProps {
   target: EventTarget;
   calendars: readonly Calendar[];
-  onShowEvent: (id: EventId, occurrence?: Date) => void;
-  onOpenTask: (id: TaskId) => void;
-  onDeleted: () => void;
-  noteView: boolean;
-  onOpenNote: () => void;
 }
 
 /** The sheet's body for a loaded event. */
-function EventSheetBody({
-  target,
-  calendars,
-  onShowEvent,
-  onOpenTask,
-  onDeleted,
-  noteView,
-  onOpenNote,
-}: BodyProps) {
+function EventSheetBody({ target, calendars }: BodyProps) {
+  const sheet = useSheetNavigation();
+  // another event in the sheet: the row an edit of one occurrence made, a new series
+  const showEvent = (id: EventId, occurrence?: Date) =>
+    sheet.show(id, { occurrence: occurrence?.toISOString() });
   const { event } = target;
   const calendar = calendars.find((c) => c.id === event.calendarId);
   const synced = event.external != null;
@@ -218,10 +142,10 @@ function EventSheetBody({
       summary,
       onSaved: (saved, scope) => {
         if (saved.id !== event.id) {
-          onShowEvent(saved.id, saved.recurrenceRule ? saved.startAt : undefined);
+          showEvent(saved.id, saved.recurrenceRule ? saved.startAt : undefined);
         } else if (scope === 'all' && target.occurrenceStart && patch.startAt) {
           // the occurrence shown moved with the series
-          onShowEvent(event.id, patch.startAt);
+          showEvent(event.id, patch.startAt);
         }
       },
     });
@@ -232,7 +156,6 @@ function EventSheetBody({
 
   const barColor = resolveColor(event.color) ?? resolveColor(calendar?.color, 'blue');
   const zone = zoneAbbreviation(shown.start);
-  if (noteView) return <EventNoteView event={event} shown={shown} color={barColor} />;
 
   return (
     <>
@@ -368,8 +291,8 @@ function EventSheetBody({
         series={occurrence !== null}
         onSave={(description) => edit({ description })}
       />
-      <EventNoteSection event={event} onOpenNote={onOpenNote} />
-      <EventLinkedTasks eventId={event.id} onOpenTask={onOpenTask} />
+      <EventNoteSection event={event} occurrence={target.occurrenceStart} />
+      <EventLinkedTasks eventId={event.id} onOpenTask={(id) => sheet.show(id)} />
       <ItemMentionsSection targetId={event.id} />
       {!synced && (
         <div>
@@ -377,7 +300,8 @@ function EventSheetBody({
             size="sm"
             variant="ghost"
             icon={Trash2}
-            onClick={() => actions.remove(target, onDeleted)}
+            // gone for good: its entry is replaced, so Back doesn't return to a deleted event
+            onClick={() => actions.remove(target, () => sheet.close({ replace: true }))}
           >
             Delete event
           </Button>

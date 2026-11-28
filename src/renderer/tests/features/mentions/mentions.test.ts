@@ -120,7 +120,7 @@ describe('a note page', () => {
     await eventually(() => expect(rowOf('evt_review')).not.toBeNull());
     click(rowOf('evt_review'));
     await eventually(() =>
-      expect(running.path()).toBe(`/app/${WORK}/calendar?date=2026-06-24&open=evt_review`),
+      expect(running.path()).toBe(`/app/${WORK}/calendar?date=2026-06-24&sheet=evt_review`),
     );
   });
 
@@ -152,7 +152,7 @@ describe('a task sheet', () => {
   const section = () => document.querySelector<HTMLElement>('[data-testid="mentions-section"]');
 
   it('shows "Mentioned in" folded to its heading and count, opening to the rows', async () => {
-    app(`/app/${WORK}/notes/${NOTE}?open=${TASK}`, { [TASK]: [BY_NOTE, BY_TASK] });
+    app(`/app/${WORK}/notes/${NOTE}?sheet=${TASK}`, { [TASK]: [BY_NOTE, BY_TASK] });
     await eventually(() => expect(section()).not.toBeNull());
     expect(section()!.closest('[data-testid="task-sheet"]')).not.toBeNull();
     expect(section()!.textContent).toContain('Mentioned in');
@@ -164,7 +164,7 @@ describe('a task sheet', () => {
   });
 
   it('leaves it out while nothing mentions the task', async () => {
-    app(`/app/${WORK}/notes/${NOTE}?open=${TASK}`);
+    app(`/app/${WORK}/notes/${NOTE}?sheet=${TASK}`);
     await eventually(() =>
       expect(
         document.querySelector('[data-testid="task-sheet"] input[aria-label="Title"]'),

@@ -45,7 +45,7 @@ import styles from './TasksBoard.module.css';
 
 export interface TasksBoardProps {
   resolved: ResolvedTasksSearch;
-  /** shows a task in the sheet (`?open=tsk_…`) */
+  /** shows a task in the sheet (`?sheet=tsk_…`) */
   onOpen: (id: TaskId) => void;
   /** whether rows and cards show their project pill (see `TasksView`) */
   showProjectPill: boolean;

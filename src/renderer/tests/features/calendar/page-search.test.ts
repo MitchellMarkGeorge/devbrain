@@ -45,16 +45,16 @@ describe('the search schema', () => {
       calendarSearchSchema.parse({
         view: 'month',
         date: '2026-06-24',
-        open: 'evt_standup',
+        sheet: 'evt_standup',
         occurrence: '2026-06-24T13:00:00.000Z',
       }),
     ).toEqual({
       view: 'month',
       date: '2026-06-24',
-      open: 'evt_standup',
+      sheet: 'evt_standup',
       occurrence: '2026-06-24T13:00:00.000Z',
     });
-    expect(calendarSearchSchema.parse({ open: 'tsk_guide' })).toEqual({ open: 'tsk_guide' });
+    expect(calendarSearchSchema.parse({ sheet: 'tsk_guide' })).toEqual({ sheet: 'tsk_guide' });
   });
 
   it('drops a bad value back to its default, keeping the rest', () => {
@@ -62,7 +62,7 @@ describe('the search schema', () => {
       calendarSearchSchema.parse({
         view: 'year',
         date: '2026-02-30',
-        open: 'prj_api',
+        sheet: 'prj_api',
         occurrence: 'yesterday',
       }),
     ).toEqual({});
@@ -82,30 +82,24 @@ describe('the search schema', () => {
     expect(resolveCalendarSearch({ view: 'day' }, month, today).view).toBe('day');
   });
 
-  it('shows the event’s note only with an event open', () => {
-    const today = new Date(2026, 5, 24);
-    expect(calendarSearchSchema.parse({ sheet: 'note', open: 'evt_standup' })).toEqual({
-      sheet: 'note',
-      open: 'evt_standup',
-    });
-    expect(calendarSearchSchema.parse({ sheet: 'notes' })).toEqual({});
-    const resolve = (search: object) =>
-      resolveCalendarSearch(search as never, SETTINGS, today).eventNote;
-    expect(resolve({ sheet: 'note', open: 'evt_standup' })).toBe(true);
-    expect(resolve({ sheet: 'note', open: 'tsk_guide' })).toBe(false);
-    expect(resolve({ open: 'evt_standup' })).toBe(false);
+  it('takes an event, a task or a note in the sheet, and drops any other id or an older param', () => {
+    for (const sheet of ['evt_standup', 'tsk_guide', 'nte_review']) {
+      expect(calendarSearchSchema.parse({ sheet })).toEqual({ sheet });
+    }
+    expect(calendarSearchSchema.parse({ sheet: 'prj_auth' })).toEqual({});
+    // the params sheets had before `sheet`: an older link or saved last page opens with no sheet
+    expect(calendarSearchSchema.parse({ sheet: 'note', open: 'evt_standup' })).toEqual({});
   });
 
-  it('reads the occurrence only with an event open', () => {
+  it('reads the occurrence with an event or its note in the sheet, not with a task', () => {
     const occurrence = '2026-06-24T13:00:00.000Z';
     const today = new Date(2026, 5, 24);
-    expect(
-      resolveCalendarSearch({ open: 'evt_standup' as never, occurrence }, SETTINGS, today)
-        .occurrence,
-    ).toEqual(new Date(occurrence));
-    expect(
-      resolveCalendarSearch({ open: 'tsk_guide' as never, occurrence }, SETTINGS, today).occurrence,
-    ).toBeUndefined();
+    const resolve = (sheet: string | undefined) =>
+      resolveCalendarSearch({ sheet: sheet as never, occurrence }, SETTINGS, today).occurrence;
+    expect(resolve('evt_standup')).toBe(occurrence);
+    expect(resolve('nte_review')).toBe(occurrence);
+    expect(resolve('tsk_guide')).toBeUndefined();
+    expect(resolve(undefined)).toBeUndefined();
   });
 });
 

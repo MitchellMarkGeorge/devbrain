@@ -24,3 +24,13 @@
 .body [role='textbox'] {
   min-height: 160px;
 }
+/* under an event's note: how to write in it */
+.footer {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--subtle-foreground);
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
